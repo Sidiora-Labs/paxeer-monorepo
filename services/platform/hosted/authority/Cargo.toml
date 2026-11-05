@@ -6,6 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 
 [lib]
+name = "layerx_platform_authority"
 path = "src/lib.rs"
 
 [[bin]]

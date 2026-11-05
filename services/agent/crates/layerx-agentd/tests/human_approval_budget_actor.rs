@@ -64,80 +64,41 @@ mod hex {
     }
 }
 
-#[path = "../../../../platform/hosted/authority/src/human"]
-mod authority_producer {
-    use super::*;
+fn record_authority_budget_state(url: String, fixture: &RecordedAuthority) -> Value {
+    use layerx_platform_authority::{
+        budget_state, human_policy::PrincipalPolicy, BudgetStateConfig,
+    };
 
-    pub struct Config {
-        pub chain_rpc_url: String,
-        pub protocol_network_id: u32,
-    }
-
-    #[derive(Deserialize)]
-    pub struct Identity {
-        pub did: String,
-        pub frozen: bool,
-    }
-
-    #[derive(Deserialize)]
-    pub struct PrincipalPolicy {
-        pub tenant: String,
-        pub principal: String,
-        pub account_id: String,
-        pub asset_id: String,
-        pub budgets: Vec<String>,
-        pub identities: Vec<Identity>,
-        pub maximum_age_seconds: u64,
-        pub maximum_age_sequences: u64,
-    }
-
-    #[derive(Debug)]
-    pub struct Response {
-        pub status: u16,
-        pub body: Vec<u8>,
-    }
-
-    fn digest(bytes: &[u8]) -> [u8; 32] {
-        Sha256::digest(bytes).into()
-    }
-
-    fn json(status: u16, value: &Value) -> Response {
-        Response {
-            status,
-            body: must(serde_json::to_vec(value)),
-        }
-    }
-
-    fn refusal(status: u16, code: &str, _: Option<u64>) -> Response {
-        json(status, &json!({"error":{"code":code}}))
-    }
-
-    fn unavailable(code: &str) -> Response {
-        refusal(503, code, None)
-    }
-
-    mod budget_state;
-
-    pub fn record(url: String, fixture: &RecordedAuthority) -> Value {
-        let config = Config {
-            chain_rpc_url: url,
-            protocol_network_id: fixture.chain_id as u32,
-        };
-        let policy: PrincipalPolicy = must(serde_json::from_value(json!({
-            "tenant":fixture.tenant, "principal":fixture.principal,
-            "account_id":hex::encode([2;32]), "asset_id":hex::encode([4;32]),
-            "budgets":[hex::encode(fixture.budget_id)],
-            "identities":[{"did":fixture.agent_did, "frozen":false}],
-            "maximum_age_seconds":315_360_000_u64, "maximum_age_sequences":100,
-        })));
-        let response = must(budget_state::read(
-            &config,
-            &policy,
-            &hex::encode(fixture.budget_id),
-        ));
-        assert_eq!(response.status, 200);
-        must(serde_json::from_slice(&response.body))
-    }
+    let config = BudgetStateConfig {
+        chain_rpc_url: url,
+        protocol_network_id: fixture.chain_id as u32,
+    };
+    let evidence = json!({
+        "activity_id": fixture.managed_receipt["activity_id"],
+        "receipt_digest": hex::encode(verified_managed_receipt(&fixture.managed_receipt)),
+    });
+    let key_policy = json!({
+        "policy_revision":1, "required_delay_seconds":0, "maximum_delay_seconds":0,
+        "effective_sequence":0, "evidence":evidence,
+    });
+    let policy: PrincipalPolicy = must(serde_json::from_value(json!({
+        "tenant":fixture.tenant, "principal":fixture.principal,
+        "account_id":hex::encode([2;32]), "asset_id":hex::encode([4;32]),
+        "activities":[], "budgets":[hex::encode(fixture.budget_id)],
+        "identities":[{
+            "did":fixture.agent_did, "frozen":false, "authorities":[],
+            "revocation_sequence":u64::from_be_bytes(fixture.budget_call[13 * 32 + 24..14 * 32].try_into().expect("canonical budget revocation sequence")),
+            "evidence":evidence, "capabilities":[], "rotation":key_policy, "recovery":key_policy,
+        }],
+        "maximum_age_seconds":315_360_000_u64, "maximum_age_sequences":100,
+    })));
+    let response = must(budget_state::read(
+        &config,
+        &policy,
+        &hex::encode(fixture.budget_id),
+    ));
+    assert_eq!(response.status, 200);
+    must(serde_json::from_slice(&response.body))
 }
 
 struct LocalServer {
@@ -170,7 +131,11 @@ fn read_http(stream: &mut (impl Read + Write)) -> (String, Vec<u8>) {
 
 fn write_http(stream: &mut impl Write, body: &Value) {
     let bytes = must(serde_json::to_vec(body));
-    must(write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", bytes.len()));
+    must(write!(
+        stream,
+        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+        bytes.len()
+    ));
     must(stream.write_all(&bytes));
     must(stream.flush());
 }
@@ -561,12 +526,15 @@ fn record_human_approval_budget_actor_authority() {
         managed_receipt,
     };
     let (url, server) = LocalServer::node(&fixture);
-    fixture.budget_state = authority_producer::record(url, &fixture);
+    fixture.budget_state = record_authority_budget_state(url, &fixture);
     assert_eq!(
         fixture.budget_state["remaining"],
         record.remaining().to_string()
     );
-    assert_eq!(fixture.budget_state["verification"], 4);
+    assert_eq!(
+        fixture.budget_state["verification"],
+        layerx_types::verify::VerificationLevel::COMMITTED.wire_rank()
+    );
     drop(server);
     let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/human_approval_budget_actor.rs");
     let source = must(fs::read_to_string(&path));
@@ -756,6 +724,20 @@ fn exchange(socket: &Path, request: &[u8]) -> Vec<u8> {
     must(transport.receive())
 }
 
+fn refusal_frame(reason: &[u8]) -> Vec<u8> {
+    fn field(bytes: &mut Vec<u8>, value: &[u8]) {
+        bytes.extend_from_slice(
+            &u32::try_from(value.len())
+                .expect("bounded field")
+                .to_be_bytes(),
+        );
+        bytes.extend_from_slice(value);
+    }
+    let mut frame = b"LXHAGT01\x01".to_vec();
+    field(&mut frame, reason);
+    frame
+}
+
 #[test]
 fn human_approval_budget_actor_serves_evm_holds_and_refuses_changed_bindings() {
     let fixture = AuthorityFixture::load();
@@ -775,7 +757,10 @@ fn human_approval_budget_actor_serves_evm_holds_and_refuses_changed_bindings() {
     let state = must(authority.budget_state(&peer, fixture.budget_id));
     let (_, asset, currency, _, _, _, _) = must(authority.balance_context(&peer));
     assert_eq!(state.asset, asset);
-    assert!((4..=5).contains(&state.verification));
+    assert_eq!(
+        state.verification,
+        layerx_types::verify::VerificationLevel::COMMITTED.wire_rank()
+    );
     let endpoint = must(SequencerEndpoint::new(&fixture.node_rpc_url, &[]));
     let public_key: [u8; 32] = must(hex::decode(
         fixture
@@ -1034,6 +1019,7 @@ fn human_approval_budget_actor_serves_evm_holds_and_refuses_changed_bindings() {
             &tenant,
             approval_id,
             sequence,
+            TimestampSeconds(must(runtime.clock.sample(DEADLINE)).unix_seconds()),
         ),
     );
     assert_eq!(restored.held_activity.actor.as_str(), actor);
@@ -1064,7 +1050,10 @@ fn human_approval_budget_actor_serves_evm_holds_and_refuses_changed_bindings() {
         u128::from_be_bytes(facts[66..82].try_into().unwrap()),
         expected_remaining
     );
-    assert!((4..=5).contains(&facts[82]));
+    assert_eq!(
+        facts[82],
+        layerx_types::verify::VerificationLevel::COMMITTED.wire_rank()
+    );
     assert_eq!(facts[82], state.verification);
     assert_ne!(&facts[83..115], &[0; 32]);
     assert_eq!(&facts[115..123], &sequence.to_be_bytes());
@@ -1074,13 +1063,13 @@ fn human_approval_budget_actor_serves_evm_holds_and_refuses_changed_bindings() {
             &socket,
             &operation(approval_id, held_digest, sequence.checked_sub(1).unwrap())
         ),
-        b"LXHAGT01\x01"
+        refusal_frame(b"operation.refused")
     );
     let mut changed_digest = held_digest;
     changed_digest[0] ^= 1;
     assert_eq!(
         exchange(&socket, &operation(approval_id, changed_digest, sequence)),
-        b"LXHAGT01\x01"
+        refusal_frame(b"operation.refused")
     );
     must(worker.join());
 }
@@ -1867,7 +1856,7 @@ fn human_approval_budget_actor_serves_evm_holds_and_refuses_changed_bindings() {
     "remaining": "77",
     "revocation_sequence": 31,
     "revoked": false,
-    "verification": 4
+    "verification": 6
   },
   "registry": {
     "modules": [

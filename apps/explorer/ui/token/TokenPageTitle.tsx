@@ -1,4 +1,4 @@
-import { chakra, Flex, useToken } from '@chakra-ui/react';
+import { Flex, useToken } from '@chakra-ui/react';
 import type { UseQueryResult } from '@tanstack/react-query';
 import React from 'react';
 
@@ -14,11 +14,9 @@ import type { ResourceError } from 'lib/api/resources';
 import { useMultichainContext } from 'lib/contexts/multichain';
 import { getTokenTypeName } from 'lib/token/tokenTypes';
 import { Link } from 'toolkit/chakra/link';
-import { Skeleton } from 'toolkit/chakra/skeleton';
 import { Tag } from 'toolkit/chakra/tag';
 import { Tooltip } from 'toolkit/chakra/tooltip';
 import AddressAlerts from 'ui/address/details/AddressAlerts';
-import AddressQrCode from 'ui/address/details/AddressQrCode';
 import AccountActionsMenu from 'ui/shared/AccountActionsMenu/AccountActionsMenu';
 import AddressAddToWallet from 'ui/shared/address/AddressAddToWallet';
 import AddressEntity from 'ui/shared/entities/address/AddressEntity';
@@ -92,11 +90,6 @@ const TokenPageTitle = ({ tokenQuery, addressQuery, verifiedInfoQuery, hash }: P
 
   const contentAfter = (
     <>
-      <Skeleton loading={ tokenQuery.isPlaceholderData }>
-        <chakra.span textStyle="lg" color="text.secondary" data-token-name>
-          { `${ tokenQuery.data?.name || 'Unnamed token' }${ tokenSymbolText }` }
-        </chakra.span>
-      </Skeleton>
       { tokenQuery.data && <TokenEntity.Reputation value={ tokenQuery.data.reputation } ml={ 0 }/> }
       { verifiedInfoQuery.data?.tokenAddress && (
         <Tooltip content={ `Information on this token has been verified by ${ config.chain.name }` }>
@@ -161,7 +154,6 @@ const TokenPageTitle = ({ tokenQuery, addressQuery, verifiedInfoQuery, hash }: P
         <TokenVerifiedInfo verifiedInfoQuery={ verifiedInfoQuery }/>
         { apiEntry }
         { !isLoading && tokenQuery.data && <AddressAddToWallet token={ tokenQuery.data } variant="button"/> }
-        { addressQuery.data && <AddressQrCode hash={ addressQuery.data.hash } isLoading={ isLoading }/> }
         <NetworkExplorers type="token" pathParam={ addressHash }/>
         <AccountActionsMenu isLoading={ isLoading }/>
       </Flex>
@@ -171,7 +163,9 @@ const TokenPageTitle = ({ tokenQuery, addressQuery, verifiedInfoQuery, hash }: P
   return (
     <>
       <PageTitle
-        title="Token"
+        kind="TOKEN"
+        title={ `${ tokenQuery.data?.name || 'Unnamed token' }${ tokenSymbolText }` }
+        identifier={ tokenQuery.data?.filecoin_robust_address || hash }
         isLoading={ tokenQuery.isPlaceholderData }
         beforeTitle={ tokenQuery.data ? (
           <TokenEntity.Icon
@@ -182,7 +176,7 @@ const TokenPageTitle = ({ tokenQuery, addressQuery, verifiedInfoQuery, hash }: P
           />
         ) : null }
         contentAfter={ contentAfter }
-        secondRow={ chipRow }
+        tags={ chipRow }
       />
       { !addressMetadataQuery.isPending && (
         <AddressAlerts

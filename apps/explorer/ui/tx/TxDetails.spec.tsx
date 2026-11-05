@@ -44,7 +44,7 @@ describe('TxDetails', () => {
     routerState.pathname = '/tx/[hash]';
     routerState.query = { hash: base.hash };
     fetchMock.resetMocks();
-    fetchMock.mockResponse(JSON.stringify({}), { headers: { 'Content-Type': 'application/json' } });
+    fetchMock.mockResponse(JSON.stringify({ items: [], next_page_params: null }), { headers: { 'Content-Type': 'application/json' } });
   });
 
   it('stacks the decoded action card above the detail card', () => {

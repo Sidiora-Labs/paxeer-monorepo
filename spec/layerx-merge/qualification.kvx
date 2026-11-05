@@ -31323,3 +31323,11 @@ symbol = "repair_22_33_490_test.exs"
 observed = "Attempt 1 at 15a75e15b655d42a5714fd8bcf12443765570d58: build exit 0, verify exit 0 (three cases passed); the tree could not be merged because services/explorer/backend/README.md conflicts with the 22.33.527 rewrite of the same paragraph on main."
 assumption = "The test file is new and applies cleanly; only the README paragraph needs re-applying over the 22.33.527 wording."
 severity = "low"
+
+[finding.22.35.6.2]
+task = "22.35.6"
+file = "apps/explorer/ui/shared/Page/repair-22-35-6.spec.tsx"
+symbol = "repair-22-35-6.spec.tsx"
+observed = "Attempt 2 at ef0a0fe2e475ec12e86703510e5e749b9ed2cd87: builds exit 2 then 0, verify exit 1 with eight of nine proofs passed; addressPageRendersEntityTabSetAndOverview failed at line 123 with router.push called zero times after the click on the History trigger; the proof was amended and built (exit 0 at 57be677d3751afc09f2b5cb4f7ca73d55d44c294) with no verify run left."
+assumption = "The trigger was still disabled by the isTabsLoading flag of the Address page when the proof clicked it (the stub counters show 10 and the loaded mock shows 3 while the address query may still serve placeholder data); the amended proof waits for the enabled state and the product code is unchanged."
+severity = "low"

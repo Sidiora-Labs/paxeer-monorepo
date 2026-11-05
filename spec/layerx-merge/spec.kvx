@@ -8823,6 +8823,12 @@ value = "22.31.545 runs tests/native_send_preview_evm.rs and the refusal asserti
 basis = "Gotcha 3162: 22.31.545 attempt 1 failed only on the assertion its follower 22.31.543 owns."
 affects = ["22.31.545", "22.31.543", "22.31.219"]
 
+[decision.2619]
+title = "A proof that drives an explorer entity tab waits for the trigger to report enabled before the click and awaits the route push, because the entity tab row stays disabled while any page query still serves placeholder data"
+value = "RoutedTabs in entity display mode (apps/explorer/toolkit/components/RoutedTabs/RoutedTabs.tsx) renders every trigger with disabled bound to the isLoading flag of the page, and the Address page derives that flag (isTabsLoading in ui/pages/Address.tsx) from the address query, the tab counters query and the feature-gated widget, user operations and MUD queries together; the queries resolve in separate renders, so a sibling element showing loaded data does not mean the triggers are enabled. A proof that drives a tab waits for the trigger to report enabled, clicks it and asserts the route push (a shallow push of the page pathname with its route params and the tab) inside a waitFor; the production behaviour is unchanged. A page proof whose task has a single verify run is run by name before the gates after it was amended. Decisions 2587, 2604 and 2605 stand."
+basis = "Gotcha 3165: 22.35.6 attempt 2 clicked the History tab after the counter showed loaded data, the push was never called, and the amended proof had no verify run left."
+affects = ["22.35.6", "22.35.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -148125,6 +148131,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue, gotcha 3148, decision 2605): the attempt-1 tree stands (entity header with kind label, identifier line and pills; tab rows with accent underline; labelled key and value section groups; Markets tiles; the amended proof). In EntityTabs.tsx give the tab label its own element with data-tab-label and the counter its own element with data-tab-count, and in addressPageRendersEntityTabSetAndOverview read the tab set from the data-tab-label elements (Overview, History, Transfers, Portfolio, Analytics, Contract, More) and the Transfers counter from its data-tab-count element, so the proof no longer depends on the concatenated text. Keep the other eight proofs unchanged, rebase onto the current explorer integration if it moved, run the declared build and verify once at the final revision, record the gates by reference to the gate ledger and amend no file after they run."
+do_5 = "Attempt 3 (continue, gotcha 3165, decision 2619): the attempt-2 tree at 57be677d3751afc09f2b5cb4f7ca73d55d44c294 stands in full (RoutedTabs entity display mode with the data-tab-label and data-tab-count elements, the entity header, the labelled section groups, the Address, Transaction, Block and Token pages, the Markets tiles, the colour-mode stories, the record and the amended proof that waits for the History trigger to report enabled and awaits the router push with the shallow pathname and tab query). Rebase onto current main. Before the gates run the amended proof once by name (cd apps/explorer and yarn vitest run ui/shared/Page/repair-22-35-6.spec.tsx -t addressPageRendersEntityTabSetAndOverview); if it still fails, name the failing assertion in apps/explorer/ui/shared/Page/repair-22-35-6.kvx and repair inside RoutedTabs.tsx or the proof only, then run the declared build and verify once at the final revision, record the gates by reference to the gate ledger and amend no file after they run."
 
 [task.22.35.5]
 title = "Explorer list pages: dense tables for blocks, transactions, accounts and the tokens markets view"
@@ -156591,7 +156598,7 @@ do_14 = "Attempt 5 (continue after 22.31.517): 2 of 5 cases pass. (1) walletSend
 
 [task.22.33.207]
 title = "Repair audit record 22.30.120 medium findings in services/wallet/gateway/test (part 1 of 2): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.249", "22.31.250", "22.31.447"]
@@ -175483,7 +175490,7 @@ do_4 = "Attempt 2 (continue after 22.31.516): the attempt-1 tree at 531f68e24974
 
 [task.22.31.545]
 title = "Port the daemon native send purpose producers, wire decoders and binding verifiers to NativeSendPurposeV2"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.214", "22.31.219"]
@@ -176147,7 +176154,7 @@ do_4 = "Attempt 3 (continue, gotchas 3122 and 3123): attempt 2 stands (the decis
 
 [task.22.31.516]
 title = "Replace the path-included authority human module in the daemon tests with the authority library as a dev-dependency"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.519", "22.31.535", "22.31.538", "22.31.541"]
@@ -372717,7 +372724,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.490]
 title = "Repair audit record 22.30.150 medium findings in services/explorer/backend (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.277"]
