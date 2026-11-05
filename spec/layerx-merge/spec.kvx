@@ -167672,7 +167672,7 @@ do_5 = "Attempt 2 (continue): the recorder, the V6 vector and its mirror are in 
 
 [task.22.31.496]
 title = "Admit the compiler's key-rotation payload in the disclosure binder and the auth module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.497", "22.31.550", "22.31.557"]
