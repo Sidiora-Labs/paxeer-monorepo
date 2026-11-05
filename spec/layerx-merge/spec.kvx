@@ -148095,7 +148095,7 @@ do_5 = "Attempt 4 (continue, decision 2579): attempt 3 stands in full; 21 of 25 
 
 [task.22.31.522]
 title = "Add the chain routes to the explorer page type map and commit the regenerated route type"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.503", "22.31.512"]
