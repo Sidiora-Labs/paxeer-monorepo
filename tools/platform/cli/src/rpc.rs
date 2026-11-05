@@ -98,7 +98,11 @@ pub fn request(method: &str, params: &Value) -> Result<Value, String> {
             }
         }
         "eth_estimateGas" => estimate_gas_params(args)?,
-        "eth_gasPrice" if args.is_empty() => {}
+        "eth_chainId" | "eth_gasPrice" | "eth_maxPriorityFeePerGas" if args.is_empty() => {}
+        "eth_chainId" | "eth_maxPriorityFeePerGas" => {
+            return Err(format!("{method} takes no parameters"))
+        }
+        "eth_call" => call_params(args)?,
         "eth_gasPrice" => return Err("eth_gasPrice takes no parameters".into()),
         "px_register" => registration_params(args)?,
         "px_requestFunds" => faucet_params(args)?,
@@ -169,6 +173,26 @@ fn transaction_count_params(args: &[Value]) -> Result<(), String> {
         return Err(
             "eth_getTransactionCount requires a 20-byte address and valid block selector".into(),
         );
+    }
+    Ok(())
+}
+
+fn call_params(args: &[Value]) -> Result<(), String> {
+    let [Value::Object(tx), Value::String(block)] = args else {
+        return Err("eth_call requires a call object and block selector".into());
+    };
+    if !(matches!(
+        block.as_str(),
+        "latest" | "pending" | "safe" | "finalized" | "earliest"
+    ) || ethereum_quantity(block))
+        || !tx.get("to").is_some_and(|v| ethereum_data(v, Some(20)))
+        || !tx.get("data").is_some_and(|v| ethereum_data(v, None))
+        || tx
+            .keys()
+            .any(|k| !matches!(k.as_str(), "to" | "data" | "from"))
+        || tx.get("from").is_some_and(|v| !ethereum_data(v, Some(20)))
+    {
+        return Err("eth_call requires canonical address, calldata and block selector".into());
     }
     Ok(())
 }
@@ -310,13 +334,24 @@ pub fn decode_response(method: &str, response: &Value) -> Result<Value, String> 
     }
     if matches!(
         method,
-        "eth_estimateGas" | "eth_gasPrice" | "eth_getTransactionCount"
+        "eth_chainId"
+            | "eth_maxPriorityFeePerGas"
+            | "eth_estimateGas"
+            | "eth_gasPrice"
+            | "eth_getTransactionCount"
     ) {
         return response
             .get("result")
             .filter(|value| value.as_str().is_some_and(ethereum_quantity))
             .cloned()
             .ok_or_else(|| format!("{method} returned an invalid Ethereum quantity"));
+    }
+    if method == "eth_call" {
+        return response
+            .get("result")
+            .filter(|value| ethereum_data(value, None))
+            .cloned()
+            .ok_or_else(|| "eth_call returned invalid Ethereum data".to_owned());
     }
     if method == "eth_sendRawTransaction" {
         return response

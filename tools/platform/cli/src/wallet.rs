@@ -184,11 +184,11 @@ pub enum TokenCommand {
     Info { asset: String },
     /// List one page of registered tokens in ascending asset order.
     List {
-        /// Asset identifier to resume after, as published by a page's next cursor.
+        /// Registration cursor published by the previous page.
         #[arg(long)]
         cursor: Option<String>,
-        /// Page size; the gateway applies 64 when it is absent.
-        #[arg(long, value_parser = clap::value_parser!(u16).range(1..=256))]
+        /// Page size; the hosted gateway applies 16 when it is absent.
+        #[arg(long, value_parser = clap::value_parser!(u16).range(1..=16))]
         limit: Option<u16>,
     },
 }
@@ -512,13 +512,14 @@ pub fn run_wallet(
                 .transpose()?;
             let transport = Transport::new(&config, rpc, gateway)?;
             let result = if !transport.emulator {
-                let balances = verified_account_snapshot(&sdk_rpc(&config, rpc, gateway)?, &did)?;
-                if let Some(asset) = asset {
-                    filter_rpc_balances(balances, &did, asset)?
-                } else {
-                    validated_account_records(&balances, &did)?;
-                    balances
-                }
+                layerx_platform_cli::wallet_reads::balances(
+                    sdk_rpc(&config, rpc, gateway)?
+                        .get_balances(&did)
+                        .map_err(rpc_error)?
+                        .into_value(),
+                    &did,
+                    asset,
+                )?
             } else if let Some(asset) = asset {
                 let account = account(&did, &asset)?;
                 let mut balances = transport.balances(&did)?;
@@ -615,7 +616,7 @@ pub fn run_token(
         TokenCommand::List { cursor, limit } => {
             let cursor = cursor
                 .as_deref()
-                .map(|value| fixed_hex::<32>("cursor", value))
+                .map(|value| layerx_sdk::rpc::registration_cursor(value).map_err(asset_read_error))
                 .transpose()?;
             read_asset(&config, rpc, gateway, &AssetRead::Page { cursor, limit })
         }
@@ -690,7 +691,7 @@ pub fn run_token(
 enum AssetRead {
     Metadata([u8; 32]),
     Page {
-        cursor: Option<[u8; 32]>,
+        cursor: Option<u64>,
         limit: Option<u16>,
     },
 }
@@ -705,20 +706,17 @@ fn read_asset(
     let (summary, value) = match read {
         AssetRead::Metadata(asset) => (
             "Read token data".to_owned(),
-            client
-                .get_asset(*asset)
-                .map_err(asset_read_error)?
-                .into_value(),
+            client.get_custody_asset(*asset).map_err(asset_read_error)?,
         ),
         AssetRead::Page { cursor, limit } => {
             let page = client
-                .list_assets_page(*cursor, *limit)
+                .list_custody_assets_page(*cursor, *limit)
                 .map_err(asset_read_error)?;
             let summary = match page.next_cursor {
                 Some(cursor) => format!(
-                    "Listed {} tokens; resume after asset {}",
+                    "Listed {} tokens; resume at cursor {}",
                     page.assets.len(),
-                    hex_encode(&cursor)
+                    cursor
                 ),
                 None => format!("Listed {} tokens; final page", page.assets.len()),
             };
@@ -1233,41 +1231,8 @@ fn prepare_send(
     to: [u8; 32],
     amount: u128,
 ) -> Result<Vec<u8>, String> {
-    let from = account_for_asset(client, facts.actor, asset)?;
-    if from == to {
-        return Err("source and destination accounts must differ".into());
-    }
-    let snapshot = client.get_account(&hex_encode(&from)).map_err(rpc_error)?;
-    if snapshot["account_id"] != hex_encode(&from) {
-        return Err("source account snapshot mismatch".into());
-    }
-    if snapshot["asset_id"] != hex_encode(&asset) {
-        return Err("source account asset mismatch".into());
-    }
-    if !snapshot["next_sequence"].is_string() {
-        return Err("source snapshot omitted canonical sequence".into());
-    }
-    let source_sequence = sequence(&snapshot["next_sequence"])?;
-    let debit = layerx_crypto::payments::SendDebit {
-        from,
-        to,
-        asset,
-        amount,
-        source_sequence,
-        idempotency_key: facts.idempotency_key,
-        expires_at: facts.expires_at_ms,
-        context_hash: layerx_crypto::payments::send_context_hash(
-            &from,
-            &to,
-            &asset,
-            amount,
-            &facts.idempotency_key,
-        ),
-        conditions: Vec::new(),
-        authorization_kind: 1,
-        network_id: facts.network_id,
-        protocol_version: 3,
-    };
+    let debit =
+        layerx_platform_cli::wallet_send::native_send_debit(client, facts, asset, to, amount)?;
     print_disclosure(
         &json!({"native_debit":format!("{debit:?}"),"actor":facts.actor,"public_key":hex_encode(&facts.public_key),"identity_sequence":facts.identity_next_sequence}),
     )?;
@@ -1576,8 +1541,10 @@ fn account_for_asset(
     did: &str,
     asset: [u8; 32],
 ) -> Result<[u8; 32], String> {
-    let snapshot = verified_account_snapshot(client, did)?;
-    account_for_asset_in_snapshot(&snapshot, did, asset)
+    client
+        .get_ledger_account(did, asset)
+        .map(|snapshot| snapshot.account_id)
+        .map_err(rpc_error)
 }
 
 fn verified_account_snapshot(
