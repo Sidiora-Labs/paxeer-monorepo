@@ -31291,3 +31291,35 @@ symbol = "human_approval_budget_actor.rs"
 observed = "Attempt 9 at cfd12b83e73f22dc1110089d084fc77bcae7e8fe: build exit 0, human_approval_budget_actor passed; human_projection_facts failed at tests/human_projection_facts.rs line 1087 with the panic approval budget actor: Refused while constructing the serving owner, the daemon having logged that recovery of the human-v1 tenant failed with reason Unavailable; verify exit 101."
 assumption = "validate_replayed in src/policy/approval.rs refuses a replayed hold without time presentation as LegacyTimeUnits since 22.33.1507, so the bare LXAPHLD4 record decision 2613 asked for cannot be served; decision 2617 keeps the timed hold in the main case and moves the pre-clock record to a case that asserts the refusal."
 severity = "medium"
+
+[finding.22.31.545.1]
+task = "22.31.545"
+file = "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs"
+symbol = "native_send_preview_evm.rs"
+observed = "Attempt 1 at 238d3c29af4bb9dcc25e28d01e87ecb5a95c70d1: build exit 0, dependent-crate check exit 0, library native_send tests passed; native_send_preview_is_an_unsigned_ledger_transfer_call failed at tests/native_send_preview_evm.rs line 1033 with the full refusal frame (30 bytes) on the left and the two-byte expectation on the right; verify exit 101."
+assumption = "The failing assertion is the one 22.31.543 do_2 owns and 22.31.543 follows this task since decision 2614; under decision 2618 this task writes the frame assertion and 22.31.543 keeps it."
+severity = "medium"
+
+[finding.22.33.50.4]
+task = "22.33.50"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_50.rs"
+symbol = "repair_22_33_50.rs"
+observed = "Attempt 5 at d51d717f669fbfc95a2e2ab9cb3d669714bb66c9: build exit 0, dependent-crate check exit 0; one case passed, finding12_control_transport_preserves_checkpoint_verification failed at tests/repair_22_33_50.rs line 560 with Err(CorruptResponse) against the asserted Err(Refused) and finding12_recorded_paxd_receipt_transport_recovers_before_replay failed at line 70 in the checked helper with CorruptResponse; verify exit 101."
+assumption = "The daemon code-6 sites the attempt patched are owned by 22.31.539 (gotcha 3143, decision 2601) and the Human service level sites by 22.31.540; the CorruptResponse comes from the Human service decode of the control evidence and is located with a backtrace before any further repair."
+severity = "medium"
+
+[finding.22.33.207.1]
+task = "22.33.207"
+file = "services/wallet/gateway/test/repair-22-33-207.test.ts"
+symbol = "repair-22-33-207.test.ts"
+observed = "Attempt 1 at 9e2d7c38271235266bdad9d61d5e4729edbe7bb6: typecheck passed; eight of nine cases passed; stationReplayPreservesCanonicalNodeExecutionEvidence failed at test/repair-22-33-207.test.ts line 778 with the expected Buffer against the received Uint8Array of the same bytes; verify exit 1."
+assumption = "The bytes agree and only the typed-array class differs; the assertion, not the station replay, is wrong."
+severity = "low"
+
+[finding.22.33.490.1]
+task = "22.33.490"
+file = "services/explorer/backend/apps/explorer/test/repair/repair_22_33_490_test.exs"
+symbol = "repair_22_33_490_test.exs"
+observed = "Attempt 1 at 15a75e15b655d42a5714fd8bcf12443765570d58: build exit 0, verify exit 0 (three cases passed); the tree could not be merged because services/explorer/backend/README.md conflicts with the 22.33.527 rewrite of the same paragraph on main."
+assumption = "The test file is new and applies cleanly; only the README paragraph needs re-applying over the 22.33.527 wording."
+severity = "low"
