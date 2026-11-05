@@ -1,0 +1,15 @@
+[repair.22.31.546]
+task = "22.31.546"
+requirement = "22998.1"
+records_added = ["record.NativeSendPurposeV2", "record.SignedNativeSendPurposeV2"]
+schemas = ["services/agent/schema/agent-api/v1.kvx", "services/agent/schema/agent-api/golden/v1.kvx"]
+contract = "V2 canonical field order from src/native_send.rs, distinct consent_public_key hex32 and evm_sender hex20, domain LayerX/native/send-purpose/v2, version 2, transaction type 2, chain 125, Ed25519 consent over SHA256 of exact canonical purpose bytes and independent recovered EVM sender comparison."
+retired = "Both V1 records retain their declarations and explicitly document ContractError::Mismatch(native_send.legacy_version)."
+tests = ["schema::native_send_v2_records_declare_the_canonical_consent_contract", "schema_retired::native_send_v1_records_declare_the_explicit_legacy_refusal", "schema::generated_contract_is_pinned_to_the_schema", "schema_rungs::v1_schema_declares_no_kernel_verification_level"]
+
+[repair.22.31.546.qualification]
+gate_ledger = "$HF_RUN_DIR/gates.jsonl"
+verified_revision = "The revision field of the final passing verify entry in the gate ledger; it must equal the passing build entry revision."
+build_command = "hf-build; exact cargo build command, exit and private log are recorded by the build entry in the gate ledger."
+verify_command = "hf-done; exact cg spec done command, exit and private log are recorded by the verify entry in the gate ledger; cg runs the task-declared cargo test command and graph checks."
+freeze = "This record is written before qualification; no task file is amended after the gates pass (gotcha 3142)."
