@@ -41,10 +41,8 @@ export const TabsCounter = ({ count }: TabsCounterProps) => {
 
   return (
     <chakra.span
-      color={ count > 0 ? 'text.secondary' : { _light: 'blackAlpha.400', _dark: 'whiteAlpha.400' } }
-      _groupHover={{
-        color: 'inherit',
-      }}
+      color="text.muted"
+      textStyle="number"
     >
       { count > COUNTER_OVERLOAD ? `${ COUNTER_OVERLOAD }+` : count }
     </chakra.span>
