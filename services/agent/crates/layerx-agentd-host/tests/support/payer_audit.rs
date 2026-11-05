@@ -331,6 +331,7 @@ fn draw_case() -> (Value, GrantTerms, [u8; 32], Vec<u8>, Value) {
         payer_did: "did:layerx:web-agent".to_owned(),
         payer_account: fixed(&view["logs"][0]["topics"][2]),
         recipient: word(36),
+        receiver_did_key: fixed(&recorded["ledger"]["receiverDidKey"]),
         asset: must(unhex(&view["logs"][0]["data"])[..32].try_into()),
         expires_at_ms: 1_900_000_000_000,
         amount: u128::from_be_bytes(must(data[84..100].try_into())),

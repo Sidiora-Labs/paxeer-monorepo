@@ -36,7 +36,7 @@ pub(crate) use layerx_agentd::store::{Store, TenantId};
 pub(crate) use layerx_client::sequencer::SequencerEndpoint;
 pub(crate) use layerx_crypto::evm_transaction::decode_unsigned;
 pub(crate) use layerx_mcp::tools::web::{
-    ExactPayment, WebApprovalResources, WebPayer, WebPayerError,
+    ExactPayment, GrantTerms, WebApprovalResources, WebPayer, WebPayerError,
 };
 pub(crate) use layerx_proof::sequencer_logs::SequencerLog;
 pub(crate) use layerx_types::ids::Did;
@@ -241,11 +241,20 @@ pub(crate) struct Recording {
     pub(crate) address: String,
     pub(crate) challenge: Arc<Mutex<Value>>,
     pub(crate) signatures: Arc<Mutex<Vec<Value>>>,
+    pub(crate) ledger: Arc<Mutex<Value>>,
     pub(crate) stop: Arc<AtomicBool>,
     pub(crate) worker: Option<JoinHandle<()>>,
 }
 impl Recording {
     pub(crate) fn start() -> Self {
+        Self::start_exchange(6)
+    }
+
+    pub(crate) fn start_search() -> Self {
+        Self::start_exchange(0)
+    }
+
+    fn start_exchange(exchange_index: usize) -> Self {
         let listener = TcpListener::bind("127.0.0.1:0").expect("recording listener");
         let address = listener
             .local_addr()
@@ -253,10 +262,10 @@ impl Recording {
             .to_string();
         let exchange = fixture("client-exchange.json");
         let mut required =
-            exchange["exchange"][6]["response"]["headers"]["PAYMENT-REQUIRED"].clone();
+            exchange["exchange"][exchange_index]["response"]["headers"]["PAYMENT-REQUIRED"].clone();
         required["resource"]["url"] = json!(format!(
             "http://{address}{}",
-            exchange["exchange"][6]["request"]["target"]
+            exchange["exchange"][exchange_index]["request"]["target"]
                 .as_str()
                 .expect("target")
         ));
@@ -266,8 +275,9 @@ impl Recording {
         let paid_signatures = Arc::clone(&signatures);
         let stop = Arc::new(AtomicBool::new(false));
         let stopped = Arc::clone(&stop);
+        let ledger = Arc::new(Mutex::new(fixture("gateway/metered.json")));
+        let shared_ledger = Arc::clone(&ledger);
         let worker = thread::spawn(move || {
-            let ledger = fixture("gateway/metered.json");
             let exact = fixture("gateway/exact.json");
             for stream in listener.incoming() {
                 let mut stream = stream.expect("recording connection");
@@ -275,6 +285,7 @@ impl Recording {
                     break;
                 }
                 let (target, headers, body) = read_http(&mut stream);
+                let ledger = shared_ledger.lock().expect("ledger recording");
                 if target.starts_with("/v1/programs/") {
                     let body = json!({"program":"cc".repeat(32),"accounts":[],"freshness":{"observed_sequence":HEIGHT,"valid_through":400}});
                     respond(&mut stream, 200, &[], body.to_string().as_bytes());
@@ -287,29 +298,51 @@ impl Recording {
                             "0x000000000000000000000000000000000000101a"
                         );
                         assert_eq!(request["params"][1], "pending");
-                        assert_eq!(
-                            &data[..4],
-                            &layerx_crypto::disclosure::call::ledger_selector(
-                                "accountId(bytes32,bytes32)"
+                        if data[..4]
+                            == layerx_crypto::disclosure::call::ledger_selector(
+                                "accountId(bytes32,bytes32)",
                             )
-                        );
-                        let asset = hex(&data[36..68]);
-                        let record = ledger["ledger"]["grants"]
-                            .as_array()
-                            .expect("ledger grants")
-                            .iter()
-                            .find(|record| {
-                                record["canonical"]
-                                    .as_str()
-                                    .expect("grant bytes")
-                                    .get(192..256)
-                                    == Some(asset.as_str())
-                            })
-                            .expect("recorded account for asset");
-                        json!(format!(
-                            "0x{}",
-                            &record["canonical"].as_str().expect("grant bytes")[64..128]
-                        ))
+                        {
+                            let asset = hex(&data[36..68]);
+                            let record = ledger["ledger"]["grants"]
+                                .as_array()
+                                .expect("ledger grants")
+                                .iter()
+                                .find(|record| {
+                                    record["canonical"]
+                                        .as_str()
+                                        .expect("grant bytes")
+                                        .get(192..256)
+                                        == Some(asset.as_str())
+                                })
+                                .expect("recorded account for asset");
+                            json!(format!(
+                                "0x{}",
+                                &record["canonical"].as_str().expect("grant bytes")[64..128]
+                            ))
+                        } else {
+                            if data[..4]
+                                == layerx_crypto::disclosure::call::ledger_selector(
+                                    "nextSequence(bytes32,bytes32)",
+                                )
+                            {
+                                assert_eq!(
+                                    &data[4..36],
+                                    &word(&ledger["ledger"]["receiverDidKey"])
+                                );
+                            }
+                            ledger["endpoints"]["gateway"]["*"]
+                                .as_array()
+                                .expect("metered RPC observations")
+                                .iter()
+                                .find(|record| {
+                                    record["method"] == request["method"]
+                                        && record["params"] == request["params"]
+                                })
+                                .unwrap_or_else(|| panic!("unrecorded ledger view: {request}"))
+                                ["result"]
+                                .clone()
+                        }
                     } else {
                         assert_eq!(request["method"], "pax_sequencerReceipt");
                         exact["endpoints"]["gateway"]["*"]
@@ -331,7 +364,12 @@ impl Recording {
                         body.to_string().as_bytes(),
                     );
                 } else {
-                    assert!(target.starts_with("/fetch?url="), "{target}");
+                    assert_eq!(
+                        target,
+                        exchange["exchange"][exchange_index]["request"]["target"]
+                            .as_str()
+                            .expect("recorded target")
+                    );
                     if let Some((_, signature)) =
                         headers.iter().find(|(name, _)| name == "payment-signature")
                     {
@@ -339,15 +377,15 @@ impl Recording {
                             &STANDARD.decode(signature).expect("signature base64"),
                         )
                         .expect("signature JSON");
-                        let expected =
-                            &exchange["exchange"][7]["request"]["headers"]["PAYMENT-SIGNATURE"];
+                        let expected = &exchange["exchange"][exchange_index + 1]["request"]
+                            ["headers"]["PAYMENT-SIGNATURE"];
                         assert_eq!(signature["payload"], expected["payload"]);
                         assert_eq!(signature["accepted"], expected["accepted"]);
                         paid_signatures
                             .lock()
                             .expect("signature capture")
                             .push(signature);
-                        let reply = &exchange["exchange"][7]["response"];
+                        let reply = &exchange["exchange"][exchange_index + 1]["response"];
                         let response = STANDARD.encode(
                             serde_json::to_vec(&reply["headers"]["PAYMENT-RESPONSE"])
                                 .expect("settlement bytes"),
@@ -371,6 +409,7 @@ impl Recording {
             address,
             challenge,
             signatures,
+            ledger,
             stop,
             worker: Some(worker),
         }
@@ -382,12 +421,14 @@ impl Recording {
 impl Drop for Recording {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::Release);
-        TcpStream::connect(&self.address).expect("wake recording");
-        self.worker
-            .take()
-            .expect("recording worker")
-            .join()
-            .expect("recording assertions");
+        if let Err(error) = TcpStream::connect(&self.address) {
+            eprintln!("recording wake connection failed: {error}");
+        }
+        if let Some(worker) = self.worker.take() {
+            if let Err(error) = worker.join() {
+                eprintln!("recording assertions failed: {error:?}");
+            }
+        }
     }
 }
 
@@ -395,6 +436,10 @@ impl Drop for Recording {
 pub(crate) struct Traffic {
     pub(crate) preparations: usize,
     pub(crate) submitted: Vec<Prepared>,
+    pub(crate) standing_grant: bool,
+    pub(crate) grants: usize,
+    pub(crate) submits: usize,
+    pub(crate) approval_unavailable: bool,
 }
 
 pub(crate) struct RecordedNodePayer {
@@ -408,7 +453,31 @@ pub(crate) struct RecordedNodePayer {
 }
 impl WebPayer for RecordedNodePayer {
     fn approval_resources(&self) -> Option<WebApprovalResources> {
-        Some(self.resources.clone())
+        if self.traffic.lock().expect("traffic").approval_unavailable {
+            None
+        } else {
+            Some(self.resources.clone())
+        }
+    }
+    fn standing_grant(&mut self, terms: &GrantTerms) -> Result<Option<[u8; 32]>, WebPayerError> {
+        if !self.traffic.lock().expect("traffic").standing_grant {
+            return Ok(None);
+        }
+        let ledger = fixture("gateway/metered.json");
+        let grant = ledger["ledger"]["grants"]
+            .as_array()
+            .expect("recorded grants")
+            .iter()
+            .find(|grant| {
+                let canonical = grant["canonical"].as_str().expect("grant bytes");
+                canonical.get(192..256) == Some(hex(&terms.asset).as_str())
+            })
+            .ok_or(WebPayerError::Refused)?;
+        Ok(Some(word(&grant["grantId"])))
+    }
+    fn grant(&mut self, _: &GrantTerms) -> Result<PrecompileCall, WebPayerError> {
+        self.traffic.lock().expect("traffic").grants += 1;
+        panic!("standing-grant approval must never sign or issue a new grant")
     }
     fn view(&mut self, call: &PrecompileCall) -> Result<Vec<u8>, WebPayerError> {
         self.node
@@ -452,6 +521,7 @@ impl WebPayer for RecordedNodePayer {
         Ok(prepared)
     }
     fn submit(&mut self, _: &PrecompileCall) -> Result<ExactPayment, WebPayerError> {
+        self.traffic.lock().expect("traffic").submits += 1;
         panic!("an approved transaction must never use the re-preparing submit path")
     }
     fn submit_transaction(&mut self, prepared: &Prepared) -> Result<ExactPayment, WebPayerError> {

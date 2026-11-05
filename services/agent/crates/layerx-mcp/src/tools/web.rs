@@ -44,6 +44,7 @@ use crate::catalogue::{self, ArgumentError};
 mod test_clock;
 
 mod approval_state;
+use approval_state::HeldAuthorisation;
 pub use approval_state::WebApprovalResources;
 
 pub const PAYMENT_REQUIRED: &str = "PAYMENT-REQUIRED";
@@ -511,6 +512,7 @@ pub struct GrantTerms {
     pub payer_did: String,
     pub payer_account: [u8; 32],
     pub recipient: [u8; 32],
+    pub receiver_did_key: [u8; 32],
     pub asset: [u8; 32],
     pub expires_at_ms: u64,
     pub amount: u128,
@@ -644,6 +646,8 @@ impl dyn WebPayer + '_ {
     }
 }
 
+const DRAW_SIGNATURE: &str = "draw(bytes32,bytes32,uint128,bytes32,uint64,bytes32,bytes32)";
+
 fn address_word(address: [u8; 20]) -> [u8; 32] {
     let mut word = [0; 32];
     word[12..].copy_from_slice(&address);
@@ -754,15 +758,33 @@ impl GrantTerms {
         payment_call(
             PrecompileTarget::Ledger,
             "nextSequence(bytes32,bytes32)",
-            vec![self.recipient, self.asset],
+            vec![self.receiver_did_key, self.asset],
         )
+    }
+
+    fn validate_draw_call(
+        &self,
+        grant_id: [u8; 32],
+        call: &PrecompileCall,
+    ) -> Result<(), WebToolError> {
+        let [AbiArgument::Word(_), AbiArgument::Word(_), AbiArgument::Word(_), AbiArgument::Word(_), AbiArgument::Word(sequence), AbiArgument::Word(_), AbiArgument::Word(_)] =
+            call.arguments.as_slice()
+        else {
+            return Err(WebToolError::PaymentArtifact("draw_call"));
+        };
+        let mut expected = self.prepare_draw(grant_id, 0);
+        expected.arguments[4] = AbiArgument::Word(*sequence);
+        if *call != expected {
+            return Err(WebToolError::PaymentArtifact("draw_call"));
+        }
+        Ok(())
     }
 
     #[must_use]
     pub fn prepare_draw(&self, grant_id: [u8; 32], receiver_sequence: u64) -> PrecompileCall {
         payment_call(
             PrecompileTarget::Ledger,
-            "draw(bytes32,bytes32,uint128,bytes32,uint64,bytes32,bytes32)",
+            DRAW_SIGNATURE,
             vec![
                 grant_id,
                 self.recipient,
@@ -1327,25 +1349,29 @@ impl WebPlane<'_, '_> {
         facts: &OfferFacts,
         key: [u8; 32],
     ) -> Result<Value, WebToolError> {
-        if facts.amount > self.approval.policy.amount_threshold
+        let mut needs_hold = facts.amount > self.approval.policy.amount_threshold
             || self
                 .approval
                 .registry
                 .ticket(key)
                 .map_err(|error| WebToolError::Approval(ApprovalError::Daemon(error)))?
-                .is_some()
-        {
-            return self.authorise_held(offer, facts, key);
-        }
+                .is_some();
         // A durable decision can outlive its in-memory registry ticket.
-        if let Some(resources) = self.payer.approval_resources() {
-            if resources
-                .preparation(&self.approval.context.tenant, key)?
-                .is_some()
-            {
-                return self.authorise_held(offer, facts, key);
+        if !needs_hold {
+            if let Some(resources) = self.payer.approval_resources() {
+                needs_hold = resources
+                    .preparation(&self.approval.context.tenant, key)?
+                    .is_some();
             }
         }
+        let approved_grant = if needs_hold {
+            match self.authorise_held(offer, facts, key)? {
+                HeldAuthorisation::Payment(payment) => return Ok(payment),
+                HeldAuthorisation::ReceiverDraw(id) => Some(id),
+            }
+        } else {
+            None
+        };
         if matches!(self.call.operation, WebOperation::Search(_))
             && self.call.currency == Currency::Pax
         {
@@ -1367,6 +1393,11 @@ impl WebPlane<'_, '_> {
                     payer_did: self.config.payer_did.clone(),
                     payer_account: facts.payer_accounts[0],
                     recipient: facts.pay_to,
+                    receiver_did_key: facts
+                        .receiver_did
+                        .strip_prefix("did:layerx:")
+                        .and_then(unhex32)
+                        .ok_or(WebToolError::OfferMismatch("account"))?,
                     asset: facts.asset,
                     expires_at_ms: expiry_milliseconds(disclosure.expiry.0)?,
                     amount: facts.amount,
@@ -1397,11 +1428,13 @@ impl WebPlane<'_, '_> {
                         return Err(WebToolError::PaymentArtifact("offered_grant"));
                     }
                     id
-                } else if let Some(id) = self
-                    .payer
-                    .standing_grant(&terms)
-                    .map_err(WebToolError::Payer)?
-                {
+                } else if let Some(id) = if let Some(id) = approved_grant {
+                    Some(id)
+                } else {
+                    self.payer
+                        .standing_grant(&terms)
+                        .map_err(WebToolError::Payer)?
+                } {
                     let grant = getPayerGrant(self.payer, id).map_err(WebToolError::Payer)?;
                     if grant.id != id
                         || !facts.payer_accounts.contains(&grant.from)
@@ -2307,6 +2340,43 @@ mod tests {
                 call.target.address(),
                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x1a]
             );
+            if call.selector == [0x3f, 0x05, 0x0c, 0xbc] {
+                let exchange = fixture("client-exchange.json");
+                let accepted =
+                    &exchange["exchange"][1]["request"]["headers"][PAYMENT_SIGNATURE]["accepted"];
+                assert_eq!(
+                    call.arguments,
+                    vec![
+                        AbiArgument::Word(address_word([0xab; 20])),
+                        AbiArgument::Word(word(&accepted["asset"])),
+                    ]
+                );
+                return Ok(word(&accepted["extra"]["layerx"]["payer"]).to_vec());
+            }
+            if call.selector
+                == layerx_crypto::disclosure::call::ledger_selector("nextSequence(bytes32,bytes32)")
+            {
+                let ledger = fixture("gateway/metered.json");
+                assert_eq!(
+                    call.arguments.first(),
+                    Some(&AbiArgument::Word(word(
+                        &ledger["ledger"]["receiverDidKey"]
+                    )))
+                );
+                let data = format!(
+                    "0x{}",
+                    hex(&call.encode().map_err(|_| WebPayerError::Refused)?)
+                );
+                let observation = ledger["endpoints"]["gateway"]["*"]
+                    .as_array()
+                    .and_then(|records| {
+                        records.iter().find(|record| {
+                            record["method"] == "eth_call" && record["params"][0]["data"] == data
+                        })
+                    })
+                    .unwrap_or_else(|| panic!("recorded sequence view"));
+                return unhex_bytes(text(&observation["result"])).ok_or(WebPayerError::Refused);
+            }
             assert_eq!(call.selector, [0x42, 0x3f, 0xe4, 0xb2]);
             assert_eq!(call.arguments, vec![AbiArgument::Word(self.id)]);
             Ok(self.record.clone())
@@ -2340,6 +2410,11 @@ mod tests {
     }
 
     impl WebPayer for IssuingPayer {
+        fn view(&mut self, call: &PrecompileCall) -> Result<Vec<u8>, WebPayerError> {
+            assert_eq!(call.selector, [0x3f, 0x05, 0x0c, 0xbc]);
+            StandingPayer::recorded("SID").view(call)
+        }
+
         fn sign_grant(&mut self, terms: &GrantTerms) -> Result<Grant, WebPayerError> {
             self.terms = Some(terms.clone());
             let signer = SigningKey::from_bytes(&[31; 32]);
@@ -2751,7 +2826,8 @@ mod tests {
             .unwrap_or_else(|error| panic!("web config: {error:?}"))
         };
 
-        let (endpoint, replay) = replay_search(4);
+        // Only the challenge and paid search use HTTP; payer views use the recording above.
+        let (endpoint, replay) = replay_search(2);
         let mut payer = StandingPayer::recorded("SID");
         assert_eq!(payer.id, word(&signature["payload"]["grantId"]));
         let outcome = web_tool(&config(&endpoint), &call, &approval, &mut payer)
@@ -2759,9 +2835,10 @@ mod tests {
         replay
             .join()
             .unwrap_or_else(|error| panic!("replay: {error:?}"));
+        // accountId resolves the payer; getPayerGrant validates the standing grant.
         assert_eq!(
             (payer.views, payer.issues, payer.draws, payer.submissions),
-            (1, 0, 0, 0)
+            (2, 0, 0, 0)
         );
         let settlement = outcome.settlement.unwrap_or_else(|| panic!("settlement"));
         let response = &exchange["exchange"][1]["response"]["headers"][PAYMENT_RESPONSE];
@@ -2776,7 +2853,7 @@ mod tests {
         );
 
         for name in ["lowLimit", "otherPurpose", "otherRecipient"] {
-            let (endpoint, replay) = replay_search(3);
+            let (endpoint, replay) = replay_search(1);
             let mut payer = StandingPayer::recorded(name);
             assert!(
                 matches!(
@@ -2788,9 +2865,10 @@ mod tests {
             replay
                 .join()
                 .unwrap_or_else(|error| panic!("replay: {error:?}"));
+            // accountId resolves the payer; getPayerGrant refuses the invalid grant.
             assert_eq!(
                 (payer.views, payer.issues, payer.draws, payer.submissions),
-                (1, 0, 0, 0)
+                (2, 0, 0, 0)
             );
         }
 
@@ -2820,7 +2898,7 @@ mod tests {
                 .unwrap_or_else(|error| panic!("grant encoding: {error:?}"));
             payer.record[256..256 + payload.len()].copy_from_slice(&payload);
             payer.views = 0;
-            let (endpoint, replay) = replay_search(3);
+            let (endpoint, replay) = replay_search(1);
             assert!(
                 matches!(
                     web_tool(&config(&endpoint), &call, &approval, &mut payer),
@@ -2831,13 +2909,14 @@ mod tests {
             replay
                 .join()
                 .unwrap_or_else(|error| panic!("replay: {error:?}"));
+            // accountId resolves the payer; getPayerGrant refuses the changed grant.
             assert_eq!(
                 (payer.views, payer.issues, payer.draws, payer.submissions),
-                (1, 0, 0, 0)
+                (2, 0, 0, 0)
             );
         }
 
-        let (endpoint, replay) = replay_search(3);
+        let (endpoint, replay) = replay_search(1);
         let mut payer = IssuingPayer::default();
         assert!(matches!(
             web_tool(&config(&endpoint), &call, &approval, &mut payer),
