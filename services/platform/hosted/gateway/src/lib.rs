@@ -1,5 +1,10 @@
 //! Receipt-verifying authority boundary for the hosted gateway.
 
+extern crate self as layerx_platform_gateway;
+
+#[cfg(not(test))]
+pub mod runtime;
+
 pub use layerx_proof::inclusion::SequencerAuthorization;
 pub use layerx_proof::receipt::ReceiptKeys;
 
@@ -727,10 +732,25 @@ pub fn production_route<'a>(
 pub fn unified_service_catalogue() -> &'static serde_json::Value {
     static CATALOGUE: std::sync::OnceLock<serde_json::Value> = std::sync::OnceLock::new();
     CATALOGUE.get_or_init(|| {
-        serde_json::from_str(include_str!(
+        let mut catalogue: serde_json::Value = serde_json::from_str(include_str!(
             "../../../../../tools/paxeer-x/route-catalogue.json"
         ))
-        .expect("compiled unified route catalogue")
+        .expect("compiled unified route catalogue");
+        let locations: serde_json::Map<String, serde_json::Value> =
+            serde_json::from_str(include_str!("../route-locations.json"))
+                .expect("compiled node and hosted gateway locations");
+        catalogue
+            .as_object_mut()
+            .expect("route catalogue is an object")
+            .extend(locations);
+        catalogue["routes"]
+            .as_array_mut()
+            .expect("route catalogue has a routes array")
+            .retain(|route| {
+                let path = route["path"].as_str().expect("route path is a string");
+                path != "/rpc" && !path.starts_with("/rpc/")
+            });
+        catalogue
     })
 }
 
@@ -744,7 +764,11 @@ pub fn unified_service_route(method: &str, target: &str) -> Option<&'static serd
         return None;
     }
     let wallet_contract = match path {
-        "/v1/wallet/sponsored/submit"
+        "/v1/wallet/sponsored/quote"
+        | "/v1/wallet/evm/review"
+        | "/v1/wallet/evm/approve"
+        | "/v1/wallet/evm/sign"
+        | "/v1/wallet/sponsored/submit"
         | "/v1/wallet/sponsored/status"
         | "/v1/wallet/sign-digest"
         | "/v1/wallet/sign-custody"
@@ -759,8 +783,12 @@ pub fn unified_service_route(method: &str, target: &str) -> Option<&'static serd
                     && id.strip_prefix("0x").is_some_and(canonical_program_id),
             )
         }
-        _ if path.starts_with("/v1/wallet/lx/approvals/") => {
-            let id = path.strip_prefix("/v1/wallet/lx/approvals/")?;
+        _ if path.starts_with("/v1/wallet/lx/approvals/")
+            || path.starts_with("/v1/wallet/evm/approvals/") =>
+        {
+            let id = path
+                .strip_prefix("/v1/wallet/lx/approvals/")
+                .or_else(|| path.strip_prefix("/v1/wallet/evm/approvals/"))?;
             Some(
                 method == "GET"
                     && query.is_none()
@@ -1326,6 +1354,36 @@ mod tests {
     };
 
     #[test]
+    fn repair_22_31_370_wallet_routes_match_exact_contract() {
+        for path in [
+            "/v1/wallet/evm/review",
+            "/v1/wallet/evm/approve",
+            "/v1/wallet/evm/sign",
+            "/v1/wallet/sponsored/quote",
+        ] {
+            let row = super::unified_service_route("POST", path).expect("wallet route");
+            assert_eq!(row["upstream"], "wallet-gateway");
+            assert_eq!(row["authentication"], "requireAuth");
+            assert!(super::unified_service_route("GET", path).is_none());
+            assert!(super::unified_service_route("POST", &format!("{path}?extra=1")).is_none());
+        }
+        let status = "/v1/wallet/evm/approvals/12345678-1234-4234-8234-123456789abc";
+        assert!(super::unified_service_route("GET", status).is_some());
+        assert!(super::unified_service_route("POST", status).is_none());
+        for id in [
+            "bad",
+            "12345678-1234-4234-8234-123456789abZ",
+            "%2e%2e",
+            "../review",
+        ] {
+            assert!(
+                super::unified_service_route("GET", &format!("/v1/wallet/evm/approvals/{id}"))
+                    .is_none()
+            );
+        }
+    }
+
+    #[test]
     fn router_methods_are_sorted_unique_and_namespaced() {
         assert_eq!(ROUTER_METHODS.len(), 17);
         for pair in ROUTER_METHODS.windows(2) {
@@ -1512,3 +1570,9 @@ mod authorization_config_tests {
         assert!(configured_sequencer(&id, &"ff".repeat(32), "1", "2").is_err());
     }
 }
+
+// Use the shared consensus codec while the gateway manifest is outside this repair's scope.
+#[path = "../../../../interop/crates/layerx-committed-proof/src/lib.rs"]
+pub mod committed_proof;
+pub use committed_proof::{commit, header, merkle, proto, ProofError};
+pub mod committed_state;

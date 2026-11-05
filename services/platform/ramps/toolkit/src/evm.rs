@@ -6,6 +6,44 @@ pub const LEDGER_ADDRESS: [u8; 20] = [
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x1a,
 ];
 
+/// Maintained ordinary-principal payment authority.
+pub const PAY_ADDRESS: [u8; 20] = [
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x1b,
+];
+
+#[must_use]
+pub fn encode_budget_spend(budget: [u8; 32], recipient: [u8; 32], amount: u128) -> Vec<u8> {
+    encode_call(
+        "budgetSpend(bytes32,bytes32,uint128)",
+        &[budget, recipient, uint_word(amount.to_be_bytes())],
+    )
+}
+
+#[must_use]
+pub fn encode_get_budget(budget: [u8; 32]) -> Vec<u8> {
+    encode_call("getBudget(bytes32)", &[budget])
+}
+
+/// Exact native BudgetSpent event; the budget state supplies owner and asset.
+#[must_use]
+pub fn decode_budget_spent(log: &SequencerLog) -> Option<([u8; 32], [u8; 32], u128)> {
+    let [topic, budget] = log.topics.as_slice() else {
+        return None;
+    };
+    if log.address != PAY_ADDRESS
+        || *topic != <[u8; 32]>::from(Keccak256::digest(b"BudgetSpent(bytes32,bytes32,uint128)"))
+        || log.data.len() != 64
+        || log.data[32..48].iter().any(|byte| *byte != 0)
+    {
+        return None;
+    }
+    Some((
+        *budget,
+        log.data[..32].try_into().ok()?,
+        u128::from_be_bytes(log.data[48..64].try_into().ok()?),
+    ))
+}
+
 const PAY_EXACT_SIGNATURE: &str = "payExact(bytes32,bytes32,bytes32,uint128,uint64,bytes32)";
 const DRAW_SIGNATURE: &str = "draw(bytes32,bytes32,uint128,bytes32,uint64,bytes32,bytes32)";
 const PAYMENT_EXACT_SIGNATURE: &str = "PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)";
@@ -57,7 +95,8 @@ pub fn encode_pay_exact(
     )
 }
 
-/// Encodes the seven native `draw` arguments in ABI order. The asset and
+/// Historical codec only: the native draw execution route is retired.
+/// Encodes the seven legacy `draw` arguments in ABI order. The asset and
 /// payer are determined by the grant; the second argument is the recipient.
 #[must_use]
 pub fn encode_draw(
@@ -142,4 +181,60 @@ pub fn decode_ledger_payment(log: &SequencerLog) -> Option<LedgerPayment> {
             context: log.data[96..128].try_into().ok()?,
         })
     }
+}
+
+/// Validates the maintained getBudget ABI against the bound customer order.
+/// Native execution requires the customer's own ordinary-principal authority.
+pub fn verify_customer_budget(
+    order: &crate::RampOrder,
+    bytes: &[u8],
+    live: bool,
+) -> Result<(), crate::RampError> {
+    use crate::RampError;
+    let auth = order.customer_payment_authorization()?;
+    let word = |index: usize| -> Result<[u8; 32], RampError> {
+        bytes
+            .get(index * 32..(index + 1) * 32)
+            .ok_or(RampError::ReceiptMismatch)?
+            .try_into()
+            .map_err(|_| RampError::ReceiptMismatch)
+    };
+    let uint = |index: usize| -> Result<u64, RampError> {
+        let value = word(index)?;
+        if value[..24] != [0; 24] {
+            return Err(RampError::ReceiptMismatch);
+        }
+        Ok(u64::from_be_bytes(
+            value[24..]
+                .try_into()
+                .map_err(|_| RampError::ReceiptMismatch)?,
+        ))
+    };
+    // One dynamic tuple: 18 fixed words followed by its bounded delegates.
+    if uint(0)? != 32 || uint(17)? != 18 * 32 {
+        return Err(RampError::ReceiptMismatch);
+    }
+    let count = usize::try_from(uint(19)?).map_err(|_| RampError::ReceiptMismatch)?;
+    if count > 16
+        || bytes.len() != (20 + count) * 32
+        || word(1)? != crate::ledger_account(&order.customer.account)?
+        || word(3)? != order.quote.layerx_asset
+        || word(4)? != auth.purpose_hash
+    {
+        return Err(RampError::ReceiptMismatch);
+    }
+    if live {
+        if uint(15)? != 0
+            || uint(16)? != 0
+            || uint(12)?
+                != order
+                    .quote
+                    .expires_at
+                    .checked_mul(1_000)
+                    .ok_or(RampError::InvalidOrder)?
+        {
+            return Err(RampError::ReceiptMismatch);
+        }
+    }
+    Ok(())
 }

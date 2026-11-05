@@ -20,10 +20,12 @@
   "scripts": {
     "getV2": "ts-node ts-src/get-api-v2.ts",
     "merge": "ts-node ts-src/merge-overrides.ts",
-    "generate": "docker run --rm -v \"${PWD}:/local\" openapitools/openapi-generator-cli generate -c /local/openapi-generator-config.json -i /local/swaggers/blockscout-api-final.yaml --skip-validate-spec -g rust -o /local/crate --engine handlebars -t /local/rust-template-handlebars --type-mappings=integer=i64",
+    "generate": "python3 scripts/generate.py openapitools/openapi-generator-cli:v7.6.0",
     "format": "cargo fmt --all -- --config imports_granularity=Crate",
-    "generate-from-remote": "yarn getV2 && yarn merge && yarn generate && yarn format",
-    "record-stubs": "ts-node ts-src/record-stubs.ts"
+    "generate-from-remote": "bash scripts/generate-from-remote.sh",
+    "record-stubs": "ts-node ts-src/record-stubs.ts",
+    "test:local": "cargo run --locked --manifest-path crate/Cargo.toml --example local_backend_contract --",
+    "test:doc-13": "python3 -m pytest -q ../../../../../tools/qualification/audit_repairs/test_repair_22_33_360.py"
   },
   "devDependencies": {
     "@types/node": "^20.14.2",
@@ -34,15 +36,15 @@
   "resolutions": {
     "ajv": "6.14.0",
     "axios": "^1.8.2",
-    "brace-expansion": "1.1.21",
+    "brace-expansion": "5.0.12",
     "diff": "5.2.2",
-    "follow-redirects": "1.16.0",
+    "follow-redirects": "1.16.2",
     "form-data": "4.0.6",
     "formidable": "2.1.3",
     "js-yaml": "^4.3.2",
     "lodash": "^4.18.0",
-    "minimatch": "4.2.5",
-    "nanoid": "3.3.8",
+    "minimatch": "11.0.1",
+    "nanoid": "3.3.18",
     "picomatch": "2.3.2",
     "qs": "6.16.1",
     "serialize-javascript": "7.1.3",

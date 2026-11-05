@@ -17,9 +17,20 @@ use std::os::unix::fs::{
 use std::path::{Component, Path, PathBuf};
 use std::time::Duration;
 
+use layerx_client::sequencer::ReceiptKeyEntry;
 use layerx_programs::hex;
 use serde_json::{json, Value};
 use zeroize::Zeroizing;
+
+#[path = "../../../../../tools/platform/cli/src/install/binding_shape.rs"]
+pub mod binding_shape;
+
+// Expose the daemon's existing TLS implementation to in-process transport consumers.
+pub use rustls as readiness_tls;
+
+use binding_shape::{
+    AgentDeclaration, BindingDocument, LimitDeclaration, ReadinessTransport, MAX_DOCUMENT_BYTES,
+};
 
 use crate::budget::{LimitConfig, LimitScope};
 use crate::capability::{Capability, CapabilityId};
@@ -36,7 +47,6 @@ pub const DAEMON_BEARER_FILE: &str = "daemon-bearer";
 
 const MINIMUM_BEARER_BYTES: usize = 32;
 const MAX_TEXT_BYTES: usize = 255;
-const MAX_DOCUMENT_BYTES: usize = 65_536;
 const TOKEN_ATTEMPTS: usize = 8;
 const MAX_SOCKET_PATH_BYTES: usize = 107;
 const MAX_ADMITTED_PEERS: usize = 64;
@@ -44,6 +54,7 @@ const LISTENER_MODE_MASK: u32 = 0o660;
 const LISTENER_OWNER_ACCESS: u32 = 0o600;
 const MAX_WEB_TIMEOUT_MS: u64 = 60_000;
 const MAX_WEB_PENDING_ATTEMPTS: u8 = 10;
+const MAX_WEB_RECEIPT_KEYS: usize = 64;
 
 /// Deployment mode the binding document declares.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -128,6 +139,7 @@ pub struct DaemonSurface {
     endpoint: String,
     bearer: Zeroizing<String>,
     probe_program: [u8; 32],
+    readiness: Option<ReadinessDeclaration>,
 }
 
 impl fmt::Debug for DaemonSurface {
@@ -137,6 +149,7 @@ impl fmt::Debug for DaemonSurface {
             .field("endpoint", &self.endpoint)
             .field("bearer", &"[redacted]")
             .field("probe_program", &hex::encode(&self.probe_program))
+            .field("readiness", &self.readiness)
             .finish()
     }
 }
@@ -176,6 +189,76 @@ impl DaemonSurface {
             endpoint: endpoint.to_owned(),
             bearer,
             probe_program,
+            readiness: None,
+        })
+    }
+
+    /// Declares the authenticated gateway used by MCP daemon clients.
+    #[must_use]
+    pub fn with_readiness(mut self, readiness: ReadinessDeclaration) -> Self {
+        self.readiness = Some(readiness);
+        self
+    }
+}
+
+/// Authenticated HTTPS transport references carried unchanged into the MCP binding.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ReadinessDeclaration {
+    endpoint: String,
+    gateway_key_file: PathBuf,
+    trust_anchors: Option<PathBuf>,
+}
+
+impl ReadinessDeclaration {
+    /// Validates a gateway origin and absolute credential and optional trust-anchor paths.
+    ///
+    /// # Errors
+    ///
+    /// Refuses insecure origins, URL credentials, queries, fragments and invalid paths.
+    pub fn new(
+        endpoint: &str,
+        gateway_key_file: PathBuf,
+        trust_anchors: Option<PathBuf>,
+    ) -> Result<Self, EnrolmentError> {
+        let invalid =
+            || EnrolmentError::InvalidSurface("the readiness gateway is not an HTTPS origin");
+        let uri: ureq::http::Uri = endpoint.parse().map_err(|_| invalid())?;
+        if endpoint.len() > MAX_TEXT_BYTES
+            || uri.scheme_str() != Some("https")
+            || uri.host().is_none_or(str::is_empty)
+            || uri
+                .authority()
+                .is_some_and(|authority| authority.as_str().contains('@'))
+            || uri.path() != "/"
+            || uri.query().is_some()
+            || endpoint.contains('#')
+            || endpoint
+                .bytes()
+                .any(|byte| byte.is_ascii_whitespace() || byte.is_ascii_control())
+        {
+            return Err(invalid());
+        }
+        path_text(&gateway_key_file)?;
+        if let Some(path) = &trust_anchors {
+            path_text(path)?;
+        }
+        Ok(Self {
+            endpoint: endpoint.to_owned(),
+            gateway_key_file,
+            trust_anchors,
+        })
+    }
+
+    fn transport(&self) -> Result<ReadinessTransport, EnrolmentError> {
+        Ok(ReadinessTransport {
+            endpoint: self.endpoint.clone(),
+            gateway_key_file: path_text(&self.gateway_key_file)?.to_owned(),
+            trust_anchors: self
+                .trust_anchors
+                .as_deref()
+                .map(path_text)
+                .transpose()?
+                .map(str::to_owned),
         })
     }
 }
@@ -316,95 +399,231 @@ impl ListenerDeclaration {
     }
 }
 
-/// The search sidecar reference a session with the web scopes is served through. It carries
-/// no payer or key material; paid tools still require the separately attached payer.
+/// The public payment addresses and governed receipt keys carried by the web binding.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WebDeclaration {
     endpoint: String,
     network: String,
-    sequencer_public_key: [u8; 32],
+    receipt_public_key: [u8; 32],
+    authority: Option<WebAuthority>,
     timeout_ms: u64,
     pending_attempts: u8,
     approval_threshold: u128,
 }
 
-impl WebDeclaration {
-    /// Validates the sidecar reference the binding document will carry.
+/// Explicit payment parties and the bounded receipt authority resolved from the node.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WebAuthority {
+    payer_address: [u8; 20],
+    receiver_address: [u8; 20],
+    receipt_key_index: Vec<ReceiptKeyEntry>,
+    sequencer_id: [u8; 32],
+    first_batch_number: u64,
+    last_batch_number: u64,
+}
+
+impl WebAuthority {
+    /// Validates the complete node key index and the selected inclusive receipt range.
     ///
     /// # Errors
     ///
-    /// Refuses an invalid or over-long HTTP sidecar endpoint or LayerX network, an all-zero
-    /// sequencer key, a timeout outside 1 to 60,000 milliseconds, and pending attempts outside
-    /// 1 to 10.
+    /// Refuses zero payment addresses, empty, oversized, repeated or invalid keys,
+    /// and an uncovered or reversed range.
+    pub fn new(
+        payer_address: [u8; 20],
+        receiver_address: [u8; 20],
+        receipt_key_index: Vec<ReceiptKeyEntry>,
+        sequencer_id: [u8; 32],
+        first_batch_number: u64,
+        last_batch_number: u64,
+    ) -> Result<Self, EnrolmentError> {
+        if payer_address == [0; 20] || receiver_address == [0; 20] {
+            return Err(EnrolmentError::InvalidWeb(
+                "the web payment addresses must be nonzero",
+            ));
+        }
+        if receipt_key_index.is_empty() || receipt_key_index.len() > MAX_WEB_RECEIPT_KEYS {
+            return Err(EnrolmentError::InvalidWeb(
+                "the receipt key index must name 1 to 64 keys",
+            ));
+        }
+        let mut seen = BTreeSet::new();
+        for key in &receipt_key_index {
+            if key.key_id == [0; 32]
+                || key.public_key == [0; 32]
+                || key.first_height > key.last_height
+                || !seen.insert(key.key_id)
+            {
+                return Err(EnrolmentError::InvalidWeb(
+                    "the receipt key index has an invalid or repeated key",
+                ));
+            }
+        }
+        if sequencer_id == [0; 32]
+            || first_batch_number > last_batch_number
+            || !receipt_key_index.iter().any(|key| {
+                key.key_id == sequencer_id
+                    && key.first_height <= first_batch_number
+                    && key.last_height >= last_batch_number
+            })
+        {
+            return Err(EnrolmentError::InvalidWeb(
+                "the receipt key index does not cover the selected receipt range",
+            ));
+        }
+        Ok(Self {
+            payer_address,
+            receiver_address,
+            receipt_key_index,
+            sequencer_id,
+            first_batch_number,
+            last_batch_number,
+        })
+    }
+}
+
+impl WebDeclaration {
+    /// Validates the current closed-key MCP web binding, including the selected key range.
+    ///
+    /// # Errors
+    ///
+    /// Refuses invalid addresses, a network other than eip155:125, an invalid or duplicate
+    /// receipt key, an absent selected key, or out-of-bound transport settings.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         endpoint: String,
         network: String,
-        sequencer_public_key: [u8; 32],
+        payer_address: [u8; 20],
+        receiver_address: [u8; 20],
+        receipt_key_index: Vec<ReceiptKeyEntry>,
+        selected_key: usize,
         timeout_ms: u64,
         pending_attempts: u8,
         approval_threshold: u128,
     ) -> Result<Self, EnrolmentError> {
-        for value in [&endpoint, &network] {
-            if value.is_empty() || value.len() > MAX_TEXT_BYTES {
-                return Err(EnrolmentError::InvalidWeb(
-                    "the web endpoint and network must be 1 to 255 bytes",
-                ));
-            }
-        }
-        if !valid_web_endpoint(&endpoint) {
+        if endpoint.is_empty() || endpoint.len() > MAX_TEXT_BYTES || !valid_web_endpoint(&endpoint)
+        {
             return Err(EnrolmentError::InvalidWeb(
                 "the web endpoint is not an HTTP sidecar authority",
             ));
         }
-        if !network.strip_prefix("layerx:").is_some_and(|rest| {
-            !rest.is_empty() && rest.bytes().all(|byte| byte.is_ascii_alphanumeric())
-        }) {
+        if network != "eip155:125"
+            || !network.strip_prefix("eip155:").is_some_and(|chain_id| {
+                !chain_id.is_empty()
+                    && chain_id.len() <= 64
+                    && !chain_id.starts_with('0')
+                    && chain_id.bytes().all(|byte| byte.is_ascii_digit())
+            })
+        {
             return Err(EnrolmentError::InvalidWeb(
-                "the web network is not a LayerX network",
+                "the web network must be eip155:125",
             ));
         }
-        if sequencer_public_key == [0; 32] {
+        if payer_address == [0; 20] || receiver_address == [0; 20] {
             return Err(EnrolmentError::InvalidWeb(
-                "the sequencer public key is not a key",
+                "the web payment addresses must be nonzero",
             ));
         }
-        if timeout_ms == 0 {
-            return Err(EnrolmentError::InvalidWeb("the web timeout is zero"));
+        if receipt_key_index.is_empty()
+            || receipt_key_index.len() > MAX_WEB_RECEIPT_KEYS
+            || selected_key >= receipt_key_index.len()
+        {
+            return Err(EnrolmentError::InvalidWeb(
+                "the web receipt key index or selection is invalid",
+            ));
         }
-        if timeout_ms > MAX_WEB_TIMEOUT_MS {
+        if timeout_ms == 0 || timeout_ms > MAX_WEB_TIMEOUT_MS {
             return Err(EnrolmentError::InvalidWeb(
                 "the web timeout must be 1 to 60,000 milliseconds",
             ));
         }
-        if pending_attempts == 0 {
-            return Err(EnrolmentError::InvalidWeb(
-                "the web pending attempts are zero",
-            ));
-        }
-        if pending_attempts > MAX_WEB_PENDING_ATTEMPTS {
+        if pending_attempts == 0 || pending_attempts > MAX_WEB_PENDING_ATTEMPTS {
             return Err(EnrolmentError::InvalidWeb(
                 "the web pending attempts must be 1 to 10",
             ));
         }
+        let key = &receipt_key_index[selected_key];
+        let receipt_public_key = key.public_key;
+        let (sequencer_id, first, last) = (key.key_id, key.first_height, key.last_height);
+        let authority = WebAuthority::new(
+            payer_address,
+            receiver_address,
+            receipt_key_index,
+            sequencer_id,
+            first,
+            last,
+        )?;
         Ok(Self {
             endpoint,
             network,
-            sequencer_public_key,
+            receipt_public_key,
+            authority: Some(authority),
             timeout_ms,
             pending_attempts,
             approval_threshold,
         })
     }
 
-    fn document(&self) -> Value {
-        json!({
+    /// Narrows the selected receipt range while retaining the enrolled payment authority.
+    ///
+    /// # Errors
+    ///
+    /// Refuses changed payment parties, governed keys, selection, or an expanded range.
+    pub fn with_authority(mut self, authority: WebAuthority) -> Result<Self, EnrolmentError> {
+        if !authority.receipt_key_index.iter().any(|key| {
+            key.key_id == authority.sequencer_id && key.public_key == self.receipt_public_key
+        }) {
+            return Err(EnrolmentError::InvalidWeb(
+                "the selected receipt key differs from the resolved key",
+            ));
+        }
+        let current = self.authority.as_ref().ok_or(EnrolmentError::InvalidWeb(
+            "the web payer, receiver and governed receipt authority are required",
+        ))?;
+        if authority.payer_address != current.payer_address
+            || authority.receiver_address != current.receiver_address
+            || authority.receipt_key_index != current.receipt_key_index
+            || authority.sequencer_id != current.sequencer_id
+            || authority.first_batch_number < current.first_batch_number
+            || authority.last_batch_number > current.last_batch_number
+        {
+            return Err(EnrolmentError::InvalidWeb(
+                "the web authority differs from the enrolled authority",
+            ));
+        }
+        self.authority = Some(authority);
+        Ok(self)
+    }
+
+    fn document(&self) -> Result<Value, EnrolmentError> {
+        let authority = self.authority.as_ref().ok_or(EnrolmentError::InvalidWeb(
+            "the web payer, receiver and governed receipt authority are required",
+        ))?;
+        let receipt_key_index: Vec<Value> = authority
+            .receipt_key_index
+            .iter()
+            .map(|key| {
+                json!({
+                    "keyId": hex::encode(&key.key_id),
+                    "publicKey": hex::encode(&key.public_key),
+                    "firstHeight": key.first_height,
+                    "lastHeight": key.last_height,
+                })
+            })
+            .collect();
+        Ok(json!({
             "endpoint": self.endpoint,
             "network": self.network,
-            "sequencer_public_key": hex::encode(&self.sequencer_public_key),
+            "payer_address": format!("0x{}", hex::encode(&authority.payer_address)),
+            "receiver_address": format!("0x{}", hex::encode(&authority.receiver_address)),
+            "receipt_key_index": receipt_key_index,
+            "sequencer_id": hex::encode(&authority.sequencer_id),
+            "first_batch_number": authority.first_batch_number,
+            "last_batch_number": authority.last_batch_number,
             "timeout_ms": self.timeout_ms,
             "pending_attempts": self.pending_attempts,
             "approval_threshold": self.approval_threshold.to_string(),
-        })
+        }))
     }
 }
 
@@ -450,7 +669,7 @@ pub struct Enrolment {
     session_id: SessionId,
     session_generation: u64,
     capability_id: CapabilityId,
-    core_sequence: u64,
+    core_height: u64,
     token: Zeroizing<[u8; 32]>,
 }
 
@@ -462,7 +681,7 @@ impl fmt::Debug for Enrolment {
             .field("session_id", &hex::encode(&self.session_id.0))
             .field("session_generation", &self.session_generation)
             .field("capability_id", &hex::encode(&self.capability_id.0))
-            .field("core_sequence", &self.core_sequence)
+            .field("core_height", &self.core_height)
             .field("token", &"[redacted]")
             .finish()
     }
@@ -754,7 +973,7 @@ impl BindingPublisher {
             session_id: request.session_id,
             session_generation: record.generation,
             capability_id: request.capability_id,
-            core_sequence: request.core_sequence,
+            core_height: request.core_sequence,
             token: Zeroizing::new(record.request.token_id),
         };
         let binding = self.binding_path();
@@ -795,40 +1014,49 @@ impl BindingPublisher {
         let deadline_ms = u64::try_from(self.deadline.as_millis()).map_err(|_| {
             EnrolmentError::Encoding("the transport deadline exceeds u64 milliseconds")
         })?;
-        let mut document = json!({
-            "mode": self.mode.label(),
-            "tenant": enrolment.tenant.as_str(),
-            "store": path_text(&self.store)?,
-            "audit_root": path_text(&self.audit_root)?,
-            "session_id": hex::encode(&enrolment.session_id.0),
-            "session_token_file": path_text(&self.root.join(SESSION_TOKEN_FILE))?,
-            "session_generation": enrolment.session_generation,
-            "capability_id": hex::encode(&enrolment.capability_id.0),
-            "core_sequence": enrolment.core_sequence,
-            "deadline_ms": deadline_ms,
-            "agent": {
-                "endpoint": self.surface.endpoint,
-                "bearer_file": path_text(&self.root.join(DAEMON_BEARER_FILE))?,
-                "probe_program": hex::encode(&self.surface.probe_program),
+        let document = BindingDocument {
+            mode: self.mode.label().to_owned(),
+            tenant: enrolment.tenant.as_str().to_owned(),
+            store: path_text(&self.store)?.to_owned(),
+            audit_root: path_text(&self.audit_root)?.to_owned(),
+            session_id: hex::encode(&enrolment.session_id.0),
+            session_token_file: path_text(&self.root.join(SESSION_TOKEN_FILE))?.to_owned(),
+            session_generation: enrolment.session_generation,
+            capability_id: hex::encode(&enrolment.capability_id.0),
+            core_height: enrolment.core_height,
+            deadline_ms,
+            agent: AgentDeclaration {
+                endpoint: self.surface.endpoint.clone(),
+                bearer_file: path_text(&self.root.join(DAEMON_BEARER_FILE))?.to_owned(),
+                probe_program: hex::encode(&self.surface.probe_program),
+                readiness: self
+                    .surface
+                    .readiness
+                    .as_ref()
+                    .map(ReadinessDeclaration::transport)
+                    .transpose()?,
             },
-            "limit": {
-                "id": hex::encode(&self.limit.id.0),
-                "name": self.limit.name,
-                "scope": scope,
-                "scope_id": hex::encode(&scope_id),
-                "ceiling": self.limit.ceiling.to_string(),
-                "consumed": self.limit.consumed.to_string(),
+            limit: LimitDeclaration {
+                id: hex::encode(&self.limit.id.0),
+                name: self.limit.name.clone(),
+                scope: scope.to_owned(),
+                scope_id: hex::encode(&scope_id),
+                ceiling: self.limit.ceiling.to_string(),
+                consumed: self.limit.consumed.to_string(),
             },
-        });
-        if let Some(object) = document.as_object_mut() {
-            if let Some(listener) = &self.listener {
-                object.insert("listener".to_owned(), listener.document()?);
-            }
-            if let Some(web) = &self.web {
-                object.insert("web".to_owned(), web.document());
-            }
-        }
-        Ok(document)
+            listener: self
+                .listener
+                .as_ref()
+                .map(ListenerDeclaration::document)
+                .transpose()?,
+            web: self
+                .web
+                .as_ref()
+                .map(WebDeclaration::document)
+                .transpose()?,
+        };
+        serde_json::to_value(document)
+            .map_err(|_| EnrolmentError::Encoding("the binding cannot be encoded"))
     }
 }
 
@@ -963,7 +1191,7 @@ fn open_and_publish(
         session_id: request.session_id,
         session_generation: issued.generation(),
         capability_id: request.capability_id,
-        core_sequence: request.core_sequence,
+        core_height: request.core_sequence,
         token: Zeroizing::new(issued.token_id()),
     };
     drop(issued);
@@ -1079,9 +1307,11 @@ fn read_document(path: &Path) -> Result<Option<Value>, EnrolmentError> {
     }
     let bytes = crate::config::read_protected_source(path, MAX_DOCUMENT_BYTES)
         .map_err(|_| EnrolmentError::InvalidPath("the binding document is not protected"))?;
-    serde_json::from_slice::<Value>(&bytes)
-        .map(Some)
-        .map_err(|_| EnrolmentError::AlreadyPublished(path.to_path_buf()))
+    let document: Value = serde_json::from_slice(&bytes)
+        .map_err(|_| EnrolmentError::AlreadyPublished(path.to_path_buf()))?;
+    serde_json::from_value::<BindingDocument>(document.clone())
+        .map_err(|_| EnrolmentError::AlreadyPublished(path.to_path_buf()))?;
+    Ok(Some(document))
 }
 
 fn create_private(path: &Path, contents: &[u8]) -> Result<(), EnrolmentError> {
@@ -1516,5 +1746,67 @@ impl VerifiedProgramBudgetDenominations {
     #[must_use]
     pub fn source_digest(&self) -> [u8; 32] {
         self.source_digest
+    }
+}
+
+#[cfg(test)]
+mod web_payment_binding_tests {
+    use super::WebDeclaration;
+    use layerx_client::sequencer::ReceiptKeyEntry;
+    use layerx_programs::hex;
+    use serde_json::json;
+
+    #[test]
+    fn web_payment_binding_preserves_the_selected_key_and_complete_governed_index() {
+        let keys = vec![
+            ReceiptKeyEntry {
+                key_id: [1; 32],
+                public_key: [2; 32],
+                first_height: 10,
+                last_height: 20,
+            },
+            ReceiptKeyEntry {
+                key_id: [3; 32],
+                public_key: [4; 32],
+                first_height: 30,
+                last_height: 40,
+            },
+        ];
+        let declaration = WebDeclaration::new(
+            "http://127.0.0.1:4000".to_owned(),
+            "eip155:125".to_owned(),
+            [5; 20],
+            [6; 20],
+            keys.clone(),
+            1,
+            5000,
+            3,
+            100,
+        )
+        .expect("valid governed web declaration");
+        let published = declaration.document().expect("validated web authority");
+        assert_eq!(published["network"], "eip155:125");
+        assert_eq!(
+            published["payer_address"],
+            format!("0x{}", hex::encode(&[5; 20]))
+        );
+        assert_eq!(
+            published["receiver_address"],
+            format!("0x{}", hex::encode(&[6; 20]))
+        );
+        assert_eq!(published["sequencer_id"], hex::encode(&keys[1].key_id));
+        assert_eq!(published["first_batch_number"], 30);
+        assert_eq!(published["last_batch_number"], 40);
+        assert_eq!(
+            published["receipt_key_index"],
+            json!(keys
+                .iter()
+                .map(|key| json!({
+                    "keyId": hex::encode(&key.key_id), "publicKey": hex::encode(&key.public_key),
+                    "firstHeight": key.first_height, "lastHeight": key.last_height,
+                }))
+                .collect::<Vec<_>>())
+        );
+        assert!(published.get("sequencer_public_key").is_none());
     }
 }

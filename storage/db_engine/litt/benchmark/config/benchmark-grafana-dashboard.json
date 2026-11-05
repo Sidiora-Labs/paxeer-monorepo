@@ -1,4 +1,14 @@
 {
+  "__inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
+      "description": "Select the Prometheus datasource that scrapes LittDB benchmark metrics.",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    }
+  ],
   "annotations": {
     "list": [
       {
@@ -24,7 +34,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "denye6lsft2bka"
+        "uid": "${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -112,7 +122,11 @@
           "legendFormat": "{{table}}",
           "range": true,
           "refId": "A",
-          "useBackend": false
+          "useBackend": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
         }
       ],
       "title": "Disk Footprint",
@@ -121,7 +135,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "denye6lsft2bka"
+        "uid": "${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -209,7 +223,11 @@
           "legendFormat": "{{table}}",
           "range": true,
           "refId": "A",
-          "useBackend": false
+          "useBackend": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
         }
       ],
       "title": "Key Count",
@@ -218,7 +236,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "denye6lsft2bka"
+        "uid": "${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -300,18 +318,22 @@
         {
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "rate(litt_bytes_written[$__rate_interval])",
+          "expr": "rate(litt_bytes_written_bytes_total[$__rate_interval])",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "legendFormat": "{{table}}",
           "range": true,
           "refId": "A",
-          "useBackend": false
+          "useBackend": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
         },
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "denye6lsft2bka"
+            "uid": "${DS_PROMETHEUS}"
           },
           "expr": "",
           "hide": false,
@@ -326,7 +348,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "denye6lsft2bka"
+        "uid": "${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -407,13 +429,17 @@
         {
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "rate(litt_keys_written[$__rate_interval])",
+          "expr": "rate(litt_keys_written_total[$__rate_interval])",
           "fullMetaSearch": false,
           "includeNullMetadata": false,
           "legendFormat": "__auto",
           "range": true,
           "refId": "A",
-          "useBackend": false
+          "useBackend": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
         }
       ],
       "title": "Keys Written / Second",
@@ -422,7 +448,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "denye6lsft2bka"
+        "uid": "${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -503,13 +529,17 @@
         {
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "rate(litt_flush_count[$__rate_interval])",
+          "expr": "rate(litt_flush_count_total[$__rate_interval])",
           "fullMetaSearch": false,
           "includeNullMetadata": false,
           "legendFormat": "__auto",
           "range": true,
           "refId": "A",
-          "useBackend": false
+          "useBackend": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
         }
       ],
       "title": "Flushes / Second",
@@ -518,7 +548,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "denye6lsft2bka"
+        "uid": "${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -599,31 +629,65 @@
       "targets": [
         {
           "disableTextWrap": false,
-          "editorMode": "builder",
-          "expr": "litt_write_latency_ms",
+          "editorMode": "code",
+          "expr": "1000 * histogram_quantile(0.5, sum by (table, le) (rate(litt_write_latency_seconds_bucket[$__rate_interval])))",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "{{quantile}}",
+          "legendFormat": "{{table}} p50",
           "range": true,
           "refId": "A",
-          "useBackend": false
+          "useBackend": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
         },
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "denye6lsft2bka"
+            "uid": "${DS_PROMETHEUS}"
           },
           "disableTextWrap": false,
-          "editorMode": "builder",
-          "expr": "avg(litt_write_latency_ms)",
+          "editorMode": "code",
+          "expr": "1000 * sum by (table) (rate(litt_write_latency_seconds_sum[$__rate_interval])) / sum by (table) (rate(litt_write_latency_seconds_count[$__rate_interval]))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "average",
+          "legendFormat": "{{table}} average",
           "range": true,
           "refId": "B",
           "useBackend": false
+        },
+        {
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "expr": "1000 * histogram_quantile(0.9, sum by (table, le) (rate(litt_write_latency_seconds_bucket[$__rate_interval])))",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "legendFormat": "{{table}} p90",
+          "range": true,
+          "refId": "C",
+          "useBackend": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
+        },
+        {
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "expr": "1000 * histogram_quantile(0.99, sum by (table, le) (rate(litt_write_latency_seconds_bucket[$__rate_interval])))",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "legendFormat": "{{table}} p99",
+          "range": true,
+          "refId": "D",
+          "useBackend": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
         }
       ],
       "title": "Write Latency",
@@ -632,7 +696,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "denye6lsft2bka"
+        "uid": "${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -714,30 +778,64 @@
         {
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "litt_flush_latency_ms",
+          "expr": "1000 * histogram_quantile(0.5, sum by (table, le) (rate(litt_flush_latency_seconds_bucket[$__rate_interval])))",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "{{quantile}}",
+          "legendFormat": "{{table}} p50",
           "range": true,
           "refId": "A",
-          "useBackend": false
+          "useBackend": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
         },
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "denye6lsft2bka"
+            "uid": "${DS_PROMETHEUS}"
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "avg(litt_flush_latency_ms)",
+          "expr": "1000 * sum by (table) (rate(litt_flush_latency_seconds_sum[$__rate_interval])) / sum by (table) (rate(litt_flush_latency_seconds_count[$__rate_interval]))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "average",
+          "legendFormat": "{{table}} average",
           "range": true,
           "refId": "B",
           "useBackend": false
+        },
+        {
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "expr": "1000 * histogram_quantile(0.9, sum by (table, le) (rate(litt_flush_latency_seconds_bucket[$__rate_interval])))",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "legendFormat": "{{table}} p90",
+          "range": true,
+          "refId": "C",
+          "useBackend": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
+        },
+        {
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "expr": "1000 * histogram_quantile(0.99, sum by (table, le) (rate(litt_flush_latency_seconds_bucket[$__rate_interval])))",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "legendFormat": "{{table}} p99",
+          "range": true,
+          "refId": "D",
+          "useBackend": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
         }
       ],
       "title": "Flush Latency",
@@ -746,7 +844,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "denye6lsft2bka"
+        "uid": "${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -828,30 +926,64 @@
         {
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "litt_segment_flush_latency_ms",
+          "expr": "1000 * histogram_quantile(0.5, sum by (table, le) (rate(litt_segment_flush_latency_seconds_bucket[$__rate_interval])))",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "{{quantile}}",
+          "legendFormat": "{{table}} p50",
           "range": true,
           "refId": "A",
-          "useBackend": false
+          "useBackend": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
         },
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "denye6lsft2bka"
+            "uid": "${DS_PROMETHEUS}"
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "avg(litt_segment_flush_latency_ms)",
+          "expr": "1000 * sum by (table) (rate(litt_segment_flush_latency_seconds_sum[$__rate_interval])) / sum by (table) (rate(litt_segment_flush_latency_seconds_count[$__rate_interval]))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "average",
+          "legendFormat": "{{table}} average",
           "range": true,
           "refId": "B",
           "useBackend": false
+        },
+        {
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "expr": "1000 * histogram_quantile(0.9, sum by (table, le) (rate(litt_segment_flush_latency_seconds_bucket[$__rate_interval])))",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "legendFormat": "{{table}} p90",
+          "range": true,
+          "refId": "C",
+          "useBackend": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
+        },
+        {
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "expr": "1000 * histogram_quantile(0.99, sum by (table, le) (rate(litt_segment_flush_latency_seconds_bucket[$__rate_interval])))",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "legendFormat": "{{table}} p99",
+          "range": true,
+          "refId": "D",
+          "useBackend": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
         }
       ],
       "title": "Segment Flush Latency",
@@ -860,7 +992,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "denye6lsft2bka"
+        "uid": "${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -942,30 +1074,64 @@
         {
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "litt_keymap_flush_latency_ms",
+          "expr": "1000 * histogram_quantile(0.5, sum by (table, le) (rate(litt_keymap_flush_latency_seconds_bucket[$__rate_interval])))",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "{{quantile}}",
+          "legendFormat": "{{table}} p50",
           "range": true,
           "refId": "A",
-          "useBackend": false
+          "useBackend": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
         },
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "denye6lsft2bka"
+            "uid": "${DS_PROMETHEUS}"
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "avg(litt_keymap_flush_latency_ms)",
+          "expr": "1000 * sum by (table) (rate(litt_keymap_flush_latency_seconds_sum[$__rate_interval])) / sum by (table) (rate(litt_keymap_flush_latency_seconds_count[$__rate_interval]))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "average",
+          "legendFormat": "{{table}} average",
           "range": true,
           "refId": "B",
           "useBackend": false
+        },
+        {
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "expr": "1000 * histogram_quantile(0.9, sum by (table, le) (rate(litt_keymap_flush_latency_seconds_bucket[$__rate_interval])))",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "legendFormat": "{{table}} p90",
+          "range": true,
+          "refId": "C",
+          "useBackend": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
+        },
+        {
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "expr": "1000 * histogram_quantile(0.99, sum by (table, le) (rate(litt_keymap_flush_latency_seconds_bucket[$__rate_interval])))",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "legendFormat": "{{table}} p99",
+          "range": true,
+          "refId": "D",
+          "useBackend": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
         }
       ],
       "title": "Keymap Flush Latency",
@@ -974,7 +1140,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "denye6lsft2bka"
+        "uid": "${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1056,30 +1222,64 @@
         {
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "litt_garbage_collection_latency_ms",
+          "expr": "1000 * histogram_quantile(0.5, sum by (table, le) (rate(litt_garbage_collection_latency_seconds_bucket[$__rate_interval])))",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "{{quantile}}",
+          "legendFormat": "{{table}} p50",
           "range": true,
           "refId": "A",
-          "useBackend": false
+          "useBackend": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
         },
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "denye6lsft2bka"
+            "uid": "${DS_PROMETHEUS}"
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "avg(litt_garbage_collection_latency_ms)",
+          "expr": "1000 * sum by (table) (rate(litt_garbage_collection_latency_seconds_sum[$__rate_interval])) / sum by (table) (rate(litt_garbage_collection_latency_seconds_count[$__rate_interval]))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "average",
+          "legendFormat": "{{table}} average",
           "range": true,
           "refId": "B",
           "useBackend": false
+        },
+        {
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "expr": "1000 * histogram_quantile(0.9, sum by (table, le) (rate(litt_garbage_collection_latency_seconds_bucket[$__rate_interval])))",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "legendFormat": "{{table}} p90",
+          "range": true,
+          "refId": "C",
+          "useBackend": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
+        },
+        {
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "expr": "1000 * histogram_quantile(0.99, sum by (table, le) (rate(litt_garbage_collection_latency_seconds_bucket[$__rate_interval])))",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "legendFormat": "{{table}} p99",
+          "range": true,
+          "refId": "D",
+          "useBackend": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
         }
       ],
       "title": "GC Latency",
@@ -1088,7 +1288,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "denye6lsft2bka"
+        "uid": "${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1169,10 +1369,14 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "rate(litt_bytes_read[$__rate_interval])",
+          "expr": "rate(litt_bytes_read_bytes_total[$__rate_interval])",
           "legendFormat": "{{table}}",
           "range": true,
-          "refId": "A"
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
         }
       ],
       "title": "Bytes Read / Second",
@@ -1181,7 +1385,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "denye6lsft2bka"
+        "uid": "${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1262,10 +1466,14 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "rate(litt_keys_read[$__rate_interval])",
+          "expr": "rate(litt_keys_read_total[$__rate_interval])",
           "legendFormat": "{{table}}",
           "range": true,
-          "refId": "A"
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
         }
       ],
       "title": "Keys Read / Second",
@@ -1274,7 +1482,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "denye6lsft2bka"
+        "uid": "${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1356,30 +1564,64 @@
         {
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "litt_read_latency_ms",
+          "expr": "1000 * histogram_quantile(0.5, sum by (table, le) (rate(litt_read_latency_seconds_bucket[$__rate_interval])))",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "{{quantile}}",
+          "legendFormat": "{{table}} p50",
           "range": true,
           "refId": "A",
-          "useBackend": false
+          "useBackend": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
         },
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "denye6lsft2bka"
+            "uid": "${DS_PROMETHEUS}"
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "avg(litt_read_latency_ms)",
+          "expr": "1000 * sum by (table) (rate(litt_read_latency_seconds_sum[$__rate_interval])) / sum by (table) (rate(litt_read_latency_seconds_count[$__rate_interval]))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "average",
+          "legendFormat": "{{table}} average",
           "range": true,
           "refId": "B",
           "useBackend": false
+        },
+        {
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "expr": "1000 * histogram_quantile(0.9, sum by (table, le) (rate(litt_read_latency_seconds_bucket[$__rate_interval])))",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "legendFormat": "{{table}} p90",
+          "range": true,
+          "refId": "C",
+          "useBackend": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
+        },
+        {
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "expr": "1000 * histogram_quantile(0.99, sum by (table, le) (rate(litt_read_latency_seconds_bucket[$__rate_interval])))",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "legendFormat": "{{table}} p99",
+          "range": true,
+          "refId": "D",
+          "useBackend": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
         }
       ],
       "title": "Read Latency",
@@ -1388,7 +1630,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "denye6lsft2bka"
+        "uid": "${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1469,10 +1711,14 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "rate(litt_cache_hits[$__rate_interval])",
+          "expr": "rate(litt_cache_hits_total[$__rate_interval])",
           "legendFormat": "{{table}}",
           "range": true,
-          "refId": "A"
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
         }
       ],
       "title": "Cache Hits / Second",
@@ -1481,7 +1727,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "denye6lsft2bka"
+        "uid": "${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1562,10 +1808,14 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "rate(litt_cache_misses[$__rate_interval])",
+          "expr": "rate(litt_cache_misses_total[$__rate_interval])",
           "legendFormat": "{{table}}",
           "range": true,
-          "refId": "A"
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
         }
       ],
       "title": "Cache Misses / Second",
@@ -1574,7 +1824,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "denye6lsft2bka"
+        "uid": "${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1656,30 +1906,64 @@
         {
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "litt_cache_miss_latency_ms",
+          "expr": "1000 * histogram_quantile(0.5, sum by (table, le) (rate(litt_cache_miss_latency_seconds_bucket[$__rate_interval])))",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "{{quantile}}",
+          "legendFormat": "{{table}} p50",
           "range": true,
           "refId": "A",
-          "useBackend": false
+          "useBackend": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
         },
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "denye6lsft2bka"
+            "uid": "${DS_PROMETHEUS}"
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "avg(litt_cache_miss_latency_ms)",
+          "expr": "1000 * sum by (table) (rate(litt_cache_miss_latency_seconds_sum[$__rate_interval])) / sum by (table) (rate(litt_cache_miss_latency_seconds_count[$__rate_interval]))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "average",
+          "legendFormat": "{{table}} average",
           "range": true,
           "refId": "B",
           "useBackend": false
+        },
+        {
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "expr": "1000 * histogram_quantile(0.9, sum by (table, le) (rate(litt_cache_miss_latency_seconds_bucket[$__rate_interval])))",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "legendFormat": "{{table}} p90",
+          "range": true,
+          "refId": "C",
+          "useBackend": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
+        },
+        {
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "expr": "1000 * histogram_quantile(0.99, sum by (table, le) (rate(litt_cache_miss_latency_seconds_bucket[$__rate_interval])))",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "legendFormat": "{{table}} p99",
+          "range": true,
+          "refId": "D",
+          "useBackend": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
         }
       ],
       "title": "Cache Miss Latency",
@@ -1688,7 +1972,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "denye6lsft2bka"
+        "uid": "${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1772,7 +2056,11 @@
           "expr": "process_resident_memory_bytes",
           "legendFormat": "__auto",
           "range": true,
-          "refId": "A"
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
         }
       ],
       "title": "Memory",
@@ -1781,7 +2069,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "denye6lsft2bka"
+        "uid": "${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1864,7 +2152,11 @@
           "expr": "rate(process_cpu_seconds_total[$__rate_interval])",
           "legendFormat": "__auto",
           "range": true,
-          "refId": "A"
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
         }
       ],
       "title": "CPU Seconds",
@@ -1873,7 +2165,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "denye6lsft2bka"
+        "uid": "${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1956,7 +2248,11 @@
           "expr": "process_open_fds",
           "legendFormat": "__auto",
           "range": true,
-          "refId": "A"
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
         }
       ],
       "title": "Open File Descriptors",

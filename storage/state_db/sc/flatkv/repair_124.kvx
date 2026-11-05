@@ -1,0 +1,22 @@
+[task.22.31.124]
+mode = "BUILD"
+audit = "22.30.56"
+acceptance = "22998.1"
+baseline = "Not run: explicit gate order prohibits tests before implementation and permits verification only through hf-done; no pre-existing test failure is claimed."
+evidence = "The runner's hf-build/hf-done ledger records the verified candidate revision, exact command, exit code and private log."
+wiring_requests = []
+
+[finding.flatkv-rejected-write]
+test = "TestRepair_124_RejectedWrite"
+proof = "Rejected mixed batch preserves every pending buffer, working and committed hashes, pending changelog and WAL offset with and without earlier pending writes; subsequent accepted work commits, then a stopped store reopens from snapshot plus WAL with identical physical rows and recomputed per-DB/global LtHash."
+
+[finding.flatkv-latest-export]
+tests = ["TestRepair_124_LatestExport", "TestRepair_124_LatestExportComposite"]
+proof = "Exporter(0) emits resolved height H; real composite exporter/importer routes the produced module header and physical leaves to Importer(H), closes and reopens, preserving nonempty logical rows and global hashes; the direct round trip also verifies every per-DB hash and persisted local metadata against full scans."
+
+[qualification.repair]
+observed = "The first verification failed because the new test snapshot converted an empty non-nil pending changeset slice to nil. Use slices.Clone to preserve its representation without weakening equality assertions."
+revision = "614ea4f485da723322037a2798d67a79efd5e5cc"
+command = "cg spec done 22.31.124 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"

@@ -1,10 +1,9 @@
 package types
 
 import (
-	"fmt"
 	"math"
+	"math/big"
 	"sort"
-	"strconv"
 
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 )
@@ -95,13 +94,20 @@ func (pb ExchangeRateBallot) Power() int64 {
 // CONTRACT: ballot must be sorted
 func (pb ExchangeRateBallot) WeightedMedian() sdk.Dec {
 	totalPower := pb.Power()
+	if totalPower == 0 {
+		return sdk.ZeroDec()
+	}
+	halfPower := totalPower/2 + totalPower%2
 	if pb.Len() > 0 {
 		pivot := int64(0)
 		for _, v := range pb {
 			votePower := v.Power
+			if votePower == 0 {
+				continue
+			}
 
 			pivot += votePower
-			if pivot >= (totalPower / 2) {
+			if pivot >= halfPower {
 				return v.ExchangeRate
 			}
 		}
@@ -117,13 +123,20 @@ func (pb ExchangeRateBallot) WeightedMedianWithAssertion() sdk.Dec {
 	}
 
 	totalPower := pb.Power()
+	if totalPower == 0 {
+		return sdk.ZeroDec()
+	}
+	halfPower := totalPower/2 + totalPower%2
 	if pb.Len() > 0 {
 		pivot := int64(0)
 		for _, v := range pb {
 			votePower := v.Power
+			if votePower == 0 {
+				continue
+			}
 
 			pivot += votePower
-			if pivot >= (totalPower / 2) {
+			if pivot >= halfPower {
 				return v.ExchangeRate
 			}
 		}
@@ -131,31 +144,41 @@ func (pb ExchangeRateBallot) WeightedMedianWithAssertion() sdk.Dec {
 	return sdk.ZeroDec()
 }
 
-// StandardDeviation returns the standard deviation by the power of the ExchangeRateVote.
-func (pb ExchangeRateBallot) StandardDeviation(median sdk.Dec) (standardDeviation sdk.Dec) {
-	if len(pb) == 0 {
+// StandardDeviation is the voting-power weighted root mean square distance from
+// the weighted median: sqrt(sum(power * (rate - median)^2) / sum(power)).
+// Zero-power observations are excluded, including their rates. The integer square
+// root rounds down to sdk.Precision decimal places, without intermediate decimal
+// rounding. Invalid inputs or an unrepresentable result panic rather than become
+// a valid zero spread. Positive power must fit the ballot's int64 power contract.
+func (pb ExchangeRateBallot) StandardDeviation(median sdk.Dec) sdk.Dec {
+	if median.IsNil() || !median.IsInValidRange() {
+		panic("oracle deviation: invalid median")
+	}
+	totalPower := int64(0)
+	sum := new(big.Int)
+	for _, vote := range pb {
+		if vote.Power == 0 {
+			continue
+		}
+		if vote.Power < 0 || vote.Power > math.MaxInt64-totalPower {
+			panic("oracle deviation: invalid or overflowing voting power")
+		}
+		if vote.ExchangeRate.IsNil() || !vote.ExchangeRate.IsInValidRange() {
+			panic("oracle deviation: invalid exchange rate")
+		}
+		totalPower += vote.Power
+		deviation := new(big.Int).Sub(vote.ExchangeRate.BigInt(), median.BigInt())
+		squared := new(big.Int).Mul(deviation, deviation)
+		sum.Add(sum, squared.Mul(squared, big.NewInt(vote.Power)))
+	}
+	if totalPower == 0 {
 		return sdk.ZeroDec()
 	}
-
-	defer func() {
-		if e := recover(); e != nil {
-			standardDeviation = sdk.ZeroDec()
-		}
-	}()
-
-	sum := sdk.ZeroDec()
-	for _, v := range pb {
-		deviation := v.ExchangeRate.Sub(median)
-		sum = sum.Add(deviation.Mul(deviation))
-	}
-
-	variance := sum.QuoInt64(int64(len(pb)))
-
-	floatNum, _ := strconv.ParseFloat(variance.String(), 64)
-	floatNum = math.Sqrt(floatNum)
-	standardDeviation, _ = sdk.NewDecFromStr(fmt.Sprintf("%f", floatNum))
-
-	return
+	// Valid rates have at most 315 bits and total power at most 63 bits,
+	// bounding the accumulator to 695 bits even for opposite signed rates.
+	variance := sum.Quo(sum, big.NewInt(totalPower))
+	root := new(big.Int).Sqrt(variance)
+	return sdk.NewDecFromBigIntWithPrec(root, sdk.Precision)
 }
 
 // Len implements sort.Interface

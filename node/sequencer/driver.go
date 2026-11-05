@@ -22,6 +22,9 @@ type DriverConfig struct {
 	NonceQueue      *NonceQueue
 	Metrics         *Metrics
 	WALRetainBlocks uint64
+	ReceiptKey      *ReceiptKey
+	NonceAdmission  *NonceAdmission
+	LeaseHolder     *LeaseHolder
 }
 
 type Driver struct {
@@ -62,6 +65,13 @@ func (d *Driver) OnCommit(height int64, appHash []byte) (err error) {
 	if len(appHash) != 32 {
 		return fmt.Errorf("sequencer: driver app hash is %d bytes, want 32", len(appHash))
 	}
+	if err := d.cfg.App.CheckCommittedAppHash(height, appHash); err != nil {
+		return fmt.Errorf("sequencer: driver commit: %w", err)
+	}
+	committedHash, err := d.cfg.App.CommittedAppHash(height)
+	if err != nil {
+		return fmt.Errorf("sequencer: driver commit: %w", err)
+	}
 	if _, snapshotErr := d.cfg.Executor.Snapshot(); !errors.Is(snapshotErr, ErrLayerNotOpen) {
 		if snapshotErr != nil {
 			return fmt.Errorf("sequencer: driver executor snapshot: %w", snapshotErr)
@@ -77,7 +87,7 @@ func (d *Driver) OnCommit(height int64, appHash []byte) (err error) {
 			d.halted = err
 		}
 	}()
-	committed := &wal.Committed{Height: uint64(height), LastSeq: lastSeq, AppHash: [32]byte(appHash)}
+	committed := &wal.Committed{Height: uint64(height), LastSeq: lastSeq, AppHash: [32]byte(committedHash)}
 	if _, err = d.cfg.Replicator.Release(context.Background(), committed); err != nil {
 		return fmt.Errorf("sequencer: driver release committed: %w", err)
 	}
@@ -88,6 +98,24 @@ func (d *Driver) OnCommit(height int64, appHash []byte) (err error) {
 	}
 	if _, err = d.cfg.Replicator.wal.Prune(retainHeight); err != nil {
 		return fmt.Errorf("sequencer: driver prune: %w", err)
+	}
+	if d.cfg.ReceiptKey != nil {
+		pins, pinErr := d.cfg.App.SequencerKeeper.ReceiptKeyPins(d.cfg.App.GetCheckCtx())
+		if pinErr != nil {
+			return pinErr
+		}
+		if err = d.cfg.ReceiptKey.SetPins(pins); err != nil {
+			return err
+		}
+		id, pinErr := d.cfg.ReceiptKey.KeyID(height + 1)
+		if pinErr != nil {
+			return pinErr
+		}
+		if d.cfg.LeaseHolder != nil {
+			d.cfg.LeaseHolder.mu.Lock()
+			d.cfg.LeaseHolder.keyID = id
+			d.cfg.LeaseHolder.mu.Unlock()
+		}
 	}
 	openTime := time.Now().UnixMilli()
 	if err = d.cfg.Executor.Open(height+1, openTime); err != nil {
@@ -106,10 +134,14 @@ func (d *Driver) OnCommit(height int64, appHash []byte) (err error) {
 	}
 	if _, err = d.cfg.Replicator.Release(context.Background(), &wal.Open{
 		Height: uint64(height + 1), OpenTimeMs: uint64(openTime), BaseFee: fee,
+		ProposerAddress: baseSequential(d.cfg.Executor.Executor).proposer,
 	}); err != nil {
 		return fmt.Errorf("sequencer: driver release open at height %d: %w", height+1, err)
 	}
 	d.cfg.NonceQueue.Sealed()
+	if d.cfg.NonceAdmission != nil {
+		d.cfg.NonceAdmission.Open(time.Now())
+	}
 	d.cfg.Metrics.SetOpenSeq(lastSeq)
 	return nil
 }

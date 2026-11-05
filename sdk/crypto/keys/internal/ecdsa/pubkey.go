@@ -104,5 +104,6 @@ func (pk *PubKey) Unmarshal(bz []byte, curve elliptic.Curve, expectedSize int) e
 		return errors.Wrapf(errors.ErrInvalidPubKey, "wrong ECDSA PK bytes, unknown curve type: %d", bz[0])
 	}
 	pk.PublicKey = cpk
+	pk.address = nil
 	return nil
 }

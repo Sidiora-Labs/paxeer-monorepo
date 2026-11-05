@@ -1,0 +1,243 @@
+[reconcile.r14-188]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 30
+
+[row.r14-188.1]
+interface = "interface.14.ts-web-api-generated-index-decodeprogramupgradefacts"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4272
+symbol = "decodeProgramUpgradeFacts"
+evidence = "Declaration matches registered signature: export function decodeProgramUpgradeFacts(value: JsonValue | undefined, at: string): ProgramUpgradeFacts. Registered line 3969 has drifted to 4272. The occurrence at 4028 calls this decoder for the upgrade field."
+
+[row.r14-188.2]
+interface = "interface.14.ts-web-api-generated-index-decodeprogramupgradepolicyfacts"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4308
+symbol = "decodeProgramUpgradePolicyFacts"
+evidence = "Declaration matches registered signature: export function decodeProgramUpgradePolicyFacts(value: JsonValue | undefined, at: string): ProgramUpgradePolicyFacts. Registered line 4005 has drifted to 4308. The occurrence at 4239 calls this decoder for the policy field."
+
+[row.r14-188.3]
+interface = "interface.14.ts-web-api-generated-index-decodeprotocolfreshness"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4405
+symbol = "decodeProtocolFreshness"
+evidence = "Declaration matches registered signature: export function decodeProtocolFreshness(value: JsonValue | undefined, at: string): ProtocolFreshness. Registered line 4102 has drifted to 4405. The occurrence at 704 calls this decoder for the freshness field."
+
+[row.r14-188.4]
+interface = "interface.14.ts-web-api-generated-index-decoderefusal"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4467
+symbol = "decodeRefusal"
+evidence = "Declaration matches registered signature: export function decodeRefusal(value: JsonValue | undefined, at: string): Refusal. Registered line 4164 has drifted to 4467. Occurrences at 1183, 2607 and 3315 call this decoder for refusal fields."
+
+[row.r14-188.5]
+interface = "interface.14.ts-web-api-generated-index-decodeschemaversion"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4529
+symbol = "decodeSchemaVersion"
+evidence = "Declaration matches registered signature: export function decodeSchemaVersion(value: JsonValue | undefined, at: string): SchemaVersion. Registered line 4226 has drifted to 4529. The occurrence at 5375 calls this decoder for the version schema field."
+
+[row.r14-188.6]
+interface = "interface.14.ts-web-api-generated-index-decodesecurityaction"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4550
+symbol = "decodeSecurityAction"
+evidence = "Declaration matches registered signature: export function decodeSecurityAction(value: JsonValue | undefined, at: string): SecurityAction. Registered line 4247 has drifted to 4550. Occurrences at 6143 and 6225 decode API responses by calling this function."
+
+[row.r14-188.7]
+interface = "interface.14.ts-web-api-generated-index-decodesession"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4703
+symbol = "decodeSession"
+evidence = "Declaration matches registered signature: export function decodeSession(value: JsonValue | undefined, at: string): Session. Registered line 4400 has drifted to 4703. The occurrence at 4755 passes this decoder to decodeArray; 6249 and 6251 call it for session responses."
+
+[row.r14-188.8]
+interface = "interface.14.ts-web-api-generated-index-decodesessiondevice"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4731
+symbol = "decodeSessionDevice"
+evidence = "Declaration matches registered signature: export function decodeSessionDevice(value: JsonValue | undefined, at: string): SessionDevice. Registered line 4428 has drifted to 4731. The occurrence at 4778 calls this decoder for the device field."
+
+[row.r14-188.9]
+interface = "interface.14.ts-web-api-generated-index-decodesessionlist"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4752
+symbol = "decodeSessionList"
+evidence = "Declaration matches registered signature: export function decodeSessionList(value: JsonValue | undefined, at: string): SessionList. Registered line 4449 has drifted to 4752. The occurrence at 6247 calls this decoder for the session.list response."
+
+[row.r14-188.10]
+interface = "interface.14.ts-web-api-generated-index-decodesessionrevocation"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4798
+symbol = "decodeSessionRevocation"
+evidence = "Declaration matches registered signature: export function decodeSessionRevocation(value: JsonValue | undefined, at: string): SessionRevocation. Registered line 4495 has drifted to 4798. Occurrences at 6241, 6243, 6253 and 6255 call this decoder for revocation responses."
+
+[row.r14-188.11]
+interface = "interface.14.ts-web-api-generated-index-decodespendlimit"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4821
+symbol = "decodeSpendLimit"
+evidence = "Declaration matches registered signature: export function decodeSpendLimit(value: JsonValue | undefined, at: string): SpendLimit. Registered line 4518 has drifted to 4821. The occurrence at 1074 calls this decoder for the agent limit field."
+
+[row.r14-188.12]
+interface = "interface.14.ts-web-api-generated-index-decodestepupchallenge"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4847
+symbol = "decodeStepUpChallenge"
+evidence = "Declaration matches registered signature: export function decodeStepUpChallenge(value: JsonValue | undefined, at: string): StepUpChallenge. Registered line 4544 has drifted to 4847. The occurrence at 6257 calls this decoder for the stepup.begin response."
+
+[row.r14-188.13]
+interface = "interface.14.ts-web-api-generated-index-decodestreamevent"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4947
+symbol = "decodeStreamEvent"
+evidence = "Declaration matches registered signature: export function decodeStreamEvent(value: JsonValue | undefined, at: string): StreamEvent. Registered line 4644 has drifted to 4947. The occurrence at 4998 passes this decoder to decodeArray for stream events."
+
+[row.r14-188.14]
+interface = "interface.14.ts-web-api-generated-index-decodestreampage"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4995
+symbol = "decodeStreamPage"
+evidence = "Declaration matches registered signature: export function decodeStreamPage(value: JsonValue | undefined, at: string): StreamPage. Registered line 4692 has drifted to 4995. Occurrences at 5868 and 6261 call this decoder for stream page responses."
+
+[row.r14-188.15]
+interface = "interface.14.ts-web-api-generated-index-decodestreamposition"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5016
+symbol = "decodeStreamPosition"
+evidence = "Declaration matches registered signature: export function decodeStreamPosition(value: JsonValue | undefined, at: string): StreamPosition. Registered line 4713 has drifted to 5016. The occurrence at 6263 calls this decoder for the stream.open response."
+
+[row.r14-188.16]
+interface = "interface.14.ts-web-api-generated-index-decodesupportconversation"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5074
+symbol = "decodeSupportConversation"
+evidence = "Declaration matches registered signature: export function decodeSupportConversation(value: JsonValue | undefined, at: string): SupportConversation. Registered line 4771 has drifted to 5074. The occurrence at 5114 passes this decoder to decodeArray; 6265, 6267 and 6273 call it for support responses."
+
+[row.r14-188.17]
+interface = "interface.14.ts-web-api-generated-index-decodesupportconversationpage"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5111
+symbol = "decodeSupportConversationPage"
+evidence = "Declaration matches registered signature: export function decodeSupportConversationPage(value: JsonValue | undefined, at: string): SupportConversationPage. Registered line 4808 has drifted to 5111. The occurrence at 6269 calls this decoder for the support.list response."
+
+[row.r14-188.18]
+interface = "interface.14.ts-web-api-generated-index-decodesupportconversationstatus"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5133
+symbol = "decodeSupportConversationStatus"
+evidence = "Declaration matches registered signature: export function decodeSupportConversationStatus(value: JsonValue | undefined, at: string): SupportConversationStatus. Registered line 4830 has drifted to 5133. Occurrences at 6271 and 6275 call this decoder for support read and status responses."
+
+[row.r14-188.19]
+interface = "interface.14.ts-web-api-generated-index-decodesupportfeedback"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5196
+symbol = "decodeSupportFeedback"
+evidence = "Declaration matches registered signature: export function decodeSupportFeedback(value: JsonValue | undefined, at: string): SupportFeedback. Registered line 4893 has drifted to 5196. The occurrence at 5083 passes this decoder to decodeArray for conversation feedback."
+
+[row.r14-188.20]
+interface = "interface.14.ts-web-api-generated-index-decodesupportmessage"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5246
+symbol = "decodeSupportMessage"
+evidence = "Declaration matches registered signature: export function decodeSupportMessage(value: JsonValue | undefined, at: string): SupportMessage. Registered line 4943 has drifted to 5246. The occurrence at 5082 passes this decoder to decodeArray for conversation messages."
+
+[row.r14-188.21]
+interface = "interface.14.ts-web-api-generated-index-decodetimedsecret"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5319
+symbol = "decodeTimedSecret"
+evidence = "Declaration matches registered signature: export function decodeTimedSecret(value: JsonValue | undefined, at: string): TimedSecret. Registered line 5016 has drifted to 5319. Occurrences at 1640, 1641 and 2236 decode nested secrets; 6239 calls this decoder for the recovery response."
+
+[row.r14-188.22]
+interface = "interface.14.ts-web-api-generated-index-decodeverifiedmoney"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5344
+symbol = "decodeVerifiedMoney"
+evidence = "Declaration matches registered signature: export function decodeVerifiedMoney(value: JsonValue | undefined, at: string): VerifiedMoney. Registered line 5040 has drifted to 5344. Occurrences at 1437 and 1536 call this decoder for budget_remaining_after fields."
+
+[row.r14-188.23]
+interface = "interface.14.ts-web-api-generated-index-decodeversioninfo"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5372
+symbol = "decodeVersionInfo"
+evidence = "Declaration matches registered signature: export function decodeVersionInfo(value: JsonValue | undefined, at: string): VersionInfo. Registered line 5062 has drifted to 5372. The occurrence at 6277 calls this decoder for the version response."
+
+[row.r14-188.24]
+interface = "interface.14.ts-web-api-generated-index-decodewalletsignrequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5441
+symbol = "decodeWalletSignRequest"
+evidence = "Declaration matches registered signature: export function decodeWalletSignRequest(value: JsonValue | undefined, at: string): WalletSignRequest. Registered line 5127 has drifted to 5441. Occurrences at 1186, 2610 and 3318 call this decoder for wallet_request fields."
+
+[row.r14-188.25]
+interface = "interface.14.ts-web-api-generated-index-depositconfirmrequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1902
+symbol = "DepositConfirmRequest"
+evidence = "Declaration matches registered signature: export interface DepositConfirmRequest. Registered line 1807 has drifted to 1902. This interface declares wallet_transaction and optional settlement_domain; occurrences at 1907, 1909 and 1918 are codec type uses."
+
+[row.r14-188.26]
+interface = "interface.14.ts-web-api-generated-index-depositstartrequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1928
+symbol = "DepositStartRequest"
+evidence = "Declaration matches registered signature: export interface DepositStartRequest. Registered line 1833 has drifted to 1928. This interface declares money and optional settlement_domain; occurrences at 1933, 1935 and 1944 are codec type uses."
+
+[row.r14-188.27]
+interface = "interface.14.ts-web-api-generated-index-device"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1954
+symbol = "Device"
+evidence = "Declaration matches registered signature: export interface Device. Registered line 1859 has drifted to 1954. This interface declares device_id, label and platform; occurrences at 1960, 1962, 1970 and 4697 are type uses."
+
+[row.r14-188.28]
+interface = "interface.14.ts-web-api-generated-index-empty"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1979
+symbol = "Empty"
+evidence = "Declaration matches registered signature: export type Empty = Record<string, never>;. Registered line 1884 has drifted to 1979. This is the Record<string, never> type alias; occurrences at 1981 and 1986 are codec type uses, and later quoted names are operation metadata."
+
+[row.r14-188.29]
+interface = "interface.14.ts-web-api-generated-index-encodeagentlimitrequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1229
+symbol = "encodeAgentLimitRequest"
+evidence = "Declaration matches registered signature: export function encodeAgentLimitRequest(value: AgentLimitRequest): JsonValue. Registered line 1141 has drifted to 1229. This encoder serializes monthly_limit; the occurrence at 6129 calls it for the agent.limit request."
+
+[row.r14-188.30]
+interface = "interface.14.ts-web-api-generated-index-encodeagentreclaimrequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1270
+symbol = "encodeAgentReclaimRequest"
+evidence = "Declaration matches registered signature: export function encodeAgentReclaimRequest(value: AgentReclaimRequest): JsonValue. Registered line 1182 has drifted to 1270. This encoder serializes money; the occurrence at 6135 calls it for the agent.reclaim request."

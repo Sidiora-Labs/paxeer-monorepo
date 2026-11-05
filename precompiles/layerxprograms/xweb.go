@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"sync"
 
-	custodytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/types"
+	ledgertypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	xwebkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/xweb/keeper"
 	xwebtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/xweb/types"
@@ -70,16 +71,19 @@ func callWithWebRequests(ctx sdk.Context, p *PrecompileExecutor, call callContex
 		if keeper != nil {
 			denom, found = keeper.ProgramFeeDenom(cached, xwebtypes.Hash32(leg.Asset))
 		}
-		if !found && p.assets != nil {
-			if asset, mapped := p.assets.GetAsset(cached, leg.Asset); mapped {
-				denom = asset.Denom
+		if !found {
+			if _, err := p.host.ReadAsset(cached, leg.Asset); err != nil {
+				return nil, err
 			}
+			denom = ledgertypes.MirrorDenom(leg.Asset)
 		}
 		programCall.Legs = append(programCall.Legs, xwebkeeper.ProgramLeg{From: lxphost.BankAddress(leg.From), To: lxphost.BankAddress(leg.To), Asset: xwebtypes.Hash32(leg.Asset), Denom: denom, Amount: leg.Amount})
 	}
 	if err := commitWebRequestReceipt(cached, p, programCall, receipt); err != nil {
 		return nil, err
 	}
+	// Preserve the canonical terminal frame and its transfer evidence. The call's
+	// responseCapacity bounds nested guest bytes, as specified in response.md.
 	output, err := method.Outputs.Pack(outcome.Status, outcome.Kind, outcome.Response)
 	if err != nil {
 		return nil, err
@@ -94,19 +98,20 @@ func callWithWebRequests(ctx sdk.Context, p *PrecompileExecutor, call callContex
 
 type xwebContextKey struct{}
 
-type assetDenoms interface {
-	GetAsset(ctx sdk.Context, assetID [32]byte) (custodytypes.AssetMapping, bool)
-}
-
-func configureXWeb(p *PrecompileExecutor, keeper *xwebkeeper.Keeper) {
+var webHandlers = sync.OnceValue(func() handlerTable {
 	table := make(handlerTable, len(handlers))
 	for name, h := range handlers {
 		table[name] = h
 	}
 	table["call"] = func(ctx sdk.Context, p *PrecompileExecutor, call callContext, args []interface{}) ([]byte, error) {
-		return callWithWebRequests(ctx.WithValue(xwebContextKey{}, keeper), p, call, args)
+		return callWithWebRequests(ctx.WithValue(xwebContextKey{}, p.xweb), p, call, args)
 	}
-	p.handlers = table
+	return table
+})
+
+func configureXWeb(p *PrecompileExecutor, keeper *xwebkeeper.Keeper) {
+	p.xweb = keeper
+	p.handlers = webHandlers()
 }
 
 func commitWebRequestReceipt(ctx sdk.Context, p *PrecompileExecutor, call *xwebkeeper.ProgramCall, receipt lxphost.Receipt) error {

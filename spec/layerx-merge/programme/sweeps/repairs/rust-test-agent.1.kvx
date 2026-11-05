@@ -1,0 +1,7 @@
+[repair.rust-test-agent.1]
+target = "layerx-types"
+command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-types --no-fail-fast -- --skip repository_corpora_are_loaded_and_fully_accounted"
+revision = "3d064690ec6e285d88975480f79478a229715952"
+result = "repaired"
+change = "services/agent/crates/layerx-types/tests/vectors.rs generates isolated replay inputs with the real codec producer before the unsupported-version and unknown-class rejection tests, preserving their assertions."
+producer_input_tests = ["vectors::repository_corpora_are_loaded_and_fully_accounted requires tests/vectors/codec/replay_corpus.lxb emitted by tests/vectors/codec/generate.py from scripts/replica/lxp_replay_fixture.py and include/layerx/*.h, alongside tests/vectors/codec/valid.lxv, tests/vectors/codec/adversarial.lxv and tests/vectors/qualification_replay_10m.digest"]

@@ -1,0 +1,67 @@
+[meta]
+task = "22.33.685"
+audit = "22.30.167"
+mode = "BUILD"
+base_revision = "3d966cec5ca7ad40ba94c2b73620d43c7316db5a"
+continued_revision = "d695f49f1665d034d4861a3cc8c376b135ae9dbd"
+continuation = "Preserve attempt 1 documentation and real keeper tests; additionally assert the worked slash ratios, allocation accounting totals and withdrawal parameter types before qualifying on the new base. Historical qualification below describes the prior attempt only."
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit code and private log; this record is not a claim of qualification."
+baseline = "No TestRepairM_685_* tests existed on the starting tree, and no prior gate ledger existed; the unchanged-tree verify was not run because the explicit gate order forbids verification before the complete implementation and hf-build. No baseline failures are claimed."
+wiring_requests = []
+
+[finding.dist-state-doc]
+test = "TestRepairM_685_State"
+repair = "Document variable address lengths, every real prefix/value codec and mixed period endianness; prove raw keeper writes and codec-mediated export/import through a fresh real store."
+
+[finding.dist-proposer-doc]
+test = "TestRepairM_685_Proposer"
+repair = "Document zero defaults, empty Autobahn votes and full community-pool allocation; prove height-one behavior, header codec and in-process ABCI consumption and the contrasting nonzero-power allocation with real keepers."
+
+[finding.dist-slash-doc]
+test = "TestRepairM_685_Slash"
+repair = "Document surviving stake and additive rewards with a worked two-slash withdrawal; prove staking Slash through distribution hooks, historical store records, reward withdrawal and bank payout."
+
+[finding.dist-events-doc]
+test = "TestRepairM_685_Events"
+repair = "Publish exact decimal amount attributes from a labelled non-default allocation and full protobuf action URLs; prove allocation events and all four registered message operations through codec and BaseApp.RunMsgs."
+
+[finding.dist-params-doc]
+test = "TestRepairM_685_Params"
+repair = "Document zero defaults, inclusive individual bounds and full-set validation at keeper/governance boundaries; prove real parameter storage, each boundary, rejection without partial writes and the non-default example."
+
+[gotcha.baseline-order]
+observed = "The embedded baseline step contradicts the explicit implementation/build/verify order and one-run gate budget."
+resolution = "Follow the explicit order; record that the baseline was not run instead of claiming nonexistent evidence."
+
+[gotcha.internal-consensus]
+observed = "Go internal visibility prevents sdk/x/distribution from importing consensus/internal/p2p."
+resolution = "For this documentation-only repair, assert the real executeBlock request's empty CommitInfo using Go AST and exercise the documented header codec and in-process ABCI keeper consumer; the consensus change is explanatory commentary only."
+
+[qualification.external_cli_compile]
+revision = "d523393591883e2d617138f485484efd132d36a5"
+command = "go build ./sdk/x/distribution/..."
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "Out-of-scope auth, staking and tokenfactory CLI callers use the two-result NewFactoryCLI as a single result; hf-done refuses to execute until hf-build passes."
+assumption = "These untouched dependency callers must be repaired by their owning domains; no test execution or completion is claimed."
+
+[wiring.external_cli_compile]
+auth = "sdk/x/auth/client/cli/{tx_multisign.go,tx_sign.go,validate_sigs.go}: Cosmos fork domain owns handling the Factory,error return from sdk/client/tx.NewFactoryCLI."
+staking = "sdk/x/staking/client/cli/tx.go: Cosmos fork staking domain owns handling the Factory,error return from sdk/client/tx.NewFactoryCLI."
+tokenfactory = "modules/tokenfactory/client/cli/tx.go: Tokenfactory domain owns handling the Factory,error return from sdk/client/tx.NewFactoryCLI."
+
+[gotcha.codec_interface]
+observed = "sdk.Msg and proto.Message do not expose the concrete ProtoMarshaler methods required by ProtoCodec.MustMarshal and Unmarshal."
+resolution = "Transport message interfaces through MarshalInterface and UnmarshalInterface; assert the decoded real message before BaseApp dispatch."
+
+[gotcha.plain_abci_request]
+observed = "The continued test assumed RequestFinalizeBlock was protobuf, but it is a plain Go request with a pointer to a protobuf header."
+resolution = "Use the real header codec and pointer-valued request consumed in process; retain the empty-vote and complete allocation assertions."
+
+[qualification.continuation_test_compile]
+revision = "89b37a5d87d776be4a3b3f2aa6fc6898c0516a19"
+command = "cg spec done 22.33.685 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The proposer test did not compile because the current ABCI request has a header pointer and no protobuf marshal methods."
+assumption = "The task-scoped correction uses the actual in-process request shape and protobuf header codec before rerunning both gates."

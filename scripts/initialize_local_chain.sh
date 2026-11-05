@@ -19,7 +19,8 @@ if ! command -v "$PYTHON_CMD" &> /dev/null; then
     echo "python3 or python is required" >&2
     exit 1
 fi
-PAX_HOME=$("$PYTHON_CMD" -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$PAX_HOME")
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PAX_HOME=$(bash "$SCRIPT_DIR/maintenance.sh" validate-local-home "$HOME" "$PAX_HOME")
 case "$PAX_HOME" in
     "$HOME"/*) ;;
     *) echo "PAX_HOME must resolve to a directory below HOME" >&2; exit 1 ;;
@@ -173,25 +174,21 @@ fi
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
   sed -i 's/mode = "full"/mode = "validator"/g' "$CONFIG_PATH"
   sed -i 's/indexer = \["null"\]/indexer = \["kv"\]/g' "$CONFIG_PATH"
-  sed -i 's/timeout_prevote =.*/timeout_prevote = "2000ms"/g' "$CONFIG_PATH"
-  sed -i 's/timeout_precommit =.*/timeout_precommit = "2000ms"/g' "$CONFIG_PATH"
-  sed -i 's/timeout_commit =.*/timeout_commit = "2000ms"/g' "$CONFIG_PATH"
-  sed -i 's/skip_timeout_commit =.*/skip_timeout_commit = false/g' "$CONFIG_PATH"
+  bash "$SCRIPT_DIR/maintenance.sh" consensus-config "$CONFIG_PATH"
 elif [[ "$OSTYPE" == "darwin"* ]]; then
   sed -i '' 's/mode = "full"/mode = "validator"/g' "$CONFIG_PATH"
   sed -i '' 's/indexer = \["null"\]/indexer = \["kv"\]/g' "$CONFIG_PATH"
   sed -i '' 's/unsafe-propose-timeout-override =.*/unsafe-propose-timeout-override = "2s"/g' "$CONFIG_PATH"
   sed -i '' 's/unsafe-propose-timeout-delta-override =.*/unsafe-propose-timeout-delta-override = "2s"/g' "$CONFIG_PATH"
-  sed -i '' 's/unsafe-vote-timeout-override =.*/unsafe-vote-timeout-override = "2s"/g' "$CONFIG_PATH"
   sed -i '' 's/unsafe-vote-timeout-delta-override =.*/unsafe-vote-timeout-delta-override = "2s"/g' "$CONFIG_PATH"
-  sed -i '' 's/unsafe-commit-timeout-override =.*/unsafe-commit-timeout-override = "2s"/g' "$CONFIG_PATH"
+  bash "$SCRIPT_DIR/maintenance.sh" consensus-config "$CONFIG_PATH"
 else
   printf "Platform not supported, please ensure that the following values are set in your config.toml:\n"
   printf "###         Consensus Configuration Options         ###\n"
-  printf "\t timeout_prevote = \"2000ms\"\n"
-  printf "\t timeout_precommit = \"2000ms\"\n"
-  printf "\t timeout_commit = \"2000ms\"\n"
-  printf "\t skip_timeout_commit = false\n"
+  printf "\t unsafe-vote-timeout-override = \"2s\"\n"
+  printf "\t unsafe-vote-timeout-delta-override = \"2s\"\n"
+  printf "\t unsafe-commit-timeout-override = \"2s\"\n"
+  printf "\t unsafe-bypass-commit-timeout-override = false\n"
   exit 1
 fi
 

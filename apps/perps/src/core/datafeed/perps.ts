@@ -3,7 +3,7 @@ import { activePoll } from "@/core/net/realtime";
 /**
  * UDF-compatible datafeed for TradingView — HyperPax / Sidiora candle stack.
  *
- * Historical bars (`getBars`) read the 18 per-symbol UDF REST endpoints
+ * Historical bars (`getBars`) read catalog-listed per-symbol UDF REST endpoints
  * directly through data.feed.chainflowtrading.com, using the browser Origin.
  *
  * Live bars (`subscribeBars`) come over WebSocket whenever the symbol has
@@ -35,7 +35,11 @@ import {
   type SidPaxCandle,
 } from "@/hooks/perps/useSidPaxMarketStream";
 
-import { candleFeedUrl, FEED_SYMBOLS } from "@/core/feeds";
+import {
+  candleFeedUrl,
+  getCandleFeedSymbols,
+  normalizeFeedSymbol,
+} from "@/core/feeds";
 
 // Read the public gateway directly. App-domain /api routing must not be a
 // dependency for charts. Browser Origin authorizes these keyless requests.
@@ -57,6 +61,12 @@ function candleToBar(c: SidPaxCandle): Bar {
   };
 }
 
+function barSeriesKey(symbol: string, resolution: ResolutionString): string {
+  const interval =
+    tvResolutionToKlineInterval(String(resolution)) ?? String(resolution);
+  return `${normalizeFeedSymbol(symbol)}:${interval}`;
+}
+
 export class PerpsDatafeed implements IBasicDataFeed {
   private lastBarCache: Record<string, Bar> = {};
   private subscribers: Record<string, BarSubscription> = {};
@@ -66,18 +76,34 @@ export class PerpsDatafeed implements IBasicDataFeed {
     // Kept in sync with `INTERVALS` in `Chart.tsx` and
     // `tvResolutionToKlineInterval` in `useSidPaxMarketStream.ts`.
     const DEFAULT_RESOLUTIONS = [
-      "1", "2", "3", "5", "15", "30", "60", "240", "480", "D", "W",
+      "1",
+      "2",
+      "3",
+      "5",
+      "15",
+      "30",
+      "60",
+      "240",
+      "480",
+      "D",
+      "W",
     ] as ResolutionString[];
 
-    fetch(candleFeedUrl("config"))
+    Promise.resolve()
+      .then(() => fetch(candleFeedUrl("config")))
       .then((r) => r.json())
       .then((cfg) => {
-        setTimeout(() => callback({
-          supported_resolutions: cfg.supported_resolutions ?? DEFAULT_RESOLUTIONS,
-          supports_marks: cfg.supports_marks ?? false,
-          supports_time: cfg.supports_time ?? true,
-          supports_timescale_marks: cfg.supports_timescale_marks ?? false,
-        }), 0);
+        setTimeout(
+          () =>
+            callback({
+              supported_resolutions:
+                cfg.supported_resolutions ?? DEFAULT_RESOLUTIONS,
+              supports_marks: cfg.supports_marks ?? false,
+              supports_time: cfg.supports_time ?? true,
+              supports_timescale_marks: cfg.supports_timescale_marks ?? false,
+            }),
+          0,
+        );
       })
       .catch(() => {
         setTimeout(
@@ -88,7 +114,7 @@ export class PerpsDatafeed implements IBasicDataFeed {
               supports_time: true,
               supports_timescale_marks: false,
             }),
-          0
+          0,
         );
       });
   }
@@ -97,28 +123,48 @@ export class PerpsDatafeed implements IBasicDataFeed {
     userInput: string,
     _exchange: string,
     _symbolType: string,
-    onResult: SearchSymbolsCallback
+    onResult: SearchSymbolsCallback,
   ): void {
-    const matches = FEED_SYMBOLS.filter(symbol => symbol.includes(userInput.toUpperCase())).map(symbol => ({
-      symbol, ticker: symbol, full_name: symbol, description: symbol, exchange: "HyperPax", type: "crypto",
-    }));
+    const matches = getCandleFeedSymbols()
+      .filter((symbol) => symbol.includes(userInput.toUpperCase()))
+      .map((symbol) => ({
+        symbol,
+        ticker: symbol,
+        full_name: symbol,
+        description: symbol,
+        exchange: "HyperPax",
+        type: "crypto",
+      }));
     setTimeout(() => onResult(matches), 0);
   }
 
   resolveSymbol(
     symbolName: string,
     onResolve: ResolveCallback,
-    onError: DatafeedErrorCallback
+    onError: DatafeedErrorCallback,
   ): void {
     let url: string;
-    try { url = candleFeedUrl("symbols", symbolName); }
-    catch (error) { setTimeout(() => onError(String(error)), 0); return; }
+    try {
+      url = candleFeedUrl("symbols", symbolName);
+    } catch (error) {
+      setTimeout(() => onError(String(error)), 0);
+      return;
+    }
     fetch(url)
       .then((r) => {
         if (!r.ok) throw new Error(`Symbol not found: ${symbolName}`);
         return r.json();
       })
       .then((data) => {
+        const producerSymbol = data.ticker ?? data.name;
+        if (
+          data.s === "error" ||
+          typeof producerSymbol !== "string" ||
+          normalizeFeedSymbol(producerSymbol) !==
+            normalizeFeedSymbol(symbolName)
+        ) {
+          throw new Error(`Producer has no candle feed for ${symbolName}`);
+        }
         const symbolInfo: LibrarySymbolInfo = {
           name: data.name || symbolName,
           ticker: data.ticker || symbolName,
@@ -127,19 +173,33 @@ export class PerpsDatafeed implements IBasicDataFeed {
           session: data.session || "24x7",
           exchange: data.exchange || "HyperPax",
           listed_exchange: data.listed_exchange || "HyperPax",
-          timezone: (data.timezone || "Etc/UTC") as LibrarySymbolInfo["timezone"],
+          timezone: (data.timezone ||
+            "Etc/UTC") as LibrarySymbolInfo["timezone"],
           format: data.format || "price",
           pricescale: data.pricescale || 100,
           minmov: data.minmov || 1,
           has_intraday: data.has_intraday !== false,
           has_daily: data.has_daily !== false,
           has_weekly_and_monthly: data.has_weekly_and_monthly !== false,
-          supported_resolutions: data.supported_resolutions || (["1", "5", "15", "30", "60", "240", "D", "W"] as ResolutionString[]),
+          supported_resolutions:
+            data.supported_resolutions ||
+            ([
+              "1",
+              "5",
+              "15",
+              "30",
+              "60",
+              "240",
+              "D",
+              "W",
+            ] as ResolutionString[]),
           data_status: data.data_status || "streaming",
         };
         onResolve(symbolInfo);
       })
-      .catch((err) => onError(err.message));
+      .catch((err) =>
+        onError(`Candle feed unavailable for ${symbolName}: ${err.message}`),
+      );
   }
 
   getBars(
@@ -147,9 +207,13 @@ export class PerpsDatafeed implements IBasicDataFeed {
     resolution: ResolutionString,
     periodParams: PeriodParams,
     onResult: HistoryCallback,
-    onError: DatafeedErrorCallback
+    onError: DatafeedErrorCallback,
   ): void {
     const { from, to, countBack } = periodParams;
+    const seriesKey = barSeriesKey(
+      symbolInfo.ticker ?? symbolInfo.name,
+      resolution,
+    );
     const qs = new URLSearchParams({
       symbol: symbolInfo.ticker ?? symbolInfo.name,
       resolution: String(resolution),
@@ -159,8 +223,12 @@ export class PerpsDatafeed implements IBasicDataFeed {
     if (countBack) qs.set("countback", String(countBack));
 
     let url: string;
-    try { url = candleFeedUrl("history", symbolInfo.ticker ?? symbolInfo.name, qs); }
-    catch (error) { setTimeout(() => onError(String(error)), 0); return; }
+    try {
+      url = candleFeedUrl("history", symbolInfo.ticker ?? symbolInfo.name, qs);
+    } catch (error) {
+      setTimeout(() => onError(String(error)), 0);
+      return;
+    }
     fetch(url)
       .then((r) => r.json())
       .then((data) => {
@@ -168,8 +236,10 @@ export class PerpsDatafeed implements IBasicDataFeed {
           onResult([], { noData: true, nextTime: data.nextTime });
           return;
         }
-        if (data.s !== "ok" && data.s !== undefined) {
-          onError(data.s || "Error loading data");
+        if (data.s !== "ok") {
+          onError(
+            `Candle feed unavailable for ${symbolInfo.ticker ?? symbolInfo.name}: ${data.errmsg || data.error || data.s || "Producer has no candle feed"}`,
+          );
           return;
         }
 
@@ -188,14 +258,19 @@ export class PerpsDatafeed implements IBasicDataFeed {
 
         if (bars.length > 0) {
           const lastBar = bars[bars.length - 1];
-          if (lastBar) {
-            this.lastBarCache[symbolInfo.ticker ?? symbolInfo.name] = lastBar;
+          const cached = this.lastBarCache[seriesKey];
+          if (lastBar && (!cached || lastBar.time > cached.time)) {
+            this.lastBarCache[seriesKey] = lastBar;
           }
         }
 
         onResult(bars, { noData: bars.length === 0 });
       })
-      .catch((err) => onError(err.message));
+      .catch((err) =>
+        onError(
+          `Candle feed unavailable for ${symbolInfo.ticker ?? symbolInfo.name}: ${err.message}`,
+        ),
+      );
   }
 
   subscribeBars(
@@ -203,19 +278,19 @@ export class PerpsDatafeed implements IBasicDataFeed {
     resolution: ResolutionString,
     onTick: SubscribeBarsCallback,
     listenerGuid: string,
-    onResetCacheNeededCallback: () => void
+    onResetCacheNeededCallback: () => void,
   ): void {
     const symbolKey = symbolInfo.ticker ?? symbolInfo.name;
-    // Strip `PERP_…_USDC` wrapping that some symbol names carry; the
-    // market proxy maps lowercased bare tickers (e.g. "btc").
-    const bareSymbol = symbolKey.toUpperCase().replace(/^PERP_/, "").replace(/_USDC$/, "");
+    // The market proxy and cache use the same bare ticker for all aliases.
+    const bareSymbol = normalizeFeedSymbol(symbolKey);
+    const seriesKey = barSeriesKey(symbolKey, resolution);
 
     // Helper — cache + forward a candle to TradingView, ignoring any
     // out-of-order frames. Shared by both WS and REST paths.
     const pushBar = (bar: Bar) => {
-      const cached = this.lastBarCache[symbolKey];
+      const cached = this.lastBarCache[seriesKey];
       if (!cached || bar.time >= cached.time) {
-        this.lastBarCache[symbolKey] = bar;
+        this.lastBarCache[seriesKey] = bar;
         onTick(bar);
       }
     };
@@ -231,7 +306,10 @@ export class PerpsDatafeed implements IBasicDataFeed {
         bareSymbol,
         klineInterval,
         {
-          onGap: () => { delete this.lastBarCache[symbolKey]; onResetCacheNeededCallback(); },
+          onGap: () => {
+            delete this.lastBarCache[seriesKey];
+            onResetCacheNeededCallback();
+          },
           onSnapshot: (candles) => {
             // Only forward the most recent (possibly-in-progress) bar.
             // TradingView already has the historical rows from getBars;

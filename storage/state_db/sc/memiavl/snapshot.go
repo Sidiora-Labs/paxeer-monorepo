@@ -437,7 +437,7 @@ func (snapshot *Snapshot) Export() *Exporter {
 	return newExporter(snapshot.export)
 }
 
-// export is the internal implementation that iterates through the snapshot in post-order
+// export iterates through the snapshot in post-order until callback returns true.
 func (snapshot *Snapshot) export(callback func(*types.SnapshotNode) bool) {
 	if snapshot.leavesLen() == 0 {
 		return

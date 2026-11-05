@@ -17,7 +17,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/policy"
 	nativepolicy "github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/policy/native"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/store"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/dealer"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/dealershare"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/eddsa"
 	"github.com/ethereum/go-ethereum/common"
 )

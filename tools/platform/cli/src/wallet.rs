@@ -878,7 +878,7 @@ fn execute_write(
             })?
         }
     };
-    if call.data.len() > 524_288 {
+    if call.data.len() > layerx_sdk::rpc::MAX_TRANSACTION_CALLDATA_BYTES {
         return Err("invalid_transaction: calldata exceeds 524288 bytes".into());
     }
     let transaction = json!({

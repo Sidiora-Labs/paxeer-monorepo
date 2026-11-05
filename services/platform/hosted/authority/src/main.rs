@@ -1,4 +1,7 @@
 mod chain_receipt;
+mod committed;
+#[path = "../../registry/src/committed_head_route.rs"]
+mod committed_head_route;
 mod human;
 mod protected;
 mod trust;
@@ -25,7 +28,6 @@ use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 use subtle::ConstantTimeEq;
-use trust::CommittedCheckpoint;
 use zeroize::{Zeroize, Zeroizing};
 
 const MAX_REQUEST_BYTES: usize = 16 * 1024;
@@ -62,7 +64,7 @@ Environment:
   LAYERX_AUTHORITY_REPLICA_BEARER_TOKEN_FILE bearer token the replica requires
   LAYERX_AUTHORITY_EVIDENCE_READ_TOKEN_FILE  optional protected file; its distinct bearer may read only /v1/batches/{batch_id}/receipt-authority
   LAYERX_AUTHORITY_REPLICA_ID                64-hex replica identity every evidence document must carry
-  LAYERX_AUTHORITY_CHAIN_RPC_URL             loopback http://host:port endpoint serving pax_sequencerReceipt
+  LAYERX_AUTHORITY_CHAIN_RPC_URL             loopback http://host:port serving committed headers, pax_sequencerReceipt, pinned eth_call and /comet native-store proofs
   LAYERX_AUTHORITY_RECEIPT_KEYS_FILE         protected ReceiptKeyList JSON with pinned keys and height ranges
   LAYERX_AUTHORITY_PROTOCOL_NETWORK_ID       numeric protocol network id expected in signed receipt evidence
   LAYERX_AUTHORITY_NETWORK_ID                deployment network identifier echoed in every answer
@@ -652,75 +654,6 @@ fn lookup_receipt(
     config.chain_receipts.lookup(activity_id)
 }
 
-fn checkpoint_header(config: &Config, batch: u64) -> Result<CommittedCheckpoint, ()> {
-    checkpoint_for(config, Some(batch))
-}
-
-fn checkpoint_for(config: &Config, batch: Option<u64>) -> Result<CommittedCheckpoint, ()> {
-    const ANCHOR: [u8; 20] = [
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x14,
-    ];
-    fn word(bytes: &[u8], index: usize) -> Result<[u8; 32], ()> {
-        bytes
-            .get(index * 32..(index + 1) * 32)
-            .ok_or(())?
-            .try_into()
-            .map_err(|_| ())
-    }
-    fn number(bytes: &[u8], index: usize) -> Result<u64, ()> {
-        let value = word(bytes, index)?;
-        if value[..24] != [0; 24] {
-            return Err(());
-        }
-        Ok(u64::from_be_bytes(value[24..].try_into().map_err(|_| ())?))
-    }
-    let sequencer = SequencerEndpoint::new(&config.chain_rpc_url, &[]).map_err(|_| ())?;
-    let committed_height = sequencer.block_number().map_err(|_| ())?;
-    let batch_number = match batch {
-        Some(batch) => batch,
-        None => {
-            let selector = layerx_crypto::evm_transaction::transaction_hash(b"latestFinalized()");
-            let latest = sequencer
-                .call_at(committed_height, &ANCHOR, &selector[..4])
-                .map_err(|_| ())?;
-            if latest.len() != 64 || number(&latest, 1)? != 1 {
-                return Err(());
-            }
-            number(&latest, 0)?
-        }
-    };
-    let mut data =
-        layerx_crypto::evm_transaction::transaction_hash(b"checkpoint(uint64)")[..4].to_vec();
-    data.extend_from_slice(&[0; 24]);
-    data.extend_from_slice(&batch_number.to_be_bytes());
-    let checkpoint_call = sequencer
-        .call_at(committed_height, &ANCHOR, &data)
-        .map_err(|_| ())?;
-    if checkpoint_call.len() != 18 * 32
-        || number(&checkpoint_call, 0)? != batch_number
-        || number(&checkpoint_call, 12)? != 2
-    {
-        return Err(());
-    }
-    let checkpoint_id = word(&checkpoint_call, 1)?;
-    let state_root = word(&checkpoint_call, 7)?;
-    let finalized_height = number(&checkpoint_call, 17)?;
-    if checkpoint_id == [0; 32] || state_root == [0; 32] || finalized_height > committed_height {
-        return Err(());
-    }
-    Ok(CommittedCheckpoint {
-        batch_number,
-        checkpoint_id,
-        header_digest: word(&checkpoint_call, 2)?,
-        last_sequence: number(&checkpoint_call, 5)?,
-        previous_state_root: word(&checkpoint_call, 6)?,
-        state_root,
-        timestamp_ms: number(&checkpoint_call, 11)?,
-        finalized_height,
-        checkpoint_call,
-    })
-}
-
 fn evidence_refusal(refusal_kind: &EvidenceRefusal) -> Response {
     eprintln!("layerx-receipt-authority refused replica evidence: {refusal_kind:?}");
     refusal(502, "evidence_refused", None)
@@ -1033,6 +966,21 @@ fn route(config: &Arc<Config>, request: &Request) -> Response {
             Err(response) => response,
         };
     }
+    if let Some((status, document)) = committed_head_route::route(
+        &request.method,
+        path,
+        request.query.as_deref(),
+        || authenticate(config, request).is_ok(),
+        config.replica_id,
+        |target| match replica_get(config, target) {
+            ReplicaAnswer::Status(200, body) => {
+                serde_json::from_slice(&body).map_err(|error| error.to_string())
+            }
+            _ => Err("independent committed head is unavailable".to_owned()),
+        },
+    ) {
+        return json(status, &document);
+    }
     if request.query.is_some() {
         return refusal(404, "not_found", None);
     }
@@ -1193,7 +1141,6 @@ mod chain_readiness_tests {
     use std::io::{BufRead as _, BufReader};
     use std::os::unix::fs::PermissionsExt as _;
     use std::path::Path;
-    use std::process::Command;
     use std::sync::Mutex;
 
     pub(super) fn must<T, E: std::fmt::Debug>(value: Result<T, E>) -> T {
@@ -1390,46 +1337,14 @@ mod chain_readiness_tests {
 
             let key_file = directory.join("tls-key.der");
             let cert_file = directory.join("tls-cert.der");
-            let output = must(
-                Command::new("openssl")
-                    .args([
-                        "req",
-                        "-x509",
-                        "-newkey",
-                        "ed25519",
-                        "-nodes",
-                        "-subj",
-                        "/CN=localhost",
-                        "-keyout",
-                        directory.join("tls-key.pem").to_str().unwrap(),
-                        "-outform",
-                        "DER",
-                        "-out",
-                        cert_file.to_str().unwrap(),
-                    ])
-                    .output(),
-            );
-            assert!(
-                output.status.success(),
-                "{}",
-                String::from_utf8_lossy(&output.stderr)
-            );
-            let output = must(
-                Command::new("openssl")
-                    .args([
-                        "pkcs8",
-                        "-topk8",
-                        "-nocrypt",
-                        "-in",
-                        directory.join("tls-key.pem").to_str().unwrap(),
-                        "-outform",
-                        "DER",
-                        "-out",
-                        key_file.to_str().unwrap(),
-                    ])
-                    .output(),
-            );
-            assert!(output.status.success());
+            must(fs::write(
+                &cert_file,
+                include_bytes!("human/fixtures/server.der"),
+            ));
+            must(fs::write(
+                &key_file,
+                include_bytes!("human/fixtures/server-key.der"),
+            ));
             let _ = rustls::crypto::ring::default_provider().install_default();
             let tls = must(
                 ServerConfig::builder()

@@ -1,0 +1,489 @@
+[reconcile.r13-84]
+revision = "0b17e0748b8a5c1506383faf11209f4f35235885"
+rows = 60
+
+[row.r13-84.1]
+interface = "interface.13.env-paxai-chain-domain-src-lib-rs"
+verdict = "served"
+path = "programs/crates/layerx-programs-ai-market/src/lib.rs"
+line = 56
+symbol = "PAXAI_CHAIN_DOMAIN"
+evidence = "Build-time declaration and Option<[u8; 32]> signature are unchanged; now at line 56 in deployment, parsed as 64 lowercase hex digits and rejected if absent or zero."
+
+[row.r13-84.2]
+interface = "interface.13.wasm-aim-layerx-call"
+verdict = "served_elsewhere"
+path = "programs/sdk/rust/src/macros.rs"
+line = 109
+symbol = "layerx_call"
+evidence = "Guest programs/crates/layerx-programs-ai-market/src/lib.rs:204 invokes layerx_program_sdk::failure_entrypoint!(handle); the SDK macro declares layerx_call at the recorded location. The export signature is unchanged; its declaration is in the shared macro source."
+
+[row.r13-84.3]
+interface = "interface.13.wasm-aim-layerx-reserve"
+verdict = "served_elsewhere"
+path = "programs/sdk/rust/src/macros.rs"
+line = 103
+symbol = "layerx_reserve"
+evidence = "Guest programs/crates/layerx-programs-ai-market/src/lib.rs:204 invokes layerx_program_sdk::failure_entrypoint!(handle); the SDK macro declares layerx_reserve at the recorded location. The export signature is unchanged; its declaration is in the shared macro source."
+
+[row.r13-84.4]
+interface = "interface.13.rs-aim-queries-finalized-rank"
+verdict = "served"
+path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 24
+symbol = "FINALIZED_RANK"
+evidence = "Signature and value remain pub const FINALIZED_RANK: u8 = 4; require_finalized now checks rank 4 with nonzero block_hash and app_hash."
+
+[row.r13-84.5]
+interface = "interface.13.rs-aim-queries-binding-max-bytes"
+verdict = "served"
+path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 37
+symbol = "BINDING_MAX_BYTES"
+evidence = "Initializer changed from BINDING_PREFIX_MAX_BYTES + 32 + 33 + 1 + 8 + 8 to BINDING_PREFIX_MAX_BYTES + 8 + 32 + 32 + 32 + 1 + 8 + 8 for height, block hash, app hash and store proof digest."
+
+[row.r13-84.6]
+interface = "interface.13.rs-aim-queries-readproof"
+verdict = "served"
+path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 164
+symbol = "ReadProof"
+evidence = "Struct declaration is unchanged; current public fields are chain, program, native_state_root, observed_sequence, execution_height and block_hash, with no kernel batch proof field. Current declaration: pub struct ReadProof {"
+
+[row.r13-84.7]
+interface = "interface.13.rs-aim-queries-finalityevidence"
+verdict = "served"
+path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 275
+symbol = "FinalityEvidence"
+evidence = "Struct declaration is unchanged; current finality fields include block_height: u64, block_hash: Digest32, app_hash: Digest32 and store_proof_digest: Digest32 alongside native_state_root and rank. Current declaration: pub struct FinalityEvidence {"
+
+[row.r13-84.8]
+interface = "interface.13.rs-aim-queries-snapshotbinding"
+verdict = "served"
+path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 286
+symbol = "SnapshotBinding"
+evidence = "Struct declaration is unchanged; SnapshotBindingV2 now carries block_height, block_hash, app_hash and store_proof_digest as chain finality fields while retaining batch_id for content identity. Current declaration: pub struct SnapshotBinding {"
+
+[row.r13-84.9]
+interface = "interface.13.rs-aim-queries-bind-snapshot"
+verdict = "served"
+path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 314
+symbol = "bind_snapshot"
+evidence = "Signature is unchanged: pub fn bind_snapshot(state_bytes: &[u8], facts: &CaptureFacts, finality: &FinalityEvidence, publication_time_ms: u64) -> QueryResult<SnapshotBinding>; implementation copies chain height, block hash, app hash and store proof digest from finality."
+
+[row.r13-84.10]
+interface = "interface.13.rs-aim-queries-snapshotbinding-encode"
+verdict = "served"
+path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 458
+symbol = "encode"
+evidence = "SnapshotBinding method signature remains pub fn encode(&self, out: &mut [u8]) -> CodecResult<usize>; encoded suffix now writes block_height, block_hash, app_hash and store_proof_digest before rank and publication time."
+
+[row.r13-84.11]
+interface = "interface.13.rs-aim-queries-snapshotbinding-require-finalized"
+verdict = "served"
+path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 488
+symbol = "require_finalized"
+evidence = "SnapshotBinding method signature remains pub fn require_finalized(&self) -> QueryResult<()>; implementation requires FINALIZED_RANK and nonzero block_hash and app_hash."
+
+[row.r13-84.12]
+interface = "interface.13.rs-arb-authority-verifiedreplayauthority-derive"
+verdict = "served"
+path = "programs/crates/layerx-programs-arbiter/src/authority.rs"
+line = 106
+symbol = "derive"
+evidence = "VerifiedReplayAuthority::derive now takes admission: &AdmissionEvidence instead of &VerifiedAdmissionPrestate and commit: &ChainCommitProof instead of receipt_proof: &Proof; receipt, header and Result<Self, ReplayError> remain."
+
+[row.r13-84.13]
+interface = "interface.13.rs-arb-authority-verifiedreplayauthority-derive-program-call"
+verdict = "served"
+path = "programs/crates/layerx-programs-arbiter/src/authority.rs"
+line = 117
+symbol = "derive_program_call"
+evidence = "VerifiedReplayAuthority::derive_program_call now takes admission: &AdmissionEvidence instead of &VerifiedAdmissionPrestate and commit: &ChainCommitProof instead of receipt_proof: &Proof; receipt, header and Result<Self, ReplayError> remain."
+
+[row.r13-84.14]
+interface = "interface.13.rs-arb-market-nativenamespaceproof"
+verdict = "served"
+path = "programs/crates/layerx-programs-arbiter/src/market.rs"
+line = 62
+symbol = "NativeNamespaceProof"
+evidence = "Declaration remains pub struct NativeNamespaceProof<'a>; current fields authenticate a head: &'a ics23::ExistenceProof with store_root: [u8; 32], multistore_proof: &'a [u8], manifest and value_blobs. Current declaration: pub struct NativeNamespaceProof<'a> {"
+
+[row.r13-84.15]
+interface = "interface.13.rs-arb-market-marketreplayevidence"
+verdict = "served"
+path = "programs/crates/layerx-programs-arbiter/src/market.rs"
+line = 163
+symbol = "MarketReplayEvidence"
+evidence = "Declaration remains pub struct MarketReplayEvidence<'a>; current fields include tenant_commit and provider_commit: &'a ChainCommitProof plus NativeNamespaceProof state inputs for each party. Current declaration: pub struct MarketReplayEvidence<'a> {"
+
+[row.r13-84.16]
+interface = "interface.13.rs-arb-step-authenticatedcatalogue-verify-with-module"
+verdict = "served"
+path = "programs/crates/layerx-programs-arbiter/src/step.rs"
+line = 283
+symbol = "verify_with_module"
+evidence = "AuthenticatedCatalogue::verify_with_module replaces &VerifiedAdmissionPrestate and &ModuleRangeWitness with admission: &crate::AdmissionEvidence, commit: &ChainCommitProof, host_store_root, host_multistore_proof and code_proofs: &BTreeMap<[u8; 32], ics23::ExistenceProof>; code_blobs and return type remain."
+
+[row.r13-84.17]
+interface = "interface.13.rs-arb-step-verifiedreplay-verify-with-batch-context"
+verdict = "served"
+path = "programs/crates/layerx-programs-arbiter/src/step.rs"
+line = 468
+symbol = "verify_with_batch_context"
+evidence = "VerifiedReplay::verify_with_batch_context replaces admission: &VerifiedAdmissionPrestate, receipt_proof: &Proof and metadata_proof: &StateWitness with &crate::AdmissionEvidence, commit: &ChainCommitProof, host_store_root, host_multistore_proof and metadata_proof: &ics23::ExistenceProof; receipt, header, authority bytes, hosts bytes, catalogue and return type remain."
+
+[row.r13-84.18]
+interface = "interface.13.rs-arb-step-verifiedreplay-verify"
+verdict = "served"
+path = "programs/crates/layerx-programs-arbiter/src/step.rs"
+line = 498
+symbol = "verify"
+evidence = "VerifiedReplay::verify now takes admission: &crate::AdmissionEvidence, commit: &ChainCommitProof, host_store_root, host_multistore_proof and metadata_proof: &ics23::ExistenceProof in place of &VerifiedAdmissionPrestate and &StateWitness; receipt, authority bytes, hosts bytes, mutable catalogue and Result<Self, ReplayError> remain."
+
+[row.r13-84.19]
+interface = "interface.13.wasm-itp-layerx-main"
+verdict = "served_elsewhere"
+path = "programs/sdk/rust/src/macros.rs"
+line = 12
+symbol = "layerx_main"
+evidence = "Guest programs/crates/layerx-programs-interpreter/src/lib.rs:519 invokes layerx_program_sdk::program!(legacy); the SDK macro declares layerx_main at the recorded location. The export signature is unchanged; its declaration is in the shared macro source."
+
+[row.r13-84.20]
+interface = "interface.13.wasm-itp-layerx-call"
+verdict = "served_elsewhere"
+path = "programs/sdk/rust/src/macros.rs"
+line = 40
+symbol = "layerx_call"
+evidence = "Guest programs/crates/layerx-programs-interpreter/src/lib.rs:521 invokes layerx_program_sdk::entrypoint!(invoke); the SDK macro declares layerx_call at the recorded location. The export signature is unchanged; its declaration is in the shared macro source."
+
+[row.r13-84.21]
+interface = "interface.13.wasm-itp-layerx-reserve"
+verdict = "served_elsewhere"
+path = "programs/sdk/rust/src/macros.rs"
+line = 34
+symbol = "layerx_reserve"
+evidence = "Guest programs/crates/layerx-programs-interpreter/src/lib.rs:521 invokes layerx_program_sdk::entrypoint!(invoke); the SDK macro declares layerx_reserve at the recorded location. The export signature is unchanged; its declaration is in the shared macro source."
+
+[row.r13-84.22]
+interface = "interface.13.wasm-mkt-layerx-call"
+verdict = "served_elsewhere"
+path = "programs/sdk/rust/src/macros.rs"
+line = 40
+symbol = "layerx_call"
+evidence = "Guest programs/crates/layerx-programs-market/src/lib.rs:1457 invokes layerx_program_sdk::entrypoint!(invoke); the SDK macro declares layerx_call at the recorded location. The export signature is unchanged; its declaration is in the shared macro source."
+
+[row.r13-84.23]
+interface = "interface.13.wasm-mkt-layerx-reserve"
+verdict = "served_elsewhere"
+path = "programs/sdk/rust/src/macros.rs"
+line = 34
+symbol = "layerx_reserve"
+evidence = "Guest programs/crates/layerx-programs-market/src/lib.rs:1457 invokes layerx_program_sdk::entrypoint!(invoke); the SDK macro declares layerx_reserve at the recorded location. The export signature is unchanged; its declaration is in the shared macro source."
+
+[row.r13-84.24]
+interface = "interface.13.rs-reg-protocol-evidence-stateleafwitness"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 356
+symbol = "StateLeafWitness"
+evidence = "Struct declaration remains public; proof field is now Vec<ProofOp> authenticating key: Vec<u8> and value: Vec<u8> as an ICS23 leaf. Current declaration: pub struct StateLeafWitness {"
+
+[row.r13-84.25]
+interface = "interface.13.rs-reg-protocol-evidence-programlifecycleproof"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 369
+symbol = "ProgramLifecycleProof"
+evidence = "Declaration changed from pub enum ProgramLifecycleProof to pub struct ProgramLifecycleProof(pub ChainLifecycleProof), wrapping chain lifecycle evidence. Current declaration: pub struct ProgramLifecycleProof(pub ChainLifecycleProof);"
+
+[row.r13-84.26]
+interface = "interface.13.rs-reg-protocol-evidence-programstateproof"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 372
+symbol = "ProgramStateProof"
+evidence = "Struct declaration remains public; current fields are commitment: CommitmentProof, state: ChainProgramStateProof, lifecycle: ProgramLifecycleProof, wind_down: ChainWindDownProof, transaction: Vec<u8> and transaction_proof: SimpleProof. Current declaration: pub struct ProgramStateProof {"
+
+[row.r13-84.27]
+interface = "interface.13.rs-reg-protocol-evidence-deploymentproof"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 382
+symbol = "DeploymentProof"
+evidence = "Struct declaration remains public; current DeploymentProof contains state: ProgramStateProof and deployment: ChainDeploymentProof, the chain evidence wrappers. Current declaration: pub struct DeploymentProof {"
+
+[row.r13-84.28]
+interface = "interface.13.rs-reg-protocol-evidence-deploymentmaintenanceproof"
+verdict = "retired"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 94
+symbol = "DeploymentMaintenanceProof"
+evidence = "DeploymentMaintenanceProof is absent from the entire registered file and no declaration was found repository-wide outside spec and docs. Chain-backed DeploymentProof/ProtocolHeadProof are present; the only remaining mention is the registry retirement assertion in completion_gate.rs."
+remaining_refs = 1
+remaining = ["programs/crates/layerx-programs-registry/tests/completion_gate.rs:38"]
+
+[row.r13-84.29]
+interface = "interface.13.rs-reg-protocol-evidence-protocolheadmaintenanceproof"
+verdict = "retired"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 100
+symbol = "ProtocolHeadMaintenanceProof"
+evidence = "ProtocolHeadMaintenanceProof is absent from the entire registered file and no declaration was found repository-wide outside spec and docs. Chain-backed DeploymentProof/ProtocolHeadProof are present; the only remaining mention is the registry retirement assertion in completion_gate.rs."
+remaining_refs = 1
+remaining = ["programs/crates/layerx-programs-registry/tests/completion_gate.rs:45"]
+
+[row.r13-84.30]
+interface = "interface.13.rs-reg-protocol-evidence-protocolheadproof"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 387
+symbol = "ProtocolHeadProof"
+evidence = "Declaration remains pub struct ProtocolHeadProof<'a>; current fields are commitment: &'a CommitmentProof, chain: ChainProtocolHeadProof<'a>, transaction: &'a [u8] and transaction_proof: &'a SimpleProof. Current declaration: pub struct ProtocolHeadProof<'a> {"
+
+[row.r13-84.31]
+interface = "interface.13.rs-reg-protocol-evidence-protocolevidenceerror"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 22
+symbol = "ProtocolEvidenceError"
+evidence = "Enum declaration is unchanged; current variants include ChainProof, Expired and InvalidTrustAnchor for chain verification, alongside the retained protocol and encoding refusal variants. Current declaration: pub enum ProtocolEvidenceError {"
+
+[row.r13-84.32]
+interface = "interface.13.rs-reg-protocol-evidence-verifieddeploymentevidence"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 395
+symbol = "VerifiedDeploymentEvidence"
+evidence = "Struct declaration remains public; current private fields use header: VerifiedHeader (VerifiedChainHead), transaction_hash: [u8; 32] and proof: DeploymentProof alongside record, interface, lifecycle and freshness. Current declaration: pub struct VerifiedDeploymentEvidence {"
+
+[row.r13-84.33]
+interface = "interface.13.rs-reg-protocol-evidence-verifieddeploymentevidence-program"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 409
+symbol = "program"
+evidence = "VerifiedDeploymentEvidence signature is unchanged from the registry; current declaration is pub const fn program(&self) -> ProgramId. The accessor returns self.record.program from the chain-backed evidence object."
+
+[row.r13-84.34]
+interface = "interface.13.rs-reg-protocol-evidence-verifieddeploymentevidence-version"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 412
+symbol = "version"
+evidence = "VerifiedDeploymentEvidence signature is unchanged from the registry; current declaration is pub const fn version(&self) -> u32. The accessor returns self.record.version from the chain-backed evidence object."
+
+[row.r13-84.35]
+interface = "interface.13.rs-reg-protocol-evidence-verifieddeploymentevidence-code-hash"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 415
+symbol = "code_hash"
+evidence = "VerifiedDeploymentEvidence signature is unchanged from the registry; current declaration is pub const fn code_hash(&self) -> [u8; 32]. The accessor returns self.record.new_code_hash from the chain-backed evidence object."
+
+[row.r13-84.36]
+interface = "interface.13.rs-reg-protocol-evidence-verifieddeploymentevidence-abi-version"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 418
+symbol = "abi_version"
+evidence = "VerifiedDeploymentEvidence signature is unchanged from the registry; current declaration is pub const fn abi_version(&self) -> u16. The accessor returns self.record.abi_version from the chain-backed evidence object."
+
+[row.r13-84.37]
+interface = "interface.13.rs-reg-protocol-evidence-verifieddeploymentevidence-interface-present"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 421
+symbol = "interface_present"
+evidence = "VerifiedDeploymentEvidence signature is unchanged from the registry; current declaration is pub const fn interface_present(&self) -> bool. The accessor returns self.interface.is_some() from the chain-backed evidence object."
+
+[row.r13-84.38]
+interface = "interface.13.rs-reg-protocol-evidence-verifieddeploymentevidence-interface"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 424
+symbol = "interface"
+evidence = "VerifiedDeploymentEvidence signature is unchanged from the registry; current declaration is pub const fn interface(&self) -> Option<&crate::ProgramInterface>. The accessor returns self.interface.as_ref() from the chain-backed evidence object."
+
+[row.r13-84.39]
+interface = "interface.13.rs-reg-protocol-evidence-verifieddeploymentevidence-receipt-digest"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 427
+symbol = "receipt_digest"
+evidence = "VerifiedDeploymentEvidence signature is unchanged; receipt_digest returns self.transaction_hash, recording chain transaction identity. Current declaration: pub const fn receipt_digest(&self) -> [u8; 32] {"
+
+[row.r13-84.40]
+interface = "interface.13.rs-reg-protocol-evidence-verifieddeploymentevidence-activity-id"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 430
+symbol = "activity_id"
+evidence = "VerifiedDeploymentEvidence signature is unchanged; activity_id returns self.transaction_hash, recording chain transaction identity. Current declaration: pub const fn activity_id(&self) -> [u8; 32] {"
+
+[row.r13-84.41]
+interface = "interface.13.rs-reg-protocol-evidence-verifieddeploymentevidence-batch-header-digest"
+verdict = "retired"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 246
+symbol = "batch_header_digest"
+evidence = "VerifiedDeploymentEvidence::batch_header_digest is absent from the entire registered file. Chain-backed deployment evidence exposes transaction_hash through receipt_digest/activity_id and app_hash through state_root/programs_root. Repository-wide whole-identifier search excluding spec and docs finds the listed files; surviving wire hash helpers and hosted fields are separate interfaces."
+remaining_refs = 28
+remaining = ["programs/crates/layerx-programs-arbiter/tests/proof_arbiter_crate.rs:791", "programs/crates/layerx-programs-registry/tests/completion_gate.rs:46", "services/agent/crates/layerx-agentd/src/human_runtime.rs:19869", "services/agent/crates/layerx-agentd/tests/audit_export.rs:22", "services/agent/crates/layerx-agentd/tests/checkpoint.rs:11", "services/agent/crates/layerx-agentd/tests/degraded.rs:15", "services/agent/crates/layerx-agentd/tests/support/mod.rs:44", "services/agent/crates/layerx-proof/src/export_codec.rs:5", "services/agent/crates/layerx-proof/src/inclusion.rs:5", "services/agent/crates/layerx-proof/tests/export_complete.rs:20", "services/agent/crates/layerx-proof/tests/inclusion.rs:9", "services/agent/crates/layerx-proof/tests/maintained_outcome.rs:9", "services/agent/crates/layerx-proof/tests/state.rs:10", "services/agent/crates/layerx-sdk/tests/offline_export.rs:9", "services/agent/crates/layerx-wire/src/handover.rs:1", "services/agent/crates/layerx-wire/src/hash.rs:343", "services/agent/tests/limits/exactly_once.rs:1165", "services/human/crates/layerx-human-test-support/src/lib.rs:376", "services/human/crates/layerx-intents/src/canonical.rs:2", "services/human/crates/layerx-intents/src/vectors.rs:105", "services/platform/hosted/authority/src/trust.rs:25", "services/platform/hosted/authority/tests/chain_receipts.rs:427", "services/platform/hosted/authority/tests/human_tls.rs:213", "services/platform/hosted/authority/tests/maintenance_identity.rs:8", "services/platform/hosted/registry/src/routes.rs:1951", "services/platform/hosted/registry/src/verified.rs:42", "tools/platform/cli/tests/wallet_evm_writes.rs:21", "tools/qualification/paxeer-x/programs_source_abi.py:44"]
+
+[row.r13-84.42]
+interface = "interface.13.rs-reg-protocol-evidence-verifieddeploymentevidence-state-root"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 433
+symbol = "state_root"
+evidence = "VerifiedDeploymentEvidence signature is unchanged; state_root returns self.header.app_hash(), the authenticated chain app hash. Current declaration: pub const fn state_root(&self) -> [u8; 32] {"
+
+[row.r13-84.43]
+interface = "interface.13.rs-reg-protocol-evidence-verifieddeploymentevidence-programs-root"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 436
+symbol = "programs_root"
+evidence = "VerifiedDeploymentEvidence signature is unchanged; programs_root returns self.header.app_hash(), the authenticated chain app hash. Current declaration: pub const fn programs_root(&self) -> [u8; 32] {"
+
+[row.r13-84.44]
+interface = "interface.13.rs-reg-protocol-evidence-verifieddeploymentevidence-freshness"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 439
+symbol = "freshness"
+evidence = "VerifiedDeploymentEvidence signature is unchanged from the registry; current declaration is pub const fn freshness(&self) -> ReadFreshness. The accessor returns self.freshness from the chain-backed evidence object."
+
+[row.r13-84.45]
+interface = "interface.13.rs-reg-protocol-evidence-verifieddeploymentevidence-lifecycle"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 442
+symbol = "lifecycle"
+evidence = "VerifiedDeploymentEvidence signature is unchanged from the registry; current declaration is pub const fn lifecycle(&self) -> ProgramLifecycle. The accessor returns self.lifecycle from the chain-backed evidence object."
+
+[row.r13-84.46]
+interface = "interface.13.rs-reg-protocol-evidence-verifieddeploymentevidence-module"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 445
+symbol = "module"
+evidence = "VerifiedDeploymentEvidence signature is unchanged from the registry; current declaration is pub fn module(&self) -> &[u8]. The accessor returns &self.record.module from the chain-backed evidence object."
+
+[row.r13-84.47]
+interface = "interface.13.rs-reg-protocol-evidence-verifieddeploymentevidence-record"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 448
+symbol = "record"
+evidence = "VerifiedDeploymentEvidence signature is unchanged from the registry; current declaration is pub const fn record(&self) -> &DeploymentRecord. The accessor returns &self.record from the chain-backed evidence object."
+
+[row.r13-84.48]
+interface = "interface.13.rs-reg-protocol-evidence-verifieddeploymentevidence-proof"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 451
+symbol = "proof"
+evidence = "VerifiedDeploymentEvidence signature is unchanged; proof returns &self.proof, whose DeploymentProof now wraps ProgramStateProof and ChainDeploymentProof. Current declaration: pub const fn proof(&self) -> &DeploymentProof {"
+
+[row.r13-84.49]
+interface = "interface.13.rs-reg-protocol-evidence-verifiedprogramhead"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 457
+symbol = "VerifiedProgramHead"
+evidence = "Struct declaration remains public; current fields include header: VerifiedHeader (VerifiedChainHead), transaction_hash: [u8; 32], freshness: ReadFreshness and valid_until_ms: u64 alongside program metadata and lifecycle. Current declaration: pub struct VerifiedProgramHead {"
+
+[row.r13-84.50]
+interface = "interface.13.rs-reg-protocol-evidence-verifiedprogramhead-program"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 470
+symbol = "program"
+evidence = "VerifiedProgramHead signature is unchanged from the registry; current declaration is pub const fn program(&self) -> ProgramId. The accessor returns self.program from the chain-backed evidence object."
+
+[row.r13-84.51]
+interface = "interface.13.rs-reg-protocol-evidence-verifiedprogramhead-version"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 473
+symbol = "version"
+evidence = "VerifiedProgramHead signature is unchanged from the registry; current declaration is pub const fn version(&self) -> u32. The accessor returns self.version from the chain-backed evidence object."
+
+[row.r13-84.52]
+interface = "interface.13.rs-reg-protocol-evidence-verifiedprogramhead-code-hash"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 476
+symbol = "code_hash"
+evidence = "VerifiedProgramHead signature is unchanged from the registry; current declaration is pub const fn code_hash(&self) -> [u8; 32]. The accessor returns self.code_hash from the chain-backed evidence object."
+
+[row.r13-84.53]
+interface = "interface.13.rs-reg-protocol-evidence-verifiedprogramhead-abi-version"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 479
+symbol = "abi_version"
+evidence = "VerifiedProgramHead signature is unchanged from the registry; current declaration is pub const fn abi_version(&self) -> u16. The accessor returns self.abi_version from the chain-backed evidence object."
+
+[row.r13-84.54]
+interface = "interface.13.rs-reg-protocol-evidence-verifiedprogramhead-policy"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 482
+symbol = "policy"
+evidence = "VerifiedProgramHead signature is unchanged from the registry; current declaration is pub const fn policy(&self) -> UpgradePolicy. The accessor returns self.policy from the chain-backed evidence object."
+
+[row.r13-84.55]
+interface = "interface.13.rs-reg-protocol-evidence-verifiedprogramhead-lifecycle"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 485
+symbol = "lifecycle"
+evidence = "VerifiedProgramHead signature is unchanged from the registry; current declaration is pub const fn lifecycle(&self) -> ProgramLifecycle. The accessor returns self.lifecycle from the chain-backed evidence object."
+
+[row.r13-84.56]
+interface = "interface.13.rs-reg-protocol-evidence-verifiedprogramhead-receipt-digest"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 488
+symbol = "receipt_digest"
+evidence = "VerifiedProgramHead signature is unchanged; receipt_digest returns self.transaction_hash, recording chain transaction identity. Current declaration: pub const fn receipt_digest(&self) -> [u8; 32] {"
+
+[row.r13-84.57]
+interface = "interface.13.rs-reg-protocol-evidence-verifiedprogramhead-state-root"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 491
+symbol = "state_root"
+evidence = "VerifiedProgramHead signature is unchanged; state_root returns self.header.app_hash(), the authenticated chain app hash. Current declaration: pub const fn state_root(&self) -> [u8; 32] {"
+
+[row.r13-84.58]
+interface = "interface.13.rs-reg-protocol-evidence-verifiedprogramhead-programs-root"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 494
+symbol = "programs_root"
+evidence = "VerifiedProgramHead signature is unchanged; programs_root returns self.header.app_hash(), the authenticated chain app hash. Current declaration: pub const fn programs_root(&self) -> [u8; 32] {"
+
+[row.r13-84.59]
+interface = "interface.13.rs-reg-protocol-evidence-verifiedprogramhead-freshness"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 497
+symbol = "freshness"
+evidence = "VerifiedProgramHead signature is unchanged from the registry; current declaration is pub const fn freshness(&self) -> ReadFreshness. The accessor returns self.freshness from the chain-backed evidence object."
+
+[row.r13-84.60]
+interface = "interface.13.rs-reg-protocol-evidence-verifiedprogramhead-valid-until-ms"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 500
+symbol = "valid_until_ms"
+evidence = "VerifiedProgramHead signature is unchanged from the registry; current declaration is pub const fn valid_until_ms(&self) -> u64. The accessor returns self.valid_until_ms from the chain-backed evidence object."

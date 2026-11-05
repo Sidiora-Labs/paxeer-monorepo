@@ -1,0 +1,33 @@
+[repair.22.33.340]
+finding = "retired-navigation-contract"
+test = "repair-22-33-340.spec.ts:retiredNavigationContractUsesNativeDestinations"
+tests = ["retiredNavigationContractUsesNativeDestinations", "nativeBlockNavigationSelectsBlockchain", "nativeTransactionNavigationSelectsBlockchain", "nativeAccountNavigationSelectsBlockchain", "retiredAnchorNavigationIsAbsent", "retiredReceiptNavigationIsAbsent"]
+baseline_revision = "de8ab245609a7e0707cc32c502b6dcbe17ce3aca"
+baseline = "No unchanged-tree verification was run: the explicit gate order requires complete implementation first, and this attempt resumes the five repair files already applied by attempt 1. Its recorded build failed before any navigation tests could execute; no baseline test failure is claimed."
+repair = "Horizontal groups remove retired anchor and receipt destinations, including detail routes, and omit empty groups; the regression checks native block, transaction and address destinations and selection through the real hook, Next router, query cache, group and link components. No historical route is introduced without an approved documented destination."
+wiring_request = "Domain 14 (explorer): apps/explorer/lib/hooks/useNavItems.tsx must remove retired kernel destinations and its archive group at the producer; align apps/explorer/lib/hooks/useNavItemsArchive.spec.tsx with the retirement contract. These paths are outside this task scope."
+evidence = "The runner records the exact candidate revision, command, exit code and private log in the hf-build/hf-done ledger; the final response copies the last gate evidence."
+format = "Repository ESLint --fix applied formatting to the four touched TypeScript files; vitest/expect-expect cannot see assertions delegated to the real-module helper through a named test callback. No rule was disabled; formatter output is retained privately."
+
+[gotcha.22.33.340]
+symptom = "The navigation hook still emits a Kernel archive group whose children use retired public routes."
+cause = "The requested producer repair is outside the allowed horizontal navigation scope."
+action = "Filter retired destinations in the real group consumer and request producer wiring from domain 14."
+
+[gotcha.22.33.340.tooling]
+symptom = "Sandbox preparation tried npm ci with an out-of-sync root lockfile, then pnpm refused the explorer's Yarn package-manager pin."
+action = "Install the explorer with its existing frozen Yarn lockfile; use a compatible pnpm CLI with global package-manager-strict disabled for the prescribed exec gates."
+
+[previous_attempt.1]
+revision = "a1a6817b423d01e6dad53135de539f6ceab40c6c"
+command = "pnpm --dir apps/explorer exec tsc --noEmit -p tsconfig.json"
+observed = "The supplied attempt evidence reports TS2307 for ganache in ui/marketplace/essentialDapps/revoke/hooks/repair-22-31-381.spec.ts; the build did not qualify and verification did not run."
+action = "Preserve the existing navigation implementation; restore the explorer dependencies and use only the declared bounded gates. The unrelated test and dependency manifest remain outside scope."
+
+[gotcha.22.33.340.registration]
+symptom = "Vitest reports six todo cases and zero executed tests when test receives only the named function as its title."
+action = "Register each declared function as the executable callback with its exact name as the string title; retain every assertion and rerun build and verification on the repaired candidate."
+revision = "6f73e20ce8cf33308296777384971656249a39e9"
+command = "cg spec done 22.33.340 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 0
+log = "/out/logs/verify-1.log"

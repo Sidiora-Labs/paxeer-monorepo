@@ -1,342 +1,339 @@
 # Hyperpax-UI — Production Deployment
 
-Self-hosted Next.js origin, fronted by Cloudflare. This directory contains everything you need to bring a fresh Ubuntu box from "just SSH'd in" to "serving production traffic".
+This directory supplies a Compose frontend service and nginx ingress for
+`apps/perps`. The [`docker-compose.yml`](docker-compose.yml) builds the
+standalone Next.js image from the application directory, passes server-only
+configuration to `app`, and connects `app` and `nginx` on one private bridge.
+The supported procedure below uses this Compose file throughout.
 
-For the Cloudflare dashboard setup (DNS, SSL/TLS mode, Origin CA cert, WAF rules, rate limiting), see [CLOUDFLARE.md](./CLOUDFLARE.md).
-
----
+See the [data API guide](../data_api.md) for the application gateway protocol,
+[settings guide](../src/app/modals/SettingsModal.md) for UI preferences, and
+[component guide](../src/components/paxeer/README.md) for live widget integration.
 
 ## TL;DR (first-time deploy)
 
+Use a checkout of this monorepo and run application commands from `apps/perps`.
+Install Docker with BuildKit on the target build host. Access to the charting
+image referenced by digest in the Dockerfile is required.
+
 ```bash
-# 1. As root on the new box:
-curl -fsSL https://raw.githubusercontent.com/Paxeer-Network/Hyperpax-UI/main/deploy/scripts/server-init.sh | sudo bash
-
-# 2. Log out, log back in as the `deploy` user (created by step 1).
-ssh deploy@<box-ip>
-
-# 3. Clone the repo and configure env.
-git clone https://github.com/Paxeer-Network/Hyperpax-UI.git ~/Hyperpax-UI
-cd ~/Hyperpax-UI
+cd /path/to/paxeer-monorepo/apps/perps
 cp deploy/.env.production.example .env.production
-$EDITOR .env.production    # fill in the RPC URLs, indexer URLs, etc.
-
-# 4. Drop the Cloudflare Origin CA cert at:
-#    deploy/nginx/certs/origin.pem
-#    deploy/nginx/certs/origin.key
-#    (See CLOUDFLARE.md for how to mint these.)
-
-# 5. First deploy.
-./deploy/scripts/deploy.sh
-
-# 6. Once the stack is healthy AND Cloudflare DNS is pointed at this box,
-#    lock the firewall to Cloudflare-only:
-sudo ./deploy/scripts/cloudflare-firewall.sh
+${EDITOR:-vi} .env.production
 ```
 
----
+Set at least `NEXT_PUBLIC_PERPS_GATEWAY_URL` and `MARKET_PROXY_ORIGIN` for your
+deployment, and review the remaining public values. Compose forwards public
+build arguments and server-only runtime values explicitly. Set
+`BUILD_COMMIT_SHA` to the full image revision in `.env.production` before
+building. Supply the nginx configuration and TLS assets described below
+before starting the stack. All Compose commands below run from `apps/perps`,
+use `--env-file .env.production` and explicitly select
+`-f deploy/docker-compose.yml`. Shell variables override the env file during
+Compose interpolation; clear stale exported values before deploying.
 
 ## Architecture
 
-```
-                          ┌──────────────────────────────┐
-   browser                │  Cloudflare edge             │
-      │                   │  • WAF / DDoS / bot mgmt     │
-      │  HTTPS            │  • Cache static assets       │
-      ▼                   │  • Rate-limit per IP / route │
-                          │  • TLS termination at edge   │
-                          └──────────────┬───────────────┘
-                                         │
-                                         │ HTTPS (Full strict)
-                                         ▼
-                          ┌──────────────────────────────┐
-   your box               │  nginx (port 443)            │
-   (UFW: CF IPs only)     │  • Cloudflare Origin CA cert │
-                          │  • set_real_ip_from CF       │
-                          │  • Security headers          │
-                          │  • Long-cache /_next/static  │
-                          └──────────────┬───────────────┘
-                                         │  proxy_pass app:3000
-                                         ▼
-                          ┌──────────────────────────────┐
-                          │  Next.js standalone server   │
-                          │  (Node 22, non-root)         │
-                          └──────────────────────────────┘
+```text
+browser → nginx HTTPS ingress → app:3000 (private Compose bridge)
+                                             ├─ /api/build-id
+                                             └─ /api/candle/* → external candle feed
+browser → perps data gateway (REST / WebSocket / GraphQL)
+browser / wallet → Paxeer node JSON-RPC at the node root
 ```
 
-Both containers run on a private Docker bridge network. The app container has no port published to the host — nginx is the only externally reachable surface.
+Paxeer mainnet-beta is one BFT chain, EVM chain ID **125 (`0x7d`)**. The kernel
+is part of block proposal; receipts are final at block commit. Public JSON-RPC
+uses the roots of `api1` through `api14.mainnet-beta.paxeer.network` and
+`api-mainnet-beta.paxeer.network`, for example
+`https://api1.mainnet-beta.paxeer.network`. The data gateway origin is a separate
+application configuration, not another chain or finality stage. Sub-chains are
+tenant domains in the database and do not require a frontend-specific node.
 
----
+The nginx service publishes ports 80 and 443. It reaches the frontend using
+`app:3000` on the shared `internal` bridge; the app publishes no host ports.
+The bridge allows outbound access to the data gateway and candle feed.
+nginx waits for the app's image health check on initial startup. After an app
+recreation, nginx must resolve its new address. In the operator-supplied TLS
+server's `location /`, use Docker DNS and a variable upstream, for example:
+
+```nginx
+resolver 127.0.0.11 valid=5s ipv6=off;
+set $perps_upstream app:3000;
+proxy_pass http://$perps_upstream;
+proxy_set_header Host $host;
+proxy_set_header X-Forwarded-Proto $scheme;
+proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+```
+
+Include these directives inside the appropriate nginx context; they are not a
+complete TLS server configuration. Preserve the request URI with the
+`proxy_pass` form above. Configure the HTTP server to redirect to HTTPS and
+supply certificates for your hostname. Allow up to five seconds for DNS
+refresh after replacement, then repeat the ingress health checks.
 
 ## Files
 
-```
-deploy/
-├── docker-compose.yml        # app + nginx stack
-├── .env.production.example   # template (copy to repo-root .env.production)
-├── README.md                 # this file
-├── CLOUDFLARE.md             # CF dashboard walkthrough
-├── nginx/
-│   ├── nginx.conf
-│   ├── conf.d/
-│   │   ├── 00-cloudflare-real-ip.conf   # CF IPs → real_ip_from
-│   │   └── paxeer.conf                   # the actual server block
-│   └── certs/                # CF Origin CA cert lives here (gitignored)
-└── scripts/
-    ├── server-init.sh                # one-time box provisioning
-    ├── deploy.sh                     # idempotent build + recreate + health check
-    └── cloudflare-firewall.sh        # narrow UFW to CF IPs only
-```
+| File | Current purpose |
+| --- | --- |
+| [`../Dockerfile`](../Dockerfile) | Digest-pinned Node and charting stages, pnpm install, standalone build, non-root runtime and image health check |
+| [`docker-compose.yml`](docker-compose.yml) | app build/runtime configuration, shared bridge and health-ordered nginx startup |
+| [`.env.production.example`](.env.production.example) | Public build inputs, server runtime inputs and explicit image revision |
+| [`build-args.production.env`](build-args.production.env) | Public build-argument values; Docker does not automatically read an env file as build arguments |
+| [`../ecosystem.config.js`](../ecosystem.config.js) | Host PM2 example with fixed `cwd: /root/Hyperpax-UI`; requires path/process review before use in this monorepo |
 
----
+There is no checked-in `deploy/scripts/deploy.sh`, `server-init.sh`,
+`cloudflare-firewall.sh`, `deploy/CLOUDFLARE.md`, or `deploy/nginx/` configuration
+in this checkout. The Compose mounts refer to nginx config, certificates,
+ACME webroot and DH parameters that an operator must supply. Starting this
+Compose file alone is not a production deployment procedure.
 
 ## Step-by-step
 
 ### 1. Provision the box
 
-`server-init.sh` is idempotent. Re-running is safe.
+Provision Docker/BuildKit, access to required images, storage, logging and
+Docker daemon restart management through your infrastructure process. This
+tree does not install packages, create deployment users, configure host
+firewalls or provision certificates automatically.
 
-```bash
-sudo bash deploy/scripts/server-init.sh
-```
-
-It installs Docker Engine + Compose v2, creates the `deploy` user, configures UFW (deny incoming, allow SSH + 80 + 443), enables fail2ban for SSH, sets up unattended security upgrades, configures Docker log rotation, and adds an 8 GB swapfile.
-
-It does NOT change the SSH port or disable password auth. Those are operator decisions — recommend doing them once your key-based access is confirmed working:
-
-```bash
-# Optional hardening:
-sudo sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
-sudo systemctl restart ssh
-```
+Choose an ingress topology and supply its configuration and TLS certificates.
+If using Cloudflare, configure its DNS and TLS mode to match that origin;
+certificate paths and access rules must match the actual ingress. No
+Cloudflare dashboard walkthrough or firewall installer is included here.
 
 ### 2. Configure environment
 
-Every variable lives in `.env.production` at the repo root (gitignored). The template (`deploy/.env.production.example`) lists them all with inline comments and **ships pre-filled with the public production defaults** (block-explorer URLs, Paxeer Wallet API, Supabase anon/publishable key). For most deploys, copying the template and only filling in your perps gateway + candle proxy is enough.
+`.env.production` belongs at the **application root** (`apps/perps`), not the
+monorepo root. Docker's build context excludes `.env*`, so copying that file
+alone does not configure a Docker build.
 
-The non-negotiable ones for a working build:
+| Variable | Contract |
+| --- | --- |
+| `NEXT_PUBLIC_PERPS_GATEWAY_URL` | Required bare HTTP(S) origin. Parsed at module load; missing or malformed values throw. Frontend derives `/api`, `/ws` and `/graphql`. |
+| `NEXT_PUBLIC_PAXEER_RPC_URL` | Primary root-path node JSON-RPC URL; example template uses `https://api1.mainnet-beta.paxeer.network`. |
+| `NEXT_PUBLIC_PAXEER_RPC_URLS` | Optional comma-separated fallback list; see [`core/rpc.ts`](../src/core/rpc.ts) for selection. |
+| `NEXT_PUBLIC_MARKET_PROXY_HOST` | Optional browser feed hostname override. |
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Embedded-wallet sign-in configuration; when either is blank in the bundle, that sign-in section is hidden. |
+| `NEXT_PUBLIC_PAXEER_WALLET_API` | Embedded-wallet API origin. |
+| `NEXT_PUBLIC_AUTH_REDIRECT_URL`, `NEXT_PUBLIC_WALLET_IFRAME_ORIGIN` | Optional auth callback and trusted wallet messaging origin configuration. |
+| `NEXT_PUBLIC_PAXSCAN_API_URL`, `NEXT_PUBLIC_PAXSCAN_WS_URL`, `NEXT_PUBLIC_PAXSCAN_BASE_URL` | Explorer integration and transaction links. |
+| `NEXT_PUBLIC_RELEASE_SPOT_OPEN` | `1` opens the spot route/navigation/markets mode. Blank keeps the release gate closed. |
+| `MARKET_PROXY_HOST` | Server candle-feed hostname, default `data.feed.chainflowtrading.com`. |
+| `MARKET_PROXY_ORIGIN` | Required server upstream Origin header: exact bare HTTP(S) origin, e.g. `https://perps.example.com`, with no trailing slash, path, credentials, query or fragment. |
+| `VERCEL_GIT_COMMIT_SHA` or `RAILWAY_GIT_COMMIT_SHA` | Runtime build identity for `/api/build-id`; Railway takes precedence. Unset values report `development`. |
 
-- `NEXT_PUBLIC_PAXEER_RPC_URL` — primary RPC (template defaults to the public mainnet endpoint).
-- `NEXT_PUBLIC_PERPS_GATEWAY_URL` — perps gateway origin (must set explicitly; the build fails at module load without it).
-- `NEXT_PUBLIC_MARKET_PROXY_HOST` — Chainflow market feed host (optional, built-in default when blank).
-- `NEXT_PUBLIC_PERPS_PRECOMPILE`, `NEXT_PUBLIC_LAUNCHPAD_PRECOMPILE`, `NEXT_PUBLIC_PECOR_MARKET_PRECOMPILE`, `NEXT_PUBLIC_PECOR_ORDERS_PRECOMPILE`, `NEXT_PUBLIC_PECOR_STOP_PRECOMPILE`, `NEXT_PUBLIC_PECOR_QUOTER_PRECOMPILE`, `NEXT_PUBLIC_PECOR_VAULT_PRECOMPILE` — optional precompile address overrides for a local node (release addresses when blank).
-- `NEXT_PUBLIC_RELEASE_SPOT_OPEN` — spot release gate; `1` opens the spot route, its navigation entry and the markets spot mode (spot stays closed when blank).
-- `MARKET_PROXY_ORIGIN` — required server-only candle proxy Origin header. Set a bare http(s) origin such as `https://perps.example.com`, with no trailing slash, path, query or credentials, as required by `upstreamOrigin` in `src/pages/api/candle/[...path].ts`. Without it, every candle request returns 503.
-- `MARKET_PROXY_HOST` — server-only candle proxy upstream hostname (template defaults to `data.feed.chainflowtrading.com`).
+The optional precompile overrides are validated in
+[`core/network/precompiles.ts`](../src/core/network/precompiles.ts). Each must
+be `0x` followed by exactly 40 hexadecimal digits; blank uses the release
+address. These suffixes are shown without their leading zero padding:
 
-**Public vs secret keys.** A few `NEXT_PUBLIC_*` values look key-shaped but are not secrets — they're anon/publishable identifiers meant to be visible in the client bundle:
+| Override | Release address suffix |
+| --- | --- |
+| `NEXT_PUBLIC_PERPS_PRECOMPILE` | `0x1015` |
+| `NEXT_PUBLIC_LAUNCHPAD_PRECOMPILE` | `0x1017` |
+| `NEXT_PUBLIC_PECOR_MARKET_PRECOMPILE` | `0x1021` |
+| `NEXT_PUBLIC_PECOR_ORDERS_PRECOMPILE` | `0x1022` |
+| `NEXT_PUBLIC_PECOR_STOP_PRECOMPILE` | `0x1023` |
+| `NEXT_PUBLIC_PECOR_QUOTER_PRECOMPILE` | `0x1024` |
+| `NEXT_PUBLIC_PECOR_VAULT_PRECOMPILE` | `0x1025` |
 
-| Variable | Safe to expose? | Why |
-|---|---|---|
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Yes | Anon key. Server-side wallet API validates the JWT separately. |
-| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Just a hostname. |
-| `NEXT_PUBLIC_PAXEER_WALLET_API` | Yes | Public REST endpoint. |
-| `NEXT_PUBLIC_PAXSCAN_*` | Yes | Public block explorer. |
-| `MARKET_PROXY_HOST`, `MARKET_PROXY_ORIGIN` | Yes (server-only) | Plain hostname and origin, but kept server-side to keep the proxy contract clean. |
-| anything that looks like a service-role key, JWT signing secret, or wallet private key | **No** | Never put one of these in a `NEXT_PUBLIC_*` var — it gets baked into every client bundle. Use server-only env vars. |
+All `NEXT_PUBLIC_*` values are visible in browser code and are baked into the
+bundle. Changing them requires a rebuild with the corresponding Dockerfile
+build arguments and replacement of the running image. Supabase publishable
+keys are client identifiers; private keys, service-role credentials and
+signing secrets must never be public build inputs.
 
-**Critical:** if `NEXT_PUBLIC_SUPABASE_URL` or `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` is missing or blank at build time, the connect modal **silently hides the embedded-wallet sign-in section** and only injected wallets (MetaMask, Paxport extension, etc.) will be offered. The fix is to set both values and rebuild (`./deploy/scripts/deploy.sh`).
+Server-only values must reach the actual server process. The Dockerfile does
+not embed `MARKET_PROXY_HOST` or `MARKET_PROXY_ORIGIN`. Pass them at container
+creation. A plain `docker restart` or `docker compose --env-file ... restart`
+retains the existing container environment; it does not load edited values.
+Apply edited server values to the configured `app` service using
+`up -d --no-build --pull never --force-recreate --wait app` with the same image
+revision, as shown under routine operations. Compose refuses an empty
+`MARKET_PROXY_ORIGIN` before starting the service. This validation does not
+replace the route's bare-origin validation or the candle health check.
 
-Anything starting with `NEXT_PUBLIC_*` is baked into the client bundle and requires a rebuild to change. The server-only vars (`MARKET_PROXY_ORIGIN`, `MARKET_PROXY_HOST`) can change with a container restart.
+### 3. Build the frontend image
 
-### 3. Drop the Origin CA cert
-
-See [CLOUDFLARE.md §2](./CLOUDFLARE.md#2-mint-an-origin-ca-certificate). You'll mint a cert from the Cloudflare dashboard and paste it into:
-
-```
-deploy/nginx/certs/origin.pem
-deploy/nginx/certs/origin.key
-```
-
-The `certs/` directory is gitignored — don't commit them.
-
-### 4. Deploy
-
-```bash
-./deploy/scripts/deploy.sh
-```
-
-This script:
-
-1. `git pull --ff-only`.
-2. Re-tags the current `hyperpax-ui:latest` image as `:previous` (rollback target).
-3. Builds a new `:latest` image, baking the current commit SHA in.
-4. Recreates the stack with `docker compose up -d`.
-5. Waits up to 60 s for the app container's HEALTHCHECK to pass.
-6. On health-check timeout, automatically rolls back to `:previous`.
-
-Flags: `--no-pull`, `--no-build`, `--rollback`.
-
-### 5. Lock the firewall to Cloudflare-only
-
-Run **after** Cloudflare DNS is pointing at the box and you've verified the site loads through the orange cloud. If you run this before DNS is live, your origin becomes unreachable.
+From `apps/perps`, set `BUILD_COMMIT_SHA` in `.env.production` to the
+revision being built (`git rev-parse HEAD`). Use a new revision for a new
+bundle; retain the previous image and matching environment file for rollback.
 
 ```bash
-sudo ./deploy/scripts/cloudflare-firewall.sh
+docker compose --env-file .env.production -f deploy/docker-compose.yml build app
 ```
 
-This fetches Cloudflare's published IP list, removes the existing wide-open allow rules, and adds per-CIDR allow rules for ports 80 and 443. Idempotent — safe to cron monthly so the rules stay current with any IP-list changes Cloudflare makes.
+Compose's build context is `..` relative to the file in `deploy`, so it uses
+`apps/perps/Dockerfile`, the application source and its `.dockerignore`.
+The image tag, public build identity and runtime build identity all use
+`BUILD_COMMIT_SHA`. The env file configures interpolation; it is not copied
+into the image or injected wholesale at runtime.
 
-```cron
-# /etc/cron.d/cloudflare-firewall
-0 4 * * 1 root /home/deploy/Hyperpax-UI/deploy/scripts/cloudflare-firewall.sh > /var/log/cf-firewall.log 2>&1
-```
+Only arguments declared by the Dockerfile affect the build. Consult its
+`ARG NEXT_PUBLIC_*` declarations when adding configuration; an environment
+variable in a template is not proof that the image forwards it. For example,
+`NEXT_PUBLIC_NETWORK_STATUS_WS_URL` is in the template but currently has no
+Dockerfile build argument.
 
-### 6. Verify
+The Dockerfile installs with the app's frozen pnpm lockfile, copies the
+charting library from its pinned image, checks the standalone charting script,
+and runs `pnpm build`. Keep the image digest checks and charting asset check.
+The runtime uses UID 1001 and `tini`, defaults to port 3000 and starts
+`node server.js`.
+
+### 4. Start the stack
+
+With the nginx mounts and TLS assets provisioned:
 
 ```bash
-# Container health
-docker ps
-docker logs hyperpax-app | tail -50
-docker logs hyperpax-nginx | tail -50
-
-# Local request through nginx
-curl -sk -H 'Host: app.paxeer.app' https://127.0.0.1/api/build-id
-
-# Through Cloudflare
-curl -fsSL https://app.paxeer.app/api/build-id
+docker compose --env-file .env.production -f deploy/docker-compose.yml up -d --no-build --pull never --wait
 ```
 
-`/api/build-id` returns the short commit SHA the image was built from. Useful for verifying which version is live.
+The app receives the explicit Compose `environment` values at container
+creation; client-visible variables still come from the built bundle.
+The image health check requests `/api/build-id` every 15 seconds with a
+5-second timeout, 20-second start period and three retries. A healthy response
+proves the Next.js endpoint is available; check the candle proxy separately.
+`--no-build --pull never` ensures startup uses the locally built image.
 
----
+### 5. Verify before routing traffic
+
+```bash
+docker compose --env-file .env.production -f deploy/docker-compose.yml ps
+docker compose --env-file .env.production -f deploy/docker-compose.yml logs --tail 100 app
+docker compose --env-file .env.production -f deploy/docker-compose.yml exec -T app wget -qO- http://127.0.0.1:3000/api/build-id
+```
+
+`/api/build-id` returns `{ "buildId": "<configured revision>" }`; compare it
+with the intended image revision. To verify the proxy origin in the running
+container and exercise the actual candle route, replace the example origin
+below with the exact intended `MARKET_PROXY_ORIGIN` from your runtime file:
+
+```bash
+docker compose --env-file .env.production -f deploy/docker-compose.yml exec -T app node -e '
+if (process.env.MARKET_PROXY_ORIGIN !== process.argv[1]) {
+  throw new Error("Running app has the wrong MARKET_PROXY_ORIGIN");
+}
+fetch("http://127.0.0.1:3000/api/candle/config").then(async response => {
+  if (!response.ok) throw new Error(`Candle proxy HTTP ${response.status}`);
+  const config = await response.json();
+  if (!Array.isArray(config.supported_resolutions) || !config.supported_resolutions.length) {
+    throw new Error("Invalid upstream UDF config");
+  }
+  console.log("Candle proxy origin and upstream config verified");
+}).catch(error => { console.error(error); process.exit(1); });
+' 'https://perps.example.com'
+```
+
+The route reads the same runtime variable and sends it as the upstream
+`Origin` header. This check must succeed after startup, environment updates
+and rollback; build identity alone does not exercise that header. Verify both
+endpoints through the actual HTTPS ingress as well (substitute your hostname):
+
+```bash
+curl --fail-with-body https://perps.example.com/api/build-id
+curl --fail-with-body https://perps.example.com/api/candle/config
+```
+
+Check the ingress UDF config and intended build identity before routing users.
 
 ## Routine operations
 
 ### Deploy a new version
 
-From your laptop, push changes to `main`. Then on the box:
+Retain the previous image tag and its matching environment file outside
+version control. Update `.env.production` for the new revision and public
+inputs, build `app` as above, then recreate it:
 
 ```bash
-cd ~/Hyperpax-UI
-./deploy/scripts/deploy.sh
+docker compose --env-file .env.production -f deploy/docker-compose.yml up -d --no-build --pull never --force-recreate --wait app
 ```
 
-Zero-downtime is approximate (nginx briefly drops new connections to the app during recreate). For true zero-downtime, run two app instances behind nginx and recreate them sequentially — out of scope for v1.
+Repeat all build-identity, proxy-origin and HTTPS checks above. This
+single-instance replacement has downtime; there is no automatic rolling
+update or rollback trigger. nginx's Docker DNS resolver follows the new app
+address without requiring an nginx restart.
 
 ### Roll back
 
+Restore the retained environment file to `.env.production`, including its
+`BUILD_COMMIT_SHA`, `MARKET_PROXY_ORIGIN`, `MARKET_PROXY_HOST` and public build
+inputs. Retain that revision-tagged image locally; do not rebuild it or prune
+it before the rollback window closes. Then run:
+
 ```bash
-./deploy/scripts/deploy.sh --rollback
+docker compose --env-file .env.production -f deploy/docker-compose.yml up -d --no-build --pull never --force-recreate --wait app
 ```
 
-This restores the previous image (kept automatically by `deploy.sh`).
+Repeat all build-identity, proxy-origin and HTTPS checks above. Restoring only
+the runtime env cannot undo browser configuration embedded in a newer image.
 
 ### Tail logs
 
 ```bash
-docker compose -f deploy/docker-compose.yml logs -f
-# Or just one service:
-docker compose -f deploy/docker-compose.yml logs -f app
+docker compose --env-file .env.production -f deploy/docker-compose.yml logs -f --tail 100 app
 ```
 
-Logs are JSON-formatted, capped at 50 MB × 5 files per container.
+Both Compose services use `json-file` rotation at 50 MB × 5 files.
 
-### Restart without rebuilding
+### Apply server-only environment changes
+
+Edit `MARKET_PROXY_ORIGIN` or `MARKET_PROXY_HOST` in `.env.production`, keep
+`BUILD_COMMIT_SHA` unchanged to use the **same image**, and recreate the app:
 
 ```bash
-docker compose -f deploy/docker-compose.yml --env-file .env.production restart
+docker compose --env-file .env.production -f deploy/docker-compose.yml up -d --no-build --pull never --force-recreate --wait app
 ```
 
-Useful for picking up server-only env var changes without a fresh build.
-
----
-
-## Hardening checklist
-
-In rough priority order. Item 1 is non-negotiable; the rest are good-citizen.
-
-1. **Firewall locked to Cloudflare IPs.** Run `cloudflare-firewall.sh` after DNS is live.
-2. **SSH password auth disabled.** See §1 above.
-3. **Cloudflare SSL/TLS mode set to "Full (strict)".** Free option, accepts the Origin CA cert.
-4. **Cloudflare "Always Use HTTPS" and HSTS (Edge Certificates)** enabled.
-5. **CF WAF: enable the Cloudflare Managed Ruleset.** Free tier.
-6. **CF rate-limit rule for `/api/*`.** 60 req / 10 s per IP is a sensible starting point. The app-side proxy in `src/pages/api/candle/[...path].ts` also rate-limits, but CF's runs at the edge and survives an app restart.
-7. **Unattended security upgrades enabled.** Already done by `server-init.sh`.
-8. **Backup of `deploy/.env.production` + `deploy/nginx/certs/`** to a password manager / secret vault. These are not in git.
-9. **Box monitoring.** At minimum, configure UptimeRobot or similar to hit `https://app.paxeer.app/api/build-id` every 60 s.
-
----
+Repeat the running-container proxy-origin check with the new expected origin,
+the build-identity check and both HTTPS checks above. A plain `restart`
+retains the existing container environment. Public `NEXT_PUBLIC_*` bundle
+changes always require a rebuild and replacement with a new image revision.
 
 ## Troubleshooting
 
-### `deploy.sh` reports "healthcheck timed out"
+### Compose says there is no `app` service
 
-The HEALTHCHECK hits `/api/build-id`. If that route fails, the container is up but the Next.js server is broken. Check logs:
+Run from `apps/perps` and explicitly select `-f deploy/docker-compose.yml`.
+The checked-in file defines `app` and `nginx`; another Compose file may not.
 
-```bash
-docker logs hyperpax-app | tail -100
-```
+### nginx fails to start or returns `502 Bad Gateway`
 
-Most likely cause: a required `NEXT_PUBLIC_*` env var is missing and a top-level import threw. Verify `.env.production` against `.env.production.example`.
+Check that every mounted nginx file, certificate and DH parameter file exists
+and that the TLS server proxies to `app:3000` using the Docker DNS resolver
+shown above. Both services must join `internal`. Check `app` health and logs
+using the same Compose file and environment file. After app recreation,
+allow the resolver refresh period before checking again.
 
-### nginx returns `502 Bad Gateway`
+### Candle proxy returns 503 or fails to load
 
-The app container isn't reachable. Check:
+With an unset `MARKET_PROXY_ORIGIN`, the route returns HTTP 503 with
+`{ "error": "MARKET_PROXY_ORIGIN is not configured" }`. A nonempty malformed
+origin can throw when the route module loads. Fix the origin format and
+replace the container with the corrected environment. HTTP 504 means the
+upstream timed out; HTTP 502 means it was unreachable. See the
+[API guide](../data_api.md) for the chart/data-gateway distinction.
 
-```bash
-docker compose -f deploy/docker-compose.yml ps
-docker logs hyperpax-app | tail -50
-```
+### Embedded-wallet sign-in is missing
 
-If the app is healthy, the issue is nginx config — likely you edited `conf.d/paxeer.conf` and `upstream` no longer resolves. Verify `proxy_pass http://app:3000;` is intact.
+Check that both Supabase public values were passed to the build. Docker's
+`.dockerignore` excludes `.env.production`, and runtime `--env-file` cannot
+repair a previously built client bundle. Rebuild with the correct public
+arguments and replace the image. There is no `deploy.sh --no-cache` command in
+this checkout; Docker's own `build --no-cache` option is available when needed.
 
-### Cloudflare returns `521 Web server is down`
+### Build identity reports `development`
 
-Either your firewall is blocking CF (`cloudflare-firewall.sh` was run before DNS pointed here) or nginx isn't bound to 443 (cert files missing).
+Set `BUILD_COMMIT_SHA` in the Compose env file for the image being launched;
+Compose forwards it as runtime `VERCEL_GIT_COMMIT_SHA`.
+`NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA` is a separate public build argument and does not by itself set the server-only variable this endpoint
+reads. An arbitrary configured identity is not independent image attestation.
 
-```bash
-sudo ufw status | grep -E '(443|CLOUDFLARE)'
-docker compose -f deploy/docker-compose.yml logs nginx | tail -30
-```
+## Deployment responsibilities
 
-To unblock quickly:
-
-```bash
-sudo ufw allow 443/tcp
-sudo ufw allow 80/tcp
-```
-
-Then debug the cert / DNS issue at leisure.
-
-### Connect-wallet modal shows injected wallets only — embedded sign-in section missing
-
-Caused by `NEXT_PUBLIC_SUPABASE_URL` or `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` being empty *in the built bundle*. Two common reasons:
-
-1. The values weren't in `.env.production` at the time of the original build.
-2. The values are correct now, but a subsequent `deploy.sh` run hit the Docker layer cache and didn't actually re-bake the client bundle.
-
-Diagnose:
-
-```bash
-# Returns chunk file paths if the key made it into the bundle.
-docker exec hyperpax-app sh -c \
-  'grep -rl "sb_publishable" /app/.next/static/chunks 2>/dev/null | head -3'
-```
-
-If that returns nothing, force a clean rebuild:
-
-```bash
-./deploy/scripts/deploy.sh --no-cache
-```
-
-Re-run the `grep` after the rebuild — it should now find at least one file. Then hard-reload the site in the browser (Cmd/Ctrl+Shift+R) to drop any stale service-worker cache.
-
-The same `--no-cache` flag should be used any time you change `NEXT_PUBLIC_*` values in `.env.production` and want to be sure the new values actually land in the next build.
-
-### Build is slow
-
-The first build is slow (~3 min) because it has to pull pnpm + every dep. Subsequent builds use the Docker layer cache and finish in under 60 s for code-only changes. To force a clean build:
-
-```bash
-docker compose -f deploy/docker-compose.yml build --no-cache app
-```
-
----
-
-## What this setup deliberately doesn't include
-
-- **No Let's Encrypt / certbot.** We use Cloudflare Origin CA (15-year cert, no renewal automation). If you ever want LE at the origin, drop certbot in and swap the cert paths in `conf.d/paxeer.conf`.
-- **No Kubernetes / Nomad.** A single Docker Compose stack on one box is the right complexity level until you need multi-region active-active.
-- **No CI-driven deploys yet.** `deploy.sh` is callable from a webhook or GitHub Action — but the trigger isn't wired up. The simplest next step is a GitHub Action that SSHes to the box and runs `deploy.sh`.
-- **No automated backups.** This is a stateless frontend. There's nothing to back up except the env file and the CF Origin cert; both belong in a password manager, not in object storage.
+TLS, ingress, firewall rules, secret/environment backups, image retention,
+health monitoring and service-manager configuration belong to the deployment.
+The repository assets describe parts of those systems and do not provision a
+complete production stack. Back up `apps/perps/.env.production` and external
+ingress certificates in your approved secret storage; do not commit them.

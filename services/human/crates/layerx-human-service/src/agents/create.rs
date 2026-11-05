@@ -37,7 +37,7 @@ const PURPOSE_LIMIT: usize = 64;
 mod native;
 pub use native::{
     NativeAgentCreationContract, NativeFundingEvidence, NativeFundingRequest,
-    NativeIdentityRevisionRequest, NativeOnboardingRequest,
+    NativeIdentityCreationRequest, NativeIdentityRevisionRequest, NativeOnboardingRequest,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -537,6 +537,9 @@ impl ProtocolEvidence {
                     .get(2..34)
                     .and_then(|word| word.try_into().ok())
                     .ok_or(AgentFailure::Refused("invalid lifecycle budget id"))?,
+                Some(layerx_crypto::disclosure::call::ConstructMethod::PayBudgetCreateNative {
+                    budget,
+                }) => budget.budget_id,
                 Some(layerx_crypto::disclosure::call::ConstructMethod::PayBudgetFund {
                     ..
                 }) => [0; 32],
@@ -672,6 +675,42 @@ impl ProtocolEvidence {
                     layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
                 )
             }
+            Some(layerx_crypto::disclosure::call::ConstructMethod::PayBudgetCreateNative {
+                budget,
+            }) => {
+                let mut payload = Vec::with_capacity(251);
+                payload.extend_from_slice(&budget.encoding_version.to_be_bytes());
+                for value in [
+                    budget.budget_id,
+                    budget.budget_account,
+                    budget.asset,
+                    budget.purpose,
+                ] {
+                    payload.extend_from_slice(&value);
+                }
+                for value in [
+                    budget.per_period_limit,
+                    budget.carry_cap,
+                    budget.initial_amount,
+                ] {
+                    payload.extend_from_slice(&value.to_be_bytes());
+                }
+                for value in [
+                    budget.period_length_ms,
+                    budget.period_start_ms,
+                    budget.expiry_ms,
+                    budget.revocation_sequence,
+                ] {
+                    payload.extend_from_slice(&value.to_be_bytes());
+                }
+                payload.push(budget.rollover);
+                payload.extend_from_slice(&budget.source_account);
+                payload.extend_from_slice(&budget.source_sequence.to_be_bytes());
+                (
+                    payload,
+                    layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
+                )
+            }
             Some(layerx_crypto::disclosure::call::ConstructMethod::PayBudgetFund {
                 budget,
                 amount,
@@ -695,6 +734,12 @@ impl ProtocolEvidence {
                 ..
             }) => (
                 payload,
+                layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
+            ),
+            Some(layerx_crypto::disclosure::call::ConstructMethod::AuthSession {
+                grant, ..
+            }) => (
+                grant.registration_payload,
                 layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
             ),
             Some(layerx_crypto::disclosure::call::ConstructMethod::ProgramCall { .. }) => {
@@ -1025,7 +1070,11 @@ impl CreationJourney {
             .collect();
         let journey = Self {
             record: JourneyRecord {
-                version: if native.is_some() { 2 } else { RECORD_VERSION },
+                version: if native.is_some() {
+                    native::RECORD_VERSION
+                } else {
+                    RECORD_VERSION
+                },
                 native,
                 native_fee_budget: request.native_fee_budget.clone(),
                 activity_types: request.activity_types.clone(),
@@ -1129,7 +1178,7 @@ impl CreationJourney {
     }
 
     pub(crate) fn native_resume_eligible(&self) -> bool {
-        self.record.version == 2 && self.record.native.is_some()
+        matches!(self.record.version, 2 | native::RECORD_VERSION) && self.record.native.is_some()
     }
 
     #[must_use]
@@ -1583,7 +1632,7 @@ impl CreationJourney {
             .map_err(|_| AgentCreationError::CorruptJourney)?;
         AccountId::parse(&format!(
             "agent:{did}:budget:{}",
-            if self.record.version == 2 {
+            if matches!(self.record.version, 2 | native::RECORD_VERSION) {
                 native::full_hex(&self.record.agent_id)
             } else {
                 short_hex(&self.record.agent_id)
@@ -1626,14 +1675,14 @@ fn validate_record(record: &JourneyRecord, expected: [u8; 32]) -> Result<(), Age
         .map_err(|_| AgentCreationError::CorruptJourney)?;
     let expected_stages = match (&record.native, record.version) {
         (None, RECORD_VERSION) => CreationStage::ALL.to_vec(),
-        (Some(mode), 2) => native::stages(
+        (Some(mode), 2 | native::RECORD_VERSION) => native::stages(
             mode,
             record.native_fee_budget.as_ref(),
             record.preset.budget_asset,
         ),
         _ => return Err(AgentCreationError::CorruptJourney),
     };
-    if !matches!(record.version, 1 | 2)
+    if !matches!(record.version, 1 | 2 | native::RECORD_VERSION)
         || record.agent_id != expected
         || record.idempotency_key == [0; 32]
         || record.name.is_empty()

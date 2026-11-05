@@ -4,6 +4,27 @@ using System.Text.Json.Serialization;
 
 namespace LayerX.Sdk;
 
+/// <summary>An independently obtained pin for a committed header on the selected network.</summary>
+public sealed class PortableReceiptTrust
+{
+    private readonly byte[] headerHash;
+    public string ChainId { get; }
+    public long Height { get; }
+
+    public PortableReceiptTrust(string chainId, long height, ReadOnlySpan<byte> headerHash)
+    {
+        if (string.IsNullOrEmpty(chainId) || System.Text.Encoding.UTF8.GetByteCount(chainId) > 50 ||
+            height <= 0 || headerHash.Length != 32)
+            throw new PlatformSdkException(SdkErrorCode.InvalidArgument, RetryClass.Never);
+        ChainId = chainId;
+        Height = height;
+        this.headerHash = headerHash.ToArray();
+    }
+
+    internal bool Authenticates(CometHeader header) => header.ChainId == ChainId && header.Height == Height &&
+        CryptographicOperations.FixedTimeEquals(headerHash, Committed.HeaderHash(header));
+}
+
 public sealed class PortableReceipt
 {
     public const string Format = "layerx-receipt-proof-v2";
@@ -31,7 +52,8 @@ public sealed class PortableReceipt
 
     public static PortableReceipt export(JsonElement receiptJson, ReadOnlyMemory<byte> rawTransaction,
         ReceiptKeys keys, CometHeader? blockHeader = null, CommittedReceiptInclusion? receiptInclusion = null,
-        CometCommit? commit = null, IReadOnlyList<CometValidator>? validatorSet = null)
+        CometCommit? commit = null, IReadOnlyList<CometValidator>? validatorSet = null,
+        PortableReceiptTrust? trust = null)
     {
         var verified = LocalVerifier.VerifySequencerReceipt(receiptJson, rawTransaction, keys);
         var key = keys.Pinned.FirstOrDefault(entry =>
@@ -57,8 +79,13 @@ public sealed class PortableReceipt
             ["rawTransaction"] = Hex(rawTransaction.Span),
             ["signedReceipt"] = Hex(verified.CanonicalBytes),
             ["receiptDigest"] = Hex(verified.ReceiptDigest),
-            ["receiptKey"] = new { keyId = Hex(key.KeyId), publicKey = Hex(key.PublicKey),
-                firstHeight = Quantity(key.FirstHeight), lastHeight = Quantity(key.LastHeight) },
+            ["receiptKey"] = new
+            {
+                keyId = Hex(key.KeyId),
+                publicKey = Hex(key.PublicKey),
+                firstHeight = Quantity(key.FirstHeight),
+                lastHeight = Quantity(key.LastHeight)
+            },
             ["receiptJson"] = receiptJson
         };
         if (committed)
@@ -68,10 +95,10 @@ public sealed class PortableReceipt
             bundle["commit"] = JsonSerializer.SerializeToElement(commit, Committed.WireOptions);
             bundle["validatorSet"] = JsonSerializer.SerializeToElement(validatorSet, Committed.WireOptions);
         }
-        return verify(JsonSerializer.SerializeToUtf8Bytes(bundle, Options), keys);
+        return verify(JsonSerializer.SerializeToUtf8Bytes(bundle, Options), keys, trust);
     }
 
-    public static PortableReceipt verify(ReadOnlyMemory<byte> bundle, ReceiptKeys keys)
+    public static PortableReceipt verify(ReadOnlyMemory<byte> bundle, ReceiptKeys keys, PortableReceiptTrust? trust = null)
     {
         try
         {
@@ -103,6 +130,7 @@ public sealed class PortableReceipt
             if (level == "committed")
             {
                 var header = Read<CometHeader>(root, "blockHeader");
+                Require(trust is not null && trust.Authenticates(header));
                 if (view.GetProperty("rung").GetString() == "committed")
                     Require(Height(view, "blockNumber") == (ulong)header.Height &&
                         Equal(ReadHex(view.GetProperty("blockHash"), 32), Committed.HeaderHash(header)));

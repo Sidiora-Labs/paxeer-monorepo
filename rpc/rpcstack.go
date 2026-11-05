@@ -93,10 +93,11 @@ type HTTPServer struct {
 	timeouts rpc.HTTPTimeouts
 	mux      http.ServeMux // registered handlers go here
 
-	mu       sync.Mutex
-	server   *http.Server
-	listener net.Listener // non-nil when server is running
-	onStop   []func()
+	mu        sync.Mutex
+	server    *http.Server
+	listener  net.Listener // non-nil when server is running
+	serveDone chan struct{}
+	onStop    []func()
 
 	// HTTP RPC handler things.
 
@@ -187,8 +188,12 @@ func (h *HTTPServer) Start() error {
 		return err
 	}
 	h.listener = listener
+	server := h.server
+	done := make(chan struct{})
+	h.serveDone = done
 	go func() {
-		if err := h.server.Serve(listener); !errors.Is(err, http.ErrServerClosed) {
+		defer close(done)
+		if err := server.Serve(listener); !errors.Is(err, http.ErrServerClosed) {
 			logger.Error("server stopped erroneously", "err", err)
 		}
 	}()
@@ -337,6 +342,7 @@ func (h *HTTPServer) doStop() {
 		h.httpHandler.Store((*rpcHandler)(nil))
 		httpHandler.server.Stop()
 		httpHandler.limiter.stop()
+		closeTestAPIs(h.apis)
 		h.apis = nil
 	}
 	if wsHandler != nil {
@@ -366,11 +372,13 @@ func (h *HTTPServer) doStop() {
 	}
 
 	_ = h.listener.Close()
+	<-h.serveDone
 	logger.Info("HTTP server stopped", "endpoint", h.listener.Addr())
 
 	// Clear out everything to allow re-configuring it later.
 	h.host, h.port, h.endpoint = "", 0, ""
 	h.server, h.listener = nil, nil
+	h.serveDone = nil
 }
 
 // EnableRPC turns on JSON-RPC over HTTP on the server.
@@ -395,7 +403,7 @@ func (h *HTTPServer) EnableRPC(apis []rpc.API, config HTTPConfig) error {
 	}
 	h.HTTPConfig = config
 	h.apis = registeredAPIs(apis, config.Modules)
-	base := NewHTTPHandlerStack(srv, config.CorsAllowedOrigins, config.Vhosts, config.JwtSecret)
+	base := NewHTTPHandlerStack(wrapPxParamsHTTP(srv, newPxParamsGuard(h.apis, config.DenyList, ConnectionTypeHTTP)), config.CorsAllowedOrigins, config.Vhosts, config.JwtSecret)
 	limiter := newIPRateLimiter(config.ipRateLimitRPS, config.ipRateLimitBurst)
 	h.httpHandler.Store(&rpcHandler{
 		Handler: limiter.wrap(wrapPaxLegacyHTTP(base, config.PaxLegacyAllowlist)),
@@ -405,6 +413,15 @@ func (h *HTTPServer) EnableRPC(apis []rpc.API, config HTTPConfig) error {
 	return nil
 }
 
+// closeTestAPIs ends overrides even when a server is stopped before listening.
+func closeTestAPIs(apis []rpc.API) {
+	for _, api := range apis {
+		if test, ok := api.Service.(*TestAPI); ok {
+			test.close()
+		}
+	}
+}
+
 // disableRPC stops the HTTP RPC handler. This is internal, the caller must hold h.mu.
 func (h *HTTPServer) disableRPC() bool {
 	handler := h.httpHandler.Load().(*rpcHandler)
@@ -412,6 +429,7 @@ func (h *HTTPServer) disableRPC() bool {
 		h.httpHandler.Store((*rpcHandler)(nil))
 		handler.server.Stop()
 		handler.limiter.stop()
+		closeTestAPIs(h.apis)
 		h.apis = nil
 	}
 	return handler != nil
@@ -449,7 +467,8 @@ func (h *HTTPServer) EnableWS(apis []rpc.API, config WsConfig) error {
 }
 
 func (h *HTTPServer) newDomainWSHandler(srv *rpc.Server, config WsConfig, apis []rpc.API) http.Handler {
-	rootHandler := newDenyListWSHandler(srv, config)
+	guard := newPxParamsGuard(apis, config.DenyList, ConnectionTypeWS)
+	rootHandler := newDenyListWSHandler(srv, config, guard)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		scope, ok := DomainScopeFrom(r.Context())
 		if !ok {
@@ -463,6 +482,14 @@ func (h *HTTPServer) newDomainWSHandler(srv *rpc.Server, config WsConfig, apis [
 		scopedAPIs := make([]rpc.API, len(apis))
 		for idx, api := range apis {
 			switch service := api.Service.(type) {
+			case *BlockAPI:
+				api.Service = &domainBlockAPI{BlockAPI: service, scope: scope}
+			case *TransactionAPI:
+				api.Service = &domainTransactionAPI{TransactionAPI: service, scope: scope}
+			case *RawTransactionAPI:
+				api.Service = &domainRawTransactionAPI{RawTransactionAPI: service, scope: scope}
+			case *FilterAPI:
+				api.Service = &domainFilterAPI{FilterAPI: service, scope: scope}
 			case *InfoAPI:
 				api.Service = &domainInfoAPI{InfoAPI: service, scope: scope}
 			case *domainNetAPI:
@@ -492,7 +519,7 @@ func (h *HTTPServer) newDomainWSHandler(srv *rpc.Server, config WsConfig, apis [
 			delete(h.domainWSServers, scopedServer)
 			h.mu.Unlock()
 		}()
-		newDenyListWSHandler(scopedServer, config).ServeHTTP(w, r)
+		newDenyListWSHandler(scopedServer, config, guard).ServeHTTP(w, r)
 	})
 }
 
@@ -501,6 +528,8 @@ type denyListWSConn struct {
 	mu            sync.Mutex
 	deniedMethods map[string]string
 	deniedErrors  map[string]string
+	pxParams      *pxParamsGuard
+	ctx           context.Context
 }
 
 func (c *denyListWSConn) SetWriteDeadline(deadline time.Time) error {
@@ -532,7 +561,11 @@ func (c *denyListWSConn) readJSON(value interface{}) error {
 	if err := c.Conn.ReadJSON(&raw); err != nil {
 		return err
 	}
-	raw, err := rewriteWSMessages(raw, func(raw json.RawMessage) (json.RawMessage, error) {
+	raw, err := c.pxParams.request(c.ctx, raw)
+	if err != nil {
+		return err
+	}
+	raw, err = rewriteWSMessages(raw, func(raw json.RawMessage) (json.RawMessage, error) {
 		var message jsonrpcMessage
 		if err := json.Unmarshal(raw, &message); err != nil || message.Method == "" {
 			return raw, nil
@@ -564,6 +597,10 @@ func (c *denyListWSConn) readJSON(value interface{}) error {
 
 func (c *denyListWSConn) writeJSON(value interface{}, _ bool) error {
 	raw, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+	raw, err = c.pxParams.response(raw)
 	if err != nil {
 		return err
 	}
@@ -604,10 +641,7 @@ func (c *denyListWSConn) writeJSON(value interface{}, _ bool) error {
 	return c.Conn.WriteJSON(json.RawMessage(raw))
 }
 
-func newDenyListWSHandler(srv *rpc.Server, config WsConfig) http.Handler {
-	if len(config.DenyList) == 0 {
-		return srv.WebsocketHandler(config.Origins)
-	}
+func newDenyListWSHandler(srv *rpc.Server, config WsConfig, guard *pxParamsGuard) http.Handler {
 	deniedMethods := make(map[string]string, len(config.DenyList))
 	deniedErrors := make(map[string]string, len(config.DenyList))
 	prefix := "denied:" + string(rpc.NewID()) + ":"
@@ -629,8 +663,10 @@ func newDenyListWSHandler(srv *rpc.Server, config WsConfig) http.Handler {
 		if err != nil {
 			return
 		}
+		// Authentication and origin checks have passed and the upgrade succeeded.
+		recordWebsocketConnect(r.Context())
 		conn.SetReadLimit(config.readLimit)
-		c := &denyListWSConn{Conn: conn, deniedMethods: deniedMethods, deniedErrors: deniedErrors}
+		c := &denyListWSConn{Conn: conn, deniedMethods: deniedMethods, deniedErrors: deniedErrors, pxParams: guard, ctx: r.Context()}
 		stopped := make(chan struct{})
 		defer close(stopped)
 		conn.SetPongHandler(func(string) error { return conn.SetReadDeadline(time.Time{}) })

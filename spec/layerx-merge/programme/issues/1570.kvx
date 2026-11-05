@@ -1,0 +1,48 @@
+[issue.1570]
+number = 1570
+title = "[P2] Migrate gas-station signer tests to the named raw-key configuration"
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+verdict = "task"
+evidence = "services/interop/crates/layerx-gas-station/src/signer.rs:47-67 (from_config) reads the raw hex key from the variable named by relayer_key_env, while the tests at :145-165, :360-390 (key_file_produces_sponsor_address, kms_handle_produces_sponsor_address), :394 and :406-414 still configure the retired key-file and KMS-handle forms."
+close_comment = "The gas station signer tests now exercise the named raw-key configuration the loader reads, with the retired key-file and KMS-handle forms kept only as refusal cases."
+
+[task.18.1570.1]
+title = "Issue #1570: Migrate the gas-station signer tests to the named raw-key configuration"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181570.1"]
+capabilities = []
+interfaces = []
+do_1 = "Decision 2490 (triage record spec/layerx-merge/programme/issues/1570.kvx, verdict task): from_config (src/signer.rs:47-67) loads the sponsor key as raw hex from the environment variable named by relayer_key_env; the module tests (fixture at :145-165, key_file_produces_sponsor_address and kms_handle_produces_sponsor_address at :360-390, loader_refusals_map_without_key_material at :394, the invalid-key case at :406-414) still configure the retired key-file and KMS-handle forms. Rewrite the tests so the positive cases set the named variable to a fixture hex key inside the test (scoped so parallel tests do not share it) and derive the expected sponsor address from it, while the retired forms become refusal cases; keep the invalid-key and missing-material refusals."
+do_2 = "Never change from_config or its refusals to fit the tests; the verify runs the signer module's unit tests."
+symbols = []
+touches = ["services/interop/crates/layerx-gas-station/src/signer.rs"]
+tests = ["services/interop/crates/layerx-gas-station/src/signer.rs::loader_refusals_map_without_key_material"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-gas-station --tests"
+verify_cmd = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-gas-station --lib signer"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-interop"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181570]
+title = "The gas-station signer tests exercise the named raw-key configuration"
+ac_1 = "Given the signer loader of services/interop/crates/layerx-gas-station/src/signer.rs:47-67, when the module tests run, then the positive cases configure the key through the variable named by relayer_key_env, the retired forms are refusal cases and cargo test -p layerx-gas-station --lib signer exits zero."
+
+[acceptance.18.1570.1]
+feature = "18"
+req = "181570.1"
+scenario = "Given the named raw-key configuration, when the signer tests run, then the sponsor address is derived from the configured key and every retired form is refused."
+contract = "contracts/interop.md#gas-station"
+test = "cargo test -p layerx-gas-station --lib signer (planned)"
+qualification = "UNRUN"

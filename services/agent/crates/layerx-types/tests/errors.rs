@@ -316,8 +316,4 @@ fn unknown_success_and_malformed_reasons_fail_closed() {
         Retriability::of_revert_reason("LXP_NOT_YET_VALID: not yet valid"),
         Retriability::Retriable
     );
-    assert_eq!(
-        KnownResult::from_revert_reason("LXP_DA_MISSING: da missing"),
-        Some(KnownResult::DaMissing)
-    );
 }

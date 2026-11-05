@@ -13,16 +13,17 @@ import sys
 import time
 import uuid
 
+from foundation_provenance import qualify_foundation
+
 ROOT = Path(__file__).resolve().parents[3]
 sys.dont_write_bytecode = True
 spec = importlib.util.spec_from_file_location('foundation_artifacts', Path(__file__).with_name('foundation-artifacts.py'))
 ART = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(ART)
-SOURCES = ('docker/kernel', 'services/platform/hosted/node', 'services/platform/hosted/paxeer',
-           'services/wallet/attestor',
-           'tools/bringup/kernel-genesis.sh', 'contracts/config/checkpoint-settlement.json',
-           'migrations/0007_history_index.sql')
-NETWORK_ID = 77
+SOURCES = ('docker/kernel', 'services/platform/hosted/node',
+           'services/wallet/attestor', 'daemon/paxd', 'modules', 'layerxproof',
+           'tools/bringup')
+NETWORK_ID = 125
 
 
 class Refused(Exception):
@@ -176,18 +177,32 @@ class Foundation:
         code = "import json,urllib.request; req=urllib.request.Request('http://127.0.0.1:8545',data=json.dumps({'jsonrpc':'2.0','id':1,'method':" + repr(method) + ",'params':[]}).encode(),headers={'Content-Type':'application/json'}); print(urllib.request.urlopen(req,timeout=5).read().decode())"
         return json.loads(self.execute(['python3', '-c', code]))
 
+    def node_start(self):
+        self.producer(['docker', 'exec', '-d', self.name, 'bash', '-c',
+                       'exec /artifacts/paxd start --home /fixture/chain '
+                       '--rpc.laddr tcp://127.0.0.1:26657 --evm.http_enabled true '
+                       '--evm.http_address 127.0.0.1 --evm.http_port 8545 '
+                       '--sequencer.enable true --sequencer.wal-dir /fixture/chain/data/sequencer-wal '
+                       '--sequencer.receipt-key-file /fixture/chain/config/receipt.key '
+                       '>> /fixture/chain-process.log 2>&1'])
+
     def wait_chain(self):
         deadline = time.monotonic() + 90
         while time.monotonic() < deadline:
             try:
-                result = self.rpc('eth_chainId')
-                require(result.get('result') == '0x7d', 'wrong real EVM chain identity')
-                if int(self.rpc('eth_blockNumber')['result'], 16) >= 3:
-                    return
+                # The inspector verifies the actual canonical Comet signature,
+                # native genesis binding and the same-height EVM block. Its
+                # retained checkpoint is reopened on every observation.
+                raw = self.execute(['/artifacts/bringup-inspect', 'foundation-observe',
+                                    '/fixture/run/committed', '/fixture/chain/config/genesis.json',
+                                    '/fixture/chain/config/receipt.key',
+                                    'http://127.0.0.1:8545', 'http://127.0.0.1:26657'])
+                self.committed = json.loads(raw)
+                require(self.committed['height'] >= 1, 'actual signed commit required')
+                return
             except (RuntimeError, KeyError, ValueError):
-                pass
-            time.sleep(0.5)
-        raise RuntimeError('actual isolated Paxeer chain did not produce blocks')
+                time.sleep(0.5)
+        raise RuntimeError('actual integrated Paxeer chain did not commit')
 
     def attest(self, path='/health', body=None):
         script = """import json,ssl,urllib.request,sys
@@ -280,59 +295,27 @@ for node in range(1,6):
         inspected = json.loads(self.producer(['docker', 'inspect', self.name]))[0]
         ipv6 = inspected['NetworkSettings']['Networks'][self.network]['GlobalIPv6Address']
         require(bool(ipv6), 'actual isolated IPv6 address missing')
-        for name in ('treasury', 'sequencer'):
-            self.producer(['openssl', 'rand', '-out', self.output / 'keys' / (name + '.key'), '32'])
-        self.producer(['openssl', 'genpkey', '-algorithm', 'ED25519', '-out', self.output / 'keys' / 'deposit.pem'])
-        deposit = self.producer(['openssl', 'pkey', '-in', self.output / 'keys' / 'deposit.pem', '-pubout', '-outform', 'DER'])[-32:].hex()
-        seed = (self.output / 'keys' / 'sequencer.key').read_bytes()
-        seq_der = bytes.fromhex('302e020100300506032b657004220420') + seed
-        public = self.producer(['openssl', 'pkey', '-inform', 'DER', '-pubout', '-outform', 'DER'], data=seq_der)[-32:].hex()
-        seq_id = hashlib.sha256(b'layerx-sequencer:' + public.encode()).hexdigest()
-        asset = hashlib.sha256(b'layerx-asset:125:PAX').hexdigest()
-        self.shell("printf '0x' > /fixture/keys/recipient.key; openssl rand -hex 32 >> /fixture/keys/recipient.key")
-        address = self.execute(['python3', '/source/services/platform/hosted/paxeer/evm.py', 'address', '/fixture/keys/recipient.key']).decode().strip().lower()
-        custody = ['python3', '/source/services/platform/hosted/paxeer/custody-genesis.py', '--network-id', str(NETWORK_ID),
-                   '--sequencer-id', seq_id, '--sequencer-public-key', public, '--deposit-root-authority', deposit,
-                   '--asset', asset + ':uhpx', '--output', '/fixture/genesis/custody.json']
-        self.execute(custody)
-        threshold = json.loads((ROOT / 'contracts/config/checkpoint-settlement.json').read_text())['finality_policy']['certificate_threshold']
-        self.execute(['python3', '/source/services/platform/hosted/paxeer/anchor-genesis.py', '--network-id', str(NETWORK_ID),
-                      '--sequencer-id', seq_id, '--sequencer-public-key', public, '--authority-evm', address,
-                      '--paxeer-chain-id', '125', '--threshold', str(threshold), '--output', '/fixture/genesis/anchor.json'])
-        init = ['env', 'PAXD=/artifacts/paxd', 'LAYERX_PAXEER_HOME=/fixture/chain', 'LAYERX_PAXEER_CHAIN_ID=125',
-                'LAYERX_PAXEER_DEPLOYER_ADDRESS=' + address, 'LAYERX_PAXEER_CUSTODY_GENESIS_FILE=/fixture/genesis/custody.json',
-                'LAYERX_PAXEER_ANCHOR_GENESIS_FILE=/fixture/genesis/anchor.json', 'LAYERX_PAXEER_DEPOSIT_ROOT_AUTHORITY=0x' + deposit,
-                'LAYERX_PAXEER_USDL_RUNTIME=/source/services/platform/hosted/paxeer/contracts/BetaUsdl.runtime.hex',
-                'LAYERX_PAXEER_COMMIT_TIMEOUT_NANOSECONDS=1000000000', 'bash', '/source/services/platform/hosted/paxeer/init-chain.sh']
-        self.execute(init)
-        self.producer(['docker', 'exec', '-d', self.name, 'bash', '-c', 'exec /artifacts/paxd start --home /fixture/chain > /fixture/chain-process.log 2>&1'])
+        native_raw = os.environ.get('PAXEER_X_NATIVE_INPUTS')
+        require(bool(native_raw), 'private disposable paxd initialization inputs required; owner domain 5')
+        native = private(Path(native_raw), directory=True)
+        # paxd owns initialization, all application validation and the only
+        # integrated kernel process. Import only explicit native inputs.
+        self.execute(['/artifacts/paxd', 'init', 'disposable-foundation', '--chain-id',
+                      'hyperpax_125-1', '--mode', 'validator', '--home', '/fixture/chain'])
+        for name in ('genesis.json', 'config.toml', 'app.toml', 'priv_validator_key.json', 'receipt.key'):
+            origin = private(native / name)
+            self.producer(['install', '-m', '0600', origin, self.output / 'chain' / 'config' / name])
+        report = self.execute(['/artifacts/bringup-inspect', 'native-genesis-check',
+                               '/fixture/chain/config/genesis.json', '/fixture/chain/config/receipt.key'])
+        initialization = json.loads(report)
+        require(initialization['chain_id'] == 'hyperpax_125-1', 'real genesis source-network mismatch')
+        require(set(initialization['modules']) == {'bank', 'sequencer', 'lxphost'}, 'merged initialization modules differ')
+        write(self.output / 'genesis' / 'initialization.json', initialization)
+        self.execute(['/artifacts/paxd', 'validate-genesis', '--home', '/fixture/chain'])
+        public = initialization['receipt_public_key']
+        seq_id = hashlib.sha256(bytes.fromhex(public)).hexdigest()
+        self.node_start()
         self.wait_chain()
-        genesis = json.loads((self.output / 'chain' / 'config' / 'genesis.json').read_text())
-        require(genesis['chain_id'] == 'hyperpax_125-1', 'real genesis source-network mismatch')
-        require(genesis['app_state']['layerxcustody'] == json.loads((self.output / 'genesis' / 'custody.json').read_text()), 'custody genesis producer mismatch')
-        treasury_seed = (self.output / 'keys' / 'treasury.key').read_bytes()
-        treasury = self.producer(['openssl', 'pkey', '-inform', 'DER', '-pubout', '-outform', 'DER'],
-                                data=bytes.fromhex('302e020100300506032b657004220420') + treasury_seed)[-32:].hex()
-        source = (ROOT / 'services/platform/hosted/node/bootstrap.sh').read_text()
-        function = source.split('write_genesis_metadata() {', 1)[1].split('\n}\n', 1)[0]
-        self.shell('GENESIS_METADATA=/fixture/genesis/metadata.lxgb\nASSET_ID=' + asset + '\nTREASURY_PUBLIC=' + treasury +
-                   '\nASSET_SYMBOL=PAX\nASSET_DECIMALS=6\nwrite_genesis_metadata() {' + function + '\n}\nwrite_genesis_metadata')
-        self.execute(['bash', '/source/services/platform/hosted/node/bootstrap.sh', '--data-dir', '/fixture/node', '--run-dir', '/fixture/run',
-                      '--network-id', str(NETWORK_ID), '--sequencer-key', '/fixture/keys/sequencer.key', '--treasury-key', '/fixture/keys/treasury.key',
-                      '--asset', asset, '--genesis-metadata', '/fixture/genesis/metadata.lxgb',
-                      '--genesis-build', '/artifacts/layerx-genesis-build', '--layerxd', '/artifacts/layerxd',
-                      '--migrations', '/source/migrations/0007_history_index.sql'])
-        module_args = ['/artifacts/layerx-module-registry', 'generate', '--network-id', str(NETWORK_ID), '--protocol-version', '3',
-                       '--asset', asset, '--symbol', 'PAX', '--currency', 'PAX', '--decimals', '6']
-        for module in (ROOT / 'services/platform/hosted/node/genesis-modules.conf').read_text().splitlines():
-            if module:
-                module_args += ['--enable-module', module]
-        registry = json.loads(self.execute(module_args))
-        require(registry.get('schema_version') == 2 and registry.get('assets') == [{'asset': asset, 'symbol': 'PAX', 'currency': 'PAX', 'decimals': 6}], 'canonical registry asset identity mismatch')
-        require(len(registry.get('modules', [])) == 7, 'canonical registry must contain all seven genesis modules')
-        write(self.output / 'genesis' / 'module-registry.json', registry)
-        write(self.output / 'genesis' / 'binding-policy.json',
-              {'asset_id': asset, 'network_id': NETWORK_ID, 'recipient': address.removeprefix('0x'), 'version': 1})
         node_ca, gateway_ca, operator_ca = self.ca('nodes'), self.ca('gateways'), self.ca('operators')
         self.identity('gateway', gateway_ca, 'clientAuth', ipv6)
         self.identity('operator', operator_ca, 'clientAuth', ipv6)
@@ -355,10 +338,11 @@ for node in range(1,6):
                   'exp': now + 86400, 'aud': 'wallet-custody-inventory', 'protocol': 'wallet', 'threshold': 3,
                   'members': [{k: m[k] for k in ('id', 'spki_sha256')} for m in members], 'keys': []}
         write(self.output / 'authority' / 'inventory.jwt', jwt(key, 'wallet-custody-inventory', claims, self.producer))
-        environment = {'LAYERX_NODE_NETWORK_ID': str(NETWORK_ID), 'LAYERX_NODE_ASSET_ID': asset,
-                       'LAYERX_NODE_TREASURY_DID': 'did:layerx:' + treasury,
-                       'LAYERX_NODE_PAXEER_CHAIN_ID': '125', 'LAYERX_NODE_PAXEER_RPC_URL': 'http://127.0.0.1:8545',
-                       'LAYERX_NODE_PAXEER_RPC_ADDRESS': '127.0.0.1', 'LAYERX_NODE_PAXEER_RPC_PORT': '8545'}
+        environment = {'LAYERX_NODE_NETWORK_ID': str(NETWORK_ID),
+                       'LAYERX_NODE_CHAIN_ID': 'hyperpax_125-1', 'LAYERX_NODE_EVM_CHAIN_ID': '125',
+                       'LAYERX_NODE_SEQUENCER_ID': seq_id, 'LAYERX_NODE_SEQUENCER_PUBLIC_KEY': public,
+                       'LAYERX_NODE_RPC_URL': 'http://127.0.0.1:8545',
+                       'LAYERX_NODE_CONSENSUS_RPC_URL': 'http://127.0.0.1:26657'}
         require(all(re.fullmatch(r'LAYERX_[A-Z0-9_]+', name) and isinstance(value, str) and 0 < len(value) <= 4096
                     and not any(ord(character) < 32 for character in value) for name, value in environment.items()), 'bounded fixture environment refused')
         write(self.output / 'genesis' / 'environment.json', environment)
@@ -369,22 +353,20 @@ for node in range(1,6):
                                          'spki_sha256': member['spki_sha256']} for member in members],
                            'tls_minimum': '1.3', 'downstream_human_started': False, 'downstream_registry_started': False}
         write(self.output / 'genesis' / 'endpoint-policy.json', endpoint_policy)
-        self.manifest = {'version': 1, 'stage': 'dependency-foundation', 'purpose': 'disposable-test-only',
+        self.manifest = {'version': 2, 'stage': 'dependency-foundation', 'purpose': 'disposable-test-only',
                          'source_revision': self.revision, 'source_binding': ART.source_binding(self.revision, SOURCES),
                          'artifact_manifest': str(self.artifacts), 'image': self.image, 'network': self.network, 'container': self.name,
                          'network_id': NETWORK_ID, 'chain_id': 125, 'cosmos_chain_id': 'hyperpax_125-1', 'ipv6': ipv6,
                          'chain_rpc': 'http://127.0.0.1:8545', 'comet_rpc': 'http://127.0.0.1:26657',
                          'endpoint_scope': 'isolated container network namespace; no published host ports',
-                         'asset_id': asset, 'asset_symbol': 'PAX', 'asset_decimals': 6, 'sequencer_id': seq_id,
-                         'sequencer_public_key': public, 'treasury_public_key': treasury, 'deposit_root_authority': deposit,
+                         'committed': self.committed, 'sequencer_id': seq_id,
+                         'sequencer_public_key': public,
                          'attestors': members, 'authority': {'issuer': 'disposable-foundation', 'tenant': self.name,
                          'public_key': 'authority/public.pem', 'signing_key': 'authority/key.pem', 'inventory': 'authority/inventory.jwt'},
-                         'inputs': {'module_registry': 'genesis/module-registry.json',
-                         'metadata': 'genesis/metadata.lxgb', 'binding_policy': 'genesis/binding-policy.json',
+                         'inputs': {'initialization': 'genesis/initialization.json',
                          'environment': 'genesis/environment.json', 'endpoint_policy': 'genesis/endpoint-policy.json',
-                         'native_genesis': 'node/genesis/genesis.manifest',
-                         'native_snapshot': 'node/genesis/00000000000000000000.lxs',
-                         'native_registration': 'node/genesis/genesis.registration'},
+                         'native_genesis': 'chain/config/genesis.json',
+                         'receipt_key': 'chain/config/receipt.key', 'committed': 'run/committed/committed.json'},
                          'tls': {'node_ca': 'trust/nodes/ca.pem', 'gateway_ca': 'trust/gateways/ca.pem', 'operator_ca': 'trust/operators/ca.pem',
                          'gateway_identity': 'trust/gateway', 'operator_identity': 'trust/operator'},
                          'human_readiness': False, 'registry_readiness': False, 'producers': self.producers}
@@ -400,10 +382,12 @@ for node in range(1,6):
             self.manifest['generated_artifacts'][name] = {'sha256': ART.sha256(self.output / name), 'size': (self.output / name).stat().st_size}
         self.manifest['artifact_manifest_sha256'] = ART.sha256(self.artifacts)
         self.manifest['source_paths'] = list(SOURCES)
+        qualify_foundation(self.manifest, self.output, self.revision, 'foundation')
         atomic(self.output / 'manifest.json', self.manifest)
 
     def validate_retained(self, manifest):
-        require(manifest['purpose'] == 'disposable-test-only' and manifest['stage'] == 'dependency-foundation', 'wrong foundation stage')
+        qualify_foundation(manifest, self.output, self.revision, 'foundation')
+        require(manifest.get('version') == 2 and manifest['purpose'] == 'disposable-test-only' and manifest['stage'] == 'dependency-foundation', 'wrong foundation stage')
         require(manifest['source_binding'] == ART.source_binding(self.revision, SOURCES), 'retained source mismatch')
         require(manifest['chain_id'] == 125 and manifest['network_id'] == NETWORK_ID, 'wrong source-network identity')
         network = json.loads(run(['docker', 'network', 'inspect', self.network]).stdout)[0]
@@ -419,19 +403,25 @@ for node in range(1,6):
         self.wait_attestors()
 
     def restart(self):
-        protected = ['chain/config/genesis.json', 'genesis/custody.json', 'genesis/anchor.json',
-                     'genesis/metadata.lxgb', 'genesis/module-registry.json', 'keys/treasury.key', 'keys/sequencer.key',
-                     'authority/key.pem', 'authority/inventory.jwt', 'node/genesis/genesis.manifest']
+        protected = ['chain/config/genesis.json', 'chain/config/priv_validator_key.json',
+                     'chain/config/node_key.json', 'chain/config/receipt.key',
+                     'genesis/initialization.json', 'authority/key.pem', 'authority/inventory.jwt']
+        previous_height = self.committed['height']
         before = {name: ART.sha256(self.output / name) for name in protected}
         self.producer(['docker', 'restart', self.name])
-        self.producer(['docker', 'exec', '-d', self.name, 'bash', '-c', 'exec /artifacts/paxd start --home /fixture/chain >> /fixture/chain-process.log 2>&1'])
+        self.validate_retained(self.manifest)
+        self.node_start()
         self.wait_chain()
         self.launch_attestors()
-        self.validate_retained(self.manifest)
         self.refresh_authority()
         require(before == {name: ART.sha256(self.output / name) for name in protected}, 'restart changed durable foundation material')
+        require(self.committed['height'] >= previous_height, 'restart rolled back committed state')
+        self.manifest['committed'] = self.committed
+        checkpoint = self.output / 'run/committed/committed.json'
+        self.manifest['generated_artifacts']['run/committed/committed.json'] = {'sha256': ART.sha256(checkpoint), 'size': checkpoint.stat().st_size}
         self.manifest['restart_preserved'] = before
         self.manifest['producers'] = self.producers
+        qualify_foundation(self.manifest, self.output, self.revision, 'foundation')
         atomic(self.output / 'manifest.json', self.manifest)
 
     def cleanup(self):
@@ -470,11 +460,11 @@ def main():
                 evidence['cases'].append(name)
             else:
                 raise RuntimeError(name + ' unexpectedly accepted')
-        failure = run(['docker', 'exec', foundation.name, '/artifacts/layerx-genesis-build', '/fixture/absent-request', '/fixture/keys/sequencer.key', '/fixture/absent-output'], check=False)
+        failure = run(['docker', 'exec', foundation.name, '/artifacts/paxd', 'validate-genesis', '--home', '/fixture/absent-output'], check=False)
         require(failure.returncode != 0, 'failed actual producer unexpectedly accepted')
         require(not (output / 'absent-output').exists(), 'failed real producer published output')
         evidence['cases'].append('failed-real-native-producer-refused')
-        foreign = run(['docker', 'exec', '--user', '4021:4021', foundation.name, 'test', '-r', '/fixture/keys/treasury.key'], check=False)
+        foreign = run(['docker', 'exec', '--user', '4021:4021', foundation.name, 'test', '-r', '/fixture/chain/config/receipt.key'], check=False)
         require(foreign.returncode != 0, 'foreign runtime UID can read fixture signing key')
         evidence['cases'].append('foreign-runtime-uid-refused')
         foundation.restart()

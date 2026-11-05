@@ -1,0 +1,27 @@
+[task]
+id = "22.33.103"
+audit = "22.30.111"
+base_revision = "2b502183a86af3a2498748de6572b1bde20e4768"
+verify_cmd = "cargo test --locked --manifest-path services/interop/crates/layerx-mirror/Cargo.toml --test repair_22_33_103"
+verified_revision_record = "The runner records the exact candidate revision, command, exit and private log in /out/run/gates.jsonl and the final gate JSON."
+baseline = "Not run: the ordered gate contract prohibits testing before complete implementation and direct verify invocations; this integration target did not exist on the unchanged tree, so no pre-change test failure is claimed."
+
+[finding.19]
+status = "implemented"
+test = "native::native_root_source_archive_reaches_the_mirror_consumer"
+evidence = "Native acquisition uses HTTPS POST / with bearer authentication, independent-backend quorum and receipt verification; the produced archive is decoded and consumed by MirrorVerifier. External-chain fixture URLs remain independently configured at /rpc."
+
+[finding.18]
+status = "implemented"
+tests = ["publication::concrete_clients_recover_every_stage_to_byte_identical_retrieval", "publication::concrete_pending_recovery_retains_identity_then_retrieves_identical_archive", "publication::concrete_solana_expiry_reopens_and_retrieves_identical_archive", "publication::concrete_reorg_reopens_retreats_freshness_and_retrieves_identical_archive"]
+evidence = "Production EthereumArchiveClient and SolanaArchiveClient advance through real RPC and remote signer codecs against the committed loopback fixture; production journals are captured at Prepared, Signed and Pending boundaries and reopened after every advance through finalization, cursor recovery and byte-identical multi-chunk retrieval."
+
+[finding.17]
+status = "source_wiring_required"
+tests = ["sequencer::every_shared_v3_case_is_classified_at_the_signature_only_boundary", "sequencer::shared_signature_and_decode_refusals_reach_the_mirror_consumer"]
+evidence = "All existing assertions remain; the signature-only claim is named explicitly, three actual consumer refusals are asserted, and R5 compares the altered JSON log data to the signed log digest rather than only checking a fixture label. R4/R5/R6 consumer refusal is not claimed."
+wiring_request = "Domain 11 owns services/interop/crates/layerx-mirror/src/verify.rs: add a context-bearing committed receipt consumer for raw transaction bytes (R4), the JSON log view (R5) and the independently supplied sequence predecessor (R6), then bind the three shared V3 cases in tests/sequencer_vectors.rs to that API and assert its typed refusals."
+
+[scope_notes]
+gotcha = "MirrorVerifier::committed_receipt accepts only receipt index and key windows; implementing R4/R5/R6 in test helpers would duplicate the missing production consumer and would not prove closure."
+record_location = "This record is kept inside the allowed tests directory because spec/ and GOTCHA.kvx are outside the task scope."

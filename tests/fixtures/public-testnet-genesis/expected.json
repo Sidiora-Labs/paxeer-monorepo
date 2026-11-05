@@ -1,5 +1,5 @@
 {
-  "canonical_state_root": "f70c57e112ba379d9e7dcc26ceded6cb6294d490e427ce6b48e35f5950d3ffaf",
+  "canonical_state_root": "d385ba1542508cb79ffa774b5bb9fbf9a47039362650dc9e2ff77444921c35dd",
   "module_prices": {
     "bridge": 0,
     "budget": 4,
@@ -19,16 +19,16 @@
   "native_fee_authority_version": 2,
   "native_fee_schedule_version": 4,
   "network_id": 77,
-  "previous_canonical_state_root": "c5a48d59efafef958e97fe03c011829227a13f872012849ac0e3105c469d47ed",
-  "previous_receipt_state_root": "675874db63e61ffb6954414ff7aa2361e33fbf963c951907c569512edc26786b",
+  "previous_canonical_state_root": "f70c57e112ba379d9e7dcc26ceded6cb6294d490e427ce6b48e35f5950d3ffaf",
+  "previous_receipt_state_root": "e933eeeb999b7ed3b4d0001a85c460e7fc4960393880af42493eb54b7b44ff6c",
   "protocol_version": 3,
-  "receipt_state_root": "e933eeeb999b7ed3b4d0001a85c460e7fc4960393880af42493eb54b7b44ff6c",
+  "receipt_state_root": "dee5f620930f33e1f65d36cce7d521a1bf2a82de8ba1d51568f56925232b40a4",
   "sequencer_public_key": "ba4eb8cc6475910619ccf2e104177bebc96de17ef11dd13c247cec3d36b7ae78",
   "sha256": {
-    "00000000000000000000.lxs": "ca370a71ebb59e1e6a950e5f627e3d9b2b6bb646eef0e4c777deeb1bb5aaa8e4",
-    "genesis.manifest": "a82eb5201c4246a178aeb5fe44ad102235fa963d58e0149e8c543b8050c2767b",
-    "paxeer-deployment-descriptor.lxgd": "d8e16daf9d836da43512ff8ccd11b53d153a3a2b53f287f6ff6ef87d129ab483",
-    "paxeer-registration-request.lxrr": "ab1f5bd470b6e8815f14620f8921ceac32195e7cd5e5257c3c6959475dc7652d"
+    "00000000000000000000.lxs": "477cec36156e290d940ff89f1627838072911ed0775cefb0eb6528bbe6adebe8",
+    "genesis.manifest": "142f404631fc81caf05b790aee6163cfc6e25e8c060effde1276e99c02f9a950",
+    "paxeer-deployment-descriptor.lxgd": "adcf3cfcdc35b2a78046050f17a4b6440f82688655e21ba0d77ade6dd8147078",
+    "paxeer-registration-request.lxrr": "f365e719135441e416abcd37004066a8002c71f27066936f7b20b666d99a8328"
   },
   "withdrawal_price": 0
 }

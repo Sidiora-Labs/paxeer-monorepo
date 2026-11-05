@@ -1,5 +1,4 @@
 use crate::{
-    metrics,
     proto::{
         sourcify_verifier_server::SourcifyVerifier, VerifyFromEtherscanSourcifyRequest,
         VerifyResponse, VerifySourcifyRequest,
@@ -11,15 +10,21 @@ use crate::{
     },
 };
 use smart_contract_verifier::{sourcify as sc_sourcify, sourcify::Error, SourcifyApiClient};
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 use tonic::{Request, Response, Status};
 
 pub struct SourcifyVerifierService {
     client: Arc<SourcifyApiClient>,
+    operation_timeout: Duration,
 }
 
 impl SourcifyVerifierService {
     pub async fn new(settings: SourcifySettings) -> anyhow::Result<Self> {
+        anyhow::ensure!(
+            settings.request_timeout > 0,
+            "Sourcify request_timeout must be positive"
+        );
+        let operation_timeout = Duration::from_secs(settings.request_timeout);
         let client = {
             SourcifyApiClient::new(
                 settings.api_url,
@@ -31,6 +36,7 @@ impl SourcifyVerifierService {
 
         Ok(Self {
             client: Arc::new(client),
+            operation_timeout,
         })
     }
 }
@@ -41,60 +47,73 @@ impl SourcifyVerifier for SourcifyVerifierService {
         &self,
         request: Request<VerifySourcifyRequest>,
     ) -> Result<Response<VerifyResponse>, Status> {
-        let request: VerifySourcifyRequestWrapper = request.into_inner().into();
+        let chain_ids = vec![Some(request.get_ref().chain.clone())];
+        super::verification_metrics::track_verification(chain_ids, "solidity", "sourcify", async {
+            let request: VerifySourcifyRequestWrapper = request.into_inner().into();
 
-        tracing::info!(
-            chain_id = request.chain,
-            contract_address = request.address,
-            "Sourcify verification request received"
-        );
+            tracing::info!(
+                chain_id = request.chain,
+                contract_address = request.address,
+                "Sourcify verification request received"
+            );
 
-        tracing::debug!(
-            files = ?request.files,
-            chosen_contract = request.chosen_contract,
-            "Request details"
-        );
+            tracing::debug!(
+                files = ?request.files,
+                chosen_contract = request.chosen_contract,
+                "Request details"
+            );
 
-        let chain_id = request.chain.clone();
+            let result = process_verification_result(
+                tokio::time::timeout(
+                    self.operation_timeout,
+                    sc_sourcify::api::verify(self.client.clone(), request.try_into()?),
+                )
+                .await
+                .map_err(|_| Status::deadline_exceeded("Sourcify operation deadline exceeded"))?,
+            )?;
 
-        let result = process_verification_result(
-            sc_sourcify::api::verify(self.client.clone(), request.try_into()?).await,
-        )?;
-
-        metrics::count_verify_contract(
-            chain_id.as_ref(),
-            "solidity",
-            result.status().as_str_name(),
-            "sourcify",
-        );
-        return Ok(Response::new(result.into_inner()));
+            return Ok(Response::new(result.into_inner()));
+        })
+        .await
     }
 
     async fn verify_from_etherscan(
         &self,
         request: Request<VerifyFromEtherscanSourcifyRequest>,
     ) -> Result<Response<VerifyResponse>, Status> {
-        let request: VerifyFromEtherscanSourcifyRequestWrapper = request.into_inner().into();
-
-        tracing::info!(
-            chain_id = request.chain,
-            contract_address = request.address,
-            "Sourcify verification via etherscan request received"
-        );
-
-        let chain_id = request.chain.clone();
-
-        let result = process_verification_result(
-            sc_sourcify::api::verify_from_etherscan(self.client.clone(), request.try_into()?).await,
-        )?;
-
-        metrics::count_verify_contract(
-            chain_id.as_ref(),
+        let chain_ids = vec![Some(request.get_ref().chain.clone())];
+        super::verification_metrics::track_verification(
+            chain_ids,
             "solidity",
-            result.status().as_str_name(),
             "sourcify-from-etherscan",
-        );
-        return Ok(Response::new(result.into_inner()));
+            async {
+                let request: VerifyFromEtherscanSourcifyRequestWrapper =
+                    request.into_inner().into();
+
+                tracing::info!(
+                    chain_id = request.chain,
+                    contract_address = request.address,
+                    "Sourcify verification via etherscan request received"
+                );
+
+                let result = process_verification_result(
+                    tokio::time::timeout(
+                        self.operation_timeout,
+                        sc_sourcify::api::verify_from_etherscan(
+                            self.client.clone(),
+                            request.try_into()?,
+                        ),
+                    )
+                    .await
+                    .map_err(|_| {
+                        Status::deadline_exceeded("Sourcify operation deadline exceeded")
+                    })?,
+                )?;
+
+                return Ok(Response::new(result.into_inner()));
+            },
+        )
+        .await
     }
 }
 

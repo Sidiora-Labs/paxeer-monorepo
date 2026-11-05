@@ -7,6 +7,8 @@ import (
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/autobahn/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/internal/autobahn/avail"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/internal/autobahn/data"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/utils"
 	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 	"github.com/ethereum/go-ethereum/common"
@@ -37,6 +39,95 @@ type mempool struct {
 	evmTxs    map[common.Hash]tmtypes.Tx
 }
 
+// Admission and pending queries must not observe an incomplete restart index.
+func (s *State) waitForReplay(ctx context.Context) error {
+	select {
+	case <-s.replayDone:
+		return s.replayErr
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+// replayMempool reconstructs pruning ownership as well as the pending indexes.
+// Availability retains at most BlocksPerLane blocks, including an executed prefix.
+func (s *State) replayMempool(ctx context.Context) error {
+	a := s.consensus.Avail()
+	lane := a.PublicKey()
+	next := a.NextBlock(lane)
+	first := next
+	blocks := map[types.BlockNumber]*types.Payload{}
+	for first > 0 && uint64(next-first) < avail.BlocksPerLane {
+		p, err := a.Block(ctx, lane, first-1)
+		if errors.Is(err, data.ErrPruned) {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("replay local block: %w", err)
+		}
+		first--
+		blocks[first] = p.Msg().Block().Payload()
+	}
+	for {
+		m := &mempool{
+			capacity: avail.BlocksPerLane, first: first, next: next,
+			blocks:    map[types.BlockNumber]*blockSpec{},
+			nextBlock: &blockSpec{evmNonces: map[common.Address]uint64{}},
+			evmNonces: map[common.Address]uint64{}, evmTxs: map[common.Hash]tmtypes.Tx{},
+		}
+		retry := false
+		for n := first; n < next; n++ {
+			p := blocks[n]
+			b := &blockSpec{
+				txs: p.Txs(), gasWanted: p.TotalGasWanted(), gasEstimated: p.TotalGasEstimated(),
+				evmNonces: map[common.Address]uint64{},
+			}
+			for _, tx := range b.txs {
+				resp, err := s.cfg.App.CheckTxSafe(ctx, &abci.RequestCheckTxV2{Tx: tx, Type: abci.CheckTxTypeV2Recheck})
+				if err != nil {
+					return fmt.Errorf("replay transaction in local block %d: %w", n, err)
+				}
+				if !resp.IsOK() {
+					// Revalidation can fail after application state has advanced.
+					// Keep ingress closed until execution resolves this block, then
+					// rebuild the remaining suffix against the updated application.
+					first, err = s.consensus.Data().WaitUntilExecuted(ctx, lane, n)
+					if err != nil {
+						return fmt.Errorf("wait for local replay execution: %w", err)
+					}
+					first = min(first, next)
+					retry = true
+					break
+				}
+				b.sizeBytes += uint64(len(tx))
+				if !resp.IsEVM || resp.EVMNonce < s.cfg.App.EvmNonce(resp.EVMSenderAddress) {
+					continue
+				}
+				if resp.EVMNonce == ^uint64(0) {
+					return fmt.Errorf("replay local block %d: %w", n, errBadNonce)
+				}
+				addr := resp.EVMSenderAddress
+				m.evmNonces[addr] = max(m.evmNonces[addr], resp.EVMNonce+1)
+				b.evmNonces[addr] = m.evmNonces[addr]
+				b.evmHashes = append(b.evmHashes, resp.EVMHash)
+				m.evmTxs[resp.EVMHash] = tx
+			}
+			if retry {
+				break
+			}
+			m.blocks[n] = b
+		}
+		if retry {
+			continue
+		}
+		for current, ctrl := range s.mempool.Lock() {
+			*current = *m
+			ctrl.Updated()
+		}
+		return nil
+	}
+}
+
 func (m *mempool) IsFull() bool {
 	return uint64(m.next-m.first) >= m.capacity && len(m.nextBlock.txs) > 0
 }
@@ -56,6 +147,7 @@ func (m *mempool) SealBlock() {
 // TODO(gprusak): this rpc is probably unused, but if it is
 // consider whether unsequenced/unexecuted lane txs should be included here.
 func (s *State) UnconfirmedTxs() [][]byte {
+	utils.OrPanic(s.waitForReplay(context.Background()))
 	for m := range s.mempool.Lock() {
 		return m.nextBlock.txs
 	}
@@ -63,6 +155,7 @@ func (s *State) UnconfirmedTxs() [][]byte {
 }
 
 func (s *State) EvmNextPendingNonce(addr common.Address) uint64 {
+	utils.OrPanic(s.waitForReplay(context.Background()))
 	for m := range s.mempool.Lock() {
 		if nonce, ok := m.evmNonces[addr]; ok {
 			return nonce
@@ -72,6 +165,7 @@ func (s *State) EvmNextPendingNonce(addr common.Address) uint64 {
 }
 
 func (s *State) EvmTxByHash(hash common.Hash) (tmtypes.Tx, bool) {
+	utils.OrPanic(s.waitForReplay(context.Background()))
 	for m := range s.mempool.Lock() {
 		tx, ok := m.evmTxs[hash]
 		return tx, ok
@@ -141,6 +235,9 @@ func (s *State) InsertTx(ctx context.Context, tx tmtypes.Tx) (*abci.ResponseChec
 // NOTE: we currently don't do any tx filtering, which would prevent expensive CheckTxSafe calls.
 // It has to be added after testnet launch.
 func (s *State) insertTx(ctx context.Context, tx tmtypes.Tx, waitIfFull bool) (*abci.ResponseCheckTx, error) {
+	if err := s.waitForReplay(ctx); err != nil {
+		return nil, err
+	}
 	if uint64(len(tx)) > types.MaxTxsBytesPerBlock {
 		return nil, errTooLarge
 	}

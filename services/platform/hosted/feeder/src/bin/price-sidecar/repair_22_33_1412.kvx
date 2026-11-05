@@ -1,0 +1,14 @@
+[repair.22.33.1412]
+audit = "22.30.79"
+acceptance = "22998.1"
+evidence = "The bounded hf-build and hf-done records identify the verified candidate revision, command, exit code and private log; the runner retains those records."
+baseline = "No pre-change verification was run: the task's explicit gate order requires complete implementation before hf-build and hf-done and prohibits running verify_cmd by hand. No baseline failure is claimed."
+wiring_requests = []
+
+[finding.031]
+tests = ["finding_031_deployed_https_and_isolated_loopback_transport", "finding_031_authenticated_quote_redirect_is_not_followed"]
+repair = "Deployed configuration and quote retrieval require HTTPS; plaintext is compiled only as an explicit test entry and restricted to literal loopback IPs. Authenticated requests disable redirects."
+
+[finding.029]
+tests = ["finding_029_checktx_is_pending_and_restart_confirms_actual_height", "finding_029_failed_execution_recovers_account_and_observation_sequences", "finding_029_eviction_recovers_without_spending_sequences", "finding_029_unknown_fate_and_incomplete_mempool_preserve_durable_pending", "finding_029_lost_acknowledgement_retries_identical_signed_bytes_and_recovers", "finding_029_legacy_optimistic_journal_reopens_at_committed_sequences"]
+repair = "Signed bytes and their hash are durable before broadcast. CheckTx admission, proposed height and pending hash are separate from successful committed execution and readiness. Transaction results bind to the submitted bytes; failure or complete mempool absence reconciles account and observation sequences from height-pinned committed state. Pending and confirmed progress recover across restart."

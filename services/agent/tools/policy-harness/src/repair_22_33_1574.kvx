@@ -1,0 +1,24 @@
+[repair.22.33.1574]
+finding = "policy-harness-evidence-gap"
+test_path = "services/agent/tools/policy-harness/tests/repair_22_33_1574.rs"
+proving_tests = ["policy_harness_evidence_gap_real_owner_rpc_proves_each_constraint", "policy_harness_evidence_gap_labels_and_unrelated_denials_cannot_claim_coverage", "policy_harness_evidence_gap_stale_budget_cannot_turn_missing_context_into_coverage", "policy_harness_evidence_gap_owner_codec_refuses_corrupt_and_inactive_evidence", "policy_harness_evidence_gap_cumulative_probe_uses_protocol_spend_at_the_boundary", "policy_harness_evidence_gap_recording_matches_the_owner_transcript"]
+baseline = "No baseline gate was run: the explicit ordered instructions prohibit verification before complete implementation and require hf-build before hf-done; the integration target was absent on the starting tree. No pre-change failing tests are claimed."
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit and private log; the final report copies the terminating gate's evidence."
+implementation = "The executable replays the budget owner's committed node transcript at its signed checkpoint through ProtocolBudgetState::decode_get_budget and reconcile. The same harness receives a real NodeRpc getBudget read at that height in the integration test. EvidenceAuthority validates the committed observation; corrupt, inactive, expired and mismatched-height evidence refuses."
+coverage = "An allowed control requires reconciled cumulative budget evidence. Each probe isolates one policy constraint, verifies an allowed control, and checks outcome, reason, policy version, matched rules and deciding rule before adding its dimension. NoPermittingRule from a single constrained rule proves eleven dimensions; ApprovalRequired names the exact approval rule. Unexpected corpus labels, unrelated denials and incomplete observed coverage refuse."
+fixtures = "The recorded peer is tests/vectors/budget-proof-v2/node-answers.json, emitted by the committed budget owner fixture. Its getBudget ABI result reports spent 23 and remaining 77 at height 8. The signed checkpoint is copied exactly and verified, and a test binds it to that original transcript. The allowed request spends 50; the cumulative probe spends 51 against maximum 73, so protocol spend 23 causes the exact 74 > 73 refusal. No external service, credential or subprocess is needed by verification."
+limits = "CumulativeRate demonstrates the supported cumulative amount constraint; it makes no claim to demonstrate authenticated action counts or a granted approval. RequiredApproval demonstrates refusal when approval is required. TimeWindow compares the same authenticated observation against an inclusive permitting window and a window starting at the next sequence."
+wiring_request = "services/agent/tests/policy/adversarial.rs, owning domain 9 / task 22.33.1573: migrate the historical corpus's unavailable cumulative-count and approval placeholders to current owner evidence; this task preserves that out-of-scope source and uses isolated probes in the harness."
+wiring_request_counts = "services/agent/crates/layerx-agentd/src/policy/eval.rs and protocol_evidence.rs, owning domain 9: authenticated action-count coverage for timed policy rules requires an owner-supported maximum_cumulative_count path; timed evaluation currently explicitly refuses that constraint, so no action-count coverage is claimed here."
+
+[workflow.note]
+observed = "The ordered gate instructions conflict with the task's baseline request, and scope forbids editing the spec task record and GOTCHA.kvx."
+resolution = "Implementation precedes the one bounded build and verify; this in-scope record retains finding-to-test mappings, limitations and wiring requests. Spec edits, commits and pushes remain runner-owned."
+gotcha = "The sequence-based evaluator cannot allow with a ReconciliationState alone: complete authenticated cumulative counts are also required. The current timed admission owner path accepts committed time plus reconciled budget evidence; unsupported count evidence must never be credited as observed constraint coverage."
+
+[qualification.lockfile]
+revision = "54c86046c1e849756366bb8c5c05d936a4551691"
+command = "cargo build --locked --manifest-path services/agent/tools/policy-harness/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The initial locked build stopped before compilation because the harness lockfile did not match the prerequisite dependency graph; cargo generate-lockfile --offline refreshed the explicitly scoped lockfile before the repair build."

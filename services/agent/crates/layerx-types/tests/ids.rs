@@ -46,6 +46,10 @@ fn only_declared_account_namespaces_construct() {
         ("system:insurance", AccountNamespace::SystemInsurance),
         ("system:fees", AccountNamespace::SystemFees),
         (
+            "system:paxeer-reserve",
+            AccountNamespace::SystemPaxeerReserve,
+        ),
+        (
             "system:paxeer-withdrawals",
             AccountNamespace::SystemPaxeerWithdrawals,
         ),
@@ -69,7 +73,7 @@ fn only_declared_account_namespaces_construct() {
         assert!(AccountId::parse(rejected).is_err(), "accepted {rejected}");
     }
     assert_eq!(
-        AccountId::parse("system:paxeer-reserve"),
+        AccountId::parse("system:paxeer-reserve:pax"),
         Err(AccountError::UnknownNamespace)
     );
 }

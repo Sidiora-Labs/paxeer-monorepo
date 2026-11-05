@@ -1,0 +1,44 @@
+[task.22.33.1164]
+audit = "22.30.53"
+scope = "storage/db_engine/litt/util"
+baseline = "Not run: the explicit ordered gate instructions prohibit testing until implementation is complete and require verification exclusively through hf-done. The initial working tree contained only runner bookkeeping; the prior gate ledger was absent. No baseline failure is claimed."
+evidence = "hf-build and hf-done record the exact candidate revision, command, exit code and private log location in the runner ledger; the final response copies the last gate evidence verbatim."
+
+[finding.cache-metric-series-collision]
+tests = ["TestRepairM_1164_CacheMetricSeriesCollision"]
+repair = "Nonmonotonic additive occupancy instruments aggregate per-FIFO deltas across tables and reporter instances; replacement, eviction and resizing update the sum, and runtime cleanup releases a collected FIFO's contribution. Existing builder sharing is supported without an out-of-path edit."
+
+[finding.flush-coordinator-shutdown]
+tests = ["TestRepairM_1164_FlushCoordinatorShutdown"]
+repair = "Shutdown signals drain/admission closure independently of final context cancellation; registered background loops are canceled and joined by CompleteShutdown, which rejects later worker registration. Twenty real monitor lifecycles drain accepted file writes, stop workers and reopen the written files."
+wiring_request = "Domain 5, storage/db_engine/litt/disktable/{disk_table.go,flush_coordinator.go}: register the batching coordinator through ErrorMonitor.Go, call CompleteShutdown only after the table control-loop completion, and remove the coordinator's receiver-side request-channel close; qualify repeated table open/close with batching enabled. The existing table Close cannot join the coordinator until this wiring lands."
+
+[finding.delete-relative-link]
+tests = ["TestRepairM_1164_DeleteRelativeLink"]
+repair = "Resolve relative targets against the link parent; snapshot segment links require matching filename/table, a regular backing file in snapshot, and no symlinked backing directory. Optional configured backing roots constrain target deletion further. The test preserves an unrelated working-directory file and a live segment hardlink, and rejects wrong trees and symlink escapes."
+wiring_request = "Domain 5, storage/db_engine/litt/{cli/push.go,disktable/segment/{key_file.go,value_file.go,metadata_file.go}}: pass authoritative configured storage roots as DeepDelete's optional backing-root allowlist where available; path-derived table/snapshot checks already apply to existing segment callers."
+
+[finding.pprof-network-exposure]
+tests = ["TestRepairM_1164_PprofNetworkExposure"]
+repair = "Default listener is loopback; explicit non-loopback configuration requires bearer protection. A dedicated pprof mux retains the header timeout; StartContext shuts down and joins on cancellation, with an explicit Shutdown API."
+wiring_request = "Domain 5, storage/db_engine/litt/cli/litt_cli.go: use PprofProfiler.StartContext with the CLI context and expose protected wider binding only as explicit operator configuration. Existing Start callers inherit the safe loopback default."
+
+[finding.ssh-host-verification]
+tests = ["TestRepairM_1164_SSHHostVerification", "TestRepairM_1164_SSHPathEncoding"]
+repair = "Reject missing/unparseable/unknown/changed trust; freeze a private known-hosts and identity snapshot for control and rsync. Rsync enforces StrictHostKeyChecking=yes, BatchMode and IdentitiesOnly and excludes global trust additions. Loopback handshakes prove accepted, unknown and changed host identities on the frozen trust source."
+
+[finding.ssh-cancellation]
+tests = ["TestRepairM_1164_SSHCancellation"]
+repair = "Context-aware constructor and operations bound TCP dial, handshake, channel creation, exec requests and running commands; cancellation closes the transport and joins command work. Rsync uses CommandContext, a bounded wait and process-group cancellation; Close joins all tracked operations and removes private material. Legacy methods retain finite defaults."
+wiring_request = "Domain 5, storage/db_engine/litt/cli/{sync.go,push.go}: propagate the sync/CLI context through NewSSHSessionContext and context operation APIs, close each connection, and join the in-flight participant before run/Stop returns."
+
+[finding.ssh-path-encoding]
+tests = ["TestRepairM_1164_SSHPathEncoding", "TestRepairM_1164_SSHDurabilityFailures"]
+repair = "Central POSIX word quoting protects remote paths; discovery is NUL-delimited and prefixes relative roots against find option interpretation. Rsync preserves its distinct -e argument grammar, secluded arguments and option termination; relative source links resolve against their parent. Private fixed identity/trust filenames avoid a second OpenSSH path parser interpreting operator paths."
+wiring_request = "Domain 5, storage/db_engine/litt/cli/sync.go: consolidate quoteRemoteArgument on util.QuoteRemoteArgument for executable and source paths; retain the existing pruneCommand quoting and interface tests."
+
+[finding.ssh-tests-disabled]
+tests = ["TestRepairM_1164_SSHTestsRunnable", "TestRepairM_1164_SSHHostVerification", "TestRepairM_1164_SSHCancellation", "TestRepairM_1164_SSHPathEncoding", "TestRepairM_1164_SSHDurabilityFailures"]
+repair = "Replace commented SSH tests with executable OpenSSH/rsync integration tests covering original connection/authentication, mkdir, discovery and throttled transfer assertions plus literal paths, relative links, host changes, interruption and durable-ack failure/retry after receiver restart. The focused gate uses genuine-key loopback SSH peers with committed command transcripts, without subprocesses."
+qualification_limit = "The prescribed gate proves SSH protocol and control behavior, actual rsync command construction, canceled/missing-source transfer rejection and the real durable-ack consumer. Full subprocess transfer/cancellation/restart is restored in TestSSHSession_* but is outside the allowed gate and is not claimed as executed."
+wiring_request = "Domain 5 qualification harness: run the restored TestSSHSession_* suite in the supported local OpenSSH/rsync integration environment; binaries are intentionally not prerequisites of TestRepairM_1164_* (gotcha 2962)."

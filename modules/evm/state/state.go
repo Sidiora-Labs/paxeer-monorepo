@@ -76,12 +76,18 @@ func (s *DBImpl) SetTransientState(addr common.Address, key, val common.Hash) {
 // still available even after self destruction in the same tx)
 func (s *DBImpl) SelfDestruct(acc common.Address) uint256.Int {
 	s.k.PrepareReplayedAddr(s.ctx, acc)
-	if paxAddr, ok := s.k.GetPaxAddress(s.ctx, acc); ok {
-		// remove the association
+	paxAddr, associated := s.k.GetPaxAddress(s.ctx, acc)
+	b := s.GetBalance(acc)
+	if s.err != nil {
+		return uint256.Int{}
+	}
+	s.SubBalance(acc, b, tracing.BalanceDecreaseSelfdestruct)
+	if s.err != nil {
+		return uint256.Int{}
+	}
+	if associated {
 		s.k.DeleteAddressMapping(s.ctx, paxAddr, acc)
 	}
-	b := s.GetBalance(acc)
-	s.SubBalance(acc, b, tracing.BalanceDecreaseSelfdestruct)
 
 	// mark account as self-destructed
 	s.MarkAccount(acc, AccountDeleted)
@@ -141,21 +147,31 @@ func (s *DBImpl) RevertToSnapshot(rev int) {
 	}
 }
 
-func (s *DBImpl) handleResidualFundsInDestructedAccounts(st *TemporaryState) {
+func (s *DBImpl) handleResidualFundsInDestructedAccounts(st *TemporaryState) error {
 	for a, status := range st.transientAccounts {
 		if !bytes.Equal(status, AccountDeleted) {
 			continue
 		}
 		acc := common.HexToAddress(a)
 		residual := s.GetBalance(acc)
+		if s.err != nil {
+			return s.err
+		}
 		if residual.ToBig().Cmp(utils.Big0) == 0 {
 			continue
 		}
 		s.SubBalance(acc, residual, tracing.BalanceDecreaseSelfdestructBurn)
+		if s.err != nil {
+			return s.err
+		}
 		// we don't want to really "burn" the token since it will mess up
 		// total supply calculation, so we send them to fee collector instead
 		s.AddBalance(s.coinbaseEvmAddress, residual, tracing.BalanceDecreaseSelfdestructBurn)
+		if s.err != nil {
+			return s.err
+		}
 	}
+	return nil
 }
 
 func (s *DBImpl) clearAccountStateIfDestructed(st *TemporaryState) {

@@ -6,10 +6,11 @@ import type { AddressParam } from "@/types/paxscan/api/addressParams";
 
 /**
  * Subscribes to new blocks over the standard EVM JSON-RPC using viem's
- * `watchBlocks` against the Paxeer RPC (api.hyperpax.xyz). The chain is a
- * reliable Sei-EVM fork, so we use plain `eth_getBlockByNumber` polling —
- * no Tendermint/CometBFT-specific WebSocket or hash workarounds. Block
- * hashes are standard 0x… EVM hashes, matching the Blockscout REST seed.
+ * `watchBlocks` on getPublicClient, using the shared core/rpc.ts endpoint
+ * configuration: fourteen numbered mainnet nodes plus the aggregate
+ * endpoint by default, or explicit deployment overrides. Chain-125
+ * root-path JSON-RPC supports plain `eth_getBlockByNumber` polling.
+ * Block hashes are standard 0x… EVM hashes, matching the Blockscout REST seed.
  *
  * Keeps the rest of the explorer (REST seed, detail panels) on Paxscan —
  * this hook only powers the live-update stream.

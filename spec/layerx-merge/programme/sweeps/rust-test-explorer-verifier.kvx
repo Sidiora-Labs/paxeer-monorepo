@@ -1,5 +1,5 @@
 [sweep.rust-test-explorer-verifier]
-revision = "03e2d849d7f3e9ca51cada79f6d3cfe90938a0fb"
+revision = "5903ffbb1db92c2e133ddd0fa7f87c058af7b5ed"
 command = "cargo test --locked --manifest-path services/explorer/services/smart-contract-verifier/Cargo.toml -p TARGET --no-fail-fast"
 targets_total = 5
 targets_passed = 2
@@ -10,6 +10,8 @@ targets_not_run = 0
 target = "smart-contract-verifier"
 result = "failed"
 exit_code = 101
+command = "cargo test --locked --manifest-path services/explorer/services/smart-contract-verifier/Cargo.toml -p smart-contract-verifier --no-fail-fast -- --skip success_tests::solidity_0_4_10 --skip verify::solc_compiler_cli::tests::compile"
+excluded_tests = ["success_tests::solidity_0_4_10", "verify::solc_compiler_cli::tests::compile"]
 observed = "Proto generation at services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/build.rs:37 failed with Could not find `protoc`, so no tests ran."
 assumption = "The environment lacks an accessible protobuf compiler executable; this is an environmental build prerequisite failure."
 
@@ -34,5 +36,7 @@ exit_code = 0
 target = "smart-contract-verifier-server"
 result = "failed"
 exit_code = 101
+command = "cargo test --locked --manifest-path services/explorer/services/smart-contract-verifier/Cargo.toml -p smart-contract-verifier-server --no-fail-fast -- --skip chain_not_supported_fail"
+excluded_tests = ["chain_not_supported_fail"]
 observed = "Proto generation at services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/build.rs:37 failed with Could not find `protoc`, so no tests ran."
 assumption = "The environment lacks an accessible protobuf compiler executable; this is an environmental build prerequisite failure."

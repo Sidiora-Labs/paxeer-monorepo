@@ -3159,33 +3159,11 @@
         },
         {
           "schema": "pnl",
-          "object": "l18_funding_sequence_seq",
-          "object_kind": "sequence",
-          "privileges": [
-            "USAGE"
-          ],
-          "columns": [],
-          "argument_types": [],
-          "grant_option": false
-        },
-        {
-          "schema": "pnl",
           "object": "l18_inbox",
           "object_kind": "table",
           "privileges": [
             "SELECT",
             "INSERT"
-          ],
-          "columns": [],
-          "argument_types": [],
-          "grant_option": false
-        },
-        {
-          "schema": "pnl",
-          "object": "l18_inbox_sequence_seq",
-          "object_kind": "sequence",
-          "privileges": [
-            "USAGE"
           ],
           "columns": [],
           "argument_types": [],
@@ -3215,17 +3193,6 @@
             "hold_reason",
             "appeal_status"
           ],
-          "argument_types": [],
-          "grant_option": false
-        },
-        {
-          "schema": "pnl",
-          "object": "l18_awards_sequence_seq",
-          "object_kind": "sequence",
-          "privileges": [
-            "USAGE"
-          ],
-          "columns": [],
           "argument_types": [],
           "grant_option": false
         },
@@ -3266,17 +3233,6 @@
         },
         {
           "schema": "pnl",
-          "object": "l18_claims_sequence_seq",
-          "object_kind": "sequence",
-          "privileges": [
-            "USAGE"
-          ],
-          "columns": [],
-          "argument_types": [],
-          "grant_option": false
-        },
-        {
-          "schema": "pnl",
           "object": "l18_epochs",
           "object_kind": "table",
           "privileges": [
@@ -3302,33 +3258,11 @@
         },
         {
           "schema": "pnl",
-          "object": "l18_epochs_sequence_seq",
-          "object_kind": "sequence",
-          "privileges": [
-            "USAGE"
-          ],
-          "columns": [],
-          "argument_types": [],
-          "grant_option": false
-        },
-        {
-          "schema": "pnl",
           "object": "l18_epoch_claims",
           "object_kind": "table",
           "privileges": [
             "SELECT",
             "INSERT"
-          ],
-          "columns": [],
-          "argument_types": [],
-          "grant_option": false
-        },
-        {
-          "schema": "pnl",
-          "object": "l18_epoch_claims_sequence_seq",
-          "object_kind": "sequence",
-          "privileges": [
-            "USAGE"
           ],
           "columns": [],
           "argument_types": [],
@@ -3663,6 +3597,45 @@
         },
         {
           "schema": "pnl",
+          "object": "inventory_l16_active_v2",
+          "object_kind": "table",
+          "privileges": [
+            "UPDATE"
+          ],
+          "columns": [
+            "generation",
+            "snapshot_digest",
+            "height"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "pnl",
+          "object": "inventory_l16_wallet_ranges_v3",
+          "object_kind": "table",
+          "privileges": [
+            "SELECT",
+            "INSERT"
+          ],
+          "columns": [],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "pnl",
+          "object": "inventory_l16_wallet_intervals_v3",
+          "object_kind": "table",
+          "privileges": [
+            "SELECT",
+            "INSERT"
+          ],
+          "columns": [],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "pnl",
           "object": "inventory_l16_checkpoints_v2",
           "object_kind": "table",
           "privileges": [
@@ -3740,7 +3713,8 @@
           "object": "portfolio_history_rows",
           "object_kind": "table",
           "privileges": [
-            "SELECT"
+            "SELECT",
+            "INSERT"
           ],
           "columns": [],
           "argument_types": [],
@@ -4045,6 +4019,7 @@
             "SELECT"
           ],
           "columns": [
+            "nft_id",
             "token",
             "pool",
             "creator",
@@ -10046,6 +10021,44 @@
           "argument_types": [],
           "grant_option": false,
           "view": true
+        },
+        {
+          "schema": "pnl",
+          "object": "inventory_l16_wallet_ranges_read_v3",
+          "object_kind": "view",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "snapshot_id",
+            "wallet",
+            "generation",
+            "start_at",
+            "end_at",
+            "release_digest",
+            "input_digest",
+            "watermark"
+          ],
+          "argument_types": [],
+          "grant_option": false,
+          "view": true
+        },
+        {
+          "schema": "pnl",
+          "object": "inventory_l16_wallet_intervals_read_v3",
+          "object_kind": "view",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "snapshot_id",
+            "interval",
+            "bucket",
+            "payload"
+          ],
+          "argument_types": [],
+          "grant_option": false,
+          "view": true
         }
       ],
       "owner_login": false,
@@ -11264,6 +11277,44 @@
             "text"
           ],
           "grant_option": false
+        },
+        {
+          "schema": "pnl",
+          "object": "inventory_l16_wallet_ranges_read_v3",
+          "object_kind": "view",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "snapshot_id",
+            "wallet",
+            "generation",
+            "start_at",
+            "end_at",
+            "release_digest",
+            "input_digest",
+            "watermark"
+          ],
+          "argument_types": [],
+          "grant_option": false,
+          "view": true
+        },
+        {
+          "schema": "pnl",
+          "object": "inventory_l16_wallet_intervals_read_v3",
+          "object_kind": "view",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "snapshot_id",
+            "interval",
+            "bucket",
+            "payload"
+          ],
+          "argument_types": [],
+          "grant_option": false,
+          "view": true
         }
       ],
       "owner_login": false,

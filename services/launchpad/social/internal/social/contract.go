@@ -2,16 +2,17 @@ package social
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	v2 "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/db/sqlcdb"
-	sharedhttp "github.com/Sidiora-Technologies/KindleLaunch/shared/http"
 )
 
 // RegisterContractRoutes mounts the frozen v2 follow-graph paths over the
@@ -24,14 +25,60 @@ func (h *Handlers) RegisterContractRoutes(r chi.Router) {
 }
 
 func contractEnvelope(r *http.Request, data any, at time.Time) map[string]any {
-	id, e := uuid.Parse(r.Header.Get("X-Request-ID"))
-	if e != nil || id == uuid.Nil {
+	return map[string]any{"requestId": contractRequestID(r), "data": data, "nextCursor": nil, "watermark": nil, "revision": nil, "quality": "complete", "generatedAt": at.UTC().Format("2006-01-02T15:04:05.000Z")}
+}
+
+func contractRequestID(r *http.Request) string {
+	id, err := uuid.Parse(r.Header.Get("X-Request-ID"))
+	if err != nil || id == uuid.Nil || len(r.Header.Get("X-Request-ID")) != 36 {
 		id = uuid.New()
 	}
-	return map[string]any{"requestId": id.String(), "data": data, "nextCursor": nil, "watermark": nil, "revision": nil, "quality": "complete", "generatedAt": at.UTC().Format("2006-01-02T15:04:05.000Z")}
+	r.Header.Set("X-Request-ID", id.String())
+	return id.String()
+}
+
+func (h *Handlers) contractError(w http.ResponseWriter, r *http.Request, status int, message string) {
+	code := "DEPENDENCY_UNAVAILABLE"
+	switch status {
+	case http.StatusBadRequest:
+		code = "INVALID_REQUEST"
+	case http.StatusUnauthorized:
+		code = "AUTH_REQUIRED"
+	case http.StatusForbidden:
+		code = "SCOPE_DENIED"
+	case http.StatusNotFound:
+		code = "NOT_FOUND"
+	}
+	id := contractRequestID(r)
+	raw, err := json.Marshal(v2.Error{Code: code, Message: message, RequestId: id, Retryable: status == http.StatusServiceUnavailable, FieldErrors: []v2.FieldError{}})
+	if err == nil {
+		err = v2.ValidateJSON("Error", raw)
+	}
+	if err != nil {
+		h.logErr("encode frozen follow error", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("X-Request-ID", id)
+	w.Header().Set("Cache-Control", "private, no-store")
+	w.Header().Add("Vary", "Cookie")
+	w.Header().Add("Vary", "Authorization")
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_, _ = w.Write(raw)
+}
+
+func (h *Handlers) contractFailure(w http.ResponseWriter, r *http.Request, op string, err error) {
+	h.logErr(op, err)
+	status := http.StatusServiceUnavailable
+	if errors.Is(err, pgx.ErrNoRows) {
+		status = http.StatusNotFound
+	}
+	h.contractError(w, r, status, http.StatusText(status))
 }
 
 func (h *Handlers) writeContract(w http.ResponseWriter, r *http.Request, data any) {
+	w.Header().Set("X-Request-ID", contractRequestID(r))
 	w.Header().Set("Cache-Control", "private, no-store")
 	w.Header().Add("Vary", "Cookie")
 	w.Header().Add("Vary", "Authorization")
@@ -43,24 +90,28 @@ func (h *Handlers) writeContract(w http.ResponseWriter, r *http.Request, data an
 func (h *Handlers) contractFollowStats(w http.ResponseWriter, r *http.Request) {
 	wallet := normalizeAddr(chi.URLParam(r, "wallet"))
 	if !addrRe.MatchString(wallet) {
-		sharedhttp.WriteError(w, http.StatusBadRequest, "Bad Request", "invalid wallet address")
+		h.contractError(w, r, http.StatusBadRequest, "invalid wallet address")
+		return
+	}
+	if h.q == nil {
+		h.contractError(w, r, http.StatusServiceUnavailable, "Follow authority unavailable")
 		return
 	}
 	followers, err := h.q.CountFollowers(r.Context(), wallet)
 	if err != nil {
-		h.fail(w, "count followers", err)
+		h.contractFailure(w, r, "count followers", err)
 		return
 	}
 	following, err := h.q.CountFollowing(r.Context(), wallet)
 	if err != nil {
-		h.fail(w, "count following", err)
+		h.contractFailure(w, r, "count following", err)
 		return
 	}
 	isFollowing := false
 	if act, ok := actor(r); ok && act != wallet {
 		isFollowing, err = h.q.IsFollowing(r.Context(), sqlcdb.IsFollowingParams{Follower: act, Followee: wallet})
 		if err != nil {
-			h.fail(w, "is following", err)
+			h.contractFailure(w, r, "is following", err)
 			return
 		}
 	}
@@ -70,20 +121,24 @@ func (h *Handlers) contractFollowStats(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) contractFollow(w http.ResponseWriter, r *http.Request) {
 	act, ok := actor(r)
 	if !ok {
-		sharedhttp.WriteError(w, http.StatusUnauthorized, "Unauthorized", "missing or invalid "+actorHeader)
+		h.contractError(w, r, http.StatusUnauthorized, "missing or invalid "+actorHeader)
 		return
 	}
 	followee := normalizeAddr(chi.URLParam(r, "wallet"))
 	if !addrRe.MatchString(followee) {
-		sharedhttp.WriteError(w, http.StatusBadRequest, "Bad Request", "invalid wallet address")
+		h.contractError(w, r, http.StatusBadRequest, "invalid wallet address")
 		return
 	}
 	if followee == act {
-		sharedhttp.WriteError(w, http.StatusBadRequest, "Bad Request", "Cannot follow yourself")
+		h.contractError(w, r, http.StatusBadRequest, "Cannot follow yourself")
+		return
+	}
+	if h.q == nil {
+		h.contractError(w, r, http.StatusServiceUnavailable, "Follow authority unavailable")
 		return
 	}
 	if err := h.q.Follow(r.Context(), sqlcdb.FollowParams{Follower: act, Followee: followee, CreatedAt: h.clock().Unix()}); err != nil {
-		h.fail(w, "follow", err)
+		h.contractFailure(w, r, "follow", err)
 		return
 	}
 	h.writeContract(w, r, v2.FollowData{Following: true})
@@ -92,18 +147,23 @@ func (h *Handlers) contractFollow(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) contractUnfollow(w http.ResponseWriter, r *http.Request) {
 	act, ok := actor(r)
 	if !ok {
-		sharedhttp.WriteError(w, http.StatusUnauthorized, "Unauthorized", "missing or invalid "+actorHeader)
+		h.contractError(w, r, http.StatusUnauthorized, "missing or invalid "+actorHeader)
 		return
 	}
 	followee := normalizeAddr(chi.URLParam(r, "wallet"))
 	if !addrRe.MatchString(followee) {
-		sharedhttp.WriteError(w, http.StatusBadRequest, "Bad Request", "invalid wallet address")
+		h.contractError(w, r, http.StatusBadRequest, "invalid wallet address")
+		return
+	}
+	if h.q == nil {
+		h.contractError(w, r, http.StatusServiceUnavailable, "Follow authority unavailable")
 		return
 	}
 	if err := h.q.Unfollow(r.Context(), sqlcdb.UnfollowParams{Follower: act, Followee: followee}); err != nil {
-		h.fail(w, "unfollow", err)
+		h.contractFailure(w, r, "unfollow", err)
 		return
 	}
 	w.Header().Set("Cache-Control", "private, no-store")
+	w.Header().Set("X-Request-ID", contractRequestID(r))
 	w.WriteHeader(http.StatusNoContent)
 }

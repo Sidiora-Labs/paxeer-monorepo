@@ -1,0 +1,28 @@
+[repair.22.33.36]
+audit = "22.30.103"
+acceptance = "22998.1"
+mode = "BUILD"
+baseline_revision = "0e1d5eb94cabe89e2260279a849b7154911ef8ee"
+baseline = "Initial git status/diff contained only runner changes to .cgignore and the spec start status; no prior gate ledger or repair_22_33_36 test existed. The explicit implementation-first and hf-done-only gate order prohibits the contradictory unchanged-tree verification step, so no pre-change test failure is claimed."
+evidence = "The private hf-build/hf-done ledger retains the exact candidate revision, command, exit and log. Qualification requires passing build and verification on the same candidate; the runner owns spec closure and publication."
+
+[finding.identity-provision-doc]
+tests = ["identity_provision_doc_committed_observations", "identity_provision_doc_local_owner_survives_reopen"]
+repair = "README now documents the already-migrated validate-account-head input and layerx.human.account-head.v1 output, the px_getAccount gateway producer and eth RPC reads, pinned HTTPS trust, registration-before-observation ordering, canonical main versus asset accounts, authenticated identity/height/root/freshness checks, unsupported debit-history refusal and the retained full observation required before publishing owner configuration."
+proof = "The test parses the README JSON request, substitutes only loopback transport bindings, replays the committed production account/ABI artifact through real SequencerEndpoint and PxEndpoint HTTP clients into validate_account_head, and asserts every output field and all five exact pinned-height ledger/address calls. Wrong chain, stale/future observations, substituted account/owner, nonzero debit sequence and retired receipt inputs publish no output. The documented local owner request executes State::provision_owner and returns identical protected identity/recovery state after closing and reopening the store."
+boundary = "The production validator and committed-chain producer migration already exists in the base; no executable implementation or existing test is changed here. Loopback transcript peers are fixtures, not substitutes for the validator. The proof authenticates via the configured node trust boundary and makes no offline consensus-proof claim."
+
+[finding.identity-clock-doc]
+test = "identity_clock_doc_authenticated_startup_and_readiness"
+repair = "README lists all three required runtime-clock settings, supervisor ownership and SO_PEERCRED PID/UID checks, same-UID private socket requirements, startup ordering before state replay/publication, supervisor replacement, wrapper launch and the bounded operational probe including its socket-owner/allowed-UID constraint."
+proof = "The real production clock authority runs in-process and RuntimeClock refuses wrong PID, wrong UID and exposed socket permissions. The real identity Server uses this clock with protected State; the actual production readiness probe refuses absent/stopped or wrong-UID endpoints, succeeds before and after reopening, and times out within its own budget behind an incomplete real connection. A stopped clock refuses new connections and existing-clock samples. No test needs environment variables, a live endpoint, credentials, subprocesses or external toolchains."
+
+[wiring]
+assembler = "Human domain 10: services/platform/hosted/human/provision.py should consume layerx.human.account-head.v1 directly and bind account/asset/chain provenance; services/platform/hosted/human/provision.sh already retains the full authenticated observation and projects its verified consumed field for the existing assembler, as documented here."
+job_template = "Human domain 10: services/platform/hosted/human/provision-owner-job.yaml should encode separate identity creation and post-registration observation Jobs directly; services/platform/hosted/human/provision.sh already derives them in the required order from that template."
+
+[gotchas]
+baseline_order = "The unchanged-tree verify request conflicts with the explicit implementation-first, hf-build then hf-done-only order; no manual baseline verification or baseline failures are claimed."
+scope = "Spec, GOTCHA and publication writes are prohibited for this task; record finding/test mappings, wiring requests and gotchas inside the allowed crate and leave runner setup changes intact."
+graph = "cg brief reports an unrelated next task and a stale broad graph; the user-selected task and hf-done graph gate remain authoritative."
+clock_path = "The shared runtime clock client lives under services/agent/crates/layerx-client, not programs/crates; use its production ClockBinding and RuntimeClock types."

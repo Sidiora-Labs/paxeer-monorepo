@@ -1,9 +1,9 @@
 [sweep.rust-test-explorer-libs]
-revision = "03e2d849d7f3e9ca51cada79f6d3cfe90938a0fb"
+revision = "ace3608260f2ec826292dab08cd058031efe2f46"
 command = "cargo test --locked --manifest-path services/explorer/services/libs/Cargo.toml -p TARGET --no-fail-fast"
 targets_total = 19
-targets_passed = 17
-targets_failed = 2
+targets_passed = 19
+targets_failed = 0
 targets_not_run = 0
 
 [target.rust-test-explorer-libs.1]
@@ -68,10 +68,8 @@ exit_code = 0
 
 [target.rust-test-explorer-libs.13]
 target = "recaptcha-verifier"
-result = "failed"
-exit_code = 101
-observed = "client::tests::verify_v2_success failed at recaptcha-verifier/src/client.rs:138:9 because assertion !response.is_v3() failed; client::tests::verify_failed_with_error_codes also failed at recaptcha-verifier/src/client.rs:203:9 because the expected two verification error codes were not returned."
-assumption = "The client tests likely drop their MockServer handles at the let (_, client) binding, allowing parallel tests to reuse a server address and receive another test response."
+result = "passed"
+exit_code = 0
 
 [target.rust-test-explorer-libs.14]
 target = "reqwest-rate-limiter"
@@ -85,10 +83,8 @@ exit_code = 0
 
 [target.rust-test-explorer-libs.16]
 target = "sourcify"
-result = "failed"
-exit_code = 101
-observed = "client::tests::chain_not_supported::get_source_files_any failed at sourcify/src/client.rs:443:13 because it expected SourcifyError::ChainNotSupported but received UnexpectedStatusCode 403 stating that the compatibility endpoint is only served to browsers; seven tests failed overall."
-assumption = "The external Sourcify service has changed its compatibility API access policy, so this environmental dependency rejects the legacy endpoint and other live-service calls return responses the client cannot decode."
+result = "passed"
+exit_code = 0
 
 [target.rust-test-explorer-libs.17]
 target = "api-client-framework"

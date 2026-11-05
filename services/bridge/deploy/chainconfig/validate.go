@@ -267,11 +267,6 @@ func (c *ChainConfig) validateAssets(chain Chain) error {
 			return c.refuse(field+".symbol", "%s appears twice in the asset list", asset.Symbol)
 		}
 		symbols[asset.Symbol] = struct{}{}
-		address := strings.ToLower(asset.Address)
-		if _, duplicate := addresses[address]; duplicate {
-			return c.refuse(field+".address", "%s appears twice in the asset list", asset.Address)
-		}
-		addresses[address] = struct{}{}
 		if asset.Decimals == 0 || asset.Decimals > 18 {
 			return c.refuse(field+".decimals", "%d is not between 1 and 18", asset.Decimals)
 		}
@@ -288,11 +283,30 @@ func (c *ChainConfig) validateAssets(chain Chain) error {
 				return err
 			}
 		}
+		var raw []byte
+		var err error
+		if chain.Kind == KindSolana {
+			raw, err = DecodeBase58(asset.Address)
+		} else {
+			raw, err = hex.DecodeString(strings.TrimPrefix(asset.Address, "0x"))
+		}
+		if err != nil {
+			return c.refuse(field+".address", "%v", err)
+		}
+		address := string(raw)
+		if _, duplicate := addresses[address]; duplicate {
+			return c.refuse(field+".address", "%s appears twice in the asset list", asset.Address)
+		}
+		addresses[address] = struct{}{}
 	}
 	return nil
 }
 
 func (c *ChainConfig) validateCaps(field string, asset Asset) error {
+	bits := 256
+	if c.Kind == KindSolana {
+		bits = 64
+	}
 	perTx, err := asset.PerTx()
 	if err != nil {
 		return c.refuse(field+".per_tx_cap", "%v", err)
@@ -300,12 +314,18 @@ func (c *ChainConfig) validateCaps(field string, asset Asset) error {
 	if perTx.Sign() == 0 {
 		return c.refuse(field+".per_tx_cap", "a per-transaction cap of zero would refuse every deposit of %s", asset.Symbol)
 	}
+	if perTx.BitLen() > bits {
+		return c.refuse(field+".per_tx_cap", "the %s destination cap must fit uint%d", c.Kind, bits)
+	}
 	total, err := asset.Total()
 	if err != nil {
 		return c.refuse(field+".total_cap", "%v", err)
 	}
 	if total.Sign() == 0 {
 		return c.refuse(field+".total_cap", "a total cap of zero leaves %s unregistered", asset.Symbol)
+	}
+	if total.BitLen() > bits {
+		return c.refuse(field+".total_cap", "the %s destination cap must fit uint%d", c.Kind, bits)
 	}
 	if perTx.Cmp(total) > 0 {
 		return c.refuse(field+".per_tx_cap", "%s is above the total cap %s of %s", asset.PerTxCap, asset.TotalCap, asset.Symbol)

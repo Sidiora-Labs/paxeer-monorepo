@@ -1,0 +1,47 @@
+[repair.22.33.1195]
+mode = "BUILD"
+base_revision = "72c91077cb966f1c4c640ded61b4b259f41cad90"
+qualification = "Only hf-build followed by hf-done; the runner records the verified candidate revision and private evidence."
+baseline = "Not run: the explicit gate order forbids testing before full implementation and prohibits running verify_cmd by hand; no baseline failures are claimed."
+limits = "Normal-stop recovery only; state and receipt persistence are separate stores, with no shared crash checkpoint."
+launcher_proof = "TestRepairM_1195_BuildFailure checks the launcher's explicit build-status guard and executable-metadata ordering without external binaries; it does not invoke make or a shell."
+wiring_registry = "spec/layerx-merge/interfaces.kvx and programme/sweeps/interfaces.kvx, owner domain 5: retire the six cryptosim receipt cache-only series and register backend FilterLogs attempts/refusals."
+wiring_contract = "spec/layerx-merge/contracts/sequencer.md, owner domain 5: retire cryptosim cache-series declarations and document recent Pebble operations and unsupported FilterLogs."
+wiring_dashboard = "docker/monitornode/dashboards/cryptosim-dashboard.json, owner domain 5: remove cache-only panels and present backend FilterLogs attempts/refusals."
+
+[finding.cryptosim-persistence-doc]
+test = "TestRepairM_1195_PersistenceDoc"
+proof = "Documented bounded workload closes/reopens state and receipt stores twice, verifies durable counters and decoded receipts."
+
+[finding.cryptosim-block-restart]
+test = "TestRepairM_1195_BlockRestart"
+proof = "Builder starts after setup using next-unused sequence; reopened workload advances receipt heights and distinct hashes, preserving original receipts."
+
+[finding.cryptosim-receipt-drain]
+test = "TestRepairM_1195_ReceiptDrain"
+additional_tests = ["TestRepairM_1195_ReceiptStorageError", "TestRepairM_1195_ConstructorShutdown"]
+proof = "Three real finalized blocks are queued before writer start and cancellation; teardown joins/drains and reopening recovers all receipts; real metadata errors propagate through Close."
+
+[finding.cryptosim-contract-restart]
+test = "TestRepairM_1195_ContractRestart"
+proof = "Retained setup early return restores the contract counter, suspend commits and a second reopen preserves counters."
+
+[finding.cryptosim-build-failure]
+test = "TestRepairM_1195_BuildFailure"
+proof = "Explicit build failure exit preserves status before metadata, logger configuration or exec; metadata reads the built executable VCS settings and digest."
+
+[finding.cryptosim-force-flush]
+test = "TestRepairM_1195_ForceFlush"
+proof = "Real MemIAVL SC wrapper closes with one applied block below BlocksPerCommit and no current transactions; reopened values and all counters are exact."
+
+[finding.cryptosim-cache-observer]
+test = "TestRepairM_1195_CacheObserver"
+proof = "Real receipt write/read/refused-filter operations appear in collected OTel counters and histograms; cache-only series are absent."
+
+[finding.cryptosim-cache-window]
+test = "TestRepairM_1195_CacheWindow"
+proof = "Obsolete cache modes are rejected and recent backend reads reach both GetReceipt and FilterLogs with observable attempts and outcomes."
+
+[gotcha.async-receipt-visibility]
+observed = "Receipt writes enter an async backend; GetReceipt can use its legacy-store branch before a submitted hash becomes visible."
+resolution = "The standalone simulator supplies a real empty memory store for that existing interface and records ErrNotFound explicitly rather than panicking on a nil multistore."

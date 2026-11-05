@@ -1,0 +1,912 @@
+[audit.22.30.83]
+task = "22.30.83"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 62
+findings = 48
+docs_reviewed = 4
+upgrade_ready = false
+blocking = ["merchant-chain-origin","merchant-settlement-origin","custody-retired-precompiles","core-startup-inputs","funding-deployment-inputs","core-replica-readiness","core-retired-relays","receipt-anchor-dependency","funding-recovery-schema","account-balance-shape","proof-height-and-content","program-source-upstream","digest-producer-recovery","bootstrap-retired-prerequisites","deployment-retired-topology","supervisor-retired-launch","treasury-projected-secret","reset-retired-readiness","activation-rename-durability","probe-did-account-shape"]
+
+[file.01]
+path = "services/platform/examples/merchant-shop/index.mjs"
+lines = 3
+verdict = "clean"
+note = "Entire file reviewed: delegates to shared merchant application with the declared application identity; configuration defects are recorded against layerx.example.json."
+
+[file.02]
+path = "services/platform/examples/merchant-shop/layerx.example.json"
+lines = 40
+verdict = "issues"
+note = "Entire file reviewed: network eip155:125 and receipt key environment agree with req.8289; beta and emulator endpoint defects remain."
+
+[file.03]
+path = "services/platform/examples/merchant-shop/package.json"
+lines = 16
+verdict = "clean"
+note = "Entire file reviewed: module entrypoint, start command and workspace dependencies agree with the shared merchant implementation."
+
+[file.04]
+path = "services/platform/hosted/core/Cargo.toml"
+lines = 37
+verdict = "clean"
+note = "Entire file reviewed: Rust targets and dependency paths match the present client, internal, crypto and wire crates without retired verifier dependencies."
+
+[file.05]
+path = "services/platform/hosted/core/src/chain_fund.rs"
+lines = 401
+verdict = "issues"
+note = "Entire file reviewed: native type-2 preparation, raw journaling and hash validation are wired; chain identity is not restricted to the finished network."
+
+[file.06]
+path = "services/platform/hosted/core/src/custody.rs"
+lines = 260
+verdict = "clean"
+note = "Entire file reviewed: bounded Unix signer transport, typed recipient binding and returned digest, key and signature verification agree with the signer."
+
+[file.07]
+path = "services/platform/hosted/core/src/lib.rs"
+lines = 871
+verdict = "issues"
+note = "Entire file reviewed: native SEND signing agrees with consumers; custody asset/profile reads still require disabled custody and anchor precompiles."
+
+[file.08]
+path = "services/platform/hosted/core/src/main.rs"
+lines = 2681
+verdict = "issues"
+note = "Entire file reviewed: authenticated listeners and native routes are wired; legacy replica/relay/anchor dependencies and native funding recovery schemas remain inconsistent."
+
+[file.09]
+path = "services/platform/hosted/core/src/public_reads.rs"
+lines = 723
+verdict = "issues"
+note = "Entire file reviewed: selectors and committed nonces are checked; balance mapping, proof evidence and receipt event authentication disagree with producers."
+
+[file.10]
+path = "services/platform/hosted/core/tests/chain_fund.rs"
+lines = 891
+verdict = "issues"
+note = "Entire file reviewed: focused native raw replay fixtures and real Anvil readiness exist; real transfer-to-commit-to-archive/import recovery is missing."
+
+[file.11]
+path = "services/platform/hosted/core/tests/did_gateway_account.rs"
+lines = 142
+verdict = "clean"
+note = "Entire file reviewed: account plus paxeer fixtures agree with the gateway without layerx; bound, unbound and dependency refusals preserve selector distinctions."
+
+[file.12]
+path = "services/platform/hosted/core/tests/no_kernel_disclosure_codec.rs"
+lines = 46
+verdict = "clean"
+note = "Entire file reviewed: source guard excludes the retired kernel disclosure codec; forbidden names occur in rejection assertions."
+
+[file.13]
+path = "services/platform/hosted/core/tests/proof_core_env_vars.rs"
+lines = 487
+verdict = "clean"
+note = "Entire file reviewed: environment parsing, actual TLS file/KMS sender signing and reopen are covered along with ambiguous/missing/invalid configuration refusals."
+
+[file.14]
+path = "services/platform/hosted/core/tests/retired_client_modules.rs"
+lines = 75
+verdict = "clean"
+note = "Entire file reviewed: retired client module names occur only in guard data; source assertions enforce their absence from live imports."
+
+[file.15]
+path = "services/platform/hosted/core/tests/retired_client_modules_w2.rs"
+lines = 57
+verdict = "clean"
+note = "Entire file reviewed: second-wave guard excludes retired client read modules from the current core source."
+
+[file.16]
+path = "services/platform/hosted/core/tests/send.rs"
+lines = 335
+verdict = "issues"
+note = "Entire file reviewed: native SEND and import-first PreparedFunding tests do not exercise the incompatible live SignedFunding producer."
+
+[file.17]
+path = "services/platform/hosted/core/tests/signer.rs"
+lines = 301
+verdict = "clean"
+note = "Entire file reviewed: actual signer process and returned signature checks exercise Unix signing and typed recipient binding refusals."
+
+[file.18]
+path = "services/platform/hosted/internal/Cargo.toml"
+lines = 35
+verdict = "clean"
+note = "Entire file reviewed: event-source and KMS targets and serialization, cryptographic and TLS dependencies match the library exports."
+
+[file.19]
+path = "services/platform/hosted/internal/deployment.yaml"
+lines = 655
+verdict = "clean"
+note = "Entire file reviewed: source roles, credentials, TLS volumes and policies were traced including supplemental human egress; program upstream incompatibility is recorded in events.rs."
+
+[file.20]
+path = "services/platform/hosted/internal/env-init.sh"
+lines = 190
+verdict = "issues"
+note = "Entire file reviewed: private material copying and authenticated empty enrollment initialization agree with readers; producer ownership comment retains a retired router."
+
+[file.21]
+path = "services/platform/hosted/internal/src/base64.rs"
+lines = 120
+verdict = "clean"
+note = "Entire file reviewed: strict bounded standard base64 decoding and canonical padding agree with enrollment/transport consumers."
+
+[file.22]
+path = "services/platform/hosted/internal/src/bin/layerx-event-source.rs"
+lines = 110
+verdict = "clean"
+note = "Entire file reviewed: source kind, credentials, producer policy and TLS are passed into Source with explicit startup and readiness refusals."
+
+[file.23]
+path = "services/platform/hosted/internal/src/bin/layerx-kms.rs"
+lines = 39
+verdict = "clean"
+note = "Entire file reviewed: KMS startup reads bounded protected token/sealing material and registers the declared authenticated TLS listener."
+
+[file.24]
+path = "services/platform/hosted/internal/src/events.rs"
+lines = 2250
+verdict = "issues"
+note = "Entire file reviewed: snapshot MAC, enrollment authorization and producer observations agree; program pull still targets a removed gateway route."
+
+[file.25]
+path = "services/platform/hosted/internal/src/evm_sender.rs"
+lines = 1078
+verdict = "clean"
+note = "Entire file reviewed: exclusive file/KMS secp256k1 sender selection, address derivation and returned signature verification agree with native transfer callers."
+
+[file.26]
+path = "services/platform/hosted/internal/src/gateway_http.rs"
+lines = 491
+verdict = "issues"
+note = "Entire file reviewed: URL, HTTP, identity and authorization bounds are explicit; configured internal CA is added without disabling builtin roots."
+
+[file.27]
+path = "services/platform/hosted/internal/src/http.rs"
+lines = 451
+verdict = "clean"
+note = "Entire file reviewed: bounded HTTP parsing, duplicate header refusals and response encoding agree with TLS dispatch and handlers."
+
+[file.28]
+path = "services/platform/hosted/internal/src/journal.rs"
+lines = 255
+verdict = "issues"
+note = "Entire file reviewed: exclusive journal locking and synced appends preserve records; crash-torn tail recovery is absent."
+
+[file.29]
+path = "services/platform/hosted/internal/src/kms.rs"
+lines = 718
+verdict = "clean"
+note = "Entire file reviewed: Ed25519/secp256k1 creation, sealed reopening and signing agree on key algorithms and signature encodings."
+
+[file.30]
+path = "services/platform/hosted/internal/src/lib.rs"
+lines = 28
+verdict = "clean"
+note = "Entire file reviewed: exported service modules and listener/readiness dispatch match the actual KMS and source binaries."
+
+[file.31]
+path = "services/platform/hosted/internal/src/principal.rs"
+lines = 69
+verdict = "clean"
+note = "Entire file reviewed: principal binding and digest comparison agree with upstream identity responses and reject foreign principals."
+
+[file.32]
+path = "services/platform/hosted/internal/src/producer.rs"
+lines = 1276
+verdict = "issues"
+note = "Entire file reviewed: durable admission and ordered notification retries are wired; digest recovery cannot resume and acknowledged history grows indefinitely."
+
+[file.33]
+path = "services/platform/hosted/internal/src/producer_test_support.rs"
+lines = 372
+verdict = "clean"
+note = "Entire file reviewed: real source, KMS TLS, webhooks and Redis test helper supplies bounded fixture identities and tokens; it is not production key discovery."
+
+[file.34]
+path = "services/platform/hosted/internal/src/seal.rs"
+lines = 170
+verdict = "clean"
+note = "Entire file reviewed: authenticated sealing, nonce generation and key reopen preserve bytes/algorithms and reject invalid authentication or lengths."
+
+[file.35]
+path = "services/platform/hosted/internal/src/secret.rs"
+lines = 216
+verdict = "issues"
+note = "Entire file reviewed: token, hex and identifier limits are explicit; raw secret file overflow can be hidden by trimming a bounded prefix."
+
+[file.36]
+path = "services/platform/hosted/internal/src/tls.rs"
+lines = 620
+verdict = "clean"
+note = "Entire file reviewed: configured exclusive CA and client identity agree with TLS consumers and enforce declared client authentication with bounded transport."
+
+[file.37]
+path = "services/platform/hosted/internal/tests/kms_tls.rs"
+lines = 617
+verdict = "clean"
+note = "Entire file reviewed: real TLS KMS creation/signing/reopen and wrong-token/certificate refusals cover Ed25519 and secp256k1."
+
+[file.38]
+path = "services/platform/hosted/node/bootstrap.sh"
+lines = 1161
+verdict = "issues"
+note = "Entire file reviewed: bootstrap still requires retired daemon/genesis tools, checkpoint settlement and guarantor artifacts and publishes incomplete core inputs."
+
+[file.39]
+path = "services/platform/hosted/node/data_directory.py"
+lines = 365
+verdict = "issues"
+note = "Entire file reviewed: descriptor-relative staging and identity checks protect activation; successful directory exchange lacks a post-rename durability barrier."
+
+[file.40]
+path = "services/platform/hosted/node/deployment.yaml"
+lines = 1039
+verdict = "issues"
+note = "Entire file reviewed: containers, env, projected secrets and volumes were traced; retired topology, missing native inputs and signer key mount block deployment."
+
+[file.41]
+path = "services/platform/hosted/node/fly.toml"
+lines = 19
+verdict = "clean"
+note = "Entire file reviewed: image, volume and health configuration agree with docker/kernel/init.sh, which actively consumes the native kernel profile variable."
+
+[file.42]
+path = "services/platform/hosted/node/generation_client.py"
+lines = 358
+verdict = "issues"
+note = "Entire file reviewed: core-only requests and descriptor adoption are peer checked; generation schema still requires legacy snapshots and replica identities."
+
+[file.43]
+path = "services/platform/hosted/node/generation_transport.py"
+lines = 305
+verdict = "issues"
+note = "Entire file reviewed: slot and peer authorization protect transfer; live identity operation exports removed guarantor key material."
+
+[file.44]
+path = "services/platform/hosted/node/genesis-module-fees.json"
+lines = 9
+verdict = "clean"
+note = "Entire file reviewed: seven module names and uint128 fee values agree with strict genesis_fees.py decoding; no retired endpoint or service is declared here."
+
+[file.45]
+path = "services/platform/hosted/node/genesis_fees.py"
+lines = 95
+verdict = "clean"
+note = "Entire file reviewed: fee metadata versions, exact lengths, module ordering and numeric limits agree with the producer; obsolete caller wiring is recorded in bootstrap.sh."
+
+[file.46]
+path = "services/platform/hosted/node/reset_state.py"
+lines = 1159
+verdict = "issues"
+note = "Entire file reviewed: reset authorization and durable transitions are explicit; activation readiness still requires retired sequencer/replica environments and feeds."
+
+[file.47]
+path = "services/platform/hosted/node/sequencer-env.sh"
+lines = 71
+verdict = "issues"
+note = "Entire file reviewed: seed file protection is explicit but the helper exports private seed environment for retired layerxd."
+
+[file.48]
+path = "services/platform/hosted/node/signer/client.py"
+lines = 179
+verdict = "clean"
+note = "Entire file reviewed: bounded Unix transport and peer/key checks agree with signer responses; typed binding signatures are verified and core verifies ordinary signatures."
+
+[file.49]
+path = "services/platform/hosted/node/signer/provider.py"
+lines = 236
+verdict = "issues"
+note = "Entire file reviewed: protected regular key files and provider signatures are checked; subprocess output capture and deadline limits are incomplete."
+
+[file.50]
+path = "services/platform/hosted/node/signer/signer.py"
+lines = 347
+verdict = "issues"
+note = "Entire file reviewed: UID and binding policy authorization and signatures are checked; active accepted worker threads are unbounded."
+
+[file.51]
+path = "services/platform/hosted/node/supervisor.sh"
+lines = 909
+verdict = "issues"
+note = "Entire file reviewed: supervisor still runs retired sequencer/replica and handover verification and publishes legacy environments."
+
+[file.52]
+path = "services/platform/hosted/node/tests/genesis-modules-test.py"
+lines = 112
+verdict = "issues"
+note = "Entire file reviewed: canonical module activation/rebuild assertions depend on retired daemon and genesis builder artifacts."
+
+[file.53]
+path = "services/platform/hosted/node/tests/lni-drop-ack.py"
+lines = 72
+verdict = "issues"
+note = "Entire file reviewed: lost acknowledgement proxy drives retired LNI submit/ack tags over the daemon Unix socket."
+
+[file.54]
+path = "services/platform/hosted/node/tests/node-topology-test.py"
+lines = 163
+verdict = "issues"
+note = "Entire file reviewed: useful volume and privilege checks remain, but positive topology assertions require retired sequencer/replica roles."
+
+[file.55]
+path = "services/platform/hosted/node/tests/probe/Cargo.toml"
+lines = 32
+verdict = "clean"
+note = "Entire file reviewed: probe target and client/core/wire dependency paths match the current implementation."
+
+[file.56]
+path = "services/platform/hosted/node/tests/probe/src/main.rs"
+lines = 540
+verdict = "issues"
+note = "Entire file reviewed: public RPC and supervisor inputs are validated; DID listing expects missing name and custody preparation calls retired anchor."
+
+[file.57]
+path = "services/platform/hosted/node/tests/probe/tests/retired_client_modules.rs"
+lines = 45
+verdict = "clean"
+note = "Entire file reviewed: source guards exclude retired client modules; forbidden names are rejection data."
+
+[file.58]
+path = "services/platform/hosted/node/tests/test_data_directory.py"
+lines = 143
+verdict = "issues"
+note = "Entire file reviewed: unsafe paths, symlinks and incomplete stage refusals are covered; successful durable exchange/reopen is not exercised."
+
+[file.59]
+path = "services/platform/hosted/node/tests/test_generation_transport.py"
+lines = 125
+verdict = "issues"
+note = "Entire file reviewed: peer/capability refusals are covered; fixture defaults to retired identity operation instead of real core adoption."
+
+[file.60]
+path = "services/platform/hosted/node/tests/test_node_without_guarantor.py"
+lines = 46
+verdict = "issues"
+note = "Entire file reviewed: guarantor and secret retirement exclusions remain useful, but the test positively requires retired core LNI."
+
+[file.61]
+path = "services/platform/hosted/node/tests/test_reset_state.py"
+lines = 471
+verdict = "issues"
+note = "Entire file reviewed: state transitions and corruption refusals are covered; success does not exercise staged native activation/readiness/reopen."
+
+[file.62]
+path = "services/platform/hosted/node/tests/test_retired_node_drivers.py"
+lines = 37
+verdict = "clean"
+note = "Entire file reviewed: absence guards reject retired kernel node drivers and artifacts; their names are rejection data."
+
+[finding.merchant-chain-origin]
+file = "services/platform/examples/merchant-shop/layerx.example.json"
+line = 25
+class = "interface-mismatch"
+severity = "high"
+observed = "The beta rpcUrl is https://api-mainnet-beta.paxeer.network/rpc, so the shared merchant RPC client sends requests to the removed unified RPC path."
+expected = "Brief facts 2-3 require mainnet-beta chain JSON-RPC at the root origin, chain id 125, with no unified /rpc route."
+proposal = "In services/platform/examples/merchant-shop/layerx.example.json set beta rpcUrl to the root chain origin and exercise the shared merchant RPC consumer against that origin."
+owner_domain = 8
+interface = "8.cfg-examples-merchant-shop-environments-beta-rpcurl-j41"
+
+[finding.merchant-settlement-origin]
+file = "services/platform/examples/merchant-shop/layerx.example.json"
+line = 24
+class = "interface-mismatch"
+severity = "high"
+observed = "beta settlementUrl posts /v1/settle to the public chain origin. examples/support/merchant-app.mjs SettlementAuthority expects a hosted settlement response there, while the chain exposes root JSON-RPC namespaces."
+expected = "The chain origin and authenticated hosted settlement service have distinct contracts; /v1/settle must reach the gateway that returns the declared settlement state and transaction."
+proposal = "Configure an authenticated hosted gateway settlementUrl independently of root chain rpcUrl in services/platform/examples/merchant-shop/layerx.example.json and exercise its actual SettlementAuthority decoder."
+owner_domain = 8
+interface = "8.cfg-examples-merchant-shop-environments-beta-settlementurl"
+
+[finding.merchant-emulator-rpc]
+file = "services/platform/examples/merchant-shop/layerx.example.json"
+line = 8
+class = "retired-reference"
+severity = "medium"
+observed = "The shipped emulator rpcUrl still advertises http://127.0.0.1:9402/rpc, preserving a unified RPC route in the merchant environment configuration."
+expected = "Brief fact 2 retires unified /rpc references in configuration; development examples must describe the finished network consistently."
+proposal = "Migrate services/platform/examples/merchant-shop/layerx.example.json and the owning emulator/shared RPC adapter together to a root JSON-RPC contract while keeping settlement routing explicit."
+owner_domain = 8
+
+[finding.custody-retired-precompiles]
+file = "services/platform/hosted/core/src/lib.rs"
+line = 658
+class = "retired-reference"
+severity = "high"
+observed = "custody_latest_finalized/checkpoint call anchor 0x1014 and read_custody_profile calls custody 0x1013 getAsset(bytes32) before anchor checkpoint gating. These precompiles return retired/disabled errors after the merge."
+expected = "Native bank metadata, pointer views and committed chain evidence replace retired custody/anchor. Historical req.8945.2 still names these precompiles and conflicts with current retirement and the brief."
+proposal = "Migrate services/platform/hosted/core/src/lib.rs profile/asset readers to bank 0x1001, pointerview 0x100A and native committed evidence with the owning chain domains; reconcile req.8945.2 and prove actual reads."
+owner_domain = 8
+interface = "8.rs-core-layerx-platform-core-read-custody-profile"
+
+[finding.core-startup-inputs]
+file = "services/platform/hosted/node/deployment.yaml"
+line = 317
+class = "wiring-gap"
+severity = "high"
+observed = "core-boundary omits LAYERX_CORE_SEQUENCER_ENDPOINT and LAYERX_CORE_SEQUENCER_TRUST_ANCHOR_DER required at core/src/main.rs:315-316. bootstrap.sh:1145 only publishes identity/asset/signer socket, and generation_client does not synthesize endpoint/trust inputs."
+expected = "The deployed core must start with its required authenticated RPC endpoint and trust anchor and reach chain and hosted px services using their correct contracts."
+proposal = "Wire required RPC and DER trust material in services/platform/hosted/node/deployment.yaml and the bootstrap/generation contract; supply suitable chain and px gateway endpoints and verify actual container startup."
+owner_domain = 8
+
+[finding.funding-deployment-inputs]
+file = "services/platform/hosted/node/deployment.yaml"
+line = 317
+class = "wiring-gap"
+severity = "high"
+observed = "core-boundary supplies neither LAYERX_CORE_CHAIN_RPC_URL nor native FUNDING_SENDER_KEY_FILE/FUNDING_SENDER_KMS_KEY_ID inputs. Its Ed25519 treasury socket cannot satisfy the secp256k1 funding sender, leaving native funding treasury_unavailable."
+expected = "Req.8109 and req.21126 require native chain funding using exactly one file or KMS sender; generated legacy treasury identity does not configure a native transfer signer."
+proposal = "In services/platform/hosted/node/deployment.yaml wire chain RPC and exactly one protected LAYERX_CORE_FUNDING_SENDER_KEY_FILE or LAYERX_CORE_FUNDING_SENDER_KMS_KEY_ID, including required KMS transport material; prove readiness and transfer."
+owner_domain = 8
+interface = "8.env-core-layerx-core-chain-rpc-url-j40"
+
+[finding.core-replica-readiness]
+file = "services/platform/hosted/core/src/main.rs"
+line = 828
+class = "retired-reference"
+severity = "high"
+observed = "readiness requires HTTP 200/404 from config.replica /v1/batches/<zero>/receipt-authority after px_network succeeds. Removing the separate authority replica leaves core permanently unready."
+expected = "The merged network commits receipts in paxd and has no authority replica; readiness must reflect live native dependencies and durable journal availability."
+proposal = "Replace the replica probe in services/platform/hosted/core/src/main.rs with committed-chain and writable-journal readiness, preserving explicit native funding dependency status; prove startup without a replica."
+owner_domain = 8
+interface = "8.http-core-get-readyz"
+
+[finding.core-retired-relays]
+file = "services/platform/hosted/core/src/main.rs"
+line = 998
+class = "retired-reference"
+severity = "high"
+observed = "relay_target forwards protocol account-state head, program account-state changes and batch receipt-authority routes to legacy node/replica HTTP listeners; no corresponding producer exists on native root JSON-RPC."
+expected = "Brief facts 1-3 retire daemon/replica REST listeners; surviving consumers must read equivalent committed data through live native or hosted gateway interfaces."
+proposal = "Migrate services/platform/hosted/core/src/main.rs relay/state consumers to native chain/query contracts and explicitly retire obsolete HTTP contracts with their callers, replacing forwarding to absent listeners."
+owner_domain = 8
+interface = "8.http-core-get-v1-state"
+
+[finding.receipt-anchor-dependency]
+file = "services/platform/hosted/core/src/main.rs"
+line = 626
+class = "retired-reference"
+severity = "high"
+observed = "await_receipt obtains an authenticated native receipt and then calls custody_checkpoint_state_root at its height; that helper calls retired anchor, making valid committed receipts fail as unavailable."
+expected = "Committed native receipts are final without checkpoint authority/anchor finality; evidence must bind to their native committed block."
+proposal = "Derive receipt state evidence in services/platform/hosted/core/src/main.rs from the native committed block/app hash at the landing height; remove anchor gating and prove public receipt success after anchor retirement."
+owner_domain = 8
+interface = "8.rs-core-layerx-platform-core-read-custody-profile"
+
+[finding.absent-receipt-status]
+file = "services/platform/hosted/core/src/main.rs"
+line = 603
+class = "interface-mismatch"
+severity = "medium"
+observed = "await_authenticated_receipt discards Lookup::Absent and Submitted until deadline then returns Err(receipt_unavailable). It never returns Ok(None), so receipt_route missing-receipt 404 handling is unreachable."
+expected = "The receipt HTTP contract distinguishes authenticated absence, pending submission and dependency failure; absence must not be reported as infrastructure unavailability."
+proposal = "Preserve typed absent/submitted/unavailable outcomes in services/platform/hosted/core/src/main.rs and map them to declared statuses; exercise actual lookup and route behavior for each outcome."
+owner_domain = 8
+interface = "8.err-core-not-found"
+
+[finding.funding-recovery-schema]
+file = "services/platform/hosted/core/src/main.rs"
+line = 1817
+class = "interface-mismatch"
+severity = "high"
+observed = "prepare_funding persists SignedFunding {raw, transaction_hash:0x-string} in fund-canonical; funding_intent_route reads the same stage as PreparedFunding {canonical, transaction_hash:32-byte-array, sender}. Live stages conflict with imports and imported stages fail native replay. Live funding also omits legacy FundingIntent archives."
+expected = "Req.8109 and brief check 5 require a durable native funding identity across preparation, lost response, export/import, retention and restart, preserving the signed bytes and transaction hash."
+proposal = "Unify services/platform/hosted/core/src/main.rs preparation, intent import/export and retention around one versioned native transfer schema shared with chain_fund.rs; migrate old records explicitly and prove live prepare/archive/import/restart replay."
+owner_domain = 8
+interface = "8.http-core-post-admin-v1-testnet-fund"
+
+[finding.funding-wrong-network]
+file = "services/platform/hosted/core/src/chain_fund.rs"
+line = 111
+class = "config-drift"
+severity = "medium"
+observed = "ChainFunding::connect accepts every nonzero eth_chainId and signs using that value. A misconfigured origin can become ready and receive a transfer on another network."
+expected = "Brief fact 1 fixes EVM chain id 125; funding readiness and signing must reject an origin for a different network before spending funds."
+proposal = "Require the validated deployment chain id in services/platform/hosted/core/src/chain_fund.rs before signing, bind it into durable intent validation and prove wrong-network refusal."
+owner_domain = 8
+interface = "8.env-core-layerx-core-chain-rpc-url-j40"
+
+[finding.account-balance-shape]
+file = "services/platform/hosted/core/src/public_reads.rs"
+line = 75
+class = "interface-mismatch"
+severity = "high"
+observed = "account copies balance only from joined.layerx. gateway/src/paxeer.rs:584-617 emits result.account and result.paxeer {address,balance,nonce,height}, without layerx, so the public account/balance response succeeds while omitting balance."
+expected = "Req.181376 moves account resolution to native joined responses; public balance reads must consume the producer balance with its committed height and documented units."
+proposal = "Map paxeer.balance and producer height into the public contract in services/platform/hosted/core/src/public_reads.rs with explicit units, and exercise an actual gateway response through the public balance route."
+owner_domain = 8
+interface = "8.rpc-gateway-px-getaccount"
+
+[finding.proof-height-and-content]
+file = "services/platform/hosted/core/src/public_reads.rs"
+line = 478
+class = "interface-mismatch"
+severity = "high"
+observed = "proof fetches a bundle at head.latest_committed_height even for earlier receipts and labels that header landing_block. Client evidence ProofBundle contains only a block and ignores address/slots; account proof has no value/inclusion path, and historical activity bytes can accompany an unrelated later header."
+expected = "Evidence must bind the selected value/key to its exact committed root and receipt landing height; a current block header alone does not prove a historical activity, receipt or account."
+proposal = "Coordinate services/platform/hosted/core/src/public_reads.rs with domain 9 client rpc/evidence.rs to return and verify native per-key inclusion evidence at the selected height; cover advancing head, wrong account and root disagreement."
+owner_domain = 8
+interface = "9.rs-client-evidence-proof-bundle"
+
+[finding.receipt-event-authentication]
+file = "services/platform/hosted/core/src/public_reads.rs"
+line = 542
+class = "security"
+severity = "medium"
+observed = "receipt_event calls sequencer_receipt directly and emits completed/refused for Receipted or Committed data. The decoder checks transaction identity but lacks the signature/key-range and execution/log authentication performed by lookup_authenticated."
+expected = "Brief check 8 makes receipt verification mandatory; a caller bearer token does not authenticate upstream receipt evidence or justify promotion of an unverified result."
+proposal = "Use authenticated receipt lookup and receipt-key policy in services/platform/hosted/core/src/public_reads.rs receipt_event, preserve its rung and reject unpinned signatures or mismatched execution fields."
+owner_domain = 8
+interface = "8.http-core-any-internal-v1-receipt-events"
+
+[finding.program-source-upstream]
+file = "services/platform/hosted/internal/src/events.rs"
+line = 56
+class = "interface-mismatch"
+severity = "high"
+observed = "Kind::Program builds /v1/programs/registry/<resource> for pull observations. internal/deployment.yaml:531 points programs at layerx-gateway, whose production_route/main handler rejects this retired REST path with 404."
+expected = "A configured program event source must retrieve resources from a live authorized producer; retired gateway program REST rows cannot be assumed to proxy the registry."
+proposal = "Replace the pull path and upstream in services/platform/hosted/internal/src/events.rs and deployment.yaml with the authorized native/registry interface, or retire pull consistently with callers while retaining authenticated producer observations; prove configured source-to-upstream delivery."
+owner_domain = 8
+interface = "8.http-gateway-get-v1-programs-registry-2"
+
+[finding.digest-producer-recovery]
+file = "services/platform/hosted/internal/src/producer.rs"
+line = 779
+class = "interface-mismatch"
+severity = "high"
+observed = "Observation::validate accepts payment/program principal_digest without principal, but Client::enrollment requires observation.principal. After retry exhaustion delivery_step requires a newer authenticated enrollment, which digest-only records cannot query, blocking the ordered outbox across restarts."
+expected = "Digest-only observations must support durable authenticated enrollment recovery without exposing raw principal or permanently blocking subsequent events."
+proposal = "Add an authorized digest-addressed enrollment status contract in services/platform/hosted/internal/src/events.rs and consume it in producer.rs; prove a real digest producer through source, webhook outage, reenrollment and restarted replay."
+owner_domain = 8
+interface = "8.rs-internal-layerx-platform-internal-producer-client"
+
+[finding.producer-retention-growth]
+file = "services/platform/hosted/internal/src/producer.rs"
+line = 502
+class = "runtime-risk"
+severity = "medium"
+observed = "QueueState retains every Observation in retained and every resource counter while acknowledge removes only entries. MAX_PENDING bounds the pending queue but not lifetime history, which is serialized on each save."
+expected = "Brief checks 4-5 require bounded runtime state and an explicit durable deduplication/retention policy; successful delivery must not eventually exhaust producer memory or persisted state limits."
+proposal = "Define durable retention and deduplication boundaries in services/platform/hosted/internal/src/producer.rs and compact acknowledged observations/counters when replay safety allows; prove sustained delivery and reopen at the boundary."
+owner_domain = 8
+interface = "8.rs-internal-layerx-platform-internal-producer-queuestate"
+
+[finding.journal-torn-tail]
+file = "services/platform/hosted/internal/src/journal.rs"
+line = 74
+class = "restart-recovery"
+severity = "medium"
+observed = "Journal::open refuses all service startup when the final record lacks newline. A crash during append before sync can leave this tail after acknowledged durable records, preventing recovery of their valid prefix."
+expected = "Restart must preserve prior committed records and distinguish an uncommitted crash-torn final append from corruption inside the durable record sequence."
+proposal = "Define a durable append recovery boundary in services/platform/hosted/internal/src/journal.rs that handles only an uncommitted torn suffix while rejecting interior corruption; prove interruption during append and prior-record replay."
+owner_domain = 8
+interface = "8.rs-internal-layerx-platform-internal-journal-journal"
+
+[finding.secret-prefix-truncation]
+file = "services/platform/hosted/internal/src/secret.rs"
+line = 24
+class = "security"
+severity = "medium"
+observed = "read_secret_file reads at most 4097 bytes then strips CR/LF before checking length. A file of 4096 credential bytes, newline and unread suffix is accepted as the prefix rather than refused as oversized or containing control bytes."
+expected = "The bounded secret reader must validate the complete raw file and reject overflow before normalization; credentials must never be silently truncated."
+proposal = "Detect raw overflow/EOF before trimming allowed terminal line breaks in services/platform/hosted/internal/src/secret.rs, zeroize refused data and cover maximum prefix plus newline and hidden trailing bytes."
+owner_domain = 8
+interface = "8.rs-internal-layerx-platform-internal-secret-read-secret-file"
+
+[finding.gateway-root-trust]
+file = "services/platform/hosted/internal/src/gateway_http.rs"
+line = 181
+class = "security"
+severity = "medium"
+observed = "GatewayHttp adds the configured internal CA but leaves native_tls built-in public roots enabled, accepting a broader server trust set than internal tls::Upstream, which uses exclusive configured CA trust."
+expected = "Explicit internal trust anchors should be applied consistently; an unrelated public root must not substitute for the configured private service CA."
+proposal = "Disable built-in roots in services/platform/hosted/internal/src/gateway_http.rs for this connector while retaining hostname/client-identity checks; prove configured-CA acceptance and unconfigured-root refusal."
+owner_domain = 8
+
+[finding.producer-router-comment]
+file = "services/platform/hosted/internal/env-init.sh"
+line = 137
+class = "retired-reference"
+severity = "low"
+observed = "The credential initialization comment states that the router produces payments although the finished network has no router and hosted gateway code produces payment observations."
+expected = "Brief fact 2 retires router references in operational scripts; ownership descriptions must identify the actual finished-network producer."
+proposal = "Update services/platform/hosted/internal/env-init.sh producer ownership comment to name the hosted gateway and registry while retaining the authenticated digest enrollment behavior."
+owner_domain = 8
+
+[finding.bootstrap-retired-prerequisites]
+file = "services/platform/hosted/node/bootstrap.sh"
+line = 444
+class = "retired-reference"
+severity = "high"
+observed = "Bootstrap unconditionally resolves layerxd/layerx-genesis-build, loads checkpoint-settlement.json and certificate_threshold at 458-467 and provisions guarantor-era identities/genesis artifacts. Those tools and checkpoint authority are retired."
+expected = "Bootstrap must prepare the single paxd network and native genesis/bank state without standalone sequencer, checkpoint authority or guarantor provisioning."
+proposal = "Replace services/platform/hosted/node/bootstrap.sh lifecycle with owning native paxd genesis/configuration interfaces; remove checkpoint/guarantor artifacts, publish full native core inputs and prove empty-data bootstrap with the finished image."
+owner_domain = 8
+interface = "8.cli-node-bootstrap-sh-layerxd"
+
+[finding.deployment-retired-topology]
+file = "services/platform/hosted/node/deployment.yaml"
+line = 151
+class = "retired-reference"
+severity = "high"
+observed = "The StatefulSet launches layerxd, layerxd-authority and paxeer-relay, mounts LXGB/settlement artifacts and configures LNI and custody/anchor-era dependencies for colocated services."
+expected = "Brief facts 1-3 require one paxd BFT chain with merged kernel, public root JSON-RPC and hosted px gateway, without standalone daemon, authority replica or checkpoint relay."
+proposal = "Rework services/platform/hosted/node/deployment.yaml with native chain/hosted owners around paxd and actual gateway contracts; remove legacy roles and configuration, mount live dependencies and prove startup/committed reads without old listeners."
+owner_domain = 8
+interface = "8.cli-node-supervisor-sh-layerxd"
+
+[finding.supervisor-retired-launch]
+file = "services/platform/hosted/node/supervisor.sh"
+line = 283
+class = "retired-reference"
+severity = "high"
+observed = "The supervisor launches layerxd --serve/--authority-replica, exports a daemon sequencer seed, verifies old handover history using layerx-handover and waits for legacy settlement/program listeners."
+expected = "The finished lifecycle must supervise native merged-node start, health and recovery rather than a retired daemon/authority replica."
+proposal = "Migrate services/platform/hosted/node/supervisor.sh and image entrypoints to native paxd start/stop/health/recovery contracts; retire separate role, seed and handover paths and prove restart of the actual native process."
+owner_domain = 8
+interface = "8.cli-node-supervisor-sh-layerxd"
+
+[finding.treasury-projected-secret]
+file = "services/platform/hosted/node/deployment.yaml"
+line = 239
+class = "interface-mismatch"
+severity = "high"
+observed = "The treasury-signer opens /run/layerx/treasury/treasury.key from a projected Secret directory. Kubernetes projects the key as a symlink, but signer/provider.py:129 opens it with O_NOFOLLOW and refuses startup."
+expected = "The file provider needs a protected regular file compatible with its no-symlink policy; mode 0440 alone does not change the projected Secret path type."
+proposal = "Copy the projected key at initialization to an owner-controlled regular file in a private memory volume in services/platform/hosted/node/deployment.yaml, mounted only by the signer; preserve O_NOFOLLOW and prove actual Secret projection startup."
+owner_domain = 8
+interface = "8.cli-node-signer-py-key-file"
+
+[finding.reset-retired-readiness]
+file = "services/platform/hosted/node/reset_state.py"
+line = 562
+class = "retired-reference"
+severity = "high"
+observed = "Store._activated_ready requires sequencer.env/replica.env and probes program account-state changes and batch receipt-authority HTTP routes. A native generation cannot satisfy completion without those retired producers."
+expected = "Reset must finish only when the chosen native generation is durably active and committed-chain readiness is verified, including after process restart."
+proposal = "Replace services/platform/hosted/node/reset_state.py activation readiness with native generation identity and committed health, coordinate generation publication and prove interrupted reset recovery without legacy environments."
+owner_domain = 8
+
+[finding.activation-rename-durability]
+file = "services/platform/hosted/node/data_directory.py"
+line = 240
+class = "restart-recovery"
+severity = "high"
+observed = "activate_generation fsyncs parent directories before renameat2(RENAME_EXCHANGE) then returns activated without syncing the changed entries. Power loss can restore old directory mappings after success was reported and recorded elsewhere."
+expected = "Durable generation activation must survive power loss before reset state advances; atomic exchange alone is not a directory persistence barrier."
+proposal = "Fsync both affected parent descriptors after successful exchange and before returning activated in services/platform/hosted/node/data_directory.py, propagate failures and prove restart/power-loss recovery cannot lose the selected generation."
+owner_domain = 8
+
+[finding.generation-guarantor-operation]
+file = "services/platform/hosted/node/generation_transport.py"
+line = 205
+class = "retired-reference"
+severity = "medium"
+observed = "Broker.request retains operation identity and exports producer-generations/guarantor-<slot>/identity files including key.pem/producer.env. Guarantor launchers are removed and generation_client accepts only core."
+expected = "Retired guarantor private-key descriptor interfaces must not remain live capabilities without finished-network consumers."
+proposal = "Remove identity operation and obsolete slot capabilities in services/platform/hosted/node/generation_transport.py with its bootstrap/tests, preserve authorized core handoff and prove identity requests are refused."
+owner_domain = 8
+
+[finding.generation-legacy-artifacts]
+file = "services/platform/hosted/node/generation_client.py"
+line = 183
+class = "retired-reference"
+severity = "medium"
+observed = "The core-only generation client still requires legacy GENESIS manifest/registration/snapshot descriptors and exports LAYERX_AUTHORITY_REPLICA_ID/LAYERX_NODE_SNAPSHOT, tying startup to retired runtime artifacts."
+expected = "The core generation contract must carry native generation identity, configuration and committed evidence without authority replica or old LXRR/LXS dependencies."
+proposal = "Migrate services/platform/hosted/node/generation_client.py with generation_transport.py to a versioned native core schema, remove retired exports and prove actual descriptor adoption and child restart."
+owner_domain = 8
+interface = "8.env-node-layerx-node-snapshot"
+
+[finding.sequencer-seed-helper]
+file = "services/platform/hosted/node/sequencer-env.sh"
+line = 70
+class = "retired-reference"
+severity = "medium"
+observed = "The helper validates and exports LAYERX_NODE_SEQUENCER_PRIVATE_KEY for layerxd --serve, retaining the retired daemon seed environment interface despite protected input files."
+expected = "Brief facts 1-2 remove the standalone daemon; native signing must use the owning chain provisioning interface rather than an obsolete seed environment."
+proposal = "Retire services/platform/hosted/node/sequencer-env.sh with supervisor/bootstrap/image callers or replace it with the actual native signer file contract without exposing seed bytes in environment variables."
+owner_domain = 8
+interface = "8.env-node-layerx-node-sequencer-key-file"
+
+[finding.provider-process-bounds]
+file = "services/platform/hosted/node/signer/provider.py"
+line = 34
+class = "runtime-risk"
+severity = "medium"
+observed = "openssl captures stdout/stderr without timeout; CommandProvider has a deadline but checks stdout length only after full capture and never bounds stderr. Faulty providers can consume unbounded memory or stall signing."
+expected = "The signing boundary must enforce deadlines and output limits while external providers run, covering stderr and local crypto subprocesses."
+proposal = "Use bounded subprocess pipes with an end-to-end deadline in services/platform/hosted/node/signer/provider.py, terminate/reap on overflow or timeout and exercise hung/oversized providers while retaining signature checks."
+owner_domain = 8
+
+[finding.signer-concurrency-bound]
+file = "services/platform/hosted/node/signer/signer.py"
+line = 236
+class = "runtime-risk"
+severity = "medium"
+observed = "ThreadingUnixStreamServer backlog 32 does not limit active accepted threads. Authorized concurrent clients can accumulate workers waiting on the shared signing lock, whose wait is not bounded by socket read timeout."
+expected = "Signing must bound active work and total wait so a local caller cannot exhaust memory or indefinitely delay other requests."
+proposal = "Add a bounded active-request queue/semaphore and end-to-end deadline including lock wait in services/platform/hosted/node/signer/signer.py, return explicit busy refusals and prove overload recovery."
+owner_domain = 8
+
+[finding.funding-intent-fixture-gap]
+file = "services/platform/hosted/core/tests/send.rs"
+line = 250
+class = "test-gap"
+severity = "medium"
+observed = "The funding intent round-trip constructs PreparedFunding via build_send_with_signer and imports it before reopen. It never obtains an intent from the live native fund route producing SignedFunding, hiding the incompatible persisted schema."
+expected = "Brief fact 7 and req.8109 require actual funding producer/transport/archive/restarted replay agreement, rather than an independently manufactured intent shape."
+proposal = "Obtain the intent from a real native funding request in services/platform/hosted/core/tests/send.rs, then export/import into reopened state and replay the same raw transfer, retaining malformed-intent refusals."
+owner_domain = 8
+interface = "8.http-core-post-admin-v1-testnet-fund"
+
+[finding.native-funding-integration-gap]
+file = "services/platform/hosted/core/tests/chain_fund.rs"
+line = 150
+class = "test-gap"
+severity = "medium"
+observed = "The Chain fixture returns eth_getTransactionReceipt with transactionHash/status only. Real Anvil coverage exercises readiness rather than a funded transfer and committed receipt followed by archive/import recovery."
+expected = "Brief fact 7 requires real producer-to-consumer evidence through restart; native funding completion must correspond to the actual transfer and preserve identity after response loss/reopen."
+proposal = "Extend services/platform/hosted/core/tests/chain_fund.rs with a real local-chain funding transfer, committed receipt and balance assertions plus lost-response/reopen and archive/import replay; preserve focused refusal tests."
+owner_domain = 8
+interface = "8.http-core-post-admin-v1-testnet-fund"
+
+[finding.genesis-test-retired-tools]
+file = "services/platform/hosted/node/tests/genesis-modules-test.py"
+line = 32
+class = "retired-reference"
+severity = "medium"
+observed = "The module test invokes bootstrap with build/bin/layerxd, layerx-genesis-build, LNI uid and legacy metadata and asserts the obsolete generated artifact layout."
+expected = "Finished-network module configuration must be checked through the native genesis producer and boot consumer instead of removed daemon tools."
+proposal = "Migrate services/platform/hosted/node/tests/genesis-modules-test.py to native genesis/module parameters and real node reads while retaining module enablement and deterministic reconstruction assertions."
+owner_domain = 8
+interface = "8.cli-node-bootstrap-sh-layerxd"
+
+[finding.lost-ack-retired-lni]
+file = "services/platform/hosted/node/tests/lni-drop-ack.py"
+line = 49
+class = "retired-reference"
+severity = "medium"
+observed = "The lost-ack proxy forwards LNI submit tag 3 and waits for ack tag 4 from a daemon Unix socket, so its recovery scenario cannot exercise native merged-chain ingress."
+expected = "The finished network uses root eth_sendRawTransaction; lost-response recovery must preserve signed transfer identity over that live transport."
+proposal = "Replace services/platform/hosted/node/tests/lni-drop-ack.py with a bounded native RPC lost-response proxy on the real submit/retry path, preserving no-duplicate-submission and recovery assertions."
+owner_domain = 8
+interface = "8.cli-node-supervisor-sh-layerxd"
+
+[finding.topology-test-retired-roles]
+file = "services/platform/hosted/node/tests/node-topology-test.py"
+line = 142
+class = "test-gap"
+severity = "medium"
+observed = "The topology test positively requires layerxd/layerxd-authority containers, sequencer/replica supervisor roles and program/replica listener ports, locking in obsolete topology."
+expected = "Brief facts 1-3 require native paxd with merged kernel and actual gateway namespace ownership without separate daemon/authority replica."
+proposal = "Rewrite services/platform/hosted/node/tests/node-topology-test.py against native deployment roles/services while retaining namespace, volumes, identity and privilege isolation assertions."
+owner_domain = 8
+interface = "8.cli-node-supervisor-sh-layerxd"
+
+[finding.retirement-test-requires-lni]
+file = "services/platform/hosted/node/tests/test_node_without_guarantor.py"
+line = 38
+class = "test-gap"
+severity = "medium"
+observed = "The no-guarantor test positively requires LAYERX_CORE_LNI_SOCKET=/run/layerx/node/layerxd.lni.sock despite native core transport retirement."
+expected = "Guarantor exclusion must coexist with native transport; the older req.8190 core LNI carve-out conflicts with later transport retirement and the brief."
+proposal = "Update services/platform/hosted/node/tests/test_node_without_guarantor.py to require actual native core RPC/signer configuration and no legacy LNI, preserving every guarantor and retired-secret exclusion."
+owner_domain = 8
+
+[finding.probe-did-account-shape]
+file = "services/platform/hosted/node/tests/probe/src/main.rs"
+line = 152
+class = "interface-mismatch"
+severity = "high"
+observed = "did_accounts expects value.name from every history::did_accounts item, but client rpc/history.rs produces evm_address,pax_address,layerx_did,layerx_account,bound without name. Valid nonempty listings are rejected as malformed."
+expected = "The operator probe must accept the current native bound account listing and preserve unbound, empty and unavailable outcomes."
+proposal = "Consume actual native address/account fields in services/platform/hosted/node/tests/probe/src/main.rs, publish the output schema and exercise real bound/unbound gateway listings through the probe."
+owner_domain = 8
+interface = "9.rs-client-read-did-accounts"
+
+[finding.probe-retired-anchor]
+file = "services/platform/hosted/node/tests/probe/src/main.rs"
+line = 311
+class = "retired-reference"
+severity = "medium"
+observed = "custody preparation calls custody_latest_finalized and platform_core profile readers, retaining disabled anchor/custody precompile dependencies even though other probe reads use native RPC."
+expected = "Merged-network probes must expose native committed asset evidence without retired checkpoint finality dependencies."
+proposal = "Migrate custody commands in services/platform/hosted/node/tests/probe/src/main.rs with core/src/lib.rs bank/pointerview readers and report exact committed height, preserving nonce/profile validation."
+owner_domain = 8
+interface = "8.rs-core-layerx-platform-core-read-custody-profile"
+
+[finding.activation-success-test-gap]
+file = "services/platform/hosted/node/tests/test_data_directory.py"
+line = 102
+class = "test-gap"
+severity = "medium"
+observed = "Activation tests reject incomplete canonical input before exchange but do not exercise a successful exchange followed by reopen or power-loss durability, leaving post-rename persistence unverified."
+expected = "Brief check 5 requires the real generation producer, activation and restarted consumer path to prove durable success as well as input refusal."
+proposal = "Add complete native-generation success/exchange/reopen coverage in services/platform/hosted/node/tests/test_data_directory.py with interruption at the post-rename barrier and preservation of the selected generation."
+owner_domain = 8
+
+[finding.generation-test-retired-operation]
+file = "services/platform/hosted/node/tests/test_generation_transport.py"
+line = 44
+class = "test-gap"
+severity = "medium"
+observed = "The default transport request fixture uses operation identity and guarantor slot capabilities, principally testing a retired consumer instead of the core-only operation accepted by generation_client."
+expected = "Transport qualification must exercise current broker-to-core descriptors and actual child adoption/restart while refusing retired identity requests."
+proposal = "Migrate services/platform/hosted/node/tests/test_generation_transport.py to real native core artifacts and generation_client adoption over the broker socket; preserve peer/path/capability refusals and assert identity retirement."
+owner_domain = 8
+
+[finding.reset-staged-success-test-gap]
+file = "services/platform/hosted/node/tests/test_reset_state.py"
+line = 78
+class = "test-gap"
+severity = "medium"
+observed = "The successful Store transition fixture uses placeholder genesis.manifest in nonstaged mode, rather than completing staged native activation through _activated_ready and process reopening, hiding retired readiness dependencies."
+expected = "Brief fact 7 requires reset success/recovery through real native generation, activation and committed-readiness consumers beyond isolated state transitions."
+proposal = "Extend services/platform/hosted/node/tests/test_reset_state.py with staged native artifacts, native health and interrupted activation/reopen completion while retaining authorization, transition and corruption refusals."
+owner_domain = 8
+
+[finding.core-operator-page]
+file = "docs/site/docs/platform/hosted-core.md"
+line = 6
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 6/23 prescribe layerxd/LNI topology, 70 onward advertise removed activity/program POST routes, 116 onward describe LNI framing and 314-328 cite removed boundary.rs tests and old funding refusal behavior."
+expected = "Operators/integrators need native JSON-RPC core topology, current routes, native funding errors and test evidence that exists in the audited tree."
+proposal = "Rewrite docs/site/docs/platform/hosted-core.md topology, inputs, routes, receipt/funding and testing sections from current native paths, including chain/gateway origin ownership and durable transfer recovery."
+owner_domain = 8
+
+[finding.node-operator-page]
+file = "docs/site/docs/platform/hosted-node.md"
+line = 4
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 4-13 describe active layerxd, 39-42 list sequencer/replica/guarantors, 282 configures retired anchor and 433 onward prescribe LNI/legacy HTTP. Line 422 claims shareProcessNamespace true although deployment sets false."
+expected = "The page must describe one merged paxd chain, actual pod isolation, native genesis, signing and restart procedures without deployment instructions for retired components."
+proposal = "Rewrite docs/site/docs/platform/hosted-node.md around qualified native topology/genesis, protected projected-secret adoption, root RPC and durable generation recovery; replace daemon/LNI/guarantor instructions and correct namespace isolation."
+owner_domain = 8
+
+[finding.internal-operator-page]
+file = "docs/site/docs/operators/hosted-internal.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Line 3 describes Ed25519-only KMS, 250 onward claims no observe producers, 355-356 refuses empty maps and 380 defines credentials as a JSON map. Code supports secp256k1, actual Client producers and authenticated empty enrollment snapshots."
+expected = "Internal operators need actual multi-algorithm signing and versioned authenticated enrollment configuration, including bootstrap, producer authorization and recovery."
+proposal = "Update docs/site/docs/operators/hosted-internal.md KMS algorithms, producer wiring, credential table and bootstrap/recovery guidance against kms.rs, producer.rs, events.rs and env-init.sh with enrollment authentication/generation lifecycle."
+owner_domain = 8
+
+[finding.platform-contract-page]
+file = "spec/layerx-merge/contracts/platform-hosted.md"
+line = 853
+class = "doc-drift"
+severity = "medium"
+observed = "Relevant core/internal/node contract sections still label native funding inputs new/planned around 853-857 and retain stable legacy LNI/daemon CLI declarations around 866,2390,2448 despite implemented funding and runtime retirement."
+expected = "The published contract must distinguish historical registry declarations from actual finished-network interfaces and their verified implementation status."
+proposal = "Reconcile native funding, gateway origin, daemon retirement and generation rows in the owning registry/documentation sources, then regenerate spec/layerx-merge/contracts/platform-hosted.md so it no longer advertises obsolete active runtime guidance."
+owner_domain = 8
+
+[doc.core]
+path = "docs/site/docs/platform/hosted-core.md"
+status = "misleading"
+notes = "Reviewed core page: topology at 6/23, retired routes at 70 onward, LNI at 116 onward and removed boundary.rs funding/test evidence at 314-328 are wrong; see core-operator-page."
+
+[doc.node]
+path = "docs/site/docs/platform/hosted-node.md"
+status = "misleading"
+notes = "Reviewed node page: active layerxd/replica/guarantors at 4-42, anchor at 282 and LNI at 433 onward are retired; process namespace at 422 disagrees with deployment; see node-operator-page."
+
+[doc.internal]
+path = "docs/site/docs/operators/hosted-internal.md"
+status = "stale"
+notes = "Reviewed internal page: Ed25519-only at 3, no-producer claim at 250, empty-map refusal at 355 and credential map at 380 lag current signer/enrollment paths; see internal-operator-page."
+
+[doc.contract]
+path = "spec/layerx-merge/contracts/platform-hosted.md"
+status = "stale"
+notes = "Reviewed relevant core/internal/node contract sections and registry references: funding around 853-857 and stable legacy runtime rows around 866/2390/2448 need reconciliation; see platform-contract-page."
+

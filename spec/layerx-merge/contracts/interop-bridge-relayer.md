@@ -568,7 +568,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Kind | Status | Source at pinned revision | Signature |
 |---|---|---|---|---|
-| <code>interface.11.cfg-relayer-receipt-keys</code> | <code>config_key</code> | <code>new</code> | <code>services/interop/crates/layerx-bridge-relayer/src/config.rs</code> (planned) | <code>relayer config receipt_keys: [{key_id, public_key, first_height, last_height}] (public keys only)</code> |
+| <code>interface.11.cfg-relayer-receipt-keys</code> | <code>config_key</code> | <code>new</code> | <code>services/interop/crates/layerx-bridge-relayer/src/config.rs</code> (planned) | <code>relayer config receipt_keys: [{sequencer_id, public_key, first_height, last_height}] (public keys only)</code> |
 
 | Interface | Field | Value |
 |---|---|---|
@@ -3035,7 +3035,7 @@ Contract context <code>contract_context.11.bridge-relayer</code>:
 
 | Interface | Kind | Status | Source at pinned revision | Signature |
 |---|---|---|---|---|
-| <code>interface.11.rs-relayer-paxeer-rpc-new</code> | <code>rust_pub_item</code> | <code>change</code> | <code>services/interop/crates/layerx-bridge-relayer/src/rpc.rs:113</code> | <code>pub fn new(endpoints: Vec&lt;EndpointConfig&gt;) -&gt; Result&lt;Self, RpcFault&gt;</code> |
+| <code>interface.11.rs-relayer-paxeer-rpc-new</code> | <code>rust_pub_item</code> | <code>change</code> | <code>services/interop/crates/layerx-bridge-relayer/src/rpc.rs:113</code> | <code>pub fn new(endpoints: Vec&lt;PaxeerEndpoint&gt;) -&gt; Result&lt;Self, RpcFault&gt;</code> |
 
 | Interface | Field | Value |
 |---|---|---|
@@ -4243,3 +4243,162 @@ Contract context <code>contract_context.11.bridge-relayer</code>:
 | Interface | Field | Value |
 |---|---|---|
 | <code>interface.11.rs-relayer-wire-transaction</code> | notes | fn layerx_bridge_relayer::solana::release::wire_transaction |
+
+## Task 22.31.160 repair record
+
+The corrected declarations above supersede the cited frozen receipt-key and
+constructor shapes. Receipt key windows are inclusive; inverted or overlapping windows and
+unknown fields remain refusals. `key_id` is not a configuration alias for `sequencer_id`.
+
+Canonical receipt-key configuration example (public values only; paths and
+endpoints must be supplied by the operator before deployment):
+
+```json
+{
+  "journal_path": "/EXAMPLE_ONLY/operator-a/bridge-journal.jsonl",
+  "cosign_directory": "/EXAMPLE_ONLY/operator-a/cosign",
+  "poll_interval_ms": 1000,
+  "max_submissions": 8,
+  "signer": {
+    "endpoint": {
+      "transport": "uds",
+      "socket": "/EXAMPLE_ONLY/operator-a/signer.sock"
+    },
+    "timeout_ms": 5000
+  },
+  "attestor": {
+    "handle": "EXAMPLE_ONLY/operator-a/bridge-attestor-secp256k1",
+    "public_key": "0x0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
+  },
+  "paxeer": {
+    "chain_id": 125,
+    "endpoints": [
+      {
+        "url": "https://paxeer.example.invalid/rpc",
+        "trust_anchor_der": "/EXAMPLE_ONLY/operator-a/paxeer-ca.der",
+        "request_timeout_ms": 5000
+      }
+    ],
+    "receipt_keys": [
+      {
+        "sequencer_id": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+        "public_key": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+        "first_height": 1000,
+        "last_height": 1999
+      }
+    ],
+    "finality_depth": 12,
+    "start_block": 1,
+    "max_block_range": 100,
+    "submitter": {
+      "handle": "EXAMPLE_ONLY/operator-a/paxeer-fees-secp256k1",
+      "public_key": "0x02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+    },
+    "gas": {
+      "gas_limit": 500000,
+      "max_fee_per_gas": 2000000000,
+      "max_priority_fee_per_gas": 100000000
+    }
+  },
+  "chains": [
+    {
+      "chain_id": 1,
+      "vault": "0x1111111111111111111111111111111111111111",
+      "finality_depth": 12,
+      "start_block": 1,
+      "max_block_range": 100,
+      "rpc": {
+        "endpoints": [
+          {
+            "url": "https://evm-a.example.invalid/rpc",
+            "ca_certificate_der": "/EXAMPLE_ONLY/operator-a/evm-a-ca.der",
+            "bearer_token_file": "/EXAMPLE_ONLY/operator-a/evm-a.token",
+            "independent_backend": "EXAMPLE_ONLY-evm-a"
+          },
+          {
+            "url": "https://evm-b.example.invalid/rpc",
+            "ca_certificate_der": "/EXAMPLE_ONLY/operator-a/evm-b-ca.der",
+            "bearer_token_file": "/EXAMPLE_ONLY/operator-a/evm-b.token",
+            "independent_backend": "EXAMPLE_ONLY-evm-b"
+          },
+          {
+            "url": "https://evm-c.example.invalid/rpc",
+            "ca_certificate_der": "/EXAMPLE_ONLY/operator-a/evm-c-ca.der",
+            "bearer_token_file": "/EXAMPLE_ONLY/operator-a/evm-c.token",
+            "independent_backend": "EXAMPLE_ONLY-evm-c"
+          }
+        ],
+        "quorum": 2,
+        "connect_timeout_ms": 1000,
+        "request_timeout_ms": 5000,
+        "maximum_response_bytes": 1048576
+      },
+      "submitter": {
+        "handle": "EXAMPLE_ONLY/operator-a/evm-1-fees-secp256k1",
+        "public_key": "0x02f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+      },
+      "gas": {
+        "gas_limit": 500000,
+        "max_fee_per_gas": 2000000000,
+        "max_priority_fee_per_gas": 100000000
+      }
+    }
+  ]
+}
+```
+
+Compiling Rust consumer of the corrected constructor:
+
+```rust
+use layerx_bridge_relayer::rpc::{PaxeerRpc, RpcFault};
+use layerx_bridge_relayer::transport::PaxeerEndpoint;
+
+fn published_rpc(endpoints: Vec<PaxeerEndpoint>) -> Result<PaxeerRpc, RpcFault> {
+    PaxeerRpc::new(endpoints)
+}
+```
+
+The declared gate is the integration target `repair_22_31_160`; its cases are:
+
+| Finding | Proving test |
+|---|---|
+| startup-policy | `startup_policy_reopens_journal_and_serves_attesting_until_threshold_three` |
+| directional-policy | `directional_policy_keeps_thresholds_in_both_orders_and_after_restart` |
+| bundle-membership | `bundle_membership_rotation_filters_local_and_cosign_for_actual_vault` |
+| receipt-key-contract | `receipt_key_contract_example_loads_strictly` |
+| rpc-constructor-contract | `rpc_constructor_contract_consumes_paxeer_endpoints` |
+| receipt-error-contract | `receipt_error_contract_preserves_real_refusal_categories` |
+| paxeer-transport-contract | `paxeer_transport_contract_constructs_calls_and_matches_faults` |
+
+Policy snapshots bind direction, destination chain and vault or program, and
+inbound snapshots also bind the registered source chain and vault. Each served
+item carries its current authenticated membership and threshold; journal replay
+restores neither. Unknown policy returns `attesting` for signed items and no
+eligible signatures. The legacy `thresholds` field is informational and cannot
+authorize readiness. Both HTTP routes and transaction assembly recover, filter,
+deduplicate and order signers using `eligible_signatures`. A refresh withdraws
+old policy before attempting authenticated reads, including for completed items
+and when scanning fails.
+
+Wiring request — interop domain (11): update `spec/layerx-merge/interfaces.kvx` row `11.cfg-relayer-receipt-keys` and its generation inputs to `sequencer_id`, then regenerate the corrected receipt-key contract.
+Wiring request — interop domain (11): update `spec/layerx-merge/interfaces.kvx` row `11.rs-relayer-paxeer-rpc-new` to `Vec<PaxeerEndpoint>`, then regenerate the corrected constructor contract.
+Wiring request — interop domain (11): update `spec/layerx-merge/interfaces.kvx` rows `11.rs-relayer-sequencer-receipt-decode-j48` and `11.rs-relayer-sequencer-receipt-verify-j48` to `ReceiptError` with its four refusal categories, then regenerate `contracts/interop.md`.
+Wiring request — interop domain (11): update `spec/layerx-merge/interfaces.kvx` rows `11.rs-relayer-paxeer-endpoint-j48`, `11.rs-relayer-paxeer-transport-call-j48` and `11.rs-relayer-transport-fault-j48` to the exact corrected fields, associated function and structured variants in `contracts/interop.md`, then regenerate it.
+Wiring request — interop domain (11): update manually constructed `AttestationView` fixtures in `services/interop/crates/layerx-bridge-relayer/tests/{attestation_api,attestation_server,proof_bridge_relayer}.rs` to provide authenticated per-item policy; a bare legacy threshold cannot authorize a bundle.
+
+Baseline: the repair integration target did not exist on the starting tree and
+there was no earlier gate ledger. The task's explicit implementation-first and
+`hf-build` / `hf-done` order precludes the contradictory unchanged-tree verify
+step; no baseline execution or baseline-failure claim is made. Qualification
+revision, command, exit status and private log are recorded by those gate
+wrappers, not inferred from this record.
+
+The real-vault cases require Node and provisioned `ganache@7.9.2`, `ethers@6.15.0`,
+`solc@0.8.30` and `@openzeppelin/contracts@5.4.0` on `NODE_PATH`. They compile the
+repository's actual vault as test setup, deploy it in a local EVM, decode its
+deposit event, and drive the real journal, cosign directory and HTTP server.
+The rotation case executes an accepted release and checks outstanding funds
+and the nullifier in the actual vault; it also demonstrates the vault's
+rejection of a removed signer. Receipt tests use the existing signed vectors
+emitted by `rpc/sequencer_receipt_vectors_test.go`. No test installs packages
+or silently skips a missing prerequisite.

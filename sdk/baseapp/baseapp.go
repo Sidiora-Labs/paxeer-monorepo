@@ -887,6 +887,18 @@ func (app *BaseApp) runTx(ctx sdk.Context, mode runTxMode, tx sdk.Tx, checksum [
 		runTxRes.gasInfo = sdk.GasInfo{GasWanted: gasWanted, GasUsed: ctx.GasMeter().GasConsumed(), GasEstimate: gasEstimate}
 	}()
 
+	blockGasConsumed := false
+	consumeBlockGas := func() {
+		if mode == runTxModeDeliver && !blockGasConsumed && ctx.GasMeter() != blockGasMeter {
+			blockGasConsumed = true
+			blockGasMeter.ConsumeGas(ctx.GasMeter().GasConsumedToLimit(), "block gas meter")
+		}
+	}
+	if mode == runTxModeDeliver && blockGasMeter.IsOutOfGas() {
+		return runTxRes, sdkerrors.Wrap(sdkerrors.ErrOutOfGas, "block gas meter exhausted")
+	}
+	defer consumeBlockGas()
+
 	if tx == nil {
 		return runTxRes, sdkerrors.Wrap(sdkerrors.ErrTxDecode, "tx decode error")
 	}
@@ -952,6 +964,11 @@ func (app *BaseApp) runTx(ctx sdk.Context, mode runTxMode, tx sdk.Tx, checksum [
 		anteSpan.End()
 	}
 
+	if mode == runTxModeCheck || mode == runTxModeReCheck {
+		runTxRes.result = &sdk.Result{}
+		return runTxRes, nil
+	}
+
 	// Create a new Context based off of the existing Context with a MultiStore branch
 	// in case message processing fails. At this point, the MultiStore
 	// is a branch of a branch.
@@ -993,6 +1010,7 @@ func (app *BaseApp) runTx(ctx sdk.Context, mode runTxMode, tx sdk.Tx, checksum [
 		}
 	}
 	if err == nil {
+		consumeBlockGas()
 		msCache.Write()
 	}
 	return runTxRes, err
@@ -1038,12 +1056,14 @@ func (app *BaseApp) RunMsgs(ctx sdk.Context, msgs []sdk.Msg) (*sdk.Result, error
 
 		startTime := time.Now()
 		if handler := app.msgServiceRouter.Handler(msg); handler != nil {
-			// ADR 031 request type routing
+			// ADR 031 request type routing. message.action is the protobuf type URL,
+			// for example /cosmos.gov.v1beta1.MsgVoteWeighted.
 			msgResult, err = handler(msgCtx, msg)
 			eventMsgName = sdk.MsgTypeURL(msg)
 			baseappMetrics.runMsgLatency.Record(ctx.Context(), time.Since(startTime).Seconds(), otelmetric.WithAttributes(attribute.String("type", eventMsgName)))
 		} else if legacyMsg, ok := msg.(legacytx.LegacyMsg); ok {
-			// legacy sdk.Msg routing
+			// Legacy sdk.Msg routing. message.action is Type(), for example
+			// weighted_vote for governance MsgVoteWeighted.
 			// Assuming that the app developer has migrated all their Msgs to
 			// proto messages and has registered all `Msg services`, then this
 			// path should never be called, because all those Msgs should be

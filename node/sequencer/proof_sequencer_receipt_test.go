@@ -16,17 +16,25 @@ package sequencer_test
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"math/big"
 	"testing"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
+	evmkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types/ethtx"
+	bridgetypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxbridge/types"
 	seqkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/keeper"
+	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer/wal"
 	evmrpc "github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
+	evmrpcconfig "github.com/Sidiora-Labs/Paxeer-X-Network/rpc/config"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
+	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/tests/occ/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -252,4 +260,78 @@ func TestProofSequencerReceipt(t *testing.T) {
 	for _, client := range consumers {
 		require.Equal(t, lastResult, read(client, lastHash))
 	}
+}
+
+func TestReceiptAssetIsPaymentAsset(t *testing.T) {
+	transport := newRPCE2EHarness(t)
+	payer, recipient := utils.NewSigner(), utils.NewSigner()
+	feeDenom := bridgetypes.SidioraDenom()
+	producer := newReceiptHarness(t, 0, func(ctx sdk.Context, a *app.App) {
+		a.EvmKeeper.SetAddressMapping(ctx, recipient.AccountAddress, recipient.EvmAddress)
+		params := a.EvmKeeper.GetParams(ctx)
+		params.FeeTokenEnabled = true
+		params.MaxFeeTokenRateAge = evmtypes.DefaultMaxFeeTokenRateAge
+		params.AllowedFeeDenoms = []evmtypes.AllowedFeeDenom{{
+			Denom: feeDenom, Rate: sdk.NewDec(evmtypes.InitialSidioraBaseUnitsPerPax), RateUpdateHeight: committedTip,
+		}}
+		a.EvmKeeper.SetParams(ctx, params)
+		coins := sdk.NewCoins(sdk.NewInt64Coin(feeDenom, sidFunding))
+		require.NoError(t, a.BankKeeper.MintCoins(ctx, "mint", coins))
+		require.NoError(t, a.BankKeeper.SendCoinsFromModuleToAccount(ctx, "mint", payer.AccountAddress, coins))
+		require.NoError(t, a.EvmKeeper.SetAccountFeeDenom(ctx, payer.EvmAddress, feeDenom))
+		require.NoError(t, a.SequencerKeeper.InitGenesis(ctx, seqtypes.GenesisState{
+			Leaders:     [][32]byte{[32]byte(label("payment receipt leader"))},
+			ReceiptKeys: []seqtypes.ReceiptKey{{KeyId: testKeyID, PublicKey: publicOf(testKeySeed), FirstHeight: 1, LastHeight: 1000}},
+		}))
+	}, payer)
+	before := producer.app.BankKeeper.GetBalance(producer.openCtx(), payer.AccountAddress, feeDenom).Amount
+	requireWei(t, new(big.Int), producer.weiBalance(producer.openCtx(), recipient.EvmAddress))
+	tx, txBytes := transfer(t, payer, 0, recipient.EvmAddress, big.NewInt(onePaxInWei))
+	accepted, receipt, signed := producer.accept(t, txBytes)
+	paymentAsset := sha256.Sum256([]byte(evmkeeper.BaseDenom))
+	feeAsset := sha256.Sum256([]byte(feeDenom))
+	require.NotEqual(t, paymentAsset, feeAsset)
+	require.Equal(t, paymentAsset, receipt.Asset)
+	require.Equal(t, u128(big.NewInt(onePaxInWei)), receipt.Amount)
+	require.Equal(t, feeDenom, string(receipt.Effects[0].Body[109:]))
+	charged := before.Sub(producer.app.BankKeeper.GetBalance(producer.openCtx(), payer.AccountAddress, feeDenom).Amount)
+	require.Equal(t, sdk.NewInt(sidConverted), charged)
+	require.Equal(t, u128(charged.BigInt()), receipt.FeeCharged)
+	requireWei(t, big.NewInt(onePaxInWei), producer.weiBalance(producer.openCtx(), recipient.EvmAddress))
+	source := sequencer.NewReceiptSource(1)
+	send := evmrpc.SequencerSend{Receipt: signed, LogData: [][]byte{}}
+	source.Record(tx.Hash(), send)
+	config := evmrpcconfig.DefaultConfig
+	config.HTTPAddress, config.HTTPPort = "127.0.0.1", rpcE2EPort(t)
+	server, err := evmrpc.NewEVMHTTPServer(config, transport.consensus, &producer.app.EvmKeeper,
+		producer.app.BeginBlockKeepers, producer.app.BaseApp, producer.app.TracerAnteHandler,
+		func(int64) sdk.Context { return producer.app.GetCheckCtx() },
+		func(int64) client.TxConfig { return producer.app.GetTxConfig() }, "", nil,
+		evmrpc.SequencerReceiptOption{Source: source, Keeper: &producer.app.SequencerKeeper})
+	require.NoError(t, err)
+	require.NoError(t, server.Start())
+	t.Cleanup(server.Stop)
+	consumer, err := gethrpc.DialHTTP("http://127.0.0.1:" + big.NewInt(int64(config.HTTPPort)).String())
+	require.NoError(t, err)
+	t.Cleanup(consumer.Close)
+	var result *evmrpc.SequencerReceiptResult
+	require.NoError(t, consumer.CallContext(t.Context(), &result, evmrpc.SequencerReceiptMethod, tx.Hash()))
+	require.NotNil(t, result)
+	require.Equal(t, evmkeeper.BaseDenom, result.PaymentDenom)
+	require.Equal(t, feeDenom, result.FeeDenom)
+	require.Equal(t, uint64(accepted.Seq), uint64(result.Seq))
+	rpcE2EVerifyReceipt(t, producer.app, result)
+	require.Equal(t, 1, bytes.Count(signed, paymentAsset[:]))
+	malformed := bytes.Replace(signed, paymentAsset[:], feeAsset[:], 1)
+	decoded, err := codec.DecodeReceipt(malformed)
+	require.NoError(t, err)
+	require.Equal(t, feeAsset, decoded.Asset)
+	result.Receipt = malformed
+	require.ErrorContains(t, result.Verify(), "asset is not the payment asset digest")
+	send.Receipt = malformed
+	source.Record(tx.Hash(), send)
+	result = nil
+	err = consumer.CallContext(t.Context(), &result, evmrpc.SequencerReceiptMethod, tx.Hash())
+	require.ErrorContains(t, err, "asset is not the payment asset digest")
+	require.Nil(t, result)
 }

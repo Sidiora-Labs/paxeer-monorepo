@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-usage: topology-check.sh [--yaml-parser auto|pyyaml|builtin] [--strict] [--namespace namespace] [manifest ...]
+usage: topology-check.sh [--external-host host] [--yaml-parser auto|pyyaml|builtin] [--strict] [--namespace namespace] [manifest ...]
 
 Parses the hosted Kubernetes manifests, resolves every in-cluster URL that a
 workload configures (container env values, ConfigMap-sourced env values and
@@ -33,7 +33,10 @@ without translating ports, and both policies are checked at the target pod.
 
 The trusted-boundary Services (node core boundary, receipt authority, agent
 boundary, identity and Paxeer boundary) are declared by the node, identity and
-paxeer manifests, so their edges are checked on both ends. The status publisher
+paxeer manifests, so their edges are checked on both ends. The tracked Paxeer
+manifest includes paxeer-boundary:9443 and paxeer-observer-boundary:9443, which
+target the https (9443) and observer-https (9444) listeners on workload paxeer.
+The status publisher
 that services/platform/hosted/testnet/README.md names as separately operated is reported
 as `external` with the caller's side checked, and --strict fails it. Every other
 missing Service, including the Human upstream, fails in both modes.
@@ -41,7 +44,7 @@ EOF
 }
 
 topology_check() {
-  local parser=auto strict=0 manifest namespace=default
+  local parser=auto strict=0 manifest namespace=default external_hosts="${TOPOLOGY_EXTERNAL_HOSTS:-}"
   local -a manifests=() namespaces=() inputs=()
   while [ $# -gt 0 ]; do
     case "$1" in
@@ -55,6 +58,10 @@ topology_check() {
         ;;
       --namespace)
         namespace="${2:?topology-check: --namespace needs a value}"
+        shift 2
+        ;;
+      --external-host)
+        external_hosts="${external_hosts:+$external_hosts,}${2:?topology-check: --external-host needs a value}"
         shift 2
         ;;
       --strict)
@@ -123,7 +130,7 @@ topology_check() {
   for index in "${!manifests[@]}"; do
     inputs+=("${namespaces[$index]}" "${manifests[$index]}")
   done
-  TOPOLOGY_YAML_PARSER="$parser" TOPOLOGY_STRICT="$strict" python3 - "${inputs[@]}" <<'PY'
+  PYTHONPATH="$(dirname "${BASH_SOURCE[0]}")${PYTHONPATH:+:$PYTHONPATH}" TOPOLOGY_EXTERNAL_HOSTS="$external_hosts" TOPOLOGY_YAML_PARSER="$parser" TOPOLOGY_STRICT="$strict" python3 - "${inputs[@]}" <<'PY'
 import json
 import os
 import re
@@ -683,17 +690,8 @@ class Topology:
         if not match:
             return None
         scheme, host, port = match.group(1), match.group(2), match.group(3)
-        service_match = SERVICE_HOST.match(host)
-        if not service_match:
-            return {"caller": workload, "source": source, "host": host, "kind": "offcluster", "listed": listed, "port": port or DEFAULT_PORTS[scheme]}
-        return {
-            "caller": workload,
-            "source": source,
-            "host": host,
-            "kind": "service",
-            "service": (service_match.group(2), service_match.group(1)),
-            "port": port or DEFAULT_PORTS[scheme],
-        }
+        return {"caller": workload, "source": source, "host": host,
+                "listed": listed, "port": port or DEFAULT_PORTS[scheme]}
 
     def selected_policies(self, ns, labels, direction):
         return [policy for policy in self.policies if policy["ns"] == ns and direction in policy["types"] and label_selector_matches(policy["selector"], labels)]
@@ -772,87 +770,104 @@ def describe(workload):
     return "%s %s/%s" % (workload["kind"], workload["ns"], workload["name"])
 
 
+def resolve_service_host(host, namespace, external):
+    import ipaddress
+
+    host = host.lower().removesuffix('.')
+    if host in external:
+        return None, "offcluster"
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        address = None
+    if address is not None:
+        if address.is_loopback:
+            return None, "loopback"
+        raise ValueError("external IP %s must be explicitly declared" % host)
+    parts = host.split('.')
+    valid = lambda part: re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", part)
+    if not all(valid(part) for part in parts):
+        raise ValueError("invalid Service DNS name %s" % host)
+    if len(parts) == 1 and valid(namespace):
+        return (namespace, parts[0]), "service"
+    if len(parts) == 2 or (len(parts) == 3 and parts[2] == 'svc') or (
+            len(parts) == 5 and parts[2:] == ['svc', 'cluster', 'local']):
+        return (parts[1], parts[0]), "service"
+    raise ValueError("host %s is neither a Kubernetes Service nor an explicitly declared external host" % host)
+
+
+def check_edge(topology, edge, external):
+    caller, requested = edge['caller'], edge['port']
+    key, kind = resolve_service_host(edge['host'], caller['ns'], external)
+    if kind in ('offcluster', 'loopback'):
+        return [('offcluster' if edge.get('listed') else 'note',
+                 'explicitly declared external or loopback host; not checked against Service policies')]
+    if key not in topology.services:
+        if key not in SEPARATELY_OPERATED:
+            raise ValueError("no Service %s/%s is declared in the manifests and it is not a declared separately operated service" % key)
+        peer = SEPARATELY_OPERATED[key]
+        if requested != peer['port']:
+            raise ValueError("separately operated service %s/%s is declared on port %s, not %s" % (*key, peer['port'], requested))
+        ok, detail = topology.egress_admits(caller, key[0], peer['labels'], requested, 'TCP', {})
+        return [('external', 'separately operated; ' + detail + '; callee policy is not in this repository')
+                if ok else ('FAIL', detail)]
+    service, aliases = topology.services[key], set()
+    while service['type'] == 'ExternalName':
+        if key in aliases:
+            raise ValueError("ExternalName cycle at %s/%s" % key)
+        aliases.add(key)
+        try:
+            target, kind = resolve_service_host(service['externalName'], key[0], external)
+        except ValueError:
+            target, kind = None, None
+        if kind != 'service':
+            raise ValueError("ExternalName %s/%s target %s has no declared in-cluster Service" % (*key, service['externalName']))
+        key = target
+        if key not in topology.services:
+            raise ValueError("ExternalName target Service %s/%s is not declared" % key)
+        service = topology.services[key]
+    port = next((port for port in service['ports'] if requested in (port['port'], port['name'])), None)
+    if port is None:
+        exposed = ', '.join('%s(%s)' % (port['port'], port['name'] or '-') for port in service['ports'])
+        raise ValueError("Service %s/%s exposes %s, not %s" % (*key, exposed, requested))
+    selected = [workload for workload in topology.workloads
+                if workload['ns'] == key[0] and service['selector']
+                and all(workload['labels'].get(name) == value for name, value in service['selector'].items())]
+    if not selected:
+        raise ValueError("Service %s/%s selects no workload declared in the manifests" % key)
+    errors, details = [], []
+    for callee in selected:
+        pod_port, protocol = port['targetPort'], port['protocol']
+        if not (pod_port.isdigit() and int(pod_port) <= 65535):
+            if pod_port not in callee['ports']:
+                errors.append(('FAIL', "Service %s/%s targetPort %s is not a container port of %s" % (*key, pod_port, describe(callee))))
+                continue
+            pod_port, protocol = callee['ports'][pod_port]
+        ok, detail = topology.ingress_admits(callee, pod_port, protocol, caller)
+        if not ok:
+            errors.append(('FAIL', detail))
+            continue
+        details.append('pod %s:%s/%s %s' % (describe(callee), pod_port, protocol, detail))
+        ok, detail = topology.egress_admits(caller, key[0], callee['labels'], pod_port, protocol, callee['ports'])
+        if not ok:
+            errors.append(('FAIL', detail))
+            continue
+        details.append(detail)
+    return errors or [('ok', '; '.join(details))]
+
+
 def check(topology):
+    external = {"localhost", "paxportwallet.com"}
+    external.update("api%d.mainnet-beta.paxeer.network" % i for i in range(1, 17))
+    external.update(host.lower().removesuffix('.') for host in os.environ.get("TOPOLOGY_EXTERNAL_HOSTS", "").split(",") if host)
     results = []
     for edge in topology.edges():
-        caller = edge["caller"]
-        label = "%s -> %s:%s [%s]" % (describe(caller), edge["host"], edge["port"], edge["source"])
-        if edge["kind"] == "offcluster" and edge["listed"]:
-            results.append(("offcluster", label, "listed URL entry names a host outside the cluster; not checked against NetworkPolicy"))
-            continue
-        if edge["kind"] == "offcluster":
-            results.append(("note", label, "host is not an in-cluster Service name; not checked"))
-            continue
-        ns, name = edge["service"]
-        service = topology.services.get((ns, name))
-        if service is None:
-            external = SEPARATELY_OPERATED.get((ns, name))
-            if external is None:
-                results.append(("FAIL", label, "no Service %s/%s is declared in the manifests and it is not a declared separately operated service" % (ns, name)))
-                continue
-            if edge["port"] != external["port"]:
-                results.append(("FAIL", label, "separately operated service %s/%s is declared on port %s, not %s" % (ns, name, external["port"], edge["port"])))
-                continue
-            ok, detail = topology.egress_admits(caller, ns, external["labels"], external["port"], "TCP", {})
-            if not ok:
-                results.append(("FAIL", label, detail))
-                continue
-            results.append(("external", label, "separately operated; %s; callee policy is not in this repository" % detail))
-            continue
-        aliases = set()
-        while service["type"] == "ExternalName":
-            if (ns, name) in aliases:
-                results.append(("FAIL", label, "ExternalName cycle at %s/%s" % (ns, name)))
-                service = None
-                break
-            aliases.add((ns, name))
-            target = SERVICE_HOST.fullmatch(service["externalName"])
-            if target is None:
-                results.append(("FAIL", label, "ExternalName %s/%s target %s has no declared in-cluster Service" % (ns, name, service["externalName"])))
-                service = None
-                break
-            ns, name = target.group(2), target.group(1)
-            service = topology.services.get((ns, name))
-            if service is None:
-                results.append(("FAIL", label, "ExternalName target Service %s/%s is not declared" % (ns, name)))
-                break
-        if service is None:
-            continue
-        ports = [port for port in service["ports"] if edge["port"] in (port["port"], port["name"])]
-        if not ports:
-            results.append(("FAIL", label, "Service %s/%s exposes %s, not %s" % (ns, name, ", ".join("%s(%s)" % (port["port"], port["name"] or "-") for port in service["ports"]), edge["port"])))
-            continue
-        port = ports[0]
-        selected = [workload for workload in topology.workloads if workload["ns"] == ns and service["selector"] and all(workload["labels"].get(key) == value for key, value in service["selector"].items())]
-        if not selected:
-            results.append(("FAIL", label, "Service %s/%s selects no workload declared in the manifests (selector %s)" % (ns, name, service["selector"])))
-            continue
-        failed = False
-        details = []
-        for callee in selected:
-            if port["targetPort"].isdigit():
-                pod_port = port["targetPort"]
-                protocol = port["protocol"]
-            elif port["targetPort"] in callee["ports"]:
-                pod_port, protocol = callee["ports"][port["targetPort"]]
-            else:
-                results.append(("FAIL", label, "Service %s/%s targetPort %s is not a container port of %s" % (ns, name, port["targetPort"], describe(callee))))
-                failed = True
-                continue
-            ok, detail = topology.ingress_admits(callee, pod_port, protocol, caller)
-            if not ok:
-                results.append(("FAIL", label, detail))
-                failed = True
-                continue
-            details.append("pod %s:%s/%s %s" % (describe(callee), pod_port, protocol, detail))
-            ok, detail = topology.egress_admits(caller, ns, callee["labels"], pod_port, protocol, callee["ports"])
-            if not ok:
-                results.append(("FAIL", label, detail))
-                failed = True
-                continue
-            details.append(detail)
-        if not failed:
-            results.append(("ok", label, "; ".join(details)))
+        label = "%s -> %s:%s [%s]" % (describe(edge['caller']), edge['host'], edge['port'], edge['source'])
+        try:
+            outcomes = check_edge(topology, edge, external)
+        except ValueError as error:
+            outcomes = [('FAIL', str(error))]
+        results.extend((status, label, detail) for status, detail in outcomes)
     return results
 
 

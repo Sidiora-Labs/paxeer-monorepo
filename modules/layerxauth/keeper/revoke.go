@@ -13,11 +13,6 @@ func (k *Keeper) RevokeGrant(ctx sdk.Context, actor Actor, grantID [32]byte, rea
 	if err := k.checkPause(ctx, "revokeGrant"); err != nil {
 		return Result{}, err
 	}
-	replayKey := append([]byte{0x04}, grantID[:]...)
-	replayKey = append(replayKey, idempotencyKey[:]...)
-	if k.store(ctx).Has(replayKey) {
-		return Result{}, types.ErrIdempotentReplay
-	}
 	if !actor.Authority.Bound {
 		return Result{}, types.ErrAuthScope
 	}
@@ -33,6 +28,9 @@ func (k *Keeper) RevokeGrant(ctx sdk.Context, actor Actor, grantID [32]byte, rea
 		return Result{}, err
 	}
 	branch, write := ctx.CacheContext()
+	// lxp_admit_activity checks account sequence before idempotency. execute
+	// supplies the next account sequence, so a repeated revoke reaches the
+	// kernel revocation check; preserve its refusal without a module marker.
 	result, err := k.execute(branch, actor, payload, idempotencyKey)
 	if err != nil {
 		return result, err
@@ -43,7 +41,6 @@ func (k *Keeper) RevokeGrant(ctx sdk.Context, actor Actor, grantID [32]byte, rea
 	}
 	for _, event := range events {
 		if event.Name == "GrantRevoked" && event.GrantID == grantID {
-			k.store(branch).Set(replayKey, []byte{1})
 			write()
 			ctx.EventManager().EmitEvents(branch.EventManager().Events())
 			return result, nil

@@ -1,0 +1,16 @@
+{
+  "authentication_key": "public-repair-22-31-163-fixture-key",
+  "records": {
+    "00000000000000000001.record": "{\"body\":{\"sequence\":1,\"previous\":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],\"update\":{\"kind\":\"ownership\",\"key\":\"fixture-seed\",\"evidence_digest\":[145,145,145,145,145,145,145,145,145,145,145,145,145,145,145,145,145,145,145,145,145,145,145,145,145,145,145,145,145,145,145,145]}},\"mac\":[166,126,55,166,83,170,152,41,212,150,202,0,14,184,54,142,67,56,162,219,35,120,185,108,213,46,201,3,142,83,74,217]}"
+  },
+  "initial_heads": {
+    "repair-source": {
+      "sequence": 1,
+      "digest": "4fafe69b0ab27b2d3bb9adbebc247d07fd07e5b8b28576d290b4fb2eb37077b0"
+    },
+    "repair-sink": {
+      "sequence": 1,
+      "digest": "4fafe69b0ab27b2d3bb9adbebc247d07fd07e5b8b28576d290b4fb2eb37077b0"
+    }
+  }
+}

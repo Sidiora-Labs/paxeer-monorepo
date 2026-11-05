@@ -1,0 +1,14 @@
+[repair.22.31.358]
+audit = "22.30.85"
+finding = "missing-chain-rpc-deployment"
+proving_tests = ["missing_chain_rpc_deployment_configures_root_tls_and_matching_egress", "missing_chain_rpc_deployment_serves_committed_program_reads"]
+change = "Supply the documented public full-node HTTPS root endpoint and matching IPv4/IPv6 TCP 443 egress; retain DNS egress."
+baseline = "Not run: the bounded implementation-first gate order forbids the baseline verify requested in step 5; no baseline test failures are claimed."
+proof = "Render the deployment RPC origin onto an allowed loopback peer, then drive the production HTTP parser, authenticated head route, Programs RPC client and durable journals over sockets; verify committed-height ABI calls, persisted state and refusal of an unavailable head."
+qualification = "The runner's private hf-done ledger binds the verified candidate revision, command, exit code and log; this source record is finalized before the gates."
+wiring = "None: the documented public endpoint and registry egress are configured entirely within deployment.yaml."
+limitation = "The gate exercises production request handling in process; privileged Kubernetes entrypoint, cgroup delegation and live endpoint reachability remain deployment operations, outside the hermetic gate."
+
+[gotcha.22.31.358]
+observed = "The task requests both a baseline verification and implementation-first bounded gates, and forbids editing the spec task record."
+resolution = "Follow the explicit gate order and keep the finding-to-test record within the registry scope; leave runner-owned task metadata untouched."

@@ -1,618 +1,365 @@
 <!--
-order: 6
+order: 5
 -->
 
 # Vesting
 
-- [Vesting](#vesting)
-    - [Intro and Requirements](#intro-and-requirements)
-    - [Note](#note)
-    - [Vesting Account Types](#vesting-account-types)
-    - [Vesting Account Specification](#vesting-account-specification)
-        - [Determining Vesting & Vested Amounts](#determining-vesting--vested-amounts)
-            - [Continuously Vesting Accounts](#continuously-vesting-accounts)
-        - [Periodic Vesting Accounts](#periodic-vesting-accounts)
-            - [Delayed/Discrete Vesting Accounts](#delayeddiscrete-vesting-accounts)
-        - [Transferring/Sending](#transferringsending)
-            - [Keepers/Handlers](#keepershandlers)
-        - [Delegating](#delegating)
-            - [Keepers/Handlers](#keepershandlers-1)
-        - [Undelegating](#undelegating)
-            - [Keepers/Handlers](#keepershandlers-2)
-    - [Keepers & Handlers](#keepers--handlers)
-    - [Genesis Initialization](#genesis-initialization)
-    - [Examples](#examples)
-        - [Simple](#simple)
-        - [Slashing](#slashing)
-        - [Periodic Vesting](#periodic-vesting)
-    - [Glossary](#glossary)
+- [Intro and Requirements](#intro-and-requirements)
+- [Note](#note)
+- [Vesting Account Types](#vesting-account-types)
+- [Vesting Account Specification](#vesting-account-specification)
+- [Keepers & Handlers](#keepers--handlers)
+- [Genesis Initialization](#genesis-initialization)
+- [Examples](#examples)
+- [Glossary](#glossary)
 
 ## Intro and Requirements
 
-This specification defines the vesting account implementation that is used by
-the Cosmos Hub. The requirements for this vesting account is that it should be
-initialized during genesis with a starting balance `X` and a vesting end
-time `ET`. A vesting account may be initialized with a vesting start time `ST`
-and a number of vesting periods `P`. If a vesting start time is included, the
-vesting period will not begin until start time is reached. If vesting periods
-are included, the vesting will occur over the specified number of periods.
+Vesting accounts in Paxeer attach transfer restrictions to an original coin
+allocation. They retain the identity fields of an auth account, while `x/bank`
+stores their current balances. Locked coins can be delegated through the bank
+and staking paths; they cannot be sent as ordinary spendable coins. Additional
+coins received by the account are outside the original allocation and do not
+extend its vesting schedule.
 
-For all vesting accounts, the owner of the vesting account is able to delegate
-and undelegate from validators, however they cannot transfer coins to another
-account until those coins are vested. This specification allows for three
-different kinds of vesting:
-
-- Delayed vesting, where all coins are vested once `ET` is reached.
-- Continous vesting, where coins begin to vest at `ST` and vest linearly with
-respect to time until `ET` is reached
-- Periodic vesting, where coins begin to vest at `ST` and vest periodically
-according to number of periods and the vesting amount per period.
-The number of periods, length per period, and amount per period are
-configurable. A periodic vesting account is distinguished from a continuous
-vesting account in that coins can be released in staggered tranches. For
-example, a periodic vesting account could be used for vesting arrangements
-where coins are relased quarterly, yearly, or over any other function of
-tokens over time.
+Schedules use committed block time, expressed as Unix seconds. Vesting is
+calculated on demand when a caller asks for vested or locked coins; no per-block
+mutation is needed merely to advance the schedule.
 
 ## Note
 
-Vesting accounts can be initialized with some vesting and non-vesting coins.
-The non-vesting coins would be immediately transferable. The current
-specification does not allow for vesting accounts to be created with normal
-messages after genesis. All vesting accounts must be created at genesis, or as
-part of a manual network upgrade. The current specification only allows
-for _unconditional_ vesting (ie. there is no possibility of reaching `ET` and
-having coins fail to vest).
+Continuous and delayed accounts can be created after genesis by
+`cosmos.vesting.v1beta1.Msg/CreateVestingAccount`. The module registers this
+message service in [`vesting/module.go`](../vesting/module.go), and
+[`msg_server.go`](../vesting/msg_server.go) creates the account and transfers
+funds from the sender. See [Client](07_client.md#vesting) for the `paxd` command.
+
+The message carries `from_address`, `to_address`, `amount`, `end_time`, `delayed`
+and optional `admin`. Basic validation requires valid sender/recipient addresses,
+valid positive coin amounts and a positive `end_time`. The handler additionally
+checks send-enabled coins, denomination allowlists, blocked recipients and that
+the recipient account does not already exist. A supplied administrator address
+must parse and identify an existing account. The sender signs the message.
+
+With `delayed = false`, the handler sets the continuous schedule's `start_time`
+to the current block's Unix time. With `delayed = true`, it creates a delayed
+account. Choose an end time after creation for a useful future schedule; the
+message's basic validation checks positivity, while the handler rejects a
+continuous end time at or before the creation block. A delayed account may have
+an already elapsed positive end time and is immediately vested in that case.
+Periodic and permanently locked types exist, but this message service and CLI
+do not create them.
+
+The fork's schema includes `BaseVestingAccount.Admin` (`admin`) and
+`CancelledTime` (`cancelled_time`). Creation stores `admin`; `cancelled_time`
+must be zero: account validation rejects nonzero markers, including genesis
+imports. `Admin` is reserved metadata without cancellation authority. There is
+no registered cancellation message or implemented
+administrator cancellation lifecycle, and the vesting calculations do not read
+these fields. Their presence in the schema does not grant an active ability to
+cancel, claw back or stop a schedule.
 
 ## Vesting Account Types
 
+The interface is defined in
+[`vesting/exported/exported.go`](../vesting/exported/exported.go):
+
 ```go
-// VestingAccount defines an interface that any vesting account type must
-// implement.
 type VestingAccount interface {
-  Account
+  types.AccountI
 
-  GetVestedCoins(Time)  Coins
-  GetVestingCoins(Time) Coins
+  LockedCoins(blockTime time.Time) sdk.Coins
+  TrackDelegation(blockTime time.Time, balance, amount sdk.Coins)
+  TrackUndelegation(amount sdk.Coins)
 
-  // TrackDelegation performs internal vesting accounting necessary when
-  // delegating from a vesting account. It accepts the current block time, the
-  // delegation amount and balance of all coins whose denomination exists in
-  // the account's original vesting balance.
-  TrackDelegation(Time, Coins, Coins)
-
-  // TrackUndelegation performs internal vesting accounting necessary when a
-  // vesting account performs an undelegation.
-  TrackUndelegation(Coins)
-
+  GetVestedCoins(blockTime time.Time) sdk.Coins
+  GetVestingCoins(blockTime time.Time) sdk.Coins
   GetStartTime() int64
-  GetEndTime()   int64
+  GetEndTime() int64
+  GetOriginalVesting() sdk.Coins
+  GetDelegatedFree() sdk.Coins
+  GetDelegatedVesting() sdk.Coins
 }
 ```
+
+The [local protobuf schema](../../../proto/cosmos/vesting/v1beta1/vesting.proto)
+and [account implementations](../vesting/types/vesting_account.go) define these
+representations.
 
 ### BaseVestingAccount
 
-+++ https://github.com/cosmos/cosmos-sdk/blob/v0.40.0/proto/cosmos/vesting/v1beta1/vesting.proto#L10-L33
+This embeds `BaseAccount` and adds `original_vesting`, `delegated_free`,
+`delegated_vesting`, `end_time`, `admin` and `cancelled_time`. It holds common
+bookkeeping; concrete account types supply the schedule. None of these fields
+replaces the bank balance.
 
 ### ContinuousVestingAccount
 
-+++ https://github.com/cosmos/cosmos-sdk/blob/v0.40.0/proto/cosmos/vesting/v1beta1/vesting.proto#L35-L43
+This embeds `BaseVestingAccount` and adds `start_time`. Coins vest linearly
+between start and end, with the rounding described below.
 
 ### DelayedVestingAccount
 
-+++ https://github.com/cosmos/cosmos-sdk/blob/v0.40.0/proto/cosmos/vesting/v1beta1/vesting.proto#L45-L53
+This embeds `BaseVestingAccount`. All original coins vest at `end_time`.
+`GetStartTime()` returns zero because there is no start-time field.
 
 ### Period
 
-+++ https://github.com/cosmos/cosmos-sdk/blob/v0.40.0/proto/cosmos/vesting/v1beta1/vesting.proto#L56-L62
-
-```go
-// Stores all vesting periods passed as part of a PeriodicVestingAccount
-type Periods []Period
-
-```
+A period has an `int64 length` in seconds and a coin `amount`. The Go `Periods`
+type is a slice of `Period`; periods are sequential, measured from the schedule's
+start time and then from the preceding period's end.
 
 ### PeriodicVestingAccount
 
-+++ https://github.com/cosmos/cosmos-sdk/blob/v0.40.0/proto/cosmos/vesting/v1beta1/vesting.proto#L64-L73
+This embeds `BaseVestingAccount` and adds `start_time` and `vesting_periods`.
+Validation requires positive period lengths and valid positive amounts, an end
+time equal to start plus all period lengths, and a sum of period amounts equal
+to `original_vesting`.
 
-In order to facilitate less ad-hoc type checking and assertions and to support
-flexibility in account balance usage, the existing `x/bank` `ViewKeeper` interface
-is updated to contain the following:
+### PermanentLockedAccount
 
-```go
-type ViewKeeper interface {
-  // ...
-
-  // Calculates the total locked account balance.
-  LockedCoins(ctx sdk.Context, addr sdk.AccAddress) sdk.Coins
-
-  // Calculates the total spendable balance that can be sent to other accounts.
-  SpendableCoins(ctx sdk.Context, addr sdk.AccAddress) sdk.Coins
-}
-```
+This embeds `BaseVestingAccount`, never vests the original allocation, and has
+no scheduled release. Its constructor sets `end_time` to zero, and both time
+getters return zero. Its locked coins may still be delegated through the vesting
+accounting paths.
 
 ## Vesting Account Specification
 
-Given a vesting account, we define the following in the proceeding operations:
+The following quantities apply separately to each denomination:
 
-- `OV`: The original vesting coin amount. It is a constant value.
-- `V`: The number of `OV` coins that are still _vesting_. It is derived by
-`OV`, `StartTime` and `EndTime`. This value is computed on demand and not on a
-per-block basis.
-- `V'`: The number of `OV` coins that are _vested_ (unlocked). This value is
-computed on demand and not a per-block basis.
-- `DV`: The number of delegated _vesting_ coins. It is a variable value. It is
-stored and modified directly in the vesting account.
-- `DF`: The number of delegated _vested_ (unlocked) coins. It is a variable
-value. It is stored and modified directly in the vesting account.
-- `BC`: The number of `OV` coins less any coins that are transferred
-(which can be negative or delegated). It is considered to be balance of the
-embedded base account. It is stored and modified directly in the vesting account.
+| Symbol | Meaning |
+| --- | --- |
+| `OV` | Original vesting allocation stored in the auth account |
+| `V` | Original coins still vesting at the current block time |
+| `V'` | Original coins already vested: `OV - V` |
+| `DV` | Delegated coins classified as vesting when delegated |
+| `DF` | Delegated coins classified as free when delegated |
+| `BC` | Current coin balance in `x/bank`, excluding coins moved into delegation |
+
+`OV`, `DV` and `DF` are account bookkeeping. `BC` is a separate bank balance;
+receipts, transfers and delegation change it independently of schedule time.
 
 ### Determining Vesting & Vested Amounts
 
-It is important to note that these values are computed on demand and not on a
-mandatory per-block basis (e.g. `BeginBlocker` or `EndBlocker`).
-
 #### Continuously Vesting Accounts
 
-To determine the amount of coins that are vested for a given block time `T`, the
-following is performed:
+For a valid continuous schedule and block time `T`:
 
-1. Compute `X := T - StartTime`
-2. Compute `Y := EndTime - StartTime`
-3. Compute `V' := OV * (X / Y)`
-4. Compute `V := OV - V'`
+1. If `T <= StartTime`, `V' = 0`.
+2. Otherwise, if `T >= EndTime`, `V' = OV`.
+3. Otherwise compute the SDK decimal scalar
+   `(T - StartTime) / (EndTime - StartTime)` and, per denomination, multiply by
+   `OV` and use `RoundInt()` to obtain `V'`.
+4. Compute `V = OV - V'`.
 
-Thus, the total amount of _vested_ coins is `V'` and the remaining amount, `V`,
-is _vesting_.
-
-```go
-func (cva ContinuousVestingAccount) GetVestedCoins(t Time) Coins {
-    if t <= cva.StartTime {
-        // We must handle the case where the start time for a vesting account has
-        // been set into the future or when the start of the chain is not exactly
-        // known.
-        return ZeroCoins
-    } else if t >= cva.EndTime {
-        return cva.OriginalVesting
-    }
-
-    x := t - cva.StartTime
-    y := cva.EndTime - cva.StartTime
-
-    return cva.OriginalVesting * (x / y)
-}
-
-func (cva ContinuousVestingAccount) GetVestingCoins(t Time) Coins {
-    return cva.OriginalVesting - cva.GetVestedCoins(t)
-}
-```
+The implementation rounds to the nearest integer coin amount, rather than
+simply truncating a rational result. Validation requires `StartTime < EndTime`.
 
 ### Periodic Vesting Accounts
 
-Periodic vesting accounts require calculating the coins released during each
-period for a given block time `T`. Note that multiple periods could have passed
-when calling `GetVestedCoins`, so we must iterate over each period until the
-end of that period is after `T`.
-
-1. Set `CT := StartTime`
-2. Set `V' := 0`
-
-For each Period P:
-
-  1. Compute `X := T - CT`
-  2. IF `X >= P.Length`
-      1. Compute `V' += P.Amount`
-      2. Compute `CT += P.Length`
-      3. ELSE break
-  3. Compute `V := OV - V'`
-
-```go
-func (pva PeriodicVestingAccount) GetVestedCoins(t Time) Coins {
-  if t < pva.StartTime {
-    return ZeroCoins
-  }
-  ct := pva.StartTime // The start of the vesting schedule
-  vested := 0
-  periods = pva.GetPeriods()
-  for _, period  := range periods {
-    if t - ct < period.Length {
-      break
-    }
-    vested += period.Amount
-    ct += period.Length // increment ct to the start of the next vesting period
-  }
-  return vested
-}
-
-func (pva PeriodicVestingAccount) GetVestingCoins(t Time) Coins {
-    return pva.OriginalVesting - cva.GetVestedCoins(t)
-}
-```
+At or before `StartTime`, nothing has vested. At or after `EndTime`, the entire
+original allocation has vested. Between those boundaries, start at `StartTime`
+and accumulate a period's amount whenever its full length has elapsed. Advance
+the period start by that length and stop at the first incomplete period.
+Then `V = OV - V'`. A period releases its tranche at its end, not at its start.
 
 #### Delayed/Discrete Vesting Accounts
 
-Delayed vesting accounts are easier to reason about as they only have the full
-amount vesting up until a certain time, then all the coins become vested (unlocked).
-This does not include any unlocked coins the account may have initially.
-
-```go
-func (dva DelayedVestingAccount) GetVestedCoins(t Time) Coins {
-    if t >= dva.EndTime {
-        return dva.OriginalVesting
-    }
-
-    return ZeroCoins
-}
-
-func (dva DelayedVestingAccount) GetVestingCoins(t Time) Coins {
-    return dva.OriginalVesting - dva.GetVestedCoins(t)
-}
-```
+Before `EndTime`, `V' = 0` and `V = OV`. At or after `EndTime`, `V' = OV` and
+`V = 0`. Coins received outside the original allocation are unaffected by this
+release boundary.
 
 ### Transferring/Sending
 
-At any given time, a vesting account may transfer: `min((BC + DV) - V, BC)`.
+The concrete account's `LockedCoins` calls `LockedCoinsFromVesting`, which
+calculates:
 
-In other words, a vesting account may transfer the minimum of the base account
-balance and the base account balance plus the number of currently delegated
-vesting coins less the number of coins vested so far.
-
-However, given that account balances are tracked via the `x/bank` module and that
-we want to avoid loading the entire account balance, we can instead determine
-the locked balance, which can be defined as `max(V - DV, 0)`, and infer the
-spendable balance from that.
-
-```go
-func (va VestingAccount) LockedCoins(t Time) Coins {
-   return max(va.GetVestingCoins(t) - va.DelegatedVesting, 0)
-}
+```text
+locked = V - min(V, DV) = max(V - DV, 0)
+spendable = BC - locked
 ```
 
-The `x/bank` `ViewKeeper` can then provide APIs to determine locked and spendable
-coins for any account:
-
-```go
-func (k Keeper) LockedCoins(ctx Context, addr AccAddress) Coins {
-    acc := k.GetAccount(ctx, addr)
-    if acc != nil {
-        if acc.IsVesting() {
-            return acc.LockedCoins(ctx.BlockTime())
-        }
-    }
-
-    // non-vesting accounts do not have any locked coins
-    return NewCoins()
-}
-```
+The bank keeper reads the balance and consults the auth vesting account at
+`ctx.BlockTime()`. Its `SpendableCoins` returns an empty coin set if subtracting
+locks would produce a negative amount. Bank sends enforce unlocked funds; they
+do not modify `original_vesting` to make a transfer possible.
 
 #### Keepers/Handlers
 
-The corresponding `x/bank` keeper should appropriately handle sending coins
-based on if the account is a vesting account or not.
-
-```go
-func (k Keeper) SendCoins(ctx Context, from Account, to Account, amount Coins) {
-    bc := k.GetBalances(ctx, from)
-    v := k.LockedCoins(ctx, from)
-
-    spendable := bc - v
-    newCoins := spendable - amount
-    assert(newCoins >= 0)
-
-    from.SetBalance(newCoins)
-    to.AddBalance(amount)
-
-    // save balances...
-}
-```
+[`bank/keeper/view.go`](../../bank/keeper/view.go) supplies `LockedCoins` and
+`SpendableCoins`. [`bank/keeper/send.go`](../../bank/keeper/send.go) enforces the
+unlocked balance during coin subtraction. Use those keeper methods rather than
+editing a balance on the embedded `BaseAccount`, which has no balance field.
 
 ### Delegating
 
-For a vesting account attempting to delegate `D` coins, the following is performed:
+For a positive delegation `D` covered by the bank balance:
 
-1. Verify `BC >= D > 0`
-2. Compute `X := min(max(V - DV, 0), D)` (portion of `D` that is vesting)
-3. Compute `Y := D - X` (portion of `D` that is free)
-4. Set `DV += X`
-5. Set `DF += Y`
+1. Require `BC >= D > 0`.
+2. Compute `X = min(max(V - DV, 0), D)` as the vesting portion.
+3. Compute `Y = D - X` as the free portion.
+4. Set `DV = DV + X` and `DF = DF + Y`.
 
-```go
-func (va VestingAccount) TrackDelegation(t Time, balance Coins, amount Coins) {
-    assert(balance <= amount)
-    x := min(max(va.GetVestingCoins(t) - va.DelegatedVesting, 0), amount)
-    y := amount - x
-
-    va.DelegatedVesting += x
-    va.DelegatedFree += y
-}
-```
-
-**Note** `TrackDelegation` only modifies the `DelegatedVesting` and `DelegatedFree`
-fields, so upstream callers MUST modify the `Coins` field by subtracting `amount`.
+`TrackDelegation(blockTime, balance, amount)` updates these counters only. It
+requires sorted coin sets and panics on a zero delegation or insufficient
+balance. Moving the coins and persisting the changed account are the caller's
+responsibility.
 
 #### Keepers/Handlers
 
-```go
-func DelegateCoins(t Time, from Account, amount Coins) {
-    if isVesting(from) {
-        from.TrackDelegation(t, amount)
-    } else {
-        from.SetBalance(sc - amount)
-    }
-
-    // save account...
-}
-```
+The bank keeper's `DelegateCoins` path tracks the vesting delegation and moves
+funds to the staking module account. Its internal `trackDelegation` calls the
+vesting method and saves the account through `AccountKeeper.SetAccount`. An
+ordinary `SendCoins` call does not replace this accounting.
 
 ### Undelegating
 
-For a vesting account attempting to undelegate `D` coins, the following is performed:
-NOTE: `DV < D` and `(DV + DF) < D` may be possible due to quirks in the rounding of
-delegation/undelegation logic.
+For positive returned coins `D`, free delegation is reduced first:
 
-1. Verify `D > 0`
-2. Compute `X := min(DF, D)` (portion of `D` that should become free, prioritizing free coins)
-3. Compute `Y := min(DV, D - X)` (portion of `D` that should remain vesting)
-4. Set `DF -= X`
-5. Set `DV -= Y`
+1. Compute `X = min(DF, D)`.
+2. Compute `Y = min(DV, D - X)`.
+3. Set `DF = DF - X` and `DV = DV - Y`.
 
-```go
-func (cva ContinuousVestingAccount) TrackUndelegation(amount Coins) {
-    x := min(cva.DelegatedFree, amount)
-    y := amount - x
-
-    cva.DelegatedFree -= x
-    cva.DelegatedVesting -= y
-}
-```
-
-**Note** `TrackUnDelegation` only modifies the `DelegatedVesting` and `DelegatedFree`
-fields, so upstream callers MUST modify the `Coins` field by adding `amount`.
-
-**Note**: If a delegation is slashed, the continuous vesting account will end up
-with an excess `DV` amount, even after all its coins have vested. This is because
-undelegating free coins are prioritized.
-
-**Note**: The undelegation (bond refund) amount may exceed the delegated
-vesting (bond) amount due to the way undelegation truncates the bond refund,
-which can increase the validator's exchange rate (tokens/shares) slightly if the
-undelegated tokens are non-integral.
+`TrackUndelegation(amount)` changes counters only. The bounds on both reductions
+matter when the refund exceeds tracked delegation because of rounding. Slashing
+can also leave a residual `DV`: returned free coins are accounted for before
+vesting coins, even if the slashed delegation originally used vesting coins.
 
 #### Keepers/Handlers
 
-```go
-func UndelegateCoins(to Account, amount Coins) {
-    if isVesting(to) {
-        if to.DelegatedFree + to.DelegatedVesting >= amount {
-            to.TrackUndelegation(amount)
-            // save account ...
-        }
-    } else {
-        AddBalance(to, amount)
-        // save account...
-    }
-}
-```
+The bank keeper's `UndelegateCoins` path returns funds and calls
+`trackUndelegation`, which updates and persists the auth account. It is distinct
+from the staking unbonding delay: scheduling an undelegation does not itself
+return the bank balance immediately.
 
 ## Keepers & Handlers
 
-The `VestingAccount` implementations reside in `x/auth`. However, any keeper in
-a module (e.g. staking in `x/staking`) wishing to potentially utilize any vesting
-coins, must call explicit methods on the `x/bank` keeper (e.g. `DelegateCoins`)
-opposed to `SendCoins` and `SubtractCoins`.
+Vesting account types live under `sdk/x/auth/vesting`. The
+[vesting message server](../vesting/msg_server.go) handles account creation, the
+[auth keeper](../keeper/account.go) persists the typed account, and the
+[bank keeper](../../bank/keeper/keeper.go) owns transfers and delegation balance
+changes. Other modules must use the bank's delegation/undelegation operations
+when using locked coins, so that `DV` and `DF` remain consistent.
 
-In addition, the vesting account should also be able to spend any coins it
-receives from other users. Thus, the bank module's `MsgSend` handler should
-error if a vesting account is trying to send an amount that exceeds their
-unlocked coin amount.
-
-See the above specification for full implementation details.
+Query the auth account for its schedule and the bank's `SpendableBalances` query
+for transferable coin balances. See [State](02_state.md#bank-balances) and
+[Client](07_client.md) for these distinct interfaces.
 
 ## Genesis Initialization
 
-To initialize both vesting and non-vesting accounts, the `GenesisAccount` struct will
-include new fields: `Vesting`, `StartTime`, and `EndTime`. Accounts meant to be
-of type `BaseAccount` or any non-vesting type will have `Vesting = false`. The
-genesis initialization logic (e.g. `initFromGenesisState`) will have to parse
-and return the correct accounts accordingly based off of these new fields.
+Vesting accounts can also be imported at genesis. The current
+[`auth.GenesisState`](../../../proto/cosmos/auth/v1beta1/genesis.proto) contains
+`params` and a repeated `google.protobuf.Any accounts` field. Each account carries
+its concrete type URL and nested fields. There is no `Vesting` boolean or
+historical `ToAccount` conversion based on optional time fields.
 
-```go
-type GenesisAccount struct {
-    // ...
+For example, this is the shape of one continuous account entry in
+`app_state.auth.accounts`. Replace the address placeholder with a valid Paxeer
+address; the example times are illustrative Unix seconds:
 
-    // vesting account fields
-    OriginalVesting  sdk.Coins `json:"original_vesting"`
-    DelegatedFree    sdk.Coins `json:"delegated_free"`
-    DelegatedVesting sdk.Coins `json:"delegated_vesting"`
-    StartTime        int64     `json:"start_time"`
-    EndTime          int64     `json:"end_time"`
-}
-
-func ToAccount(gacc GenesisAccount) Account {
-    bacc := NewBaseAccount(gacc)
-
-    if gacc.OriginalVesting > 0 {
-        if ga.StartTime != 0 && ga.EndTime != 0 {
-            // return a continuous vesting account
-        } else if ga.EndTime != 0 {
-            // return a delayed vesting account
-        } else {
-            // invalid genesis vesting account provided
-            panic()
-        }
-    }
-
-    return bacc
+```json
+{
+  "@type": "/cosmos.vesting.v1beta1.ContinuousVestingAccount",
+  "base_vesting_account": {
+    "base_account": {
+      "address": "<pax-address>",
+      "pub_key": null,
+      "account_number": "0",
+      "sequence": "0"
+    },
+    "original_vesting": [{"denom": "uhpx", "amount": "1000000"}],
+    "delegated_free": [],
+    "delegated_vesting": [],
+    "end_time": "2000003600",
+    "admin": "",
+    "cancelled_time": "0"
+  },
+  "start_time": "2000000000"
 }
 ```
+
+The corresponding current balance belongs in `app_state.bank.balances`, for
+example:
+
+```json
+{
+  "address": "<pax-address>",
+  "coins": [{"denom": "uhpx", "amount": "1000000"}]
+}
+```
+
+These are entries, not a complete genesis file. Bank genesis validation requires
+balances to cover the original vesting allocation. Periodic and permanent
+accounts use their own registered type URLs and fields; they are not inferred
+from the continuous example.
+
+[`auth.InitGenesis`](../genesis.go) unpacks the typed accounts, sorts them by
+account number, allocates account numbers through `NewAccount`, and stores them.
+Auth genesis validation checks duplicates and each account's `Validate` method;
+the bank performs its own balance validation. `auth.ExportGenesis` packs the
+concrete accounts back into `Any` values. The vesting module's own genesis
+initialization/export is empty because its accounts are held by auth and its
+balances by bank. Preserve the protobuf representation when exporting or
+importing; the human-readable account `String()`/YAML rendering is not a
+complete serialization of the administrator and cancellation fields.
 
 ## Examples
 
+All amounts below are integer units of one denomination. Balances are bank
+balances, and delegation removes coins from that balance.
+
 ### Simple
 
-Given a continuous vesting account with 10 vesting coins.
+Start with `OV = BC = V = 10` and `DV = DF = 0` in a continuous account.
 
-```
-OV = 10
-DF = 0
-DV = 0
-BC = 10
-V = 10
-V' = 0
-```
+| Action | `BC` | `V` | `DV` | Locked | Spendable |
+| --- | --- | --- | --- | --- | --- |
+| Receive 1 additional coin | 11 | 10 | 0 | 10 | 1 |
+| 2 original coins vest | 11 | 8 | 0 | 8 | 3 |
+| Delegate 4 coins | 7 | 8 | 4 | 4 | 3 |
+| Send 3 coins | 4 | 8 | 4 | 4 | 0 |
+| 2 more original coins vest | 4 | 6 | 4 | 2 | 2 |
+| Send 2 coins | 2 | 6 | 4 | 2 | 0 |
 
-1. Immediately receives 1 coin
-
-    ```
-    BC = 11
-    ```
-
-2. Time passes, 2 coins vest
-
-    ```
-    V = 8
-    V' = 2
-    ```
-
-3. Delegates 4 coins to validator A
-
-    ```
-    DV = 4
-    BC = 7
-    ```
-
-4. Sends 3 coins
-
-    ```
-    BC = 4
-    ```
-
-5. More time passes, 2 more coins vest
-
-    ```
-    V = 6
-    V' = 4
-    ```
-
-6. Sends 2 coins. At this point the account cannot send anymore until further
-coins vest or it receives additional coins. It can still however, delegate.
-
-    ```
-    BC = 2
-    ```
+The remaining bank coins are locked but can still be delegated.
 
 ### Slashing
 
-Same initial starting conditions as the simple example.
+Start again with 10 original coins. Once 5 vest, delegate 5 to validator A
+(`DV = 5`) and 5 to validator B (`DF = 5`), leaving `BC = 0` and `V = 5`.
+If A is slashed by half, an eventual return from A first reduces `DF`. A
+subsequent return from B reduces any remaining `DF` before `DV`.
 
-1. Time passes, 5 coins vest
-
-    ```
-    V = 5
-    V' = 5
-    ```
-
-2. Delegate 5 coins to validator A
-
-    ```
-    DV = 5
-    BC = 5
-    ```
-
-3. Delegate 5 coins to validator B
-
-    ```
-    DF = 5
-    BC = 0
-    ```
-
-4. Validator A gets slashed by 50%, making the delegation to A now worth 2.5 coins
-5. Undelegate from validator A (2.5 coins)
-
-    ```
-    DF = 5 - 2.5 = 2.5
-    BC = 0 + 2.5 = 2.5
-    ```
-
-6. Undelegate from validator B (5 coins). The account at this point can only
-send 2.5 coins unless it receives more coins or until more coins vest.
-It can still however, delegate.
-
-    ```
-    DV = 5 - 2.5 = 2.5
-    DF = 2.5 - 2.5 = 0
-    BC = 2.5 + 5 = 7.5
-    ```
-
-    Notice how we have an excess amount of `DV`.
+Ignoring integer denomination rounding to illustrate the accounting, returns of
+2.5 and 5 would leave `BC = 7.5`, `DF = 0` and `DV = 2.5`. The remaining lock is
+`max(5 - 2.5, 0) = 2.5`, so only 5 is spendable at that point. Once the schedule
+fully vests, the lock is zero even if `DV` remains positive. Real coin amounts
+and staking refunds use integer units and the staking exchange-rate rules.
 
 ### Periodic Vesting
 
-A vesting account is created where 100 tokens will be released over 1 year, with
-1/4 of tokens vesting each quarter. The vesting schedule would be as follows:
+Suppose a periodic account has `OV = BC = 100`, starts at `ST` and releases 25
+coins at the end of each of four periods of 7,884,000 seconds. Its `end_time`
+is `ST + 31536000`; each period has amount `25` of the chosen denomination.
 
-```yaml
-Periods:
-- amount: 25stake, length: 7884000
-- amount: 25stake, length: 7884000
-- amount: 25stake, length: 7884000
-- amount: 25stake, length: 7884000
-```
-
-```
-OV = 100
-DF = 0
-DV = 0
-BC = 100
-V = 100
-V' = 0
-```
-
-1. Immediately receives 1 coin
-
-    ```
-    BC = 101
-    ```
-
-2. Vesting period 1 passes, 25 coins vest
-
-    ```
-    V = 75
-    V' = 25
-    ```
-
-3. During vesting period 2, 5 coins are transfered and 5 coins are delegated
-
-    ```
-    DV = 5
-    BC = 91
-    ```
-
-4. Vesting period 2 passes, 25 coins vest
-
-    ```
-    V = 50
-    V' = 50
-    ```
+After receiving one extra coin, `BC = 101`. At the end of the first period,
+`V = 75` and 26 coins are spendable. Sending 5 and delegating 5 leaves `BC = 91`
+and `DV = 5`, so locked coins are 70 and spendable coins are 21. At the end of
+the second period, `V = 50`; the lock becomes 45 and spendable coins become 46.
+This illustrates the account type's schedule, not a live periodic-creation CLI.
 
 ## Glossary
 
-- OriginalVesting: The amount of coins (per denomination) that are initially
-part of a vesting account. These coins are set at genesis.
-- StartTime: The BFT time at which a vesting account starts to vest.
-- EndTime: The BFT time at which a vesting account is fully vested.
-- DelegatedFree: The tracked amount of coins (per denomination) that are
-delegated from a vesting account that have been fully vested at time of delegation.
-- DelegatedVesting: The tracked amount of coins (per denomination) that are
-delegated from a vesting account that were vesting at time of delegation.
-- ContinuousVestingAccount: A vesting account implementation that vests coins
-linearly over time.
-- DelayedVestingAccount: A vesting account implementation that only fully vests
-all coins at a given time.
-- PeriodicVestingAccount: A vesting account implementation that vests coins
-according to a custom vesting schedule.
-- PermanentLockedAccount: It does not ever release coins, locking them indefinitely.
-Coins in this account can still be used for delegating and for governance votes even while locked.
+- `OriginalVesting`: original scheduled allocation per denomination, recorded at
+  creation or genesis import.
+- `StartTime`: Unix-second start for a continuous or periodic schedule.
+- `EndTime`: Unix-second full-release time for a finite schedule.
+- `DelegatedFree`: tracked delegation classified as free when delegated.
+- `DelegatedVesting`: tracked delegation classified as vesting when delegated.
+- `ContinuousVestingAccount`: linear vesting with SDK decimal rounding.
+- `DelayedVestingAccount`: full release at the end time.
+- `PeriodicVestingAccount`: release in sequential tranches.
+- `PermanentLockedAccount`: no scheduled release of the original allocation.
+- `Admin`: reserved metadata without cancellation authority.
+- `CancelledTime`: reserved persisted field that must be zero; cancellation is
+  unsupported and nonzero markers fail account validation.

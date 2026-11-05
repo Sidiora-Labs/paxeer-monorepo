@@ -1,0 +1,491 @@
+[reconcile.r4-16]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 60
+
+[row.r4-16.1]
+interface = "interface.4.cli-sdk-test-phase2"
+verdict = "retired"
+path = "sdk/launchpad/packages/sdk/package.json"
+line = 25
+symbol = "test:phase2"
+evidence = "The test:phase2 package script is absent; package.json now exposes test as npm run build && node --test test/*.test.mjs. The old command remains only in the README and the retirement assertion; override.J30.5 records the retirement."
+remaining_refs = 2
+remaining = ["sdk/launchpad/packages/sdk/README.md:17", "sdk/launchpad/packages/sdk/test/package-scripts.test.mjs:11"]
+
+[row.r4-16.2]
+interface = "interface.4.cli-sdk-test-phase4"
+verdict = "retired"
+path = "sdk/launchpad/packages/sdk/package.json"
+line = 26
+symbol = "test:phase4"
+evidence = "The test:phase4 package script is absent. The only remaining mention outside spec and docs is the package-scripts test asserting its absence; override.J30.6 records the retirement."
+remaining_refs = 1
+remaining = ["sdk/launchpad/packages/sdk/test/package-scripts.test.mjs:11"]
+
+[row.r4-16.3]
+interface = "interface.4.cli-sdk-build-phase4"
+verdict = "retired"
+path = "sdk/launchpad/packages/sdk/package.json"
+line = 27
+symbol = "build:phase4"
+evidence = "The build:phase4 package script is absent; build now invokes compile-validators.mjs and tsc. The only remaining mention outside spec and docs asserts retirement; override.J30.7 records the retirement."
+remaining_refs = 1
+remaining = ["sdk/launchpad/packages/sdk/test/package-scripts.test.mjs:11"]
+
+[row.r4-16.4]
+interface = "interface.4.cli-sdk-script-examples"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/scripts/examples.py"
+line = 14
+symbol = "emit"
+evidence = "The python3 scripts/examples.py CLI remains implemented by emit(root) at line 14, invoked under __main__ at line 58. It now reads the v2 OpenAPI contract and emits pagination plus SnapshotStreamV2/browserStreamTransportV2 restart-resume examples, the CLI accepts --root to select the repository."
+
+[row.r4-16.5]
+interface = "interface.4.cli-sdk-script-generate"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/scripts/generate.py"
+line = 100
+symbol = "main"
+evidence = "The python3 scripts/generate.py CLI remains implemented by main() at line 100. Its argument signature now explicitly selects --major, --contracts, --manifest, --package, --generator, --reproduce-v1 and --operations-only; operations-only requires major 2, and pinned digests plus versioned package checks protect generated outputs."
+
+[row.r4-16.6]
+interface = "interface.4.ts-sdk-browser-stream-browser-stream-transport"
+verdict = "retired"
+path = "sdk/launchpad/packages/sdk/src/browser-stream.ts"
+line = 6
+symbol = "browserStreamTransport"
+evidence = "The exact browserStreamTransport identifier is absent from browser-stream.ts. Its replacement is browserStreamTransportV2(client, scope, authenticated = true, options = {}): StreamTransportV2 at line 24. Exact-identifier search outside spec and docs finds only the assertion that the old export is absent; override.J30.1 records the retirement."
+remaining_refs = 1
+remaining = ["sdk/launchpad/packages/sdk/test/browser-stream-retirement.test.mjs:7"]
+
+[row.r4-16.7]
+interface = "interface.4.ts-sdk-op-if-account-delete-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 214
+symbol = "IF_ACCOUNT_DELETE"
+evidence = "operationDefinitions still declares \"IF_ACCOUNT_DELETE\": { at line 214, moved from 206; wire signature remains POST /v2/me/deletion-requests (api). Despite registry status retire, its generated OperationTypes member and definition remain. served-routes.ts marks it unrouted; Operations.call at operations.ts:44 throws CapabilityUnavailableError before transport, so symbol presence does not establish a served HTTP endpoint."
+
+[row.r4-16.8]
+interface = "interface.4.ts-sdk-op-if-account-export-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 269
+symbol = "IF_ACCOUNT_EXPORT"
+evidence = "operationDefinitions still declares \"IF_ACCOUNT_EXPORT\": { at line 269, moved from 261; wire signature remains POST /v2/me/exports (api). Despite registry status retire, its generated OperationTypes member and definition remain. served-routes.ts marks it unrouted; Operations.call at operations.ts:44 throws CapabilityUnavailableError before transport, so symbol presence does not establish a served HTTP endpoint."
+
+[row.r4-16.9]
+interface = "interface.4.ts-sdk-op-if-alert-create-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 315
+symbol = "IF_ALERT_CREATE"
+evidence = "operationDefinitions still declares \"IF_ALERT_CREATE\": { at line 315, moved from 307; wire signature remains POST /v2/me/alerts (api). The identifier is now also a named constant: export const IF_ALERT_CREATE = \"IF_ALERT_CREATE\" as const; Current typed signature: \"IF_ALERT_CREATE\":{input:{body:V2ContractTypes[\"AlertCreateBody\"]};response:V2ContractTypes[\"AlertCreateResponse\"]}; served-routes.ts classifies it as development; Operations.call at operations.ts:41 refuses production clients with CapabilityUnavailableError."
+
+[row.r4-16.10]
+interface = "interface.4.ts-sdk-op-if-alert-delete-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 333
+symbol = "IF_ALERT_DELETE"
+evidence = "operationDefinitions still declares \"IF_ALERT_DELETE\": { at line 333, moved from 325; wire signature remains DELETE /v2/me/alerts/{alertId} (api). The identifier is now also a named constant: export const IF_ALERT_DELETE = \"IF_ALERT_DELETE\" as const; Current typed signature: \"IF_ALERT_DELETE\":{input:{path:{\"alertId\":string}};response:undefined}; served-routes.ts classifies it as development; Operations.call at operations.ts:41 refuses production clients with CapabilityUnavailableError."
+
+[row.r4-16.11]
+interface = "interface.4.ts-sdk-op-if-asset-get-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 361
+symbol = "IF_ASSET_GET"
+evidence = "operationDefinitions still declares \"IF_ASSET_GET\": { at line 361, moved from 353; wire signature remains GET /v2/assets/{assetId} (media). Its OperationTypes member remains, and served-routes.ts classifies this operation as served."
+
+[row.r4-16.12]
+interface = "interface.4.ts-sdk-op-if-automation-action-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 389
+symbol = "IF_AUTOMATION_ACTION"
+evidence = "operationDefinitions still declares \"IF_AUTOMATION_ACTION\": { at line 389, moved from 381; wire signature remains POST /v2/me/automation-campaigns/{campaignId}/actions (api). Despite registry status retire, its generated OperationTypes member and definition remain. served-routes.ts marks it unrouted; Operations.call at operations.ts:44 throws CapabilityUnavailableError before transport, so symbol presence does not establish a served HTTP endpoint."
+
+[row.r4-16.13]
+interface = "interface.4.ts-sdk-op-if-automation-create-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 417
+symbol = "IF_AUTOMATION_CREATE"
+evidence = "operationDefinitions still declares \"IF_AUTOMATION_CREATE\": { at line 417, moved from 409; wire signature remains POST /v2/me/automation-campaigns (api). Despite registry status retire, its generated OperationTypes member and definition remain. served-routes.ts marks it unrouted; Operations.call at operations.ts:44 throws CapabilityUnavailableError before transport, so symbol presence does not establish a served HTTP endpoint."
+
+[row.r4-16.14]
+interface = "interface.4.ts-sdk-op-if-automation-public-disclosure-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 435
+symbol = "IF_AUTOMATION_PUBLIC_DISCLOSURE"
+evidence = "operationDefinitions still declares \"IF_AUTOMATION_PUBLIC_DISCLOSURE\": { at line 435, moved from 427; wire signature remains GET /v2/automation-campaigns/{campaignId}/disclosure (api). Despite registry status retire, its generated OperationTypes member and definition remain. served-routes.ts marks it unrouted; Operations.call at operations.ts:44 throws CapabilityUnavailableError before transport, so symbol presence does not establish a served HTTP endpoint."
+
+[row.r4-16.15]
+interface = "interface.4.ts-sdk-op-if-bounty-get-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 564
+symbol = "IF_BOUNTY_GET"
+evidence = "operationDefinitions still declares \"IF_BOUNTY_GET\": { at line 564, moved from 556; wire signature remains GET /v2/bounties/{bountyId} (api). Its OperationTypes member remains, and served-routes.ts classifies this operation as served."
+
+[row.r4-16.16]
+interface = "interface.4.ts-sdk-op-if-comment-delete-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 986
+symbol = "IF_COMMENT_DELETE"
+evidence = "operationDefinitions still declares \"IF_COMMENT_DELETE\": { at line 986, moved from 978; wire signature remains DELETE /v2/comments/{commentId} (api). Its OperationTypes member remains, and served-routes.ts classifies this operation as served."
+
+[row.r4-16.17]
+interface = "interface.4.ts-sdk-op-if-comment-edit-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 1014
+symbol = "IF_COMMENT_EDIT"
+evidence = "operationDefinitions still declares \"IF_COMMENT_EDIT\": { at line 1014, moved from 1006; wire signature remains PATCH /v2/comments/{commentId} (api). Its OperationTypes member remains, and served-routes.ts classifies this operation as served."
+
+[row.r4-16.18]
+interface = "interface.4.ts-sdk-op-if-connected-account-asset-get-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 1098
+symbol = "IF_CONNECTED_ACCOUNT_ASSET_GET"
+evidence = "operationDefinitions still declares \"IF_CONNECTED_ACCOUNT_ASSET_GET\": { at line 1098, moved from 1090; wire signature remains GET /v2/accounts/{wallet}/assets/{assetId} (media). Its OperationTypes member remains, and served-routes.ts classifies this operation as served."
+
+[row.r4-16.19]
+interface = "interface.4.ts-sdk-op-if-connected-account-asset-put-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 1137
+symbol = "IF_CONNECTED_ACCOUNT_ASSET_PUT"
+evidence = "operationDefinitions still declares \"IF_CONNECTED_ACCOUNT_ASSET_PUT\": { at line 1137, moved from 1129; wire signature remains PUT /v2/accounts/{wallet}/assets/{assetId} (media). Its OperationTypes member remains, and served-routes.ts classifies this operation as served."
+
+[row.r4-16.20]
+interface = "interface.4.ts-sdk-op-if-connected-discovery-alert-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 1304
+symbol = "IF_CONNECTED_DISCOVERY_ALERT"
+evidence = "operationDefinitions still declares \"IF_CONNECTED_DISCOVERY_ALERT\": { at line 1304, moved from 1296; wire signature remains PUT /v2/discovery/alerts/{id} (api). Its OperationTypes member remains, and served-routes.ts classifies this operation as served."
+
+[row.r4-16.21]
+interface = "interface.4.ts-sdk-op-if-connected-discovery-callout-edit-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 1351
+symbol = "IF_CONNECTED_DISCOVERY_CALLOUT_EDIT"
+evidence = "operationDefinitions still declares \"IF_CONNECTED_DISCOVERY_CALLOUT_EDIT\": { at line 1351, moved from 1343; wire signature remains PATCH /v2/discovery/callouts/{id} (api). Its OperationTypes member remains, and served-routes.ts classifies this operation as served."
+
+[row.r4-16.22]
+interface = "interface.4.ts-sdk-op-if-connected-discovery-squad-member-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 1493
+symbol = "IF_CONNECTED_DISCOVERY_SQUAD_MEMBER"
+evidence = "operationDefinitions still declares \"IF_CONNECTED_DISCOVERY_SQUAD_MEMBER\": { at line 1493, moved from 1485; wire signature remains PATCH /v2/discovery/squads/{id}/members/{account} (api). Its OperationTypes member remains, and served-routes.ts classifies this operation as served."
+
+[row.r4-16.23]
+interface = "interface.4.ts-sdk-op-if-connected-discovery-squad-patch-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 1532
+symbol = "IF_CONNECTED_DISCOVERY_SQUAD_PATCH"
+evidence = "operationDefinitions still declares \"IF_CONNECTED_DISCOVERY_SQUAD_PATCH\": { at line 1532, moved from 1524; wire signature remains PATCH /v2/discovery/squads/{id} (api). Its OperationTypes member remains, and served-routes.ts classifies this operation as served."
+
+[row.r4-16.24]
+interface = "interface.4.ts-sdk-op-if-connected-extended-profile-get-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 1707
+symbol = "IF_CONNECTED_EXTENDED_PROFILE_GET"
+evidence = "operationDefinitions still declares \"IF_CONNECTED_EXTENDED_PROFILE_GET\": { at line 1707, moved from 1699; wire signature remains GET /v3/profiles/{wallet} (media). Its OperationTypes member remains, and served-routes.ts classifies this operation as served."
+
+[row.r4-16.25]
+interface = "interface.4.ts-sdk-op-if-connected-extended-profile-patch-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 1737
+symbol = "IF_CONNECTED_EXTENDED_PROFILE_PATCH"
+evidence = "operationDefinitions still declares \"IF_CONNECTED_EXTENDED_PROFILE_PATCH\": { at line 1737, moved from 1729; wire signature remains PATCH /v3/profiles/{wallet} (media). Its OperationTypes member remains, and served-routes.ts classifies this operation as served."
+
+[row.r4-16.26]
+interface = "interface.4.ts-sdk-op-if-connected-feed-detail-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 1817
+symbol = "IF_CONNECTED_FEED_DETAIL"
+evidence = "operationDefinitions still declares \"IF_CONNECTED_FEED_DETAIL\": { at line 1817, moved from 1809; wire signature remains GET /v2/discovery/feed/{id} (api). Its OperationTypes member remains, and served-routes.ts classifies this operation as served."
+
+[row.r4-16.27]
+interface = "interface.4.ts-sdk-op-if-connected-notification-delete-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 1864
+symbol = "IF_CONNECTED_NOTIFICATION_DELETE"
+evidence = "operationDefinitions still declares \"IF_CONNECTED_NOTIFICATION_DELETE\": { at line 1864, moved from 1856; wire signature remains DELETE /v2/discovery/notifications/{id} (api). Its OperationTypes member remains, and served-routes.ts classifies this operation as served."
+
+[row.r4-16.28]
+interface = "interface.4.ts-sdk-op-if-connected-notification-read-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 1912
+symbol = "IF_CONNECTED_NOTIFICATION_READ"
+evidence = "operationDefinitions still declares \"IF_CONNECTED_NOTIFICATION_READ\": { at line 1912, moved from 1904; wire signature remains PATCH /v2/discovery/notifications/{id} (api). Its OperationTypes member remains, and served-routes.ts classifies this operation as served."
+
+[row.r4-16.29]
+interface = "interface.4.ts-sdk-op-if-connected-portfolio-card-revoke-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 2057
+symbol = "IF_CONNECTED_PORTFOLIO_CARD_REVOKE"
+evidence = "operationDefinitions still declares \"IF_CONNECTED_PORTFOLIO_CARD_REVOKE\": { at line 2057, moved from 2049; wire signature remains DELETE /v2/me/portfolio/cards/{cardId} (api). Its OperationTypes member remains, and served-routes.ts classifies this operation as served."
+
+[row.r4-16.30]
+interface = "interface.4.ts-sdk-op-if-connected-portfolio-card-status-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 2094
+symbol = "IF_CONNECTED_PORTFOLIO_CARD_STATUS"
+evidence = "operationDefinitions still declares \"IF_CONNECTED_PORTFOLIO_CARD_STATUS\": { at line 2094, moved from 2086; wire signature remains GET /v2/me/portfolio/cards/{cardId} (api). Its OperationTypes member remains, and served-routes.ts classifies this operation as served."
+
+[row.r4-16.31]
+interface = "interface.4.ts-sdk-op-if-connected-portfolio-export-cancel-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 2150
+symbol = "IF_CONNECTED_PORTFOLIO_EXPORT_CANCEL"
+evidence = "operationDefinitions still declares \"IF_CONNECTED_PORTFOLIO_EXPORT_CANCEL\": { at line 2150, moved from 2142; wire signature remains DELETE /v2/me/portfolio/exports/{jobId} (api). Its OperationTypes member remains, and served-routes.ts classifies this operation as served."
+
+[row.r4-16.32]
+interface = "interface.4.ts-sdk-op-if-connected-portfolio-export-status-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 2215
+symbol = "IF_CONNECTED_PORTFOLIO_EXPORT_STATUS"
+evidence = "operationDefinitions still declares \"IF_CONNECTED_PORTFOLIO_EXPORT_STATUS\": { at line 2215, moved from 2207; wire signature remains GET /v2/me/portfolio/exports/{jobId} (api). Its OperationTypes member remains, and served-routes.ts classifies this operation as served."
+
+[row.r4-16.33]
+interface = "interface.4.ts-sdk-op-if-connected-safety-appeal-detail-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 2690
+symbol = "IF_CONNECTED_SAFETY_APPEAL_DETAIL"
+evidence = "operationDefinitions still declares \"IF_CONNECTED_SAFETY_APPEAL_DETAIL\": { at line 2690, moved from 2682; wire signature remains GET /v2/safety/appeals/{appealId} (media). Its OperationTypes member remains, and served-routes.ts classifies this operation as served."
+
+[row.r4-16.34]
+interface = "interface.4.ts-sdk-op-if-connected-safety-transition-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 2865
+symbol = "IF_CONNECTED_SAFETY_TRANSITION"
+evidence = "operationDefinitions still declares \"IF_CONNECTED_SAFETY_TRANSITION\": { at line 2865, moved from 2857; wire signature remains PATCH /v2/safety/cases/{caseId} (media). Its OperationTypes member remains, and served-routes.ts classifies this operation as served."
+
+[row.r4-16.35]
+interface = "interface.4.ts-sdk-op-if-connected-share-v3-public-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 2939
+symbol = "IF_CONNECTED_SHARE_V3_PUBLIC"
+evidence = "operationDefinitions still declares \"IF_CONNECTED_SHARE_V3_PUBLIC\": { at line 2939, moved from 2931; wire signature remains GET /v3/portfolio/shares/{shareId} (api). Its OperationTypes member remains, and served-routes.ts classifies this operation as served."
+
+[row.r4-16.36]
+interface = "interface.4.ts-sdk-op-if-connected-share-v3-revoke-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 2995
+symbol = "IF_CONNECTED_SHARE_V3_REVOKE"
+evidence = "operationDefinitions still declares \"IF_CONNECTED_SHARE_V3_REVOKE\": { at line 2995, moved from 2987; wire signature remains DELETE /v3/me/portfolio/shares/{shareId} (api). Its OperationTypes member remains, and served-routes.ts classifies this operation as served."
+
+[row.r4-16.37]
+interface = "interface.4.ts-sdk-op-if-connected-share-v3-status-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 3023
+symbol = "IF_CONNECTED_SHARE_V3_STATUS"
+evidence = "operationDefinitions still declares \"IF_CONNECTED_SHARE_V3_STATUS\": { at line 3023, moved from 3015; wire signature remains GET /v3/me/portfolio/shares/{shareId} (api). Its OperationTypes member remains, and served-routes.ts classifies this operation as served."
+
+[row.r4-16.38]
+interface = "interface.4.ts-sdk-op-if-connected-token-asset-get-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 3051
+symbol = "IF_CONNECTED_TOKEN_ASSET_GET"
+evidence = "operationDefinitions still declares \"IF_CONNECTED_TOKEN_ASSET_GET\": { at line 3051, moved from 3043; wire signature remains GET /v2/tokens/{tokenAddress}/assets/{assetId} (media). Its OperationTypes member remains, and served-routes.ts classifies this operation as served."
+
+[row.r4-16.39]
+interface = "interface.4.ts-sdk-op-if-connected-token-asset-put-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 3090
+symbol = "IF_CONNECTED_TOKEN_ASSET_PUT"
+evidence = "operationDefinitions still declares \"IF_CONNECTED_TOKEN_ASSET_PUT\": { at line 3090, moved from 3082; wire signature remains PUT /v2/tokens/{tokenAddress}/assets/{assetId} (media). Its OperationTypes member remains, and served-routes.ts classifies this operation as served."
+
+[row.r4-16.40]
+interface = "interface.4.ts-sdk-op-if-cup-current-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 3550
+symbol = "IF_CUP_CURRENT"
+evidence = "operationDefinitions still declares \"IF_CUP_CURRENT\": { at line 3550, moved from 3542; wire signature remains GET /v2/cups/current (api). The identifier is now also a named constant: export const IF_CUP_CURRENT = \"IF_CUP_CURRENT\" as const; Current typed signature: \"IF_CUP_CURRENT\":{input:{};response:V2ContractTypes[\"CupCurrentResponse\"]}; served-routes.ts classifies it as development; Operations.call at operations.ts:41 refuses production clients with CapabilityUnavailableError."
+
+[row.r4-16.41]
+interface = "interface.4.ts-sdk-op-if-cup-get-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 3568
+symbol = "IF_CUP_GET"
+evidence = "operationDefinitions still declares \"IF_CUP_GET\": { at line 3568, moved from 3560; wire signature remains GET /v2/cups/{cupId} (api). The identifier is now also a named constant: export const IF_CUP_GET = \"IF_CUP_GET\" as const; Current typed signature: \"IF_CUP_GET\":{input:{path:{\"cupId\":string}};response:V2ContractTypes[\"CupGetResponse\"]}; served-routes.ts classifies it as development; Operations.call at operations.ts:41 refuses production clients with CapabilityUnavailableError."
+
+[row.r4-16.42]
+interface = "interface.4.ts-sdk-op-if-cup-results-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 3596
+symbol = "IF_CUP_RESULTS"
+evidence = "operationDefinitions still declares \"IF_CUP_RESULTS\": { at line 3596, moved from 3588; wire signature remains GET /v2/cups/{cupId}/results (api). The identifier is now also a named constant: export const IF_CUP_RESULTS = \"IF_CUP_RESULTS\" as const; Current typed signature: \"IF_CUP_RESULTS\":{input:{path:{\"cupId\":string}};response:V2ContractTypes[\"CupResultsResponse\"]}; served-routes.ts classifies it as development; Operations.call at operations.ts:41 refuses production clients with CapabilityUnavailableError."
+
+[row.r4-16.43]
+interface = "interface.4.ts-sdk-op-if-cup-standings-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 3624
+symbol = "IF_CUP_STANDINGS"
+evidence = "operationDefinitions still declares \"IF_CUP_STANDINGS\": { at line 3624, moved from 3616; wire signature remains GET /v2/cups/{cupId}/standings (api). The identifier is now also a named constant: export const IF_CUP_STANDINGS = \"IF_CUP_STANDINGS\" as const; Current typed signature: \"IF_CUP_STANDINGS\":{input:{path:{\"cupId\":string};query?:{\"cursor\"?:string;\"limit\"?:number}};response:V2ContractTypes[\"CupStandingsResponse\"]}; served-routes.ts classifies it as development; Operations.call at operations.ts:41 refuses production clients with CapabilityUnavailableError."
+
+[row.r4-16.44]
+interface = "interface.4.ts-sdk-op-if-deposit-intent-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 3691
+symbol = "IF_DEPOSIT_INTENT"
+evidence = "operationDefinitions still declares \"IF_DEPOSIT_INTENT\": { at line 3691, moved from 3683; wire signature remains POST /v2/me/funding/deposit-intents (api). Despite registry status retire, its generated OperationTypes member and definition remain. served-routes.ts marks it unrouted; Operations.call at operations.ts:44 throws CapabilityUnavailableError before transport, so symbol presence does not establish a served HTTP endpoint."
+
+[row.r4-16.45]
+interface = "interface.4.ts-sdk-op-if-dm-create-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 3765
+symbol = "IF_DM_CREATE"
+evidence = "operationDefinitions still declares \"IF_DM_CREATE\": { at line 3765, moved from 3757; wire signature remains POST /v2/me/conversations (api). Despite registry status retire, its generated OperationTypes member and definition remain. served-routes.ts marks it unrouted; Operations.call at operations.ts:44 throws CapabilityUnavailableError before transport, so symbol presence does not establish a served HTTP endpoint."
+
+[row.r4-16.46]
+interface = "interface.4.ts-sdk-op-if-dm-list-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 3783
+symbol = "IF_DM_LIST"
+evidence = "operationDefinitions still declares \"IF_DM_LIST\": { at line 3783, moved from 3775; wire signature remains GET /v2/me/conversations (api). Despite registry status retire, its generated OperationTypes member and definition remain. served-routes.ts marks it unrouted; Operations.call at operations.ts:44 throws CapabilityUnavailableError before transport, so symbol presence does not establish a served HTTP endpoint."
+
+[row.r4-16.47]
+interface = "interface.4.ts-sdk-op-if-events-sse-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 3823
+symbol = "IF_EVENTS_SSE"
+evidence = "operationDefinitions still declares \"IF_EVENTS_SSE\": { at line 3823, moved from 3815; wire signature remains GET /v2/events/stream (api). No method, route or service signature change was observed. Current typed signature: \"IF_EVENTS_SSE\":{input:{query:{\"topics\":Array<string>}};response:Response}; served-routes.ts classifies it as development; Operations.call at operations.ts:41 refuses production clients with CapabilityUnavailableError. Its binary Response requires the streaming response path in Operations.call."
+
+[row.r4-16.48]
+interface = "interface.4.ts-sdk-op-if-follow-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 3877
+symbol = "IF_FOLLOW"
+evidence = "operationDefinitions still declares \"IF_FOLLOW\": { at line 3877, moved from 3869; wire signature remains PUT /v2/me/following/{wallet} (media). Its OperationTypes member remains, and served-routes.ts classifies this operation as served."
+
+[row.r4-16.49]
+interface = "interface.4.ts-sdk-op-if-funding-rails-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 3982
+symbol = "IF_FUNDING_RAILS"
+evidence = "operationDefinitions still declares \"IF_FUNDING_RAILS\": { at line 3982, moved from 3974; wire signature remains GET /v2/funding/rails (api). No method, route or service signature change was observed. Current typed signature: \"IF_FUNDING_RAILS\":{input:{query:{\"chainId\":string;\"assetAddress\"?:string}};response:V2ContractTypes[\"FundingRailsResponse\"]}; served-routes.ts classifies it as development; Operations.call at operations.ts:41 refuses production clients with CapabilityUnavailableError."
+
+[row.r4-16.50]
+interface = "interface.4.ts-sdk-op-if-leaderboards-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 4168
+symbol = "IF_LEADERBOARDS"
+evidence = "operationDefinitions still declares \"IF_LEADERBOARDS\": { at line 4168, moved from 4160; wire signature remains GET /v2/leaderboards/{category} (api). Its OperationTypes member remains, and served-routes.ts classifies this operation as served."
+
+[row.r4-16.51]
+interface = "interface.4.ts-sdk-op-if-live-webhook-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 4234
+symbol = "IF_LIVE_WEBHOOK"
+evidence = "operationDefinitions still declares \"IF_LIVE_WEBHOOK\": { at line 4234, moved from 4226; wire signature remains POST /v2/provider-webhooks/livepeer (media). Despite registry status retire, its generated OperationTypes member and definition remain. served-routes.ts marks it unrouted; Operations.call at operations.ts:44 throws CapabilityUnavailableError before transport, so symbol presence does not establish a served HTTP endpoint."
+
+[row.r4-16.52]
+interface = "interface.4.ts-sdk-op-if-logout-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 4270
+symbol = "IF_LOGOUT"
+evidence = "operationDefinitions still declares \"IF_LOGOUT\": { at line 4270, moved from 4262; wire signature remains DELETE /v2/auth/sessions/{sessionId} (identity). Its OperationTypes member remains, and served-routes.ts classifies this operation as served."
+
+[row.r4-16.53]
+interface = "interface.4.ts-sdk-op-if-moderate-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 4431
+symbol = "IF_MODERATE"
+evidence = "operationDefinitions still declares \"IF_MODERATE\": { at line 4431, moved from 4423; wire signature remains POST /v2/admin/moderation-actions (api). Despite registry status retire, its generated OperationTypes member and definition remain. served-routes.ts marks it unrouted; Operations.call at operations.ts:44 throws CapabilityUnavailableError before transport, so symbol presence does not establish a served HTTP endpoint."
+
+[row.r4-16.54]
+interface = "interface.4.ts-sdk-op-if-narratives-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 4449
+symbol = "IF_NARRATIVES"
+evidence = "operationDefinitions still declares \"IF_NARRATIVES\": { at line 4449, moved from 4441; wire signature remains GET /v2/narratives (api). No method, route or service signature change was observed. Current typed signature: \"IF_NARRATIVES\":{input:{query:{\"cursor\"?:string;\"limit\"?:number;\"status\":string}};response:V2ContractTypes[\"NarrativesResponse\"]}; served-routes.ts classifies it as development; Operations.call at operations.ts:41 refuses production clients with CapabilityUnavailableError."
+
+[row.r4-16.55]
+interface = "interface.4.ts-sdk-op-if-narrative-feed-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 4498
+symbol = "IF_NARRATIVE_FEED"
+evidence = "operationDefinitions still declares \"IF_NARRATIVE_FEED\": { at line 4498, moved from 4490; wire signature remains GET /v2/narratives/{narrativeId}/feed (api). No method, route or service signature change was observed. Current typed signature: \"IF_NARRATIVE_FEED\":{input:{path:{\"narrativeId\":string};query?:{\"cursor\"?:string;\"limit\"?:number}};response:V2ContractTypes[\"NarrativeFeedResponse\"]}; served-routes.ts classifies it as development; Operations.call at operations.ts:41 refuses production clients with CapabilityUnavailableError."
+
+[row.r4-16.56]
+interface = "interface.4.ts-sdk-op-if-notifications-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 4547
+symbol = "IF_NOTIFICATIONS"
+evidence = "operationDefinitions still declares \"IF_NOTIFICATIONS\": { at line 4547, moved from 4539; wire signature remains GET /v2/me/notifications (api). No method, route or service signature change was observed. Current typed signature: \"IF_NOTIFICATIONS\":{input:{query?:{\"unreadOnly\"?:boolean;\"cursor\"?:string;\"limit\"?:number}};response:V2ContractTypes[\"NotificationsResponse\"]}; served-routes.ts classifies it as development; Operations.call at operations.ts:41 refuses production clients with CapabilityUnavailableError."
+
+[row.r4-16.57]
+interface = "interface.4.ts-sdk-op-if-notification-read-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 4595
+symbol = "IF_NOTIFICATION_READ"
+evidence = "operationDefinitions still declares \"IF_NOTIFICATION_READ\": { at line 4595, moved from 4587; wire signature remains PUT /v2/me/notifications/{notificationId}/read (api). No method, route or service signature change was observed. Current typed signature: \"IF_NOTIFICATION_READ\":{input:{path:{\"notificationId\":string}};response:V2ContractTypes[\"NotificationReadResponse\"]}; served-routes.ts classifies it as development; Operations.call at operations.ts:41 refuses production clients with CapabilityUnavailableError."
+
+[row.r4-16.58]
+interface = "interface.4.ts-sdk-op-if-operator-dlq-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 4623
+symbol = "IF_OPERATOR_DLQ"
+evidence = "operationDefinitions still declares \"IF_OPERATOR_DLQ\": { at line 4623, moved from 4615; wire signature remains GET /v2/operator/dlq (api). Despite registry status retire, its generated OperationTypes member and definition remain. served-routes.ts marks it unrouted; Operations.call at operations.ts:44 throws CapabilityUnavailableError before transport, so symbol presence does not establish a served HTTP endpoint."
+
+[row.r4-16.59]
+interface = "interface.4.ts-sdk-op-if-operator-health-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 4683
+symbol = "IF_OPERATOR_HEALTH"
+evidence = "operationDefinitions still declares \"IF_OPERATOR_HEALTH\": { at line 4683, moved from 4675; wire signature remains GET /v2/operator/health (api). Despite registry status retire, its generated OperationTypes member and definition remain. served-routes.ts marks it unrouted; Operations.call at operations.ts:44 throws CapabilityUnavailableError before transport, so symbol presence does not establish a served HTTP endpoint."
+
+[row.r4-16.60]
+interface = "interface.4.ts-sdk-op-if-operator-metrics-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 4747
+symbol = "IF_OPERATOR_METRICS"
+evidence = "operationDefinitions still declares \"IF_OPERATOR_METRICS\": { at line 4747, moved from 4739; wire signature remains GET /v2/operator/metrics/query (api). Despite registry status retire, its generated OperationTypes member and definition remain. served-routes.ts marks it unrouted; Operations.call at operations.ts:44 throws CapabilityUnavailableError before transport, so symbol presence does not establish a served HTTP endpoint."

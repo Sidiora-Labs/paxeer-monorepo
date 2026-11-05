@@ -686,7 +686,8 @@ func TestPrecompile_Run_Validators(t *testing.T) {
 				require.Equal(t, vm.ErrExecutionReverted, err)
 				require.Nil(t, gotRet)
 				if tt.wantErrMsg != "" {
-					require.Contains(t, tt.wantErrMsg, tt.wantErrMsg)
+					require.Error(t, stateDb.GetPrecompileError())
+					require.Contains(t, stateDb.GetPrecompileError().Error(), tt.wantErrMsg)
 				}
 				return
 			}
@@ -1460,126 +1461,20 @@ func TestPrecompile_Run_DelegatorUnbondingDelegations(t *testing.T) {
 }
 
 func TestPrecompile_Run_Redelegations(t *testing.T) {
-	pre, _ := staking.NewPrecompile(&utils.EmptyKeepers{})
-	redelegationsMethod, _ := pre.ABI.MethodById(pre.GetExecutor().(*staking.PrecompileExecutor).RedelegationsID)
-
-	callerPaxAddress, _ := testkeeper.MockAddressPair()
-	srcValidatorAddress := "paxvaloper1src"
-	dstValidatorAddress := "paxvaloper1dst"
-	redelegation := stakingtypes.Redelegation{
-		DelegatorAddress:    callerPaxAddress.String(),
-		ValidatorSrcAddress: srcValidatorAddress,
-		ValidatorDstAddress: dstValidatorAddress,
-		Entries: []stakingtypes.RedelegationEntry{
-			{
-				CreationHeight: 100,
-				CompletionTime: time.Unix(2000, 0),
-				InitialBalance: sdk.NewInt(50),
-				SharesDst:      sdk.NewDec(40),
-			},
-		},
-	}
-
-	redelegationEntryResponse := stakingtypes.RedelegationEntryResponse{
-		RedelegationEntry: redelegation.Entries[0],
-		Balance:           sdk.NewInt(40),
-	}
-
-	nextKey := []byte("next-key")
-	redelegationsResponse := &stakingtypes.QueryRedelegationsResponse{
-		RedelegationResponses: []stakingtypes.RedelegationResponse{
-			{
-				Redelegation: redelegation,
-				Entries:      []stakingtypes.RedelegationEntryResponse{redelegationEntryResponse},
-			},
-		},
-		Pagination: &query.PageResponse{NextKey: nextKey},
-	}
-
-	expected := staking.RedelegationsResponse{
-		Redelegations: []staking.Redelegation{
-			{
-				DelegatorAddress:    callerPaxAddress.String(),
-				ValidatorSrcAddress: srcValidatorAddress,
-				ValidatorDstAddress: dstValidatorAddress,
-				Entries: []staking.RedelegationEntry{
-					{
-						CreationHeight: 100,
-						CompletionTime: 2000,
-						InitialBalance: "50",
-						SharesDst:      "40",
-					},
-				},
-			},
-		},
-		NextKey: nextKey,
-	}
-
-	happyPathPackedOutput, _ := redelegationsMethod.Outputs.Pack(expected)
-
-	tests := []struct {
-		name       string
-		fields     utils.StakingQuerier
-		args       []interface{}
-		value      *big.Int
-		wantRet    []byte
-		wantErr    bool
-		wantErrMsg string
-	}{
-		{
-			name: "fails if value passed",
-			fields: &TestStakingQuerier{
-				RedelegationsResponse: redelegationsResponse,
-			},
-			args:       []interface{}{callerPaxAddress.String(), srcValidatorAddress, dstValidatorAddress, []byte{}},
-			value:      big.NewInt(1),
-			wantErr:    true,
-			wantErrMsg: "sending funds to a non-payable function",
-		},
-		{
-			name: "should return redelegations (static call allowed)",
-			fields: &TestStakingQuerier{
-				RedelegationsResponse: redelegationsResponse,
-			},
-			args:    []interface{}{callerPaxAddress.String(), srcValidatorAddress, dstValidatorAddress, []byte{}},
-			wantRet: happyPathPackedOutput,
-			wantErr: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			testApp := testkeeper.EVMTestApp
-			ctx := testApp.NewContext(false, tmtypes.Header{}).WithBlockHeight(2)
-			k := &testApp.EvmKeeper
-			stateDb := state.NewDBImpl(ctx, k, true)
-			evm := vm.EVM{
-				StateDB: stateDb,
-			}
-			p, _ := staking.NewPrecompile(&app.PrecompileKeepers{
-				StakingQuerier: tt.fields,
-				EVMKeeper:      k,
-			})
-			method, err := p.ABI.MethodById(p.GetExecutor().(*staking.PrecompileExecutor).RedelegationsID)
-			require.NoError(t, err)
-
-			inputs, err := method.Inputs.Pack(tt.args...)
-			require.NoError(t, err)
-
-			gotRet, _, err := p.RunAndCalculateGas(&evm, common.Address{}, common.Address{}, append(method.ID, inputs...), math.MaxUint64, tt.value, nil, true, false)
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("Run() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			if err != nil {
-				require.Equal(t, vm.ErrExecutionReverted, err)
-				require.Nil(t, gotRet)
-				return
-			}
-			if !reflect.DeepEqual(gotRet, tt.wantRet) {
-				t.Errorf("Run() gotRet = %v, want %v", gotRet, tt.wantRet)
-			}
-		})
-	}
+	t.Run("fails if value passed", func(t *testing.T) {
+		testApp, ctx, req := repair126RedelegationState(t)
+		p, err := staking.NewPrecompile(testApp.GetPrecompileKeepers())
+		require.NoError(t, err)
+		input, err := p.ABI.Pack(staking.RedelegationsMethod, req.DelegatorAddr, req.SrcValidatorAddr, req.DstValidatorAddr, req.Pagination.Key)
+		require.NoError(t, err)
+		db := state.NewDBImpl(ctx, &testApp.EvmKeeper, true)
+		ret, _, err := p.RunAndCalculateGas(&vm.EVM{StateDB: db}, common.Address{}, common.Address{}, input, 20_000_000, big.NewInt(1), nil, true, false)
+		require.ErrorIs(t, err, vm.ErrExecutionReverted)
+		require.Nil(t, ret)
+		require.Error(t, db.GetPrecompileError())
+		require.Contains(t, db.GetPrecompileError().Error(), "sending funds to a non-payable function")
+	})
+	t.Run("should return redelegations (static call allowed)", repairM1201RedelegationShares)
 }
 
 func TestPrecompile_Run_DelegatorValidators(t *testing.T) {
@@ -1985,7 +1880,7 @@ type createValidatorTestSetup struct {
 // setupCreateValidatorTest creates a common test setup for createValidator tests
 func setupCreateValidatorTest(t *testing.T) *createValidatorTestSetup {
 	testApp := testkeeper.EVMTestApp
-	ctx := testApp.NewContext(false, tmtypes.Header{}).WithBlockHeight(2)
+	ctx, _ := testApp.NewContext(false, tmtypes.Header{}).WithBlockHeight(2).CacheContext()
 	k := &testApp.EvmKeeper
 
 	abi := pcommon.MustGetABI(f, "abi.json")
@@ -2078,6 +1973,7 @@ func TestCreateValidator(t *testing.T) {
 				commissionMaxRate:       "0.20",
 				commissionMaxChangeRate: "0.01",
 				msd:                     big.NewInt(1000000),
+				value:                   big.NewInt(1_000_000_000_000_000_000),
 				nonce:                   0,
 			},
 			wantErr:    true,
@@ -2106,6 +2002,7 @@ func TestCreateValidator(t *testing.T) {
 				commissionMaxRate:       "0.20",
 				commissionMaxChangeRate: "0.01",
 				msd:                     big.NewInt(1000000),
+				value:                   big.NewInt(1_000_000_000_000_000_000),
 				nonce:                   0,
 			},
 			wantErr:    true,
@@ -2120,6 +2017,7 @@ func TestCreateValidator(t *testing.T) {
 				commissionMaxRate:       "invalid_max_rate",
 				commissionMaxChangeRate: "0.01",
 				msd:                     big.NewInt(1000000),
+				value:                   big.NewInt(1_000_000_000_000_000_000),
 				nonce:                   0,
 			},
 			wantErr:    true,
@@ -2134,6 +2032,7 @@ func TestCreateValidator(t *testing.T) {
 				commissionMaxRate:       "0.20",
 				commissionMaxChangeRate: "invalid_change_rate",
 				msd:                     big.NewInt(1000000),
+				value:                   big.NewInt(1_000_000_000_000_000_000),
 				nonce:                   0,
 			},
 			wantErr:    true,
@@ -2180,6 +2079,9 @@ func TestCreateValidator(t *testing.T) {
 			if tt.wantErr {
 				require.NotEmpty(t, res.VmError, "Expected error but transaction succeeded")
 				require.Nil(t, res.ReturnData)
+				receipt, err := setup.k.GetTransientReceipt(setup.ctx, tx.Hash(), uint64(setup.ctx.TxIndex()))
+				require.NoError(t, err)
+				require.Contains(t, receipt.VmError, tt.wantErrMsg)
 			} else {
 				require.Empty(t, res.VmError, "Unexpected error: %s", res.VmError)
 				// Additional validation for successful cases
@@ -2575,29 +2477,5 @@ func TestStakingPrecompileStaticCallPrevention(t *testing.T) {
 		})
 	}
 
-	// Test that delegation query works with staticcall
-	t.Run("delegation query allowed in staticcall", func(t *testing.T) {
-		method, found := abi.Methods["delegation"]
-		require.True(t, found)
-
-		// Create a validator
-		valPub := ed25519.GenPrivKey().PubKey()
-		val := setupValidator(t, ctx, testApp, stakingtypes.Bonded, valPub)
-
-		// Query arguments
-		args := []interface{}{evmAddr, val.String()}
-
-		// Create EVM
-		evm := &vm.EVM{
-			StateDB:   state.NewDBImpl(ctx, k, false),
-			TxContext: vm.TxContext{Origin: evmAddr},
-		}
-
-		// Should succeed with readOnly = true for query method (even if no delegation exists)
-		// The important thing is that the static call is allowed
-		_, _, err := precompile.GetExecutor().(*staking.PrecompileExecutor).Execute(ctx, &method, evmAddr, evmAddr, args, nil, true, evm, math.MaxUint64, nil)
-		// We don't check the error because the delegation might not exist
-		// We're just testing that static calls are allowed for query methods
-		_ = err
-	})
+	t.Run("delegation query allowed in staticcall", repairM1201StaticDelegation)
 }

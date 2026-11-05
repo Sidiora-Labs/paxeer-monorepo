@@ -109,7 +109,28 @@ func runAddCmd(ctx client.Context, cmd *cobra.Command, args []string, inBuf *buf
 	noBackup, _ := cmd.Flags().GetBool(flagNoBackup)
 	showMnemonic := !noBackup
 	kb := ctx.Keyring
+	sourceKeyring := kb
 	outputFormat := ctx.OutputFormat
+	var replacement *keyReplacement
+	finish := func(info keyring.Info, showMnemonic bool, mnemonic string) error {
+		if replacement == nil {
+			return printCreate(cmd, info, showMnemonic, mnemonic, outputFormat)
+		}
+
+		var out, errOut bytes.Buffer
+		stagedOutput := &cobra.Command{}
+		stagedOutput.SetOut(&out)
+		stagedOutput.SetErr(&errOut)
+		if err := printCreate(stagedOutput, info, showMnemonic, mnemonic, outputFormat); err != nil {
+			return err
+		}
+		if err := replacement.commit(); err != nil {
+			return err
+		}
+		cmd.Print(out.String())
+		cmd.PrintErr(errOut.String())
+		return nil
+	}
 
 	keyringAlgos, _ := kb.SupportedAlgorithms()
 	algoStr, _ := cmd.Flags().GetString(flags.FlagKeyAlgorithm)
@@ -134,10 +155,12 @@ func runAddCmd(ctx client.Context, cmd *cobra.Command, args []string, inBuf *buf
 				return errors.New("aborted")
 			}
 
-			err2 = kb.Delete(name)
+			replacement, err2 = stageKeyReplacement(ctx, cmd, kb, name)
 			if err2 != nil {
 				return err2
 			}
+			defer replacement.close(cmd)
+			kb = replacement.keyring
 		}
 
 		multisigKeys, _ := cmd.Flags().GetStringSlice(flagMultisig)
@@ -149,7 +172,7 @@ func runAddCmd(ctx client.Context, cmd *cobra.Command, args []string, inBuf *buf
 			}
 
 			for i, keyname := range multisigKeys {
-				k, err := kb.Key(keyname)
+				k, err := sourceKeyring.Key(keyname)
 				if err != nil {
 					return err
 				}
@@ -169,7 +192,7 @@ func runAddCmd(ctx client.Context, cmd *cobra.Command, args []string, inBuf *buf
 				return err
 			}
 
-			return printCreate(cmd, info, false, "", outputFormat)
+			return finish(info, false, "")
 		}
 	}
 
@@ -186,7 +209,7 @@ func runAddCmd(ctx client.Context, cmd *cobra.Command, args []string, inBuf *buf
 			return err
 		}
 
-		return printCreate(cmd, info, false, "", outputFormat)
+		return finish(info, false, "")
 	}
 
 	coinType, _ := cmd.Flags().GetUint32(flagCoinType)
@@ -210,7 +233,7 @@ func runAddCmd(ctx client.Context, cmd *cobra.Command, args []string, inBuf *buf
 			return err
 		}
 
-		return printCreate(cmd, info, false, "", outputFormat)
+		return finish(info, false, "")
 	}
 
 	// Get bip39 mnemonic
@@ -284,7 +307,7 @@ func runAddCmd(ctx client.Context, cmd *cobra.Command, args []string, inBuf *buf
 		mnemonic = ""
 	}
 
-	return printCreate(cmd, info, showMnemonic, mnemonic, outputFormat)
+	return finish(info, showMnemonic, mnemonic)
 }
 
 func printCreate(cmd *cobra.Command, info keyring.Info, showMnemonic bool, mnemonic string, outputFormat string) error {

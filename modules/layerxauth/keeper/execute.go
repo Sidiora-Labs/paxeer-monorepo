@@ -29,11 +29,12 @@ func (k *Keeper) execute(ctx sdk.Context, actor Actor, payload []byte, idempoten
 	if hostKey == nil {
 		return Result{}, fmt.Errorf("layerxauth: lxphost store is not mounted")
 	}
-	sequence, err := lxphost.NextSequence(ctx, hostKey)
+	branch, write := ctx.CacheContext()
+	sequence, err := lxphost.NextSequence(branch, hostKey)
 	if err != nil {
 		return Result{}, authReadError(err)
 	}
-	accountSequence, err := k.host.ReadIdentitySequence(ctx, actor.DID)
+	accountSequence, err := k.host.ReadIdentitySequence(branch, actor.DID)
 	if err != nil {
 		return Result{}, authReadError(err)
 	}
@@ -49,9 +50,14 @@ func (k *Keeper) execute(ctx sdk.Context, actor Actor, payload []byte, idempoten
 		IdempotencyKey:  idempotencyKey,
 		Payload:         payload,
 	}
-	receipt, err := k.host.Execute(lxphost.WithSequence(ctx, sequence), activity, actor.Authority)
+	receipt, err := k.host.Execute(lxphost.WithSequence(branch, sequence), activity, actor.Authority)
 	if err != nil {
 		return Result{Receipt: receipt}, authReadError(err)
 	}
-	return Result{Receipt: receipt}, FromKernel(receipt.ResultCode)
+	if err := FromKernel(receipt.ResultCode); err != nil {
+		return Result{Receipt: receipt}, err
+	}
+	write()
+	ctx.EventManager().EmitEvents(branch.EventManager().Events())
+	return Result{Receipt: receipt}, nil
 }

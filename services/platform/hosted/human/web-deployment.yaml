@@ -25,22 +25,15 @@ spec:
           env:
             - name: LAYERX_HUMAN_SERVICE_URL
               value: https://layerx-human.layerx-testnet.svc:9443
-            - name: LAYERX_EXPLORER_API_ORIGIN
-              value: https://layerx-human.layerx-testnet.svc:9443
+            - name: LAYERX_GATEWAY_URL
+              value: https://layerx-gateway.layerx-testnet.svc.cluster.local/
             - name: LAYERX_HUMAN_WEB_ORIGIN
               value: https://paxportwallet.com
-            - name: LAYERX_EXPLORER_PROGRAM_API_ORIGIN
-              value: http://127.0.0.1:9458
-            - name: LAYERX_EXPLORER_PROGRAM_BEARER_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: layerx-explorer-index
-                  key: program-token
-            - name: LAYERX_EXPLORER_NAMING_PROGRAM
+            - name: PAXEER_X_EXPLORER_BASE_URL
               valueFrom:
                 configMapKeyRef:
-                  name: layerx-explorer-index
-                  key: naming-program
+                  name: layerx-human-web-explorer
+                  key: base-url
             - name: NODE_EXTRA_CA_CERTS
               value: /run/layerx/trust/ca.crt
           ports:
@@ -79,40 +72,6 @@ spec:
               mountPath: /app/.next/cache
             - name: temporary
               mountPath: /tmp
-        - name: explorer-relay
-          image: ghcr.io/sidiora-labs/layerx-human-web:0.1.0
-          imagePullPolicy: Always
-          command: [/bin/sh, -ec]
-          args:
-            - |
-              : "${LAYERX_EXPLORER_INDEX_URL:?explorer index endpoint is required}"
-              : "${LAYERX_EXPLORER_PROGRAM_RELAY_PORT:?explorer relay port is required}"
-              target=${LAYERX_EXPLORER_INDEX_URL#https://}
-              host=${target%%:*}
-              port=${target##*:}
-              [ "$host" != "$target" ] && [ "$port" != "$target" ] || exit 64
-              exec socat -T 120 "TCP4-LISTEN:${LAYERX_EXPLORER_PROGRAM_RELAY_PORT},bind=127.0.0.1,reuseaddr,fork" \
-                "OPENSSL:${host}:${port},cafile=/run/layerx/trust/ca.crt,verify=1,commonname=${host}"
-          env:
-            - {name: LAYERX_EXPLORER_INDEX_URL, value: "https://layerx-explorer-index.layerx-testnet.svc.cluster.local:9443"}
-            - {name: LAYERX_EXPLORER_PROGRAM_RELAY_PORT, value: "9458"}
-          resources:
-            requests:
-              cpu: 50m
-              memory: 32Mi
-            limits:
-              cpu: 500m
-              memory: 128Mi
-          securityContext:
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
-            capabilities:
-              drop:
-                - ALL
-          volumeMounts:
-            - name: trust
-              mountPath: /run/layerx/trust
-              readOnly: true
         - name: web-boundary
           image: ghcr.io/sidiora-labs/layerx-human-web:0.1.0
           imagePullPolicy: Always
@@ -221,7 +180,34 @@ spec:
   - to:
     - podSelector:
         matchLabels:
-          app: layerx-program-registry
+          app: paxeer-x-explorer-backend
+    ports:
+    - protocol: TCP
+      port: 443
+  - to:
+    - podSelector:
+        matchLabels:
+          app: layerx-gateway
+    ports:
+    - protocol: TCP
+      port: 9443
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: layerx-human-web-gateway
+  namespace: layerx-testnet
+spec:
+  podSelector:
+    matchLabels:
+      app: layerx-gateway
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: layerx-human-web
     ports:
     - protocol: TCP
       port: 9443
@@ -245,3 +231,23 @@ spec:
     ports:
     - protocol: TCP
       port: human-https
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: layerx-human-web-explorer
+  namespace: layerx-testnet
+spec:
+  podSelector:
+    matchLabels:
+      app: paxeer-x-explorer-backend
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: layerx-human-web
+    ports:
+    - protocol: TCP
+      port: 443

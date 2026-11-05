@@ -1,0 +1,47 @@
+[disposition.18.1471.1.5]
+finding = "18.1471.1.5"
+status = "resolved"
+evidence = "Commit 24e7e1ab7 replaced the nil-keeper assertion with keeper identity and retained the registered message handler's retirement test; precompiles/layerxanchor/retired_surface_test.go:42 now explicitly requires the constructed anchor keeper."
+follow_up = "closure"
+
+[disposition.18.1471.1.6]
+finding = "18.1471.1.6"
+status = "resolved"
+evidence = "Commit 24e7e1ab7 corrected the retirement test so precompiles/layerxanchor/retired_surface_test.go:81 retains the anchor store and checks successful views at heights 20 and 21, then removes the store and requires every selector to refuse at heights 40 and 41."
+follow_up = "closure"
+
+[disposition.18.1503.1.1]
+finding = "18.1503.1.1"
+status = "resolved"
+evidence = "Commit c5867b375 added the quoted handwritten proof_exchange test declaration, retained under handwritten.agent-compatibility at sdk/platform/pipeline.kvx:258, so this file is classified by the generator."
+follow_up = "closure"
+
+[disposition.18.1506.1.1]
+finding = "18.1506.1.1"
+status = "environment"
+evidence = "services/platform/hosted/human/test_provision.py:18 requires a real identity-provider binary, and Makefile:1675 builds that producer and exports its location before running both integration tests, so the recorded failure came from the qualification environment's missing binary."
+follow_up = "closure"
+
+[disposition.18.1509.1.1]
+finding = "18.1509.1.1"
+status = "resolved"
+evidence = "Commit 740605d0f populated committed notification headers with the application's real AppHash and restored withdrawalsRoot in rpc/subscribe.go:698 while the subscription tests retain their expected keys and five-second event deadline."
+follow_up = "closure"
+
+[disposition.18.1129.1.6]
+finding = "18.1129.1.6"
+status = "open"
+evidence = "services/agent/sdk/typescript/test/web-search.test.ts:160 still configures eip155:1337 while services/interop/crates/x-websearch/tests/fixtures/client-exchange.json:29 offers eip155:125 after 33be5948f, and task 22.9.10's consumer-network repair has not landed."
+follow_up = "22.9.10"
+
+[disposition.18.1434.1.1]
+finding = "18.1434.1.1"
+status = "resolved"
+evidence = "Commit ed41b73aa added verify_move_evm_outcome, whose checks at services/human/crates/layerx-human-service/src/server/production_components.rs:8779 bind Move receipts to the wire default protocol 2 and EVM_RECEIPT_MODULE_ID 12, matching node/sequencer/receipt.go:24 and node/app.go:3485."
+follow_up = "closure"
+
+[disposition.18.1144.1.3]
+finding = "18.1144.1.3"
+status = "resolved"
+evidence = "Commit 4ef92b3c9 changed node/sequencer/standby_role_test.go:138 to require the installed sequencer source after StartStandby, matching the source installation at node/sequencer/standby_role.go:140."
+follow_up = "closure"

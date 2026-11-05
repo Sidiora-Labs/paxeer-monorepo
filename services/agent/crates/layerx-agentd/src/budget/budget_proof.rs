@@ -19,7 +19,7 @@ pub enum BudgetProofError {
 
 fn budget_verification_level(rank: u8) -> Result<VerificationLevel, BudgetProofError> {
     let level = VerificationLevel::from_wire_rank(rank).map_err(|_| BudgetProofError::Refused)?;
-    require(level == VerificationLevel::CHECKPOINT_FINALISED)?;
+    require(level == VerificationLevel::COMMITTED)?;
     Ok(level)
 }
 
@@ -453,6 +453,21 @@ mod tests {
         Arc,
     };
 
+    #[test]
+    fn repair_22_31_535_budget_verification_requires_committed() {
+        assert_eq!(
+            budget_verification_level(VerificationLevel::COMMITTED.wire_rank()),
+            Ok(VerificationLevel::COMMITTED)
+        );
+        for rank in [0, 1, 2, 3, 4, 5, 7, u8::MAX] {
+            assert_eq!(
+                budget_verification_level(rank),
+                Err(BudgetProofError::Refused),
+                "rank {rank}"
+            );
+        }
+    }
+
     const OWNER: &str =
         "did:layerx:0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a";
     const HEIGHT: u64 = 8;
@@ -731,13 +746,90 @@ mod tests {
         }
     }
     #[test]
+    fn repair_22_31_538_program_presentation_binds_committed_proof_and_sequence() {
+        use crate::budget::program_sources::{
+            bind_program_presentation_budget_proof, presentation_budget_reservation,
+        };
+        use crate::budget::ProgramSourceError;
+
+        let answers: Value =
+            serde_json::from_slice(&std::fs::read(fixture_path()).expect("recorded node answers"))
+                .expect("node answers JSON");
+        let export =
+            std::fs::read(fixture_path().with_file_name("export.json")).expect("authority export");
+        let mut document: Value = serde_json::from_slice(&export).expect("authority export JSON");
+        document["budget_state"]["verification"] = json!(VerificationLevel::COMMITTED.wire_rank());
+        let export = serde_json::to_vec(&document).expect("committed export");
+        let replay = Replay::new(answers);
+        let block_hash = id(document["head"]["block_hash"].as_str().expect("block hash"))
+            .expect("decode block hash");
+        let checkpoint = ServedCheckpoint::acquire_at_committed_block(
+            &replay.endpoint,
+            HEIGHT,
+            Some(block_hash),
+            "125",
+        )
+        .expect("signed checkpoint");
+        let owner = Did::new(OWNER.as_bytes()).expect("owner DID");
+        let trust = BudgetProofTrust {
+            tenant: "tenant",
+            principal: "operator",
+            owner: &owner,
+            protocol_version: 3,
+            network_id: 125,
+            checkpoint: &checkpoint,
+            endpoint: &replay.endpoint,
+            current_height: HEIGHT,
+            now_ms: 1_700_000_000_000,
+            maximum_age_seconds: 60,
+        };
+        let proof = verify_budget_proof(&export, budget_id(), &trust)
+            .expect("verify committed budget proof");
+        assert_eq!(proof.verification(), VerificationLevel::COMMITTED);
+        let sequence = proof.observed_head_sequence();
+        let reservation = presentation_budget_reservation(&proof, sequence);
+        assert_eq!(reservation.allocation_sequence(), Some(sequence));
+        assert!(reservation
+            .allocations()
+            .expect("allocations")
+            .iter()
+            .any(|row| { row.asset == proof.asset() && row.source == proof.source_account() }));
+        assert_eq!(
+            bind_program_presentation_budget_proof(
+                &reservation,
+                owner.as_bytes(),
+                &proof,
+                sequence
+            ),
+            Ok(())
+        );
+        let future_sequence = sequence.checked_add(1).expect("future sequence");
+        let future_reservation = presentation_budget_reservation(&proof, future_sequence);
+        assert_eq!(
+            future_reservation.allocation_sequence(),
+            Some(future_sequence)
+        );
+        assert_eq!(
+            bind_program_presentation_budget_proof(
+                &future_reservation,
+                owner.as_bytes(),
+                &proof,
+                sequence,
+            ),
+            Err(ProgramSourceError::Snapshot)
+        );
+    }
+
+    #[test]
     fn budget_proof_v2_verifies_the_fixture_export_and_refuses_tampering() {
         let answers: Value =
             serde_json::from_slice(&std::fs::read(fixture_path()).expect("answers"))
                 .expect("fixture JSON");
         let export = std::fs::read(fixture_path().with_file_name("export.json"))
             .expect("authority's committed export from task 8.98.18");
-        let document: Value = serde_json::from_slice(&export).expect("authority export JSON");
+        let mut document: Value = serde_json::from_slice(&export).expect("authority export JSON");
+        document["budget_state"]["verification"] = json!(VerificationLevel::COMMITTED.wire_rank());
+        let export = serde_json::to_vec(&document).expect("current committed export label");
         let replay = Replay::new(answers);
         let hash = id(document["head"]["block_hash"].as_str().expect("hash")).expect("block hash");
         assert_eq!(
@@ -778,10 +870,15 @@ mod tests {
         assert_eq!(verified.committed_height(), HEIGHT);
         assert_eq!(verified.checkpoint_digest(), checkpoint.block_hash);
         assert_eq!(verified.source_account(), [2; 32]);
-        assert_eq!(
-            verified.verification(),
-            VerificationLevel::CHECKPOINT_FINALISED
-        );
+        assert_eq!(verified.verification(), VerificationLevel::COMMITTED);
+        for rank in [0, 1, 2, 3, 4, 5, 7, u8::MAX] {
+            let mut retired = document.clone();
+            retired["budget_state"]["verification"] = json!(rank);
+            assert!(
+                matches!(verify(&retired, &trust), Err(BudgetProofError::Refused)),
+                "rank {rank}"
+            );
+        }
         let wrong_owner = Did::new(
             b"did:layerx:0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b",
         )

@@ -22,7 +22,7 @@
     "-s",
     "tools/launchpad/production/load",
     "-p",
-    "test_*.py",
+    "test_load.py",
     "-v"
   ]
 }

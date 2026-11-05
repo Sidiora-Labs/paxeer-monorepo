@@ -555,6 +555,9 @@ lxp_result lx_escrow_settle(lxp_module_ctx *ctx,
                             lxp_authorization_kind authority_kind,
                             lxp_receipt *receipt)
 {
+    lx_escrow_record after;
+    lx_account *custody;
+    lxp_u128 total;
     lxp_transfer_set set;
     lxp_transfer_source_authority source;
     lxp_transfer_asset_state asset_state;
@@ -563,6 +566,42 @@ lxp_result lx_escrow_settle(lxp_module_ctx *ctx,
         settlement->from == NULL || settlement->to == NULL ||
         settlement->asset == NULL || receipt == NULL)
         return LXP_ERR_NON_CANONICAL;
+    if (settlement->record == NULL) return LXP_ERR_NON_CANONICAL;
+    after = *settlement->record;
+    custody = settlement->reason == LXP_REASON_ESCROW_LOCK ?
+        settlement->to : settlement->from;
+    if (memcmp(custody->id, after.escrow_account, 32U) != 0 ||
+        memcmp(settlement->asset->asset_id, after.asset_id, 32U) != 0)
+        return LXP_ERR_CONTEXT_MISMATCH;
+    status = lx_escrow_binding_check(ctx, &after);
+    if (status != LXP_OK) return status;
+    if (settlement->reason != LXP_REASON_ESCROW_LOCK) {
+        if (!settlement->recover_excess) {
+            status = lx_escrow_prepare(ctx, &after, custody);
+            if (status != LXP_OK) return status;
+            status = lxp_u128_add(settlement->amount,
+                                   settlement->secondary_amount, &total);
+            if (status == LXP_OK)
+                status = lxp_u128_sub(after.locked_amount, total,
+                                       &after.locked_amount);
+            if (status != LXP_OK) return status;
+        } else {
+            lxp_u128 balance;
+            lxp_u128 excess;
+            if (settlement->reason != LXP_REASON_ESCROW_RELEASE ||
+                memcmp(settlement->to->id, after.owner, 32U) != 0 ||
+                settlement->secondary_to != NULL ||
+                !lxp_u128_is_zero(settlement->secondary_amount) ||
+                authority_kind != LXP_AUTH_ESCROW)
+                return LXP_ERR_UNAUTHORIZED_DEBIT;
+            status = lxp_state_balance_get(custody, after.asset_id, &balance);
+            if (status == LXP_OK)
+                status = lxp_u128_sub(balance, after.locked_amount, &excess);
+            if (status != LXP_OK || lxp_u128_is_zero(excess) ||
+                lxp_u128_cmp(excess, settlement->amount) != 0)
+                return LXP_ERR_ESCROW_STATE;
+        }
+    }
     if (settlement->from->next_sequence == UINT64_MAX) return LXP_ERR_OVERFLOW;
     status = lx_asset_transfer_state(settlement->asset, &asset_state);
     if (status != LXP_OK) return status;
@@ -601,7 +640,10 @@ lxp_result lx_escrow_settle(lxp_module_ctx *ctx,
     set.context.actor_sequence = settlement->from->next_sequence;
     set.context.batch_timestamp = lxp_ctx_batch_timestamp_ms(ctx);
     (void)memcpy(set.context.authorized_from, settlement->from->id, 32U);
-    return lxp_ctx_emit_transfer_set(ctx, &set, receipt);
+    status = lxp_ctx_emit_transfer_set(ctx, &set, receipt);
+    if (status == LXP_OK) status = lx_escrow_invariant_check(&after, custody);
+    if (status != LXP_OK) lxp_module_ctx_rollback(ctx);
+    return status;
 }
 
 lxp_result lx_escrow_commit_bound_result(
@@ -615,6 +657,12 @@ lxp_result lx_escrow_commit_bound_result(
     if (ctx == NULL || record == NULL || idempotency_key == NULL ||
         settlement == NULL || context_digest == NULL || receipt == NULL)
         return LXP_ERR_NON_CANONICAL;
+    status = lx_escrow_prepare(ctx, record,
+        ordinal == 1U ? settlement->to : settlement->from);
+    if (status != LXP_OK) {
+        lxp_module_ctx_rollback(ctx);
+        return status;
+    }
     (void)memset(&result, 0, sizeof(result));
     result.context_bound = true;
     (void)memcpy(result.context_digest, context_digest, 32U);

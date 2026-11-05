@@ -1,0 +1,1011 @@
+# Pre-upgrade Programs registry audit. Source findings are proposals; no source repairs are applied.
+# Counts refer to full package member reads; documentation notes identify the linked contract sections reviewed.
+
+[audit.22.30.124]
+task = "22.30.124"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 103
+findings = 32
+docs_reviewed = 10
+upgrade_ready = false
+blocking = ["deployment-transaction-binding", "deployment-interface-authentication", "deployment-interface-rebinding", "host-account-proof-shape", "upgrade-journal-recovery", "replay-deployment-identity", "legacy-interface-root", "bootstrap-header-encoding", "archive-bound-roundtrip", "build-command-roundtrip"]
+
+[file.001]
+path = "modules/lxphost/authority_hash.go"
+lines = 18
+verdict = "clean"
+note = "Read in full: scoped authority hashing delegates to the shared domain codec; the nil-scope and supplied-scope cases retain identical Go/C preimage rules."
+
+[file.002]
+path = "programs/crates/layerx-programs-ai-market/tests/admission_lifecycle.rs"
+lines = 1825
+verdict = "clean"
+note = "Read in full: admission ownership, consent, generation, retention, pruning, epoch rollover, replay, worker/evaluator separation and atomic refusal assertions agree with the current AI market producer API; no deployment artifact-size claim is made here."
+
+[file.003]
+path = "programs/crates/layerx-programs-registry/Cargo.toml"
+lines = 24
+verdict = "clean"
+note = "Read in full: workspace package metadata, runtime/SDK dependencies and pinned hash/curve dependencies agree with the chain-proof implementation; no retired adapter/proof crate dependency remains."
+
+[file.004]
+path = "programs/crates/layerx-programs-registry/examples/lxt20_interface.rs"
+lines = 38
+verdict = "clean"
+note = "Read in full: binds the reference LXT-20 module under guest ABI two and emits the canonical descriptor using the same SDK request selectors and bounded spend declarations."
+
+[file.005]
+path = "programs/crates/layerx-programs-registry/examples/lxt721_interface.rs"
+lines = 40
+verdict = "clean"
+note = "Read in full: descriptor emission uses the LXT721 reference interface and guest module bytes; ABI, exports and reference identifiers match the producer."
+
+[file.006]
+path = "programs/crates/layerx-programs-registry/examples/naming_interface.rs"
+lines = 34
+verdict = "clean"
+note = "Read in full: ABI-two naming descriptor binds the actual module and labels/occupancy declarations; encoded output is fallible and errors are propagated."
+
+[file.007]
+path = "programs/crates/layerx-programs-registry/examples/swap_interface.rs"
+lines = 38
+verdict = "clean"
+note = "Read in full: ABI-two swap descriptor binds the reference module and token/share capability declarations; canonical encoding errors are propagated."
+
+[file.008]
+path = "programs/crates/layerx-programs-registry/src/account_state.rs"
+lines = 1052
+verdict = "issues"
+note = "Read in full: checked leaf flags, account derivation, membership ordering and completeness; host-account key/codec and chain-consumer integration disagreements are recorded below."
+
+[file.009]
+path = "programs/crates/layerx-programs-registry/src/archive.rs"
+lines = 225
+verdict = "issues"
+note = "Read in full: canonical ordering, safe paths, duplicates and per-file limits checked; accepted-content versus encoded-size round-trip failure is recorded below."
+
+[file.010]
+path = "programs/crates/layerx-programs-registry/src/authority.rs"
+lines = 903
+verdict = "clean"
+note = "Read in full: canonical deployment/migration records, bounded decode, policy/ABI/code validation and journal freshness are internally consistent. Its correct predecessor check exposes the verifier upgrade-record defect recorded on protocol_evidence.rs."
+
+[file.011]
+path = "programs/crates/layerx-programs-registry/src/chain_evidence.rs"
+lines = 35
+verdict = "clean"
+note = "Read in full: module exports and 01 || be16(9) Programs kernel-key prefix agree with the host module-KV producer; this prefix is not the host account prefix."
+
+[file.012]
+path = "programs/crates/layerx-programs-registry/src/chain_evidence/deployment.rs"
+lines = 123
+verdict = "issues"
+note = "Read in full: program-record and code-hash binding checked; optional interface bytes lack authenticated membership/absence and are recorded as a finding."
+
+[file.013]
+path = "programs/crates/layerx-programs-registry/src/chain_evidence/freshness.rs"
+lines = 17
+verdict = "clean"
+note = "Read in full: header height/time conversions, future-time rejection and caller age bound agree with the chain evidence freshness contract."
+
+[file.014]
+path = "programs/crates/layerx-programs-registry/src/chain_evidence/lifecycle.rs"
+lines = 73
+verdict = "clean"
+note = "Read in full: program identity, lifecycle record membership and immutable/authority policy decoding agree with the committed Programs record shape."
+
+[file.015]
+path = "programs/crates/layerx-programs-registry/src/chain_evidence/program_state.rs"
+lines = 109
+verdict = "clean"
+note = "Read in full: program key, 71-byte record, policy/authority canonicality, code hash, ABI and positive version checks agree with the host Programs record producer."
+
+[file.016]
+path = "programs/crates/layerx-programs-registry/src/chain_evidence/protocol_head.rs"
+lines = 86
+verdict = "clean"
+note = "Read in full: verified head hash/height/app hash and current/historical freshness coordinates preserve the chain proof result without trusting transport metadata."
+
+[file.017]
+path = "programs/crates/layerx-programs-registry/src/chain_evidence/trust_root.rs"
+lines = 35
+verdict = "clean"
+note = "Read in full: constructor validates chain id, validator set and positive age bound; caller-owned persisted trust anchors remain an explicit input."
+
+[file.018]
+path = "programs/crates/layerx-programs-registry/src/chain_evidence/verify_bundle.rs"
+lines = 486
+verdict = "clean"
+note = "Read in full: bounded v2 canonical bundle, program/interface membership or absence, version/code/ABI bindings, lifecycle evidence and trailing-byte refusal agree across encode/decode and wrapper consumption."
+
+[file.019]
+path = "programs/crates/layerx-programs-registry/src/chain_evidence/verify_deployment.rs"
+lines = 66
+verdict = "clean"
+note = "Read in full: current and historical wrappers enforce chain domain, freshness and authenticated trust advancement. The shared deployment interface-authentication defect is recorded at its owning deployment.rs producer."
+
+[file.020]
+path = "programs/crates/layerx-programs-registry/src/chain_evidence/verify_head.rs"
+lines = 199
+verdict = "clean"
+note = "Read in full: ordinary/maintenance tags, current age checks and historical trust steps use authenticated chain headers and reject unrelated chains and unlinked terminal heads."
+
+[file.021]
+path = "programs/crates/layerx-programs-registry/src/chain_evidence/verify_program.rs"
+lines = 98
+verdict = "clean"
+note = "Read in full: record, lifecycle and wind-down proofs bind one program and head; expired/tombstoned wind-down views refuse executable admission."
+
+[file.022]
+path = "programs/crates/layerx-programs-registry/src/chain_evidence/wind_down.rs"
+lines = 49
+verdict = "clean"
+note = "Read in full: 54-byte status shape, program key, version/status fields and authenticated absence match the host wind-down producer."
+
+[file.023]
+path = "programs/crates/layerx-programs-registry/src/chain_proof.rs"
+lines = 107
+verdict = "clean"
+note = "Read in full: verifier construction, opaque verified header coordinates, error exports and module boundaries match primitive consumers; no kernel proof dependency remains."
+
+[file.024]
+path = "programs/crates/layerx-programs-registry/src/chain_proof/decode.rs"
+lines = 146
+verdict = "clean"
+note = "Read in full: commitment envelope store/key/value, height and proof-op framing are bounded and canonical; duplicate, unknown and trailing input refuses."
+
+[file.025]
+path = "programs/crates/layerx-programs-registry/src/chain_proof/ed25519.rs"
+lines = 33
+verdict = "clean"
+note = "Read in full: scalar canonicality and cofactored ZIP-215 verification agree with the consensus signature vectors and declared validator policy."
+
+[file.026]
+path = "programs/crates/layerx-programs-registry/src/chain_proof/head_verify.rs"
+lines = 98
+verdict = "clean"
+note = "Read in full: validator hash, commit height/round/block-id, sign bytes, duplicate votes and strictly greater-than-two-thirds power checks agree with consensus commit verification."
+
+[file.027]
+path = "programs/crates/layerx-programs-registry/src/chain_proof/header.rs"
+lines = 245
+verdict = "issues"
+note = "Read in full: field-Merkle hashing and protobuf parsing reviewed against Go consensus; valid initial-header nil fields are incorrectly rejected as recorded below."
+
+[file.028]
+path = "programs/crates/layerx-programs-registry/src/chain_proof/ics23.rs"
+lines = 307
+verdict = "clean"
+note = "Read in full: IAVL leaf/inner operations, canonical protobuf, path bounds, key/value hashing and root assembly agree with exported ICS23 vectors."
+
+[file.029]
+path = "programs/crates/layerx-programs-registry/src/chain_proof/ics23_absent.rs"
+lines = 129
+verdict = "clean"
+note = "Read in full: ordered neighbors, left/right boundaries and adjacent path structure are checked before accepting non-membership; no forged gap fallback exists."
+
+[file.030]
+path = "programs/crates/layerx-programs-registry/src/chain_proof/merkle.rs"
+lines = 85
+verdict = "clean"
+note = "Read in full: split-point rule, leaf/inner domains, index/total and aunt-depth validation match consensus simple-Merkle inclusion."
+
+[file.031]
+path = "programs/crates/layerx-programs-registry/src/chain_proof/multistore.rs"
+lines = 142
+verdict = "clean"
+note = "Read in full: exact store name, IAVL child root and multistore leaf/inner proof rules bind one store root to the app hash."
+
+[file.032]
+path = "programs/crates/layerx-programs-registry/src/chain_proof/proto.rs"
+lines = 106
+verdict = "clean"
+note = "Read in full: field ordering, wire types, canonical varints and bounded length slices reject duplicate, truncated and unknown encodings as intended."
+
+[file.033]
+path = "programs/crates/layerx-programs-registry/src/chain_proof/results.rs"
+lines = 46
+verdict = "clean"
+note = "Read in full: deterministic transaction-result fields and simple-Merkle verification use next-header last_results_hash; primitive matches Go result vectors. Deployment callers failing to use it are recorded separately."
+
+[file.034]
+path = "programs/crates/layerx-programs-registry/src/chain_proof/state.rs"
+lines = 76
+verdict = "clean"
+note = "Read in full: exactly two proof operations, store/key/value matching and H-1 state height agree with IAVL/multistore producer proofs for membership and absence."
+
+[file.035]
+path = "programs/crates/layerx-programs-registry/src/chain_proof/trust.rs"
+lines = 83
+verdict = "issues"
+note = "Read in full: adjacent validator continuity, non-adjacent one-third trusted overlap and increasing bounded time/height checked; registry ownership-signature drift is recorded below."
+
+[file.036]
+path = "programs/crates/layerx-programs-registry/src/chain_proof/trust_store.rs"
+lines = 151
+verdict = "clean"
+note = "Read in full: versioned LXTR root binds chain, positive height/time, nonzero header hash and canonically ordered validators; bounded decode rejects trailing data."
+
+[file.037]
+path = "programs/crates/layerx-programs-registry/src/chain_proof/tx.rs"
+lines = 13
+verdict = "issues"
+note = "Read in full: transaction digest inclusion under data_hash is correct; its interface registry row incorrectly describes the distinct result verifier."
+
+[file.038]
+path = "programs/crates/layerx-programs-registry/src/chain_proof/validators.rs"
+lines = 109
+verdict = "clean"
+note = "Read in full: sorted unique addresses, positive bounded voting power, consensus validator-set hash and strict threshold arithmetic agree with consumers."
+
+[file.039]
+path = "programs/crates/layerx-programs-registry/src/chain_proof/vote.rs"
+lines = 231
+verdict = "clean"
+note = "Read in full: canonical length-prefixed vote preimage, nil/commit/absent flags, protobuf timestamps, block ids and signature framing agree with Go consensus vectors."
+
+[file.040]
+path = "programs/crates/layerx-programs-registry/src/deprecate.rs"
+lines = 751
+verdict = "clean"
+note = "Read in full: deprecation/tombstone monotonicity, authority, routes, deadlines and owner-value exit laws checked. The missing chain-account consumer bridge is recorded on lib.rs; legacy snapshot preconditions remain explicit."
+
+[file.041]
+path = "programs/crates/layerx-programs-registry/src/hash.rs"
+lines = 142
+verdict = "clean"
+note = "Read in full: domain framing, length checks, leaf/node hashing and SHA-256 helpers agree with the custom-tree compatibility consumers and vectors."
+
+[file.042]
+path = "programs/crates/layerx-programs-registry/src/hex.rs"
+lines = 61
+verdict = "clean"
+note = "Read in full: lowercase encoding, digest width and malformed/odd/non-hex refusal agree with record and transport consumers."
+
+[file.043]
+path = "programs/crates/layerx-programs-registry/src/interface.rs"
+lines = 1846
+verdict = "issues"
+note = "Read in full: schema/capability canonicality, module binding, upgrade comparison and read decoding checked; descriptor rebinding and legacy root disagreement are recorded below."
+
+[file.044]
+path = "programs/crates/layerx-programs-registry/src/lib.rs"
+lines = 1270
+verdict = "issues"
+note = "Read in full: registry history, source status, balance/profile and lifecycle paths checked; replay identity, failed insertion and chain-account consumption gaps are recorded below."
+
+[file.045]
+path = "programs/crates/layerx-programs-registry/src/lxt20.rs"
+lines = 102
+verdict = "clean"
+note = "Read in full: eight method selectors, calldata/response schemas, issuer/token constants and bounded capabilities agree with SDK requests and reference guest."
+
+[file.046]
+path = "programs/crates/layerx-programs-registry/src/lxt721.rs"
+lines = 63
+verdict = "clean"
+note = "Read in full: reference NFT selectors, schemas and bounded authorization descriptors agree with the SDK request decoder and guest exports."
+
+[file.047]
+path = "programs/crates/layerx-programs-registry/src/naming.rs"
+lines = 68
+verdict = "clean"
+note = "Read in full: label bounds, request selectors, record response and occupancy payment declarations agree with SDK naming codecs and the guest example."
+
+[file.048]
+path = "programs/crates/layerx-programs-registry/src/pipeline.rs"
+lines = 375
+verdict = "issues"
+note = "Read in full: pinned materials, independent attempts, byte-identical artifacts and exact-ABI validation checked; command argument boundary loss is recorded below."
+
+[file.049]
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+lines = 1254
+verdict = "issues"
+note = "Read in full: current/historical evidence, durable proof transport and discovery checked; deployment transaction/result binding, durable upgrade shape and stale declared prototypes are recorded below."
+
+[file.050]
+path = "programs/crates/layerx-programs-registry/src/resolver.rs"
+lines = 384
+verdict = "clean"
+note = "Read in full: exact-ABI module admission, monotonic version/freshness, current-head completeness, expiry and one-activity resolver binding agree with runtime composition. Authentication of supplied deployment interfaces is owned by deployment.rs and recorded there."
+
+[file.051]
+path = "programs/crates/layerx-programs-registry/src/swap.rs"
+lines = 324
+verdict = "issues"
+note = "Read in full: fee rounding, quote slippage, reserve/share arithmetic and SDK capability declarations checked; non-atomic add-liquidity overflow refusal is recorded below."
+
+[file.052]
+path = "programs/crates/layerx-programs-registry/tests/chain_decode.rs"
+lines = 170
+verdict = "clean"
+note = "Read in full: Canonical commitment envelope round-trip, size, field and trailing-byte refusals agree with the producer envelope schema."
+
+[file.053]
+path = "programs/crates/layerx-programs-registry/tests/chain_ed25519.rs"
+lines = 104
+verdict = "clean"
+note = "Read in full: ZIP-215 cofactored verification cases include small-order/noncanonical points and invalid scalar/signature refusals."
+
+[file.054]
+path = "programs/crates/layerx-programs-registry/tests/chain_end_to_end.rs"
+lines = 488
+verdict = "issues"
+note = "Read in full: Synthetic transaction identity and in-memory-only upgrade coverage miss producer/result and durable upgrade recovery defects recorded below."
+
+[file.055]
+path = "programs/crates/layerx-programs-registry/tests/chain_evidence_account.rs"
+lines = 119
+verdict = "issues"
+note = "Read in full: The positive case invents a module-KV account row instead of the host account key/codec; finding below records the hidden mismatch."
+
+[file.056]
+path = "programs/crates/layerx-programs-registry/tests/chain_evidence_deployment.rs"
+lines = 185
+verdict = "issues"
+note = "Read in full: The positive test accepts an unproven optional interface against unchanged program-only state; finding below records that invalid producer shape."
+
+[file.057]
+path = "programs/crates/layerx-programs-registry/tests/chain_evidence_freshness.rs"
+lines = 61
+verdict = "clean"
+note = "Read in full: Boundary age, future time, zero/overflow coordinates and positive header observations assert the declared freshness rule."
+
+[file.058]
+path = "programs/crates/layerx-programs-registry/tests/chain_evidence_interface.rs"
+lines = 209
+verdict = "clean"
+note = "Read in full: Membership, absence, version, code/ABI and digest checks consume chain program/interface proof operations at one authenticated head."
+
+[file.059]
+path = "programs/crates/layerx-programs-registry/tests/chain_evidence_keys.rs"
+lines = 25
+verdict = "clean"
+note = "Read in full: Programs state prefix and kernel-key bytes match the declared module-KV layout; this test makes no account-prefix claim."
+
+[file.060]
+path = "programs/crates/layerx-programs-registry/tests/chain_evidence_lifecycle.rs"
+lines = 232
+verdict = "clean"
+note = "Read in full: Lifecycle and policy decoding, proof substitution, identity mismatch and refused malformed records exercise the actual committed record shape."
+
+[file.061]
+path = "programs/crates/layerx-programs-registry/tests/chain_evidence_program_state.rs"
+lines = 172
+verdict = "clean"
+note = "Read in full: The 71-byte program record and its policy, code, ABI, version and state-height coordinates agree with the host record."
+
+[file.062]
+path = "programs/crates/layerx-programs-registry/tests/chain_evidence_protocol_head.rs"
+lines = 204
+verdict = "clean"
+note = "Read in full: Ordinary and maintenance head wrappers preserve signed header app hash, time and height and reject wrong evidence/domain."
+
+[file.063]
+path = "programs/crates/layerx-programs-registry/tests/chain_evidence_trust_root.rs"
+lines = 48
+verdict = "clean"
+note = "Read in full: Validator/chain construction and invalid trust parameters cover the explicit trust-root constructor inputs."
+
+[file.064]
+path = "programs/crates/layerx-programs-registry/tests/chain_evidence_wind_down.rs"
+lines = 177
+verdict = "clean"
+note = "Read in full: Status membership and authenticated absence exercise the 54-byte lifecycle record and malformed/wrong-program refusals."
+
+[file.065]
+path = "programs/crates/layerx-programs-registry/tests/chain_fixture.rs"
+lines = 347
+verdict = "clean"
+note = "Read in full: Fixture self-check exercises the public verifier and canonical proof transport; it is primitive synthetic proof coverage, not a live deployment result claim."
+
+[file.066]
+path = "programs/crates/layerx-programs-registry/tests/chain_head.rs"
+lines = 280
+verdict = "clean"
+note = "Read in full: Quorum, duplicate/missing/foreign signers, commit identity and malformed signature refusals agree with the commit verifier."
+
+[file.067]
+path = "programs/crates/layerx-programs-registry/tests/chain_header.rs"
+lines = 341
+verdict = "issues"
+note = "Read in full: The blanket empty-hash/default-field refusal asserts a narrower shape than the consensus producer; finding below identifies missing bootstrap compatibility."
+
+[file.068]
+path = "programs/crates/layerx-programs-registry/tests/chain_ics23.rs"
+lines = 313
+verdict = "clean"
+note = "Read in full: IAVL membership fixtures and operation/path mutations cover the declared leaf and inner proof rules."
+
+[file.069]
+path = "programs/crates/layerx-programs-registry/tests/chain_ics23_absent.rs"
+lines = 278
+verdict = "clean"
+note = "Read in full: Neighbor ordering, boundary absence and nonadjacent/forged gap refusals cover canonical ICS23 non-membership."
+
+[file.070]
+path = "programs/crates/layerx-programs-registry/tests/chain_merkle.rs"
+lines = 182
+verdict = "clean"
+note = "Read in full: Split-rule roots and inclusion at different totals/indices check consensus simple-Merkle shape and invalid aunt depths."
+
+[file.071]
+path = "programs/crates/layerx-programs-registry/tests/chain_multistore.rs"
+lines = 188
+verdict = "clean"
+note = "Read in full: Named-store root inclusion and changed store/value/path refusals check the IAVL-to-app-hash transport boundary."
+
+[file.072]
+path = "programs/crates/layerx-programs-registry/tests/chain_proto.rs"
+lines = 168
+verdict = "clean"
+note = "Read in full: Canonical field/varint reader tests cover truncation, field ordering, wire types and overlong values without permissive decoding."
+
+[file.073]
+path = "programs/crates/layerx-programs-registry/tests/chain_results.rs"
+lines = 210
+verdict = "clean"
+note = "Read in full: Deterministic result encoding and indexed proof mutation tests bind the result to next-header last_results_hash."
+
+[file.074]
+path = "programs/crates/layerx-programs-registry/tests/chain_state.rs"
+lines = 439
+verdict = "clean"
+note = "Read in full: Two-op membership/absence tests bind exact host store, key/value and app hash and verify the H-1 state-height convention."
+
+[file.075]
+path = "programs/crates/layerx-programs-registry/tests/chain_trust.rs"
+lines = 363
+verdict = "clean"
+note = "Read in full: Adjacent and skipped trust advancement, overlap thresholds, time/height regressions and validator mutations assert the declared chain trust transitions."
+
+[file.076]
+path = "programs/crates/layerx-programs-registry/tests/chain_trust_store.rs"
+lines = 231
+verdict = "clean"
+note = "Read in full: LXTR serialization, sorted validators, bounded inputs, truncation and trailing-data refusal agree with persisted root format."
+
+[file.077]
+path = "programs/crates/layerx-programs-registry/tests/chain_tx.rs"
+lines = 207
+verdict = "clean"
+note = "Read in full: Transaction hash inclusion, wrong block/index and proof-depth mutations test data_hash independently of execution success."
+
+[file.078]
+path = "programs/crates/layerx-programs-registry/tests/chain_validators.rs"
+lines = 197
+verdict = "clean"
+note = "Read in full: Validator address derivation, canonical set ordering, hash and strict voting-power thresholds agree with consensus fixtures."
+
+[file.079]
+path = "programs/crates/layerx-programs-registry/tests/chain_vectors_commit.rs"
+lines = 179
+verdict = "clean"
+note = "Read in full: Go-exported signed header and commit vectors are decoded and authenticated; changed commit/header/signature cases refuse."
+
+[file.080]
+path = "programs/crates/layerx-programs-registry/tests/chain_vectors_ed25519.rs"
+lines = 207
+verdict = "clean"
+note = "Read in full: Go consensus ZIP-215 acceptance vectors and altered-signature refusals preserve the cross-language signature rule."
+
+[file.081]
+path = "programs/crates/layerx-programs-registry/tests/chain_vectors_ics23.rs"
+lines = 198
+verdict = "clean"
+note = "Read in full: Go-generated IAVL/multistore fixtures are consumed unchanged and mutations of authenticated fields refuse."
+
+[file.082]
+path = "programs/crates/layerx-programs-registry/tests/chain_vectors_keys.rs"
+lines = 72
+verdict = "clean"
+note = "Read in full: Exported host module-KV key vectors confirm exact Programs prefix and key bytes."
+
+[file.083]
+path = "programs/crates/layerx-programs-registry/tests/chain_vectors_results.rs"
+lines = 144
+verdict = "clean"
+note = "Read in full: Go deterministic result bytes and Merkle roots match the Rust result verifier with changed result fields refused."
+
+[file.084]
+path = "programs/crates/layerx-programs-registry/tests/chain_verifier_bundle.rs"
+lines = 238
+verdict = "clean"
+note = "Read in full: Canonical v2 bundle serialization and program/interface/lifecycle proof checks cover the chain-backed bundle API; obsolete envelope versions and trailing input refuse."
+
+[file.085]
+path = "programs/crates/layerx-programs-registry/tests/chain_verifier_deployment.rs"
+lines = 305
+verdict = "issues"
+note = "Read in full: Current and historical wrappers cover hash/trust/freshness but omit chain interface authentication; finding below specifies missing substitution cases."
+
+[file.086]
+path = "programs/crates/layerx-programs-registry/tests/chain_verifier_head.rs"
+lines = 358
+verdict = "clean"
+note = "Read in full: Current and historical header verification, explicit trust steps and domain/time refusals match the chain wrapper contracts."
+
+[file.087]
+path = "programs/crates/layerx-programs-registry/tests/chain_verifier_program.rs"
+lines = 277
+verdict = "clean"
+note = "Read in full: Proven program records plus lifecycle/wind-down status drive current program admission and expiry refusals."
+
+[file.088]
+path = "programs/crates/layerx-programs-registry/tests/chain_verifier_switch.rs"
+lines = 471
+verdict = "clean"
+note = "Read in full: Public wrapper use of chain evidence, persisted validator-root reload and rejection of retired kernel envelopes are explicit; retired byte strings appear only in refusal tests."
+
+[file.089]
+path = "programs/crates/layerx-programs-registry/tests/chain_vote.rs"
+lines = 247
+verdict = "clean"
+note = "Read in full: Vote sign-byte framing, timestamps, nil block-id omission and commit signature flags match canonical consensus encoding."
+
+[file.090]
+path = "programs/crates/layerx-programs-registry/tests/completion_gate.rs"
+lines = 135
+verdict = "clean"
+note = "Read in full: Retired identifiers are intentional negative assertions over source/dependency surfaces; no active daemon or retired proof path is introduced by the test."
+
+[file.091]
+path = "programs/crates/layerx-programs-registry/tests/interface.rs"
+lines = 249
+verdict = "clean"
+note = "Read in full: Schema canonicality, exact module exports, supported ABI and verified head/interface consistency are checked using chain proof operations; shared producer authentication issues are recorded at their source."
+
+[file.092]
+path = "programs/crates/layerx-programs-registry/tests/interface_protocol.rs"
+lines = 803
+verdict = "issues"
+note = "Read in full: Native descriptor bytes are exercised, but synthetic transaction/result provenance hides the live producer boundary; finding below specifies the missing integration proof."
+
+[file.093]
+path = "programs/crates/layerx-programs-registry/tests/lxt20_reference.rs"
+lines = 14
+verdict = "clean"
+note = "Read in full: Reference ABI-two descriptor checks token guest schemas and expected method count using the common producer interface."
+
+[file.094]
+path = "programs/crates/layerx-programs-registry/tests/lxt721_reference.rs"
+lines = 22
+verdict = "clean"
+note = "Read in full: Reference NFT descriptor assertions align with the SDK standard, method set and ABI-two guest exports."
+
+[file.095]
+path = "programs/crates/layerx-programs-registry/tests/naming_reference.rs"
+lines = 132
+verdict = "clean"
+note = "Read in full: Naming label encode/decode, occupancy bounds and declared reference interface match the SDK producer."
+
+[file.096]
+path = "programs/crates/layerx-programs-registry/tests/program_bundle_verification.rs"
+lines = 593
+verdict = "clean"
+note = "Read in full: Public bundle verification binds program/interface/lifecycle to an independently verified current chain head; wrong domain/head, stale, malformed and missing evidence refuse."
+
+[file.097]
+path = "programs/crates/layerx-programs-registry/tests/proof_registry_crate.rs"
+lines = 320
+verdict = "issues"
+note = "Read in full: The claimed restart proof skips hosted envelope validation, public replay identity and upgrades; finding below records the coverage gap."
+
+[file.098]
+path = "programs/crates/layerx-programs-registry/tests/registry.rs"
+lines = 1099
+verdict = "clean"
+note = "Read in full: Deployment history, source reproducibility, policy, ABI, current-head resolver and journal checks reviewed. Existing replay cases use record-digest authority and do not establish transaction-identity round-trip; that defect is recorded on lib.rs."
+
+[file.099]
+path = "programs/crates/layerx-programs-registry/tests/support/chain.rs"
+lines = 471
+verdict = "clean"
+note = "Read in full: deterministic synthetic validators, headers and two-level proof construction support primitive unit cases; independent Go vectors separately cover cross-language commitment rules. It does not claim to export a node transaction."
+
+[file.100]
+path = "programs/crates/layerx-programs-registry/tests/support/mod.rs"
+lines = 476
+verdict = "issues"
+note = "Read in full: deployment fixture reconstructs payload/header/post-state independently of node execution; finding below records its incomplete producer transport model."
+
+[file.101]
+path = "programs/crates/layerx-programs-registry/tests/swap_reference.rs"
+lines = 180
+verdict = "clean"
+note = "Read in full: Reference fee/rounding, slippage, reserve conservation and bounded interface cases match ordinary pool behavior; missing atomic overflow coverage is proposed with the source finding."
+
+[file.102]
+path = "programs/crates/layerx-programs-registry/tests/winddown.rs"
+lines = 925
+verdict = "clean"
+note = "Read in full: Owner authority, monotonic lifecycle, deadline, routes, balance completeness and exit refusal cases agree with explicit custom-snapshot inputs; missing chain-account bridge is recorded on lib.rs."
+
+[file.103]
+path = "programs/crates/layerx-programs-runtime/src/test_support.rs"
+lines = 179
+verdict = "clean"
+note = "Read in full: bounded WASM section/opcode builders emit deterministic test modules with matching import/export/type/function/code framing; no runtime deployment or network transport is simulated here."
+
+[finding.deployment-transaction-binding]
+file = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 741
+class = "interface-mismatch"
+severity = "high"
+observed = "bind_chain_deployment verifies an arbitrary transaction against data_hash at header height H and a program record against the same header app_hash, which commits state H-1. It never decodes the transaction, checks its program/version/code, or authenticates a successful TxResult. The chain_end_to_end fixture accepts the literal bytes chain program deployment as a deployment transaction."
+expected = "Deployment evidence must identify the successful deployment or upgrade that produced the proven record. Requirements 1244.1-1244.6 and the chain-proof contract require one coherent producer, transaction, result and resulting state, rather than an unrelated included transaction."
+proposal = "In programs/crates/layerx-programs-registry/src/protocol_evidence.rs, authenticate the actual chain transaction and its Programs call, prove its successful result at the same transaction index, and link the transaction header at H to the resulting state/result header at H+1. Bind program, version, ABI, code, interface and upgrade fields before returning evidence; exercise unrelated and failed transactions from the node producer."
+owner_domain = 13
+interface = "13.rs-reg-protocol-evidence-protocoldeploymentverifier-verify-deployment"
+
+[finding.deployment-interface-authentication]
+file = "programs/crates/layerx-programs-registry/src/chain_evidence/deployment.rs"
+line = 31
+class = "interface-mismatch"
+severity = "high"
+observed = "ChainDeploymentProof carries optional interface bytes without an interface membership or absence proof. verify authenticates only the program record and code hash, then accepts any descriptor whose entries bind to that module. The interface may be replaced or omitted while the chain proof remains identical; hosted journal verification consumes this same type."
+expected = "The interface presented as deployed must be exactly the interface committed for the authenticated program version, including authenticated absence. Code-hash and export compatibility alone do not authenticate schemas, discriminators, capabilities or the published descriptor digest."
+proposal = "Extend programs/crates/layerx-programs-registry/src/chain_evidence/deployment.rs to prove the interface record or its absence through lxphost ICS23 operations at the same head as the program record. Decode only those committed bytes and bind program, version, digest, code and ABI; carry the proof through canonical deployment transport and hosted journal recovery."
+owner_domain = 13
+interface = "13.rs-reg-chain-evidence-chaindeploymentproof-j51"
+
+[finding.deployment-interface-rebinding]
+file = "programs/crates/layerx-programs-registry/src/interface.rs"
+line = 251
+class = "interface-mismatch"
+severity = "high"
+observed = "ProgramInterface::bind_deployment checks only interface_present and the module code hash, then builds a descriptor from caller-supplied entries. It never compares those entries or the resulting digest with deployment.interface(). bind_verified_upgrade inherits this substitution path."
+expected = "Binding a verified deployment must preserve its exact published interface. A caller must not replace calldata/response schemas, discriminators, errors or capabilities merely because the same module exports the named entrypoint."
+proposal = "In programs/crates/layerx-programs-registry/src/interface.rs, return the authenticated deployment descriptor or require canonical equality with it before accepting supplied entries. Apply the same equality to bind_verified_upgrade and CLI consumers; add refusal cases using different valid schemas and discriminators over identical module bytes."
+owner_domain = 13
+interface = "13.rs-reg-interface-programinterface-bind-deployment"
+
+[finding.host-account-proof-shape]
+file = "programs/crates/layerx-programs-registry/src/account_state.rs"
+line = 561
+class = "interface-mismatch"
+severity = "high"
+observed = "VerifiedAccountSnapshot::verify_chain proves programs_state_key(leaf.primary_key()), yielding 01 0009 04 || account_id, with the custom account-tree primary_value encoding. modules/lxphost/ctx.go:259-275,339-340 commits accounts at 06 || account_id using lx_account_record_encode, whose framed id/name fields differ. A real committed host account proof cannot satisfy this verifier."
+expected = "Account verification must consume the exact lxphost account store key and standalone snapshot codec declared by 1.key-lxphost-account-j22 and 1.fmt-account-record. The module-KV prefix applies to Programs records, not host account rows."
+proposal = "In programs/crates/layerx-programs-registry/src/account_state.rs, verify 06 || account_id and the canonical standalone lx_account_record bytes emitted by modules/lxphost/ctx.go. Project the authenticated account into the balance view only after decoding all flags and lengths; prove a Go-host exported account before and after store reload."
+owner_domain = 13
+interface = "1.key-lxphost-account-j22"
+
+[finding.upgrade-journal-recovery]
+file = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 753
+class = "restart-recovery"
+severity = "high"
+observed = "bind_chain_deployment emits old_code_hash=None and migration=None for every version. DeploymentRecord::validate at authority.rs:239 rejects that shape for version greater than one. Registry::record_verified_upgrade supplies a predecessor only to its transient insertion, leaving evidence.record unchanged. The hosted journal decode_record validates that unchanged record and routes.rs rebuild uses record_verified_deployment, so an admitted upgrade cannot round-trip through recovery."
+expected = "A verified upgrade must retain its authenticated predecessor and migration evidence in the durable record, and recover the same contiguous program history after process restart. Runtime lifecycle receipts already distinguish initial deployment from upgrade."
+proposal = "In programs/crates/layerx-programs-registry/src/protocol_evidence.rs and src/lib.rs, construct a validated upgrade record from authenticated predecessor and upgrade execution facts before admission. Persist that complete record with its proof, update services/platform/hosted/registry/src/journal.rs and rebuild consumption, and prove initial deploy plus upgrade survives restart without synthesizing missing fields."
+owner_domain = 13
+
+[finding.replay-deployment-identity]
+file = "programs/crates/layerx-programs-registry/src/lib.rs"
+line = 606
+class = "interface-mismatch"
+severity = "high"
+observed = "record_verified_deployment stores evidence.receipt_digest(), which is the transaction SHA-256. replay_journal instead stores record.digest(), the hash of domain-framed DeploymentRecord bytes. resolve_deployment compares the stored value with the original transaction digest, so replaying the record of a successfully admitted deployment changes its identity and refuses the same verified evidence."
+expected = "A durable deployment journal must reconstruct the same deployment identity accepted before restart. Transaction identity and canonical record content digest have different meanings and cannot share an interchangeable receipt field."
+proposal = "In programs/crates/layerx-programs-registry/src/lib.rs and src/authority.rs, persist transaction provenance alongside the canonical record and use one explicitly typed identity consistently in admission, replay, read and resolve_deployment. Preserve the separate record digest for integrity, and test resolution of identical verified evidence before and after replay."
+owner_domain = 13
+interface = "13.rs-reg-registry-replay-journal"
+
+[finding.legacy-interface-root]
+file = "programs/crates/layerx-programs-registry/src/interface.rs"
+line = 647
+class = "interface-mismatch"
+severity = "high"
+observed = "The exported verify_interface_read uses the custom StateProof leaf/node hashing against head.programs_root(). VerifiedProgramHead::programs_root now returns the Cosmos multistore app_hash (protocol_evidence.rs:494-495), rather than the custom Programs subtree root. The legacy witness has no IAVL/multistore operations, so committed node interface evidence cannot pass this public API."
+expected = "Every served interface-read API must authenticate the node producer interface leaf under the verified app hash through the actual lxphost store layout. A custom kernel subtree proof cannot be compared directly with a Cosmos multistore commitment."
+proposal = "Migrate programs/crates/layerx-programs-registry/src/interface.rs verify_interface_read and InterfaceStateWitness to the chain ICS23 path used by verify_interface_read_at_head, or explicitly retire the obsolete API and migrate all registered consumers. Keep one supported proof shape and prove the public entrypoint with a host-produced interface record."
+owner_domain = 13
+interface = "13.rs-reg-interface-verify-interface-read"
+
+[finding.bootstrap-header-encoding]
+file = "programs/crates/layerx-programs-registry/src/chain_proof/header.rs"
+line = 147
+class = "interface-mismatch"
+severity = "high"
+observed = "ChainHeader::decode requires every bytes field and both last-block-id hashes; validate requires ten hashes to have length 32. The consensus Header.ValidateBasic allows nil hashes, and consensus/internal/state/state.go MakeGenesisState initializes LastBlockID empty and LastResultsHash nil. The first header therefore has valid omitted/empty predecessor fields that this verifier rejects before commit verification."
+expected = "The Rust header decoder and hasher must accept the valid header shapes emitted by consensus, including the initial-height empty predecessor and protobuf omission of default byte fields, while still enforcing each field actual protocol constraints."
+proposal = "Align programs/crates/layerx-programs-registry/src/chain_proof/header.rs with consensus/types/block.go validation and protobuf serialization for initial-height predecessor and result fields. Hash nil fields exactly as the Go producer does, preserve length checks for required commitments, and consume Go-exported first-block and later-block headers in the cross-language vectors."
+owner_domain = 13
+interface = "13.rs-reg-chain-proof-verify-head"
+
+[finding.archive-bound-roundtrip]
+file = "programs/crates/layerx-programs-registry/src/archive.rs"
+line = 55
+class = "interface-mismatch"
+severity = "high"
+observed = "SourceArchive::new counts only file content against MAX_ARCHIVE_BYTES, while encode adds a 12-byte header plus path lengths, names, permission bytes and content lengths. Eight distinct 8 MiB files are accepted by new but encode exceeds 64 MiB and decode immediately returns TooLarge, preventing publication consumers from reading an accepted archive."
+expected = "Every archive accepted for publication must encode within the same total-byte bound enforced by its decoder and reproducible-build consumer. Canonical framing and paths count toward the published artifact size."
+proposal = "In programs/crates/layerx-programs-registry/src/archive.rs, include checked header and per-file framing/path sizes when admitting an archive. Use the same encoded-size rule in publication and decode, and add exact-limit and one-byte-over-limit round-trip cases without raising the bound."
+owner_domain = 13
+interface = "13.rs-reg-archive-sourcearchive-decode"
+
+[finding.build-command-roundtrip]
+file = "programs/crates/layerx-programs-registry/src/pipeline.rs"
+line = 88
+class = "interface-mismatch"
+severity = "high"
+observed = "BuildPlan::encode joins BuildEnvironment.command with spaces and parse splits it with split_whitespace. BuildEnvironment::validate permits spaces inside arguments. A valid command such as [sh, -c, cargo build --release] therefore decodes into five arguments instead of three; verification stores and runner invocations no longer represent the same pinned recipe."
+expected = "The published reproducible-build plan must preserve the exact executable and argument boundaries that are hashed into its environment and passed to the build runner. A canonical recipe must round-trip all admitted command values."
+proposal = "Version the canonical command representation in programs/crates/layerx-programs-registry/src/pipeline.rs to encode an unambiguous argument list, and update publisher, hosted durable verification and runner consumers together. Preserve exact argument bytes and test whitespace-bearing arguments through encode, parse, persistence and execution setup."
+owner_domain = 13
+interface = "13.rs-reg-pipeline-buildplan-parse"
+
+[finding.pool-refusal-mutates-state]
+file = "programs/crates/layerx-programs-registry/src/swap.rs"
+line = 153
+class = "runtime-risk"
+severity = "medium"
+observed = "Pool::add_liquidity assigns reserve_a before checking reserve_b addition. A pool initialized by add_liquidity(1,1,u128::MAX) can accept the initial deposit; a subsequent one-share deposit computes both charges successfully, updates reserve_a to 2, then returns Overflow on reserve_b, leaving the reference pool partly mutated with unchanged shares."
+expected = "A refused liquidity operation must leave all reserves and shares unchanged, so callers and reference monetary-law checks can safely retry or compare a failed operation."
+proposal = "In programs/crates/layerx-programs-registry/src/swap.rs, compute every next reserve and share total in locals, validate them all, then assign the pool once. Add a boundary refusal assertion that compares the entire pool before and after the error, alongside the guest transaction rollback checks."
+owner_domain = 13
+
+[finding.rejected-deployment-creates-entry]
+file = "programs/crates/layerx-programs-registry/src/lib.rs"
+line = 551
+class = "runtime-risk"
+severity = "medium"
+observed = "record_deployment_version inserts a new RegistryEntry before checking contiguous version history and ABI admission. An invalid first record with version 2 or unsupported ABI returns an error but remains visible through program_ids and fixes the entry upgrade_policy, so a later valid first deployment with a different policy can be refused."
+expected = "Rejected deployment admission must leave the registry unchanged; enumerated programs and their pinned upgrade policy must come only from accepted deployments."
+proposal = "In programs/crates/layerx-programs-registry/src/lib.rs, validate a prospective first version before insertion or build the complete candidate entry off-map and commit it only on success. Check program_ids, entry policy and subsequent valid admission after each first-deployment refusal."
+owner_domain = 13
+
+[finding.chain-account-consumer-wiring]
+file = "programs/crates/layerx-programs-registry/src/lib.rs"
+line = 1089
+class = "wiring-gap"
+severity = "medium"
+observed = "The new verify_chain API returns VerifiedChainAccountSnapshot, while read_value_accounts, read_value_accounts_profile2 and wind-down consumers still require VerifiedAccountSnapshot plus JournalAccountStateAuthority over custom account/universal tree proofs. VerifiedChainAccountSnapshot is not re-exported and has no conversion into complete binding enumeration; the new chain proof path stops before these public consumers."
+expected = "Current program balances and wind-down decisions should consume one complete chain-authenticated account and binding view, with a consistent app hash, height, asset and freshness model across discovery, restart and exit authorization."
+proposal = "Wire a complete chain-backed account enumeration into programs/crates/layerx-programs-registry/src/account_state.rs, src/lib.rs and src/deprecate.rs, exposing a usable evidence type and migrating real hosted/agent consumers. Prove enumeration completeness and use the same proof view for balance reads and wind-down before and after restart."
+owner_domain = 13
+
+[finding.evidence-contract-prototypes]
+file = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 677
+class = "doc-drift"
+severity = "low"
+observed = "Interface rows for verify_historical_deployment, verify_current_chain_head, verify_current_protocol_head, verify_historical_protocol_head, verify_historical_protocol_head_proof and verify_current_program_bundle still declare old argument lists. DeploymentProof/ProgramStateBundle canonical_encoding rows still return Vec rather than Result, and ProgramStateBundle::decode declares the old error type. The actual consumers use the new chain signatures."
+expected = "The interface registry and spec/layerx-merge/contracts/programs.md registry-crate tables must describe callable signatures, fallible encoding and current error types so integrators can implement the same contract as the producer."
+proposal = "Reconcile the named 13.rs-reg-protocol-evidence rows in spec/layerx-merge/interfaces.kvx from src/protocol_evidence.rs and regenerate the corresponding contracts/programs.md tables. Include each changed parameter, Result error type and current caller location; retain historical snapshot prose only when explicitly identified as historical."
+owner_domain = 13
+interface = "13.rs-reg-protocol-evidence-protocoldeploymentverifier-verify-historical-deployment"
+
+[finding.transaction-interface-row]
+file = "programs/crates/layerx-programs-registry/src/chain_proof/tx.rs"
+line = 1
+class = "doc-drift"
+severity = "low"
+observed = "The interface registry row 13.rs-reg-chain-proof-verify-tx points at chain_proof/results.rs and declares verify_tx_result. The actual transaction inclusion producer is the separate verify_tx function in chain_proof/tx.rs, re-exported from lib.rs; result verification has its own registry row."
+expected = "Transaction inclusion and deterministic result verification must have distinct, correctly named registry entries and signatures, matching the separate data_hash and last_results_hash commitments."
+proposal = "Correct 13.rs-reg-chain-proof-verify-tx in spec/layerx-merge/interfaces.kvx to the actual src/chain_proof/tx.rs function and signature, preserve verify-tx-result-j51 for result proofs, and regenerate the registry contract table with consumers attached to the appropriate evidence primitive."
+owner_domain = 13
+interface = "13.rs-reg-chain-proof-verify-tx"
+
+[finding.trust-advance-contract]
+file = "programs/crates/layerx-programs-registry/src/chain_proof/trust.rs"
+line = 19
+class = "doc-drift"
+severity = "low"
+observed = "13.rs-reg-chain-proof-advance-trust-j51 and the registry contract declare next_validators: &ValidatorSet, but ChainProofVerifier::advance consumes an owned ValidatorSet. Callers in the verifier clone the validator set to satisfy the actual API."
+expected = "The served trust-advance contract must state the same ownership and argument types as the Rust function used by the historical evidence path."
+proposal = "Update the signature and caller descriptions for 13.rs-reg-chain-proof-advance-trust-j51 in spec/layerx-merge/interfaces.kvx and regenerate spec/layerx-merge/contracts/programs.md from the chosen owned-set API; keep the source and contract ownership rule synchronized."
+owner_domain = 13
+interface = "13.rs-reg-chain-proof-advance-trust-j51"
+
+[finding.account-proof-fixture]
+file = "programs/crates/layerx-programs-registry/tests/chain_evidence_account.rs"
+line = 30
+class = "test-gap"
+severity = "medium"
+observed = "chain_account_snapshot_verifies_primary_leaf constructs 01 0009 04 || id and the custom primary_value itself, inserts that invented row into ChainFixture, and then verifies it. It never imports the account row emitted by modules/lxphost/ctx.go, so its positive case certifies the consumer shape while hiding the host key/codec mismatch."
+expected = "The account proof integration case must start with the committed host account row and prove that the registry consumes those exact bytes through the node proof transport and restart."
+proposal = "Replace the fabricated positive account row in programs/crates/layerx-programs-registry/tests/chain_evidence_account.rs with a Go-host exported key/value and ICS23 proof. Retain mutation refusals, and include host restore plus registry balance consumption so a divergent producer codec cannot pass the fixture."
+owner_domain = 13
+
+[finding.deployment-interface-fixture]
+file = "programs/crates/layerx-programs-registry/tests/chain_evidence_deployment.rs"
+line = 92
+class = "test-gap"
+severity = "medium"
+observed = "chain_deployment_binds_code_hash_at_head toggles None and Some(interface) against the same tree containing only a, program and z records and expects both to verify. Thus the positive test asserts interface publication without a committed interface leaf and does not refuse descriptor removal or same-code substitution."
+expected = "Deployment tests must distinguish proven interface presence from proven absence and reject any supplied descriptor that differs from committed state, even when it binds to the same module."
+proposal = "In programs/crates/layerx-programs-registry/tests/chain_evidence_deployment.rs, source program and interface records from the actual deployment producer, prove membership or absence for each case, and add same-WASM descriptor substitution and omission refusals over unchanged authenticated state."
+owner_domain = 13
+
+[finding.chain-upgrade-restart-test]
+file = "programs/crates/layerx-programs-registry/tests/chain_end_to_end.rs"
+line = 250
+class = "test-gap"
+severity = "medium"
+observed = "chain_bundle_appends_a_verified_upgrade explicitly expects record_verified_deployment to refuse version two and then uses the special in-memory record_verified_upgrade path. It stops after resolution without serializing and validating the upgrade record or rebuilding a hosted journal; deployment_fixture_at also uses arbitrary transaction text."
+expected = "The upgrade acceptance path must demonstrate a successful real deployment transaction, persisted valid predecessor-bearing record, and the same version and identity after recovery, rather than only an in-memory alternate insertion."
+proposal = "Extend programs/crates/layerx-programs-registry/tests/chain_end_to_end.rs with node-produced initial and upgrade transactions, results and next-height proofs. Persist both through the hosted journal contract, restart the consumer, and assert contiguous history, deployment resolution and preserved interface/migration provenance."
+owner_domain = 13
+
+[finding.deployment-support-producer]
+file = "programs/crates/layerx-programs-registry/tests/support/mod.rs"
+line = 227
+class = "test-gap"
+severity = "medium"
+observed = "fixture_with_interface hashes NativeProgramDeploy/Upgrade payload bytes directly as a chain transaction, signs a synthetic header whose app_hash already contains the declared post-state, and supplies no authenticated transaction result. produced_deployment invokes the Rust lifecycle but then reconstructs the proof independently, so it does not transport a real chain deployment."
+expected = "Fixtures presented as producer-to-consumer integration evidence must carry the chain transaction envelope, successful execution result and resulting committed host state emitted by the real producer, with the correct height relationship."
+proposal = "In programs/crates/layerx-programs-registry/tests/support/mod.rs, keep synthetic fixtures clearly limited to primitive unit tests and add an integration fixture exported from the node/host deployment path. Carry the original signed transaction, indexed result and linked state proof unchanged into the registry tests."
+owner_domain = 13
+
+[finding.registry-proof-restart-coverage]
+file = "programs/crates/layerx-programs-registry/tests/proof_registry_crate.rs"
+line = 64
+class = "test-gap"
+severity = "medium"
+observed = "producer_transport_restart_and_real_registry_consumers writes and rereads an initial DeploymentProof built by support::produced_deployment, then rebuilds the registry by record_verified_deployment. It neither runs the hosted DeploymentEnvelope validation nor replay_journal and never persists an upgrade; therefore its restart claim misses both durable record and digest changes."
+expected = "Registry recovery evidence must exercise the durable record/proof unit used in service recovery and prove identical deployment resolution across initial deployment and upgrade, including the stored transaction identity."
+proposal = "Add an integration case in programs/crates/layerx-programs-registry/tests/proof_registry_crate.rs that consumes actual producer evidence through the hosted journal envelope and its recovery entrypoint, plus the public replay_journal contract. Assert unchanged identity, version history and resolution after restart for both deployment and upgrade."
+owner_domain = 13
+
+[finding.header-bootstrap-test]
+file = "programs/crates/layerx-programs-registry/tests/chain_header.rs"
+line = 241
+class = "test-gap"
+severity = "medium"
+observed = "chain_header_refuses_malformed_fields classifies all zero-length hash fields and omission of every bytes field as malformed. The fixtures always supply a populated predecessor, so the test suite never admits the initial header shape produced by consensus with empty LastBlockID and LastResultsHash."
+expected = "Header compatibility tests must accept valid protobuf defaults and first-height fields from the Go consensus producer, while rejecting only lengths and omissions forbidden for that specific field and height."
+proposal = "In programs/crates/layerx-programs-registry/tests/chain_header.rs and the Go-exported commit vectors, add first-height header bytes with their real nil predecessor/result fields and expected Go hash. Make malformed cases field-specific and retain all genuinely invalid-length, duplicate and ordering refusals."
+owner_domain = 13
+
+[finding.native-interface-transport-test]
+file = "programs/crates/layerx-programs-registry/tests/interface_protocol.rs"
+line = 505
+class = "test-gap"
+severity = "medium"
+observed = "ChainEvidence::new places the supplied native activity/payload bytes under data_hash in a locally signed ChainFixture. native_receipt_authorized_interface_reads checks result_code from a plaintext fixture document, rather than a TxResult membership proof. Native interface bytes are exercised, but successful chain execution and the post-state relationship are not authenticated."
+expected = "A native interface integration test must prove the actual chain transaction and successful result that published the descriptor, then consume its committed host record through the same transport used in production."
+proposal = "Update programs/crates/layerx-programs-registry/tests/interface_protocol.rs to ingest exported node transaction/result and host interface proof bytes unchanged. Verify the linked heights and indexed result, retaining the existing canonical ABI and capability mutation tests as unit coverage."
+owner_domain = 13
+
+[finding.verifier-interface-coverage]
+file = "programs/crates/layerx-programs-registry/tests/chain_verifier_deployment.rs"
+line = 1
+class = "test-gap"
+severity = "medium"
+observed = "The chain verifier deployment suite exercises code/hash substitution, freshness and historical trust, but constructs deployment.interface independently from the authenticated program tree. It does not bind optional descriptor publication to an interface membership or absence proof, so current and historical wrappers inherit an untested substitution path."
+expected = "Both current and historical verifier entrypoints must reject hidden, substituted or cross-version interfaces over an otherwise valid program and code proof."
+proposal = "Extend programs/crates/layerx-programs-registry/tests/chain_verifier_deployment.rs with producer-exported interface presence and absence proofs. Exercise descriptor removal, same-code schema substitution and cross-version descriptors through both public verifier entrypoints and canonical transport."
+owner_domain = 13
+
+[finding.programs-site-current-model]
+file = "docs/site/docs/programs/index.md"
+line = 119
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 13-19 recommend pax_sequencerReceipt and say LXT-20 codecs/payments-merchant are absent; lines 119-138 describe live LNI/layerxd simulation; lines 292-310 claim only guest ABIs 1/2 and root ABI_VERSION=2; lines 404-427 defer CALL settlement to separate batch finalization. These claims disagree with the merged chain and current SDK/runtime."
+expected = "The Programs guide must describe one paxd network, committed-block finality, the 0x101D program views/calls and current ABI policy. It must accurately identify the LXT-20, LXT721, naming, swap and merchant code already in the tree."
+proposal = "Rewrite docs/site/docs/programs/index.md around merged 0x101D transaction and proof flows, replace daemon/LNI and separate settlement guidance, and derive the ABI/support and example inventory from current runtime policy and SDK paths. Explain occupancy charging without adding a finality stage after block commit."
+owner_domain = 17
+
+[finding.programs-wiki-current-model]
+file = "docs/wiki/Programs.md"
+line = 119
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki Programs page retains the sequencer receipt recommendation and absent-codecs claim near lines 13-19, LNI/layerxd simulation around lines 119-138, obsolete guest-ABI restrictions around lines 293-355, and CALL batch-finality guidance later in the page. Its improved LXT-20 section does not correct these contradictory operator instructions."
+expected = "The wiki and site must agree on shipped program interfaces, current ABI admission and the merged network finality/read path, with no active daemon or separate LayerX settlement stage."
+proposal = "Update docs/wiki/Programs.md from the same merged Programs source as the site, remove contradictory missing-feature and retired transport instructions, and document committed-block finality and chain-backed deployment/interface reads with current ABI policy."
+owner_domain = 17
+
+[finding.workspace-site-retired-paths]
+file = "docs/site/docs/programs/workspace.md"
+line = 15
+class = "doc-drift"
+severity = "medium"
+observed = "The workspace table lists layerx-programs-protocol-adapter as a live crate, line 37 says the ABI generator requires version 2, lines 121-141 prescribe daemon/sequencer receipt vectors, and line 156 describes building the removed cmd/layerxd batch WAL source. This directs developers toward retired dependencies and proof paths."
+expected = "The workspace guide must reflect the current Cargo members, the current frozen ABI generator, chain-proof vectors and supported build targets after adapter and daemon retirement."
+proposal = "Refresh docs/site/docs/programs/workspace.md from programs/Cargo.toml, current ABI policy/generator and Makefile. Remove the adapter and deleted WAL build path, and explain chain header, transaction/result, ICS23 and recovery evidence as the integration qualification path."
+owner_domain = 17
+
+[finding.workspace-wiki-retired-paths]
+file = "docs/wiki/ProgramsWorkspace.md"
+line = 15
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki workspace page mirrors the stale adapter member, ABI version-two-only generator description, daemon committed-fixture receipt verification and cmd/layerxd batch-WAL differential prerequisites found in the site workspace guide."
+expected = "Both workspace documentation surfaces must present the same current members, supported ABI checks and merged-chain integration commands, without instructing users to depend on deleted crates or daemon code."
+proposal = "Regenerate docs/wiki/ProgramsWorkspace.md together with the site workspace guide from a shared source tied to the current Cargo workspace, ABI generator and Makefile. Replace retired daemon fixtures with chain-backed evidence and keep wiki links aligned."
+owner_domain = 17
+
+[finding.roadmap-shipped-programs]
+file = "docs/wiki/Roadmap.md"
+line = 21
+class = "doc-drift"
+severity = "medium"
+observed = "The roadmap says no LXT721 type/requirement exists, naming is not shipped, oracle_read is absent as a Programs host function, and no constant-product guest pool exists (lines 21-24,48-54,60-67,73-83). The registry reference descriptors, Rust SDK and guest examples implement those surfaces; lines 112-123 still present LNI as current."
+expected = "The roadmap must distinguish implemented guest libraries/examples from native module ordinals and deployment status, and describe the current merged program access path rather than treating missing dedicated modules as missing guest functionality."
+proposal = "Update docs/wiki/Roadmap.md with the actual LXT721, naming, ABI-three oracle and swap guest/reference paths, clearly state any remaining deployment work, and replace active LNI guidance with merged-chain program views and calls. Preserve the distinction between examples and operational deployment."
+owner_domain = 17
+
+[finding.xweb-settlement-model]
+file = "docs/site/docs/protocol/xweb.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+observed = "The page correctly marks program web_read retired, but lines 24,44-46 still configure sequencer trust and settle through lx_sendActivity/lx_getReceipt; line 172 says observations commit to a sequencer batch-header web root. These coexist with the merged xweb module model and suggest a separate finality authority."
+expected = "Web payment release and committed observations must use the merged network transaction/result and state evidence under block-commit finality. Retired program web_read must remain explicitly refused, with the supported xweb query/keeper path described accurately."
+proposal = "Rewrite the settlement and commitment portions of docs/site/docs/protocol/xweb.md to name the current hosted gateway contract and chain evidence, describe observations under the committed app hash, and remove standalone sequencer trust and batch-finality instructions while retaining the web_read retirement notice."
+owner_domain = 17
+
+[finding.chain-module-inventory]
+file = "docs/system/chain-modules.md"
+line = 15
+class = "doc-drift"
+severity = "medium"
+observed = "The generated inventory presents layerxanchor, custody forced-exit/deposit-root controls and sequencer MsgSequenceBatch as ordinary live modules/messages (lines 15-28,197-225,390-394), without their retirement behavior. It also gives no current Programs governance/read guidance, so readers can mistake declared legacy message types for registered operational services."
+expected = "The module inventory must distinguish declared descriptor shapes from routes and behavior actually served after the merge, identify retired operations and direct program governance/reads to the supported kernel and 0x101D paths. layerxprograms Msg/Query descriptors must not be advertised as registered servers (decision 1341)."
+proposal = "Update tools/docs/gen-system-docs.sh and its metadata inputs to generate retirement/status annotations and supported replacements in docs/system/chain-modules.md. Describe Programs governance and 0x101D reads with the descriptor-only restriction, and do not infer live routing solely from the existence of Msg types."
+owner_domain = 17
+
+[finding.registry-contract-current-signatures]
+file = "spec/layerx-merge/contracts/programs.md"
+line = 655
+class = "doc-drift"
+severity = "low"
+observed = "The registry-crate tables at lines 655-772 retain the planned verify_chain return type VerifiedAccountSnapshot, borrowed next_validators for advance, legacy receipt/header arguments and infallible canonical_encoding signatures. Implemented code now returns a distinct chain account snapshot, owns validators and uses fallible chain evidence encodings. The page is explicitly pinned to an earlier revision but remains the registry rows linked contract."
+expected = "Integrators following the interface registry contract link need the implemented signature and evidence model, with the historical snapshot clearly separated from the current callable contract."
+proposal = "Reconcile spec/layerx-merge/interfaces.kvx against the implemented registry APIs and regenerate spec/layerx-merge/contracts/programs.md registry-crate and registry-evidence sections. State actual return/error types and ownership, and preserve the earlier pinned revision as historical context rather than the active API table."
+owner_domain = 13
+
+[doc.01]
+path = "docs/site/docs/programs/index.md"
+status = "misleading"
+notes = "Read in full. Lines 13-19,119-138,292-310,404-427 retain retired receipt/LNI/finality guidance and obsolete example/ABI inventory; see programs-site-current-model."
+
+[doc.02]
+path = "docs/site/docs/programs/workspace.md"
+status = "stale"
+notes = "Read in full. Lines 15,37,121-141,156 retain the removed adapter, version-two-only policy and daemon/WAL verification paths; see workspace-site-retired-paths."
+
+[doc.03]
+path = "docs/wiki/Programs.md"
+status = "misleading"
+notes = "Read in full including all differences from the site guide. Receipt/LNI guidance, ABI admission and separate batch-finality claims remain stale; see programs-wiki-current-model."
+
+[doc.04]
+path = "docs/wiki/ProgramsWorkspace.md"
+status = "stale"
+notes = "Read in full including wiki-link differences. Same adapter, ABI-generator and daemon/WAL drift as the site workspace guide; see workspace-wiki-retired-paths."
+
+[doc.05]
+path = "docs/site/docs/programs/storage-scan.md"
+status = "accurate"
+notes = "Read in full. Bounded scan framing, 64-entry/67126228-byte limits, cursor context/namespace binding, refusal statuses and transactional rollback match the declared storage-scan ABI. No live retired transport is prescribed."
+
+[doc.06]
+path = "docs/site/docs/protocol/xweb.md"
+status = "misleading"
+notes = "Read in full. The web_read retirement notice at 167,173-175 is accurate; sequencer settlement at 24,44-46 and batch-header commitment at 172 need merged-chain guidance; see xweb-settlement-model."
+
+[doc.07]
+path = "docs/wiki/StorageScan.md"
+status = "accurate"
+notes = "Read in full including the differing wiki link. Scan entry/byte ceilings, cursor binding, response framing, overflow/refusal behavior and rollback agree with the site ABI description and runtime contract."
+
+[doc.08]
+path = "docs/wiki/Roadmap.md"
+status = "stale"
+notes = "Read in full. Lines 21-24,48-54,60-67,73-83 understate implemented guest functionality; lines 112-123 retain active LNI guidance; see roadmap-shipped-programs."
+
+[doc.09]
+path = "docs/system/chain-modules.md"
+status = "stale"
+notes = "Read in full. Generated declared-type inventory lacks operational/retirement distinctions at 15-28,197-225,390-394 and Programs descriptor-only guidance; see chain-module-inventory."
+
+[doc.10]
+path = "spec/layerx-merge/contracts/programs.md"
+status = "stale"
+notes = "Reviewed the linked registry-crate, registry-evidence and chain-proof sections (646-902), revision context and relevant decisions. Registry API signatures are the old pinned snapshot rather than implemented ownership, proof and fallible codec shapes; see registry-contract-current-signatures."

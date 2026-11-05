@@ -11,13 +11,13 @@ import {
   type NotificationSummary,
   type Session,
 } from "../../api";
-import { ACTIVE_ACCOUNT_STORAGE_KEY } from "../../auth/session";
 import { DesktopPrimaryAction, MobilePrimaryAction } from "../../kit/pattern-primary-action";
 import { InlineNotice, ScreenCard, StateSkeleton } from "../../kit/surface";
 import { KitButton } from "../../kit/control";
 import { StatusPill } from "../../kit/money";
 import { TextField } from "../../kit/field";
 import { ShellSelector, type PointerCapability, type ShellSelection } from "../../shell/selector";
+import { pendingOnboarding, rememberActivatedAccount, rememberPending } from "./recovery";
 import { CeremonyCancelled, performAssertionCeremony, performRegistrationCeremony } from "./ceremony";
 import {
   ONBOARDING_DECISION_LIMIT,
@@ -37,77 +37,6 @@ type Phase =
   | Readonly<{ name: "progress" }>
   | Readonly<{ name: "signin" }>
   | Readonly<{ name: "signedIn"; notice?: NotificationSummary }>;
-
-interface PendingOnboarding {
-  readonly version: 1;
-  readonly idempotencyKey: string;
-  readonly email: string;
-  readonly displayName: string;
-  readonly accountId?: string;
-  readonly passkeyAdded: boolean;
-}
-
-const PENDING_ONBOARDING_KEY = "layerx.onboarding.pending.v1";
-
-function pendingOnboarding(): PendingOnboarding | undefined {
-  let decoded: unknown;
-  try {
-    const stored = localStorage.getItem(PENDING_ONBOARDING_KEY);
-    if (stored === null) {
-      return undefined;
-    }
-    decoded = JSON.parse(stored);
-  } catch {
-    return undefined;
-  }
-  if (typeof decoded !== "object" || decoded === null || Array.isArray(decoded)) {
-    return undefined;
-  }
-  const candidate = decoded as Partial<PendingOnboarding>;
-  if (
-    candidate.version !== 1
-    || typeof candidate.idempotencyKey !== "string"
-    || typeof candidate.email !== "string"
-    || typeof candidate.displayName !== "string"
-    || typeof candidate.passkeyAdded !== "boolean"
-    || (candidate.accountId !== undefined && typeof candidate.accountId !== "string")
-  ) {
-    return undefined;
-  }
-  return candidate as PendingOnboarding;
-}
-
-function rememberPending(pending: PendingOnboarding): void {
-  try {
-    localStorage.setItem(PENDING_ONBOARDING_KEY, JSON.stringify(pending));
-  } catch {
-    return;
-  }
-}
-
-function forgetPending(): void {
-  try {
-    localStorage.removeItem(PENDING_ONBOARDING_KEY);
-  } catch {
-    return;
-  }
-}
-
-function rememberActivatedAccount(journey: Journey): void {
-  if (!accountActive(journey)) {
-    return;
-  }
-  const pending = pendingOnboarding();
-  if (pending?.accountId === undefined) {
-    return;
-  }
-  try {
-    localStorage.setItem(ACTIVE_ACCOUNT_STORAGE_KEY, pending.accountId);
-  } catch {
-    return;
-  }
-  forgetPending();
-}
 
 function failureFromError(error: unknown): Failure {
   if (error instanceof HumanApiError) {
@@ -332,7 +261,7 @@ export function Onboarding({
     return api.sessionOpen(
       {
         assertion_id: completed.assertion_id,
-        device: { label: "LayerX web app", platform: "web" },
+        device: { label: copyEntry("application.name").message, platform: "web" },
       },
       `session-open:${completed.assertion_id}`,
     );

@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"sync"
 	"testing"
 	"time"
 
@@ -34,7 +35,8 @@ var (
 
 	// A hook that test cases can call to obtain the shared database instance
 	// used for testing the sink. This is initialized in TestMain (see below).
-	testDB func() *sql.DB
+	testDB   func() *sql.DB
+	testConn string
 )
 
 const (
@@ -51,16 +53,32 @@ const (
 func TestMain(m *testing.M) {
 	flag.Parse()
 
+	// Service-free repair tests must reach m.Run even without Docker. Initialize
+	// the existing PostgreSQL suite only when a selected test requests its DB.
+	var once sync.Once
+	var db *sql.DB
+	var cleanup func()
+	testDB = func() *sql.DB {
+		once.Do(func() { db, cleanup = startTestPostgres() })
+		return db
+	}
+	code := m.Run()
+	if cleanup != nil {
+		cleanup()
+	}
+	os.Exit(code)
+}
+
+func startTestPostgres() (*sql.DB, func()) {
 	// Set up docker.
 	pool, err := dockertest.NewPool(os.Getenv("DOCKER_URL"))
 	if err != nil {
 		log.Fatalf("Creating docker pool: %v", err)
 	}
 
-	// If docker is unavailable, log and exit without reporting failure.
+	// Selected PostgreSQL integration tests require an available Docker engine.
 	if _, err := pool.Client.Info(); err != nil {
-		log.Printf("WARNING: Docker is not available: %v [skipping this test]", err)
-		return
+		log.Fatalf("Docker is not available: %v", err)
 	}
 
 	// Start a container running PostgreSQL.
@@ -96,6 +114,7 @@ func TestMain(m *testing.M) {
 	// Connect to the database, clear any leftover data, and install the
 	// indexing schema.
 	conn := fmt.Sprintf(dsn, user, password, resource.GetPort(port+"/tcp"), dbName)
+	testConn = conn
 	var db *sql.DB
 
 	if err := pool.Retry(func() error {
@@ -122,27 +141,20 @@ func TestMain(m *testing.M) {
 		log.Fatalf("Applying schema: %v", err)
 	}
 
-	// Set up the hook for tests to get the shared database handle.
-	testDB = func() *sql.DB { return db }
-
-	// Run the selected test cases.
-	code := m.Run()
-
-	// Clean up and shut down the database container.
-	if *doPauseAtExit {
-		log.Print("Testing complete, pausing for inspection. Send SIGINT to resume teardown")
-		waitForInterrupt()
-		log.Print("(resuming)")
+	return db, func() {
+		if *doPauseAtExit {
+			log.Print("Testing complete, pausing for inspection. Send SIGINT to resume teardown")
+			waitForInterrupt()
+			log.Print("(resuming)")
+		}
+		log.Print("Shutting down database")
+		if err := pool.Purge(resource); err != nil {
+			log.Printf("WARNING: Purging pool failed: %v", err)
+		}
+		if err := db.Close(); err != nil {
+			log.Printf("WARNING: Closing database failed: %v", err)
+		}
 	}
-	log.Print("Shutting down database")
-	if err := pool.Purge(resource); err != nil {
-		log.Printf("WARNING: Purging pool failed: %v", err)
-	}
-	if err := db.Close(); err != nil {
-		log.Printf("WARNING: Closing database failed: %v", err)
-	}
-
-	os.Exit(code)
 }
 
 func TestType(t *testing.T) {
@@ -155,10 +167,18 @@ func TestIndexing(t *testing.T) {
 
 	t.Run("IndexBlockEvents", func(t *testing.T) {
 		indexer := &EventSink{store: testDB(), chainID: chainID}
-		require.NoError(t, indexer.IndexBlockEvents(newTestBlockHeader()))
+		for _, height := range []int64{1, 2} {
+			block := newTestBlockHeader()
+			block.Header.Height = height
+			started := time.Now().UTC()
+			require.NoError(t, indexer.IndexBlockEvents(block))
+			finished := time.Now().UTC()
+			require.NoError(t, verifyBlock(indexer.DB(), block.Header.Height, chainID))
+			require.NoError(t, verifyTimeStamp(indexer.DB(), tableBlocks, block.Header.Height, chainID, started, finished))
 
-		verifyBlock(t, 1)
-		verifyBlock(t, 2)
+			// Attempting to reindex the same events should gracefully succeed.
+			require.NoError(t, indexer.IndexBlockEvents(block))
+		}
 
 		verifyNotImplemented(t, "hasBlock", func() (bool, error) { return indexer.HasBlock(1) })
 		verifyNotImplemented(t, "hasBlock", func() (bool, error) { return indexer.HasBlock(2) })
@@ -167,11 +187,6 @@ func TestIndexing(t *testing.T) {
 			v, err := indexer.SearchBlockEvents(ctx, nil)
 			return v != nil, err
 		})
-
-		require.NoError(t, verifyTimeStamp(tableBlocks))
-
-		// Attempting to reindex the same events should gracefully succeed.
-		require.NoError(t, indexer.IndexBlockEvents(newTestBlockHeader()))
 	})
 
 	t.Run("IndexTxEvents", func(t *testing.T) {
@@ -184,14 +199,16 @@ func TestIndexing(t *testing.T) {
 
 			{Type: "", Attributes: []abci.EventAttribute{{Key: []byte("not_allowed"), Value: []byte("Vlad"), Index: true}}},
 		})
+		started := time.Now().UTC()
 		require.NoError(t, indexer.IndexTxEvents([]*abci.TxResultV2{txResult}))
+		finished := time.Now().UTC()
 
 		txr, err := loadTxResult(types.Tx(txResult.Tx).Hash().Bytes())
 		require.NoError(t, err)
 		assert.Equal(t, txResult, txr)
 
-		require.NoError(t, verifyTimeStamp(tableTxResults))
-		require.NoError(t, verifyTimeStamp(viewTxEvents))
+		require.NoError(t, verifyTimeStamp(indexer.DB(), tableTxResults, txResult.Height, chainID, started, finished))
+		require.NoError(t, verifyTimeStamp(indexer.DB(), viewTxEvents, txResult.Height, chainID, started, finished))
 
 		verifyNotImplemented(t, "getTxByHash", func() (bool, error) {
 			txr, err := indexer.GetTxByHash(types.Tx(txResult.Tx).Hash().Bytes())
@@ -205,6 +222,37 @@ func TestIndexing(t *testing.T) {
 		// try to insert the duplicate tx events.
 		err = indexer.IndexTxEvents([]*abci.TxResultV2{txResult})
 		require.NoError(t, err)
+	})
+
+	// The same repair assertions run against PostgreSQL in the integration
+	// suite; the focused repair gate uses the embedded SQL engine instead.
+	t.Run("Repair82Postgres", func(t *testing.T) {
+		db := testDB()
+		// Recreate the old attribute identity and upgrade existing rows with
+		// the operator migration before exercising the new writer.
+		var before, after int64
+		require.NoError(t, db.QueryRowContext(t.Context(), "SELECT COUNT(*) FROM attributes").Scan(&before))
+		_, err := db.ExecContext(t.Context(), `
+ALTER TABLE attributes DROP CONSTRAINT attributes_pkey;
+ALTER TABLE attributes DROP COLUMN ordinal;
+ALTER TABLE attributes ADD UNIQUE (event_id, key);`)
+		require.NoError(t, err)
+		migration, err := os.ReadFile("migrate_attributes_ordinal.sql")
+		require.NoError(t, err)
+		_, err = db.ExecContext(t.Context(), string(migration))
+		require.NoError(t, err)
+		require.NoError(t, db.QueryRowContext(t.Context(), "SELECT COUNT(*) FROM attributes WHERE ordinal >= 0").Scan(&after))
+		require.Equal(t, before, after)
+		for _, table := range []string{tableBlocks, tableTxResults, tableEvents} {
+			_, err := db.ExecContext(t.Context(), "SELECT setval(pg_get_serial_sequence($1, 'rowid'), $2)", table, int64(1<<32-1))
+			require.NoError(t, err)
+		}
+		repair82RoundTrip(t, func() *EventSink {
+			sink, err := NewEventSink(testConn, t.Name())
+			require.NoError(t, err)
+			t.Cleanup(func() { require.NoError(t, sink.Stop()) })
+			return sink
+		}, 1<<32)
 	})
 }
 
@@ -289,23 +337,45 @@ SELECT tx_result FROM `+tableTxResults+` WHERE tx_hash = $1;
 	return &abci.TxResultV2{Height: txr.Height, Index: txr.Index, Tx: txr.Tx, Result: txr.Result}, nil
 }
 
-func verifyTimeStamp(tableName string) error {
-	return testDB().QueryRow(fmt.Sprintf(`
-SELECT DISTINCT %[1]s.created_at
-  FROM %[1]s
-  WHERE %[1]s.created_at >= $1;
-`, tableName), time.Now().Add(-2*time.Second)).Err()
+func verifyTimeStamp(db *sql.DB, tableName string, height int64, chain string, started, finished time.Time) error {
+	var query string
+	switch tableName {
+	case tableBlocks, viewTxEvents:
+		query = "SELECT DISTINCT created_at FROM " + tableName + " WHERE height = $1 AND chain_id = $2"
+	case tableTxResults:
+		query = `SELECT DISTINCT tx_results.created_at FROM tx_results
+JOIN blocks ON blocks.rowid = tx_results.block_id WHERE blocks.height = $1 AND blocks.chain_id = $2`
+	default:
+		return fmt.Errorf("unsupported timestamp table %q", tableName)
+	}
+	// database/sql converts both PostgreSQL time.Time and the embedded fixture's
+	// RFC3339 text to a string, so both suites scan and check the same value.
+	var encoded string
+	if err := db.QueryRow(query, height, chain).Scan(&encoded); err != nil {
+		return fmt.Errorf("reading %s timestamp at height %d: %w", tableName, height, err)
+	}
+	createdAt, err := time.Parse(time.RFC3339Nano, encoded)
+	if err != nil {
+		return fmt.Errorf("decoding %s timestamp: %w", tableName, err)
+	}
+	if createdAt.Before(started) || createdAt.After(finished) {
+		return fmt.Errorf("%s timestamp %s outside indexing interval [%s, %s]", tableName, createdAt, started, finished)
+	}
+	return nil
 }
 
-func verifyBlock(t *testing.T, height int64) {
-	// Check that the blocks table contains an entry for this height.
-	if err := testDB().QueryRow(`
-SELECT height FROM `+tableBlocks+` WHERE height = $1;
-`, height).Err(); err == sql.ErrNoRows {
-		t.Errorf("No block found for height=%d", height)
-	} else if err != nil {
-		t.Fatalf("Database query failed: %v", err)
+func verifyBlock(db *sql.DB, height int64, chain string) error {
+	// Check that the blocks table contains an entry for this height and chain.
+	var got int64
+	if err := db.QueryRow(`
+SELECT height FROM `+tableBlocks+` WHERE height = $1 AND chain_id = $2;
+`, height, chain).Scan(&got); err != nil {
+		return fmt.Errorf("reading block at height %d: %w", height, err)
 	}
+	if got != height {
+		return fmt.Errorf("block height: got %d, want %d", got, height)
+	}
+	return nil
 }
 
 // verifyNotImplemented calls f and verifies that it returns both a

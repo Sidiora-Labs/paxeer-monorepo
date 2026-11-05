@@ -151,19 +151,10 @@ defmodule Explorer.MicroserviceInterfaces.BENS do
   def enabled?, do: Microservice.check_enabled(__MODULE__) == :ok
 
   defp batch_resolve_name_url do
-    # workaround for https://github.com/PSPDFKit-labs/bypass/issues/122
-    cond do
-      Mix.env() == :test and multiprotocol?() ->
-        "#{addresses_url()}:batch_resolve"
-
-      Mix.env() == :test ->
-        "#{addresses_url()}:batch_resolve_names"
-
-      multiprotocol?() ->
-        "#{addresses_url()}:batch-resolve"
-
-      true ->
-        "#{addresses_url()}:batch-resolve-names"
+    if multiprotocol?() do
+      "#{addresses_url()}:batch-resolve"
+    else
+      "#{addresses_url()}:batch-resolve-names"
     end
   end
 

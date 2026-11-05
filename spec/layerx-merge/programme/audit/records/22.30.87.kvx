@@ -1,0 +1,660 @@
+[audit.22.30.87]
+task = "22.30.87"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 92
+findings = 7
+docs_reviewed = 4
+upgrade_ready = false
+blocking = ["rewind-projections", "envelope-transport-budget"]
+review_method = "Full-file static review of all package members and their real producer/transport/consumer paths. Behavioral suites were not run or claimed by this audit."
+interface_notes = "Reviewed all 400 explicitly listed produces IDs and 175 consumes IDs. Socket protocolVersion, local invalid_json and Railway project literal matches do not call similarly named retired Solidity, hosted relay or agent /rpc interfaces. Current caller signatures are interpreted with the listed change/retirement requirements, rather than as unchanged baseline snapshots."
+
+[file.1]
+path = "services/platform/perps-data/cmd/perps-portal/main.go"
+lines = 93
+verdict = "clean"
+note = "Read in full. Portal command: service configuration, bounded HTTP client, health/metrics wiring, signal cancellation and HTTP shutdown."
+
+[file.2]
+path = "services/platform/perps-data/cmd/perps-replay/main.go"
+lines = 162
+verdict = "clean"
+note = "Read in full. Replay command: range flags/refusals, lease-backed runner, decoder and database ownership. Fetch is the live follower path; the unused rewind callback duplicates the scope error described in rewind-projections."
+
+[file.3]
+path = "services/platform/perps-data/deploy/Dockerfile"
+lines = 22
+verdict = "clean"
+note = "Read in full. Service image: six SERVICE choices, root context, digest-pinned images, static build, non-root runtime and command paths."
+
+[file.4]
+path = "services/platform/perps-data/deploy/README.md"
+lines = 17
+verdict = "clean"
+note = "Read in full. Deployment prose: CIDR parsing, trusted forwarding precedence, untrusted-peer refusal and both public server callers."
+
+[file.5]
+path = "services/platform/perps-data/deploy/dockerfile_test.go"
+lines = 342
+verdict = "clean"
+note = "Read in full. Image tests: pinned dependencies, SERVICE bounds, static/non-root build, entrypoint and real Go import closure."
+
+[file.6]
+path = "services/platform/perps-data/deploy/nats/Dockerfile"
+lines = 5
+verdict = "clean"
+note = "Read in full. Broker image: digest pin, copied configuration, volume ownership and non-root startup."
+
+[file.7]
+path = "services/platform/perps-data/deploy/nats_test.go"
+lines = 340
+verdict = "clean"
+note = "Read in full. Broker tests: real configuration parsing, authentication, publish/pull/ack permissions, cluster variables and persistent storage."
+
+[file.8]
+path = "services/platform/perps-data/deploy/railway/perps-explorer.json"
+lines = 15
+verdict = "clean"
+note = "Read in full. Explorer Railway config: image argument, readiness, restart policy and trusted-proxy input."
+
+[file.9]
+path = "services/platform/perps-data/deploy/railway/perps-gateway.json"
+lines = 15
+verdict = "clean"
+note = "Read in full. Gateway Railway config: image argument, readiness, restart policy and trusted-proxy input."
+
+[file.10]
+path = "services/platform/perps-data/deploy/railway/perps-indexer.json"
+lines = 15
+verdict = "clean"
+note = "Read in full. Indexer Railway config: image argument, restart policy and explicit liveness exception while catch-up delays readiness."
+
+[file.11]
+path = "services/platform/perps-data/deploy/railway/perps-portal.json"
+lines = 15
+verdict = "clean"
+note = "Read in full. Portal Railway config: image argument, readiness, restart policy and gateway input."
+
+[file.12]
+path = "services/platform/perps-data/deploy/railway_test.go"
+lines = 238
+verdict = "clean"
+note = "Read in full. Railway tests: all four service JSON files, indexer liveness exception, public readiness and proxy-variable policy."
+
+[file.13]
+path = "services/platform/perps-data/deploy/services.json"
+lines = 255
+verdict = "clean"
+note = "Read in full. Service layout: replicas, storage, credentials and environment consumers. The Railway project field is not registry row 9.http-rpc-project."
+
+[file.14]
+path = "services/platform/perps-data/deploy/services_test.go"
+lines = 599
+verdict = "clean"
+note = "Read in full. Layout tests: strict service shapes, binary/image correspondence, replicas, broker permissions, persistence and environment-variable consumers."
+
+[file.15]
+path = "services/platform/perps-data/internal/auth/auth.go"
+lines = 324
+verdict = "issues"
+note = "Read in full. Wallet auth: persisted random nonce, atomic single use, EIP-191 recovery, JWT algorithm/claims, refresh origin lifetime and body bounds. Expired challenge retention is unbounded."
+
+[file.16]
+path = "services/platform/perps-data/internal/auth/auth_test.go"
+lines = 413
+verdict = "clean"
+note = "Read in full. Auth tests: real PostgreSQL issuance and single use, signature refusals, JWT time/algorithm checks, replica skew, refresh and middleware ownership."
+
+[file.17]
+path = "services/platform/perps-data/internal/bigint/bigint.go"
+lines = 131
+verdict = "clean"
+note = "Read in full. Integer library: exact signed/unsigned 256-bit validation, arithmetic ownership, overflow and division truncation."
+
+[file.18]
+path = "services/platform/perps-data/internal/bigint/bigint_test.go"
+lines = 110
+verdict = "clean"
+note = "Read in full. Integer tests: malformed input, signed/unsigned extrema, overflow, division and unchanged arguments."
+
+[file.19]
+path = "services/platform/perps-data/internal/config/proof_configuration_test.go"
+lines = 242
+verdict = "clean"
+note = "Read in full. Configuration proof: real env loader through all six Service.Load callers, declared secret redaction, trusted CIDR parsing and ingress identity/refusal."
+
+[file.20]
+path = "services/platform/perps-data/internal/decode/abi_test.go"
+lines = 321
+verdict = "clean"
+note = "Read in full. ABI conformance tests: indexed event names/types, selectors and output tuples, typed row columns and leaf-only imports; archived section 6 supplies the table."
+
+[file.21]
+path = "services/platform/perps-data/internal/decode/kinds.go"
+lines = 88
+verdict = "clean"
+note = "Read in full. Decoder kinds: complete table/kind row inventory, typed fact correspondence and store dispatch."
+
+[file.22]
+path = "services/platform/perps-data/internal/decode/owner_lookup_test.go"
+lines = 349
+verdict = "clean"
+note = "Read in full. Owner lookup tests: persisted facts/projections/seeds and real state getters, unknown-ID raw logs and lookup deduplication."
+
+[file.23]
+path = "services/platform/perps-data/internal/decode/perps.go"
+lines = 782
+verdict = "clean"
+note = "Read in full. Perps decoder: registered ABI events, topics, signed amounts, owner/market lookup, unknown enums, projection seeds and malformed raw logs."
+
+[file.24]
+path = "services/platform/perps-data/internal/decode/perps_test.go"
+lines = 598
+verdict = "clean"
+note = "Read in full. Perps tests: ABI-packed events, typed columns, signed funding/rebates, enum handling, malformed logs and persisted ownership."
+
+[file.25]
+path = "services/platform/perps-data/internal/decode/pricefeed.go"
+lines = 219
+verdict = "clean"
+note = "Read in full. Pricefeed decoder: actual finalize_block_events keys, signed basis, aggregate/skipped shape, heights/indexes and block receipt metadata."
+
+[file.26]
+path = "services/platform/perps-data/internal/decode/pricefeed_test.go"
+lines = 103
+verdict = "clean"
+note = "Read in full. Pricefeed tests: aggregate/skipped attributes, signed and malformed numbers, missing attributes and unsupported events."
+
+[file.27]
+path = "services/platform/perps-data/internal/decode/projection_seed_test.go"
+lines = 290
+verdict = "clean"
+note = "Read in full. Projection-seed proof: actual state getters through seed storage/projection, unknown IDs and repeated decode; retained-fact Rebuild does not exercise fork deletion."
+
+[file.28]
+path = "services/platform/perps-data/internal/decode/registry.go"
+lines = 799
+verdict = "clean"
+note = "Read in full. Registry: ABI registration, address/topic routing, log deduplication, raw failure classes, lookup order and transaction/seed lifecycle."
+
+[file.29]
+path = "services/platform/perps-data/internal/decode/seed.go"
+lines = 207
+verdict = "clean"
+note = "Read in full. Seed decoding: getter tuple agreement, historical/latest fallback, order status/remaining size and base size times entry-price position notional per 18684.1."
+
+[file.30]
+path = "services/platform/perps-data/internal/decode/spot.go"
+lines = 814
+verdict = "clean"
+note = "Read in full. Spot decoder: actual order/vault/fee/share ABIs, historical token lookup, two-pass share discovery, owner and raw amount conventions."
+
+[file.31]
+path = "services/platform/perps-data/internal/decode/spot_seed_test.go"
+lines = 315
+verdict = "clean"
+note = "Read in full. Spot seed tests: persisted lookup, historical/pruned fallback, unknown state and same-block pointer discovery."
+
+[file.32]
+path = "services/platform/perps-data/internal/decode/spot_test.go"
+lines = 462
+verdict = "clean"
+note = "Read in full. Spot tests: actual node orders/receipts, state tuples, fees, share/ownership events and malformed-log refusals."
+
+[file.33]
+path = "services/platform/perps-data/internal/decode/usdl.go"
+lines = 54
+verdict = "clean"
+note = "Read in full. USDL decoder: ERC20 Transfer ABI, fixed address, module-custody filtering and incoming/outgoing account/venue identities."
+
+[file.34]
+path = "services/platform/perps-data/internal/decode/usdl_test.go"
+lines = 66
+verdict = "clean"
+note = "Read in full. USDL tests: custody direction, non-custody exclusions, malformed arguments and exact values."
+
+[file.35]
+path = "services/platform/perps-data/internal/delivery/envelope.go"
+lines = 172
+verdict = "issues"
+note = "Read in full. Envelope: schema/identity/chain validation, source-order decimal bounds, UTC, raw payload/hash preservation and encode/decode. Admission and broker wire budgets disagree."
+
+[file.36]
+path = "services/platform/perps-data/internal/delivery/export_test.go"
+lines = 12
+verdict = "clean"
+note = "Read in full. Test export: Store claim helper delegates to the production lease path with no alternate delivery state machine."
+
+[file.37]
+path = "services/platform/perps-data/internal/delivery/natsdriver/driver.go"
+lines = 391
+verdict = "clean"
+note = "Read in full. NATS driver: persistence ack, event identity, broker config agreement, ordered resume, bounded fetch, metadata validation and ack/close ownership."
+
+[file.38]
+path = "services/platform/perps-data/internal/delivery/natsdriver/driver_test.go"
+lines = 439
+verdict = "clean"
+note = "Read in full. Driver tests: real broker publish/fetch/ack, durable refusal, integrity, redelivery and consumer restart."
+
+[file.39]
+path = "services/platform/perps-data/internal/delivery/relay.go"
+lines = 233
+verdict = "clean"
+note = "Read in full. Relay: ordered claims, retry/backoff, permanent quarantine controls, persistence acknowledgements and Store transitions."
+
+[file.40]
+path = "services/platform/perps-data/internal/delivery/store.go"
+lines = 511
+verdict = "clean"
+note = "Read in full. Delivery storage: immutable exact-wire enqueue, transactional inbox/outbox, serialized leases, expiry/retry, quarantine controls and restored-outbox identities."
+
+[file.41]
+path = "services/platform/perps-data/internal/delivery/store_test.go"
+lines = 1094
+verdict = "clean"
+note = "Read in full. Delivery storage tests: real PostgreSQL persistence/idempotency, concurrent leases, tamper refusal, rollback, retries and control recovery."
+
+[file.42]
+path = "services/platform/perps-data/internal/explorer/explorer_test.go"
+lines = 592
+verdict = "clean"
+note = "Read in full. Explorer tests: action mapping, bech32 encoding, cursors/history ordering, synthetic receipts and transaction links."
+
+[file.43]
+path = "services/platform/perps-data/internal/explorer/proof_explorer_test.go"
+lines = 287
+verdict = "clean"
+note = "Read in full. Explorer proof: real fact/action producer, reopened storage, HTTP transport and portal consumers, counters and invalid/unknown refusal."
+
+[file.44]
+path = "services/platform/perps-data/internal/feeds/book.go"
+lines = 387
+verdict = "clean"
+note = "Read in full. Book: active-order selection, price aggregation, depth/order, notional/base unit scaling and checksum encoding."
+
+[file.45]
+path = "services/platform/perps-data/internal/feeds/feeds_test.go"
+lines = 841
+verdict = "clean"
+note = "Read in full. Feed tests: real database snapshots/deltas, depth/checksum, dynamic market reload, funding precision, stale data and topic lifecycle."
+
+[file.46]
+path = "services/platform/perps-data/internal/feeds/proof_websocket_test.go"
+lines = 320
+verdict = "clean"
+note = "Read in full. Websocket proof: persisted producer through providers and socket, sequence/snapshot consumer, reopened database and malformed/topic refusal."
+
+[file.47]
+path = "services/platform/perps-data/internal/gateway/server_test.go"
+lines = 591
+verdict = "clean"
+note = "Read in full. Gateway tests: real server dependency/startup, readiness, CORS/cache classes, rate bounds, websocket paths and GraphQL/account wiring."
+
+[file.48]
+path = "services/platform/perps-data/internal/graphql/account.go"
+lines = 327
+verdict = "clean"
+note = "Read in full. Account GraphQL: address predicates, balances/PnL, referral tiers, alerts and competition field/ranking shapes against persisted account tables."
+
+[file.49]
+path = "services/platform/perps-data/internal/graphql/account_test.go"
+lines = 364
+verdict = "clean"
+note = "Read in full. Account query tests: actual schema/storage, address validation, exact amounts, referral counts/tiers, alerts and competition rankings."
+
+[file.50]
+path = "services/platform/perps-data/internal/graphql/perps_test.go"
+lines = 850
+verdict = "clean"
+note = "Read in full. Perps GraphQL tests: positions/orders/trades/funding/history, numeric strings/nulls, filters/order, cumulative vault TVL and nested relationships."
+
+[file.51]
+path = "services/platform/perps-data/internal/graphql/proof_graphql_test.go"
+lines = 267
+verdict = "clean"
+note = "Read in full. GraphQL proof: persisted producer through HTTP to real portal consumers, reopening, repeated observations and invalid operation refusal."
+
+[file.52]
+path = "services/platform/perps-data/internal/graphql/schema_test.go"
+lines = 298
+verdict = "clean"
+note = "Read in full. Schema tests: actual schema/scalars, operations/filters, request/input bounds, unknown-field and subscription validation."
+
+[file.53]
+path = "services/platform/perps-data/internal/graphql/spot_test.go"
+lines = 354
+verdict = "clean"
+note = "Read in full. Spot query tests: persisted markets/orders/fills/collateral and validation refusal for all eight phantom roots."
+
+[file.54]
+path = "services/platform/perps-data/internal/graphql/subscriptions.go"
+lines = 1020
+verdict = "clean"
+note = "Read in full. Subscriptions: subject/account/market filters, current-value loading, rewind resend, cancellation and slow-consumer behavior."
+
+[file.55]
+path = "services/platform/perps-data/internal/graphql/subscriptions_test.go"
+lines = 863
+verdict = "clean"
+note = "Read in full. Subscription tests: real DB/NATS updates, multiplexing/isolation, rewind/recovery and nested schema compatibility, including full Market wrappers."
+
+[file.56]
+path = "services/platform/perps-data/internal/graphql/transportws.go"
+lines = 311
+verdict = "clean"
+note = "Read in full. GraphQL socket: subprotocol negotiation, initialization timeout, IDs/caps, operation execution, serialized writes and cancellation."
+
+[file.57]
+path = "services/platform/perps-data/internal/graphql/transportws_test.go"
+lines = 102
+verdict = "clean"
+note = "Read in full. GraphQL socket tests: real websocket timeout/refusal, subprotocol, repeated initialization and operation/close errors."
+
+[file.58]
+path = "services/platform/perps-data/internal/httpx/health.go"
+lines = 148
+verdict = "clean"
+note = "Read in full. Health: bounded concurrent dependency checks, panic/timeout/busy handling, lifecycle state and non-secret readiness responses."
+
+[file.59]
+path = "services/platform/perps-data/internal/httpx/health_test.go"
+lines = 108
+verdict = "clean"
+note = "Read in full. Health tests: actual liveness/readiness JSON, missing/panicking checks, cancellation, invalid registration and bounded in-flight work."
+
+[file.60]
+path = "services/platform/perps-data/internal/indexer/indexer.go"
+lines = 575
+verdict = "issues"
+note = "Read in full. Indexer: real follower/decoder/store/publisher wiring, lease fence/renewal, metrics/readiness/shutdown; rewind callback discards pre-deletion scope."
+
+[file.61]
+path = "services/platform/perps-data/internal/indexer/indexer_test.go"
+lines = 836
+verdict = "clean"
+note = "Read in full. Indexer tests: actual node/database catch-up, lease ownership, readiness/shutdown; empty-state rebuild_renews_lease checks lease duration only."
+
+[file.62]
+path = "services/platform/perps-data/internal/markets/proof_markets_test.go"
+lines = 318
+verdict = "clean"
+note = "Read in full. Markets proof: real EVM ABI producer through refresh/SQL and reopened storage to dynamic records, GraphQL tiers/config, metrics/readiness and malformed refusal."
+
+[file.63]
+path = "services/platform/perps-data/internal/pnl/pnl.go"
+lines = 703
+verdict = "clean"
+note = "Read in full. PnL: exact average-cost fold, settlement arithmetic, history cursors, daily rebuild and ranked/windowed leaderboards in raw units."
+
+[file.64]
+path = "services/platform/perps-data/internal/pnl/pnl_test.go"
+lines = 510
+verdict = "clean"
+note = "Read in full. PnL tests: cost basis, partial/full closes, realized/unrealized values, integer bounds and database daily/history/ranking behavior."
+
+[file.65]
+path = "services/platform/perps-data/internal/portal/server.go"
+lines = 282
+verdict = "clean"
+note = "Read in full. Portal server: bounded routes/cache, template safety/CSP, gateway readiness timeout, status handling and render/request metrics."
+
+[file.66]
+path = "services/platform/perps-data/internal/portal/server_test.go"
+lines = 267
+verdict = "clean"
+note = "Read in full. Portal tests: page/layout/status, unknown keys, cache expiry, CSP/metrics and actual gateway readiness failure."
+
+[file.67]
+path = "services/platform/perps-data/internal/publish/publisher.go"
+lines = 480
+verdict = "clean"
+note = "Read in full. Publisher: stream configuration refusal, ordered async publication, mandatory headers, persistence ack, broker errors, quarantine/control recovery and readiness; shared budget defect is anchored at envelope.go."
+
+[file.68]
+path = "services/platform/perps-data/internal/publish/publisher_test.go"
+lines = 1290
+verdict = "issues"
+note = "Read in full. Publisher tests: actual broker/PostgreSQL order/replay/rewind, quarantine/control IDs, restored epochs/readiness; accepted-limit loss is explicitly treated as success."
+
+[file.69]
+path = "services/platform/perps-data/internal/records/proof_records_test.go"
+lines = 498
+verdict = "clean"
+note = "Read in full. Records proof: actual facts/projections through records and REST/GraphQL, reopened state, settled funding precision, dynamic markets and invalid identity refusal."
+
+[file.70]
+path = "services/platform/perps-data/internal/rest/accountv2.go"
+lines = 326
+verdict = "clean"
+note = "Read in full. Account REST: bearer-owned writes, strict bounded bodies, exact threshold/market parsing, referral races/idempotency, competition expiry and read limits."
+
+[file.71]
+path = "services/platform/perps-data/internal/rest/accountv2_test.go"
+lines = 425
+verdict = "clean"
+note = "Read in full. Account REST tests: actual wallet login, daily/leaderboard shapes, cross-owner alerts, referral races/self-refusal, competition expiry and invalid tokens."
+
+[file.72]
+path = "services/platform/perps-data/internal/rest/markets_test.go"
+lines = 427
+verdict = "clean"
+note = "Read in full. Market REST tests: full wire fields, exact settled funding, totals/OI/volume/price units and nulls, case-insensitive lookup and fixed-route precedence."
+
+[file.73]
+path = "services/platform/perps-data/internal/rest/proof_rest_test.go"
+lines = 357
+verdict = "clean"
+note = "Read in full. REST proof: actual fact/outbox producer through gateway HTTP/socket to portal, reopened state, repeated updates, malformed identity and missing-fact refusal."
+
+[file.74]
+path = "services/platform/perps-data/internal/rest/venue.go"
+lines = 321
+verdict = "clean"
+note = "Read in full. Venue REST: dual mounts, dynamic case-insensitive market lookup, depth bounds/book aggregation, latest funding/OI, nulls and DB refusal shapes."
+
+[file.75]
+path = "services/platform/perps-data/internal/rest/venue_test.go"
+lines = 396
+verdict = "clean"
+note = "Read in full. Venue tests: actual projections/facts, active-book filters, depth clamp, precise funding/OI ordering, alias equality and 404/503 responses."
+
+[file.76]
+path = "services/platform/perps-data/internal/source/comet.go"
+lines = 126
+verdict = "clean"
+note = "Read in full. Comet client: actual header/block_results methods, height/proposer validation, final events and transaction count, timeout and ranked failover; no relay /comet path is hardwired."
+
+[file.77]
+path = "services/platform/perps-data/internal/source/follower.go"
+lines = 764
+verdict = "clean"
+note = "Read in full. Follower: bounded fetch/splitting, synthetic receipt hashes/indexes, share discovery, continuity, captured scope, transactional deletion/cursor/outbox and restart. The broken consumer is anchored at indexer.go."
+
+[file.78]
+path = "services/platform/perps-data/internal/source/follower_test.go"
+lines = 826
+verdict = "issues"
+note = "Read in full. Follower tests: actual node/database fetching, synthetic refusals, fork/deletion/cursor/notification checks; recorder replaces projection recovery."
+
+[file.79]
+path = "services/platform/perps-data/internal/source/rpc.go"
+lines = 977
+verdict = "issues"
+note = "Read in full. RPC source: bounded failover, historical/pruned/revert handling, block/log/receipt validation, pooled ethclient transport and stale-node recovery; raw endpoint logging exposes URL credentials."
+
+[file.80]
+path = "services/platform/perps-data/internal/source/rpc_test.go"
+lines = 264
+verdict = "clean"
+note = "Read in full. RPC tests: actual-node revert selectors/codes, failover and health effects; the deliberately identified message-only variant supplements real-node checks."
+
+[file.81]
+path = "services/platform/perps-data/internal/store/migrate.go"
+lines = 177
+verdict = "clean"
+note = "Read in full. Migration loader: real database opening, lexical embedded SQL order, per-file transactions, SHA256 immutability and recorded failure propagation."
+
+[file.82]
+path = "services/platform/perps-data/internal/store/seeds.go"
+lines = 103
+verdict = "clean"
+note = "Read in full. Seed store: immutable/idempotent order/position seeds, block/height validation, decoder field correspondence and null unavailable history."
+
+[file.83]
+path = "services/platform/perps-data/internal/stream/layout.go"
+lines = 144
+verdict = "clean"
+note = "Read in full. Stream: durable PERPS_V1 settings, chain/market/user/spot kinds, subject/filter validation and matching. Body/header budget issue is recorded at envelope.go."
+
+[file.84]
+path = "services/platform/perps-data/internal/stream/layout_test.go"
+lines = 137
+verdict = "clean"
+note = "Read in full. Stream tests: exact stream settings, all subject families/kinds, lower-case addresses and wildcard/invalid-name behavior."
+
+[file.85]
+path = "services/platform/perps-data/internal/telemetry/metrics.go"
+lines = 102
+verdict = "clean"
+note = "Read in full. Telemetry: service identities, collector ownership/duplicate refusal, bounded request/status labels and Prometheus HTTP serialization."
+
+[file.86]
+path = "services/platform/perps-data/internal/ws/hub.go"
+lines = 819
+verdict = "clean"
+note = "Read in full. Hub: ordered broker resume/deduplication, epoch/retention/reset detection, dense topic sequence/snapshots, stale/resync and listener/socket loss lifecycle."
+
+[file.87]
+path = "services/platform/perps-data/internal/ws/hub_test.go"
+lines = 868
+verdict = "clean"
+note = "Read in full. Hub tests: actual broker/providers/sockets, dense deltas, consumer/stream recreation, duplicates, skipped controls and 1013 recovery; rewind checks transport snapshots only."
+
+[file.88]
+path = "services/platform/perps-data/internal/ws/protocol.go"
+lines = 496
+verdict = "clean"
+note = "Read in full. Socket protocol: client frame/type/error parsing, write ownership, backpressure, subscription/rate caps, heartbeat and retry-after close."
+
+[file.89]
+path = "services/platform/perps-data/internal/ws/protocol_test.go"
+lines = 610
+verdict = "clean"
+note = "Read in full. Protocol tests: actual socket control/data fields, callbacks, all six errors, limits, rate windows, heartbeat and 1013 reason parsing."
+
+[file.90]
+path = "services/platform/perps-data/internal/ws/spotuser.go"
+lines = 241
+verdict = "clean"
+note = "Read in full. Spot socket: public address-scoped stream keys, input/payload bounds, queues, pings and loss recovery. protocolVersion is a local websocket field, not a retired Solidity call."
+
+[file.91]
+path = "services/platform/perps-data/internal/ws/spotuser_test.go"
+lines = 381
+verdict = "clean"
+note = "Read in full. Spot socket tests: actual envelope/broker/consumer/socket for all five streams, ownership isolation, caps, invalid frames/items and stalled/closed recovery."
+
+[file.92]
+path = "services/platform/perps-data/migrations/embed.go"
+lines = 11
+verdict = "clean"
+note = "Read in full. Migration embed: handwritten go:embed adapter exposes all SQL migrations through embed.FS; this is neither generated nor vendored source."
+
+[finding.rewind-projections]
+file = "services/platform/perps-data/internal/indexer/indexer.go"
+line = 464
+class = "interface-mismatch"
+severity = "high"
+observed = "Indexer.rebuild ignores Affected.Accounts, Markets and FromTime and calls store.Rebuild(a.From, a.From). Follower.rewind has already deleted every fact and perps.blocks row at or above From (follower.go:629-649). Rebuild derives scope from surviving range facts and returns nil when its filtered min(time) is NULL (facts.go:1397-1432). Cursor and rewind notification commit without restoring deleted projections or removing retained fork-derived daily/leaderboard/spot state. A restart reads the same inconsistent persisted projections."
+expected = "FollowerOptions.Rebuild requires recomputing affected accounts and markets after fork deletion. Brief checks 1 and 5 and data-services section 5 require atomic recovery. Requirement 3502.1 requires affected projections to equal a fresh fold while unrelated account rows stay unchanged."
+proposal = "In services/platform/perps-data/internal/indexer/indexer.go and internal/store/facts.go, add a rebuild entry point accepting the captured pre-deletion accounts, markets, spot entities and first changed time plus the surviving head. Refold surviving history and remove orphaned projections, daily rows, boards and snapshots transactionally before moving the cursor or announcing rewind. Update the equivalent cmd/perps-replay/main.go callback. Prove real follower-to-indexer-to-store recovery, restart and unrelated account preservation."
+owner_domain = 8
+interface = "3.go-perps-data-store-rebuild-j27"
+related_interfaces = ["3.go-perps-data-source-affected-j27", "3.go-perps-data-source-followeroptions-j27"]
+
+[finding.rewind-path-test]
+file = "services/platform/perps-data/internal/source/follower_test.go"
+line = 65
+class = "test-gap"
+severity = "medium"
+observed = "The follower harness passes recorder.rebuild, which only appends Affected and returns nil. Fork tests check deletion, cursor and callback arguments without Indexer.rebuild or store.Rebuild. The indexer rebuild_renews_lease case at indexer_test.go:636 invokes the real callback on empty state and checks its lease only, so it cannot detect rewind-projections."
+expected = "Brief fact 7 and checks 5 and 7 require recovery through the real producer, callback and persisted store, including consumer restart. Recording callback arguments does not prove the application serves correct post-rewind projections."
+proposal = "Add a recovery case in services/platform/perps-data/internal/indexer/indexer_test.go using populated position/order, daily PnL, rolling market and spot-board state. Trigger Follower continuity recovery with the production callback, reopen storage and compare affected reads with a fresh canonical fold. Assert unrelated account rows remain identical, retaining the existing follower deletion and lease assertions."
+owner_domain = 8
+interface = "3.go-perps-data-source-followeroptions-j27"
+
+[finding.envelope-transport-budget]
+file = "services/platform/perps-data/internal/delivery/envelope.go"
+line = 123
+class = "interface-mismatch"
+severity = "high"
+observed = "Envelope.Validate accepts an encoded body of exactly MaxEnvelopeBytes (1048576). stream.Config.MaxMsgSize and deploy/nats/nats.conf max_payload are also 1048576. publish.sink.send adds Perps-Seq, Perps-Block, Perps-Kind and JetStream identity/expectation headers, which count toward the broker limit. An enqueued event near the admission limit cannot reach consumers and is permanently quarantined and replaced by a skipped control; publisher_test.go:647-698 expressly expects this outcome."
+expected = "A service-admitted envelope must fit its actual producer-to-broker-to-consumer path with all mandatory headers. Brief checks 1 and 4 require length limits to agree between layers; the declared maximum must round-trip without silently losing the event payload."
+proposal = "Define a complete transport-size budget in services/platform/perps-data/internal/delivery/envelope.go, internal/publish/publisher.go and internal/stream/layout.go aligned with deploy/nats/nats.conf. Reserve a proven upper bound for all required headers and maximum IDs/sequences before enqueue, or raise stream/broker limits consistently while retaining explicit body/consumer bounds. Prove unchanged delivery of the largest admitted event and retain strict refusal/quarantine for genuinely oversized or legacy-invalid rows."
+owner_domain = 8
+interface = "3.go-perps-data-delivery-maxenvelopebytes-j27"
+related_interfaces = ["3.fmt-perps-data-nats-stream-perps-v1-j27", "3.go-perps-data-natsdriver-publisher-publish-j27", "3.go-perps-data-delivery-envelope-encode-j27"]
+
+[finding.envelope-boundary-test]
+file = "services/platform/perps-data/internal/publish/publisher_test.go"
+line = 647
+class = "test-gap"
+severity = "medium"
+observed = "The envelope_limit subtest stores a valid envelope at the service admission limit, then requires permanent quarantine because mandatory headers make it too large. It proves that a control message unblocks the queue but never proves successful delivery at the advertised boundary, allowing envelope-transport-budget to remain expected normal behavior."
+expected = "Brief check 7 requires boundary success to agree with the real producer and transport. The largest admitted event should be observed unchanged by the consumer; permanent quarantine is a separate refusal-path obligation."
+proposal = "Extend services/platform/perps-data/internal/publish/publisher_test.go to send the corrected maximum-admitted event through production enqueue, publisher, configured NATS and delivery decoder and assert exact payload/hash/identity. Preserve quarantine/control/readiness coverage with a genuinely invalid legacy row. Assert one byte beyond the corrected admission limit is refused before the block transaction commits."
+owner_domain = 8
+interface = "3.go-perps-data-delivery-envelope-encode-j27"
+
+[finding.rpc-url-credentials]
+file = "services/platform/perps-data/internal/source/rpc.go"
+line = 888
+class = "security"
+severity = "medium"
+observed = "RPC.markFailure logs the complete sl.url and err.Error(); health transitions also log sl.url at rpc.go:964-966. Config.validURL accepts HTTP(S) URL userinfo, query strings and paths; Config.String prints RPCURLs and CometURLs verbatim. Configuring an authenticated upstream can expose its endpoint credentials during ordinary startup, failure, stale-node or recovery logging."
+expected = "Brief check 8 requires secrets never to be logged. Operator endpoint credentials must remain private during startup and recovery just as DATABASE_URL, NATS_URL and PERPS_AUTH_SECRET are redacted."
+proposal = "Use non-secret endpoint identifiers in services/platform/perps-data/internal/source/rpc.go and redact credential-bearing URL components in internal/config/config.go and source/comet.go error paths. Sanitize wrapped HTTP errors as well as explicit URL attributes, retaining method, endpoint index and failure class. Add log captures with sentinel userinfo/query/path secrets for startup, failures and health transitions."
+owner_domain = 8
+interface = "3.go-perps-data-source-rpc-j27"
+
+[finding.auth-challenge-retention]
+file = "services/platform/perps-data/internal/auth/auth.go"
+line = 43
+class = "runtime-risk"
+severity = "medium"
+observed = "Every unauthenticated Challenge inserts a perps.auth_challenges row. Verify only sets used_at; expires_at bounds validity but never removes data. The auth service, gateway background loops and migrations supply no cleanup or retention job. Normal sign-ins and repeated valid-address requests grow the shared PostgreSQL table indefinitely despite the five-minute nonce lifetime and ingress rate limits."
+expected = "Brief checks 4 and 5 require bounded growth and a defined persistent-state lifecycle. Expired and consumed login nonces should not occupy shared service storage forever; cleanup must neither revive a nonce nor delete a still-valid challenge."
+proposal = "Add bounded indexed expiry cleanup owned by services/platform/perps-data/internal/auth/auth.go with a supporting migration and cancellation-aware wiring in internal/gateway/server.go. Specify retention for expired/consumed challenges, preserve atomic single use and expose cleanup failures. Prove expiry cleanup across gateway restart while valid challenges remain usable and old/consumed nonces stay refused."
+owner_domain = 8
+interface = "3.go-perps-data-auth-service-j27"
+
+[finding.archived-contract-as-current-guide]
+file = "spec/release-v6-12-0/contracts/data-services.md"
+line = 210
+class = "doc-drift"
+severity = "medium"
+observed = "The release contract remains the explanatory target named in decoder/stream comments and its section 6 feeds abi_test.go, but surrounding behavior is superseded: line 210 describes seed notional at mark while decode/seed.go uses base size times entry price (18684.1); lines 537-544 promise eight phantom roots return [] while current schema validation refuses them; lines 7/710 retain platform/perps-data paths instead of services/platform/perps-data."
+expected = "Brief check 9 requires source references to lead integrators to current merged-network seed units, query refusal and deploy paths. Historical release material should be distinguished clearly from the active integration guide without changing historical facts."
+proposal = "Publish a current docs/perps-data.md guide owned by perps-data and link it from service source references, with the frozen spec/layerx-merge/contracts/perps-data.md for interface IDs. Preserve the archived event table used by internal/decode/abi_test.go but label the release page superseded for current integration. Describe entry-price seed notional, phantom-root validation refusal, chain-driven markets/config and actual services/platform deployment paths."
+owner_domain = 8
+
+[doc.1]
+path = "services/platform/perps-data/deploy/README.md"
+status = "accurate"
+notes = "All 17 lines reviewed. CIDR parsing, forwarding precedence, untrusted peers and refusal match config.Load and public ingress consumers."
+
+[doc.2]
+path = "docs/perps-abi-change-history.md"
+status = "accurate"
+notes = "Read in full. Claims are expressly limited to revision 210639d0360c53f5c2fdd81c9c7c5e84b24b8c84 and distinguish decision history from implementation evidence."
+
+[doc.3]
+path = "spec/release-v6-12-0/contracts/data-services.md"
+status = "stale"
+notes = "All 836 lines reviewed. Section 6 still supplies ABI conformance, but current seed units (210), phantom-root behavior (537-544), code paths (7/710) and refresh/config (474) differ; see archived-contract-as-current-guide."
+
+[doc.4]
+path = "spec/layerx-merge/contracts/perps-data.md"
+status = "accurate"
+notes = "Reviewed the frozen interface tables and linked acceptance/context rules. Source revision 2a1033aa2 and UNRUN qualification scope are explicit; planned/changed signatures and historical notes are not presented as current implementation evidence."

@@ -56,9 +56,12 @@ func newDebugTracerShapeFixture(t *testing.T) debugTracerShapeFixture {
 		Ctx, Tx1 = previousCtx, previousTx
 	})
 
+	from, err := types.Sender(types.LatestSignerForChainID(tx1.ChainId()), tx1)
+	require.NoError(t, err)
+	nonce := EVMKeeper.GetNonce(Ctx, from)
 	to := common.HexToAddress("0x010203")
 	builder, tx := buildTx(types.DynamicFeeTx{
-		ChainID: EVMKeeper.ChainID(Ctx), Nonce: 0, Gas: 100000,
+		ChainID: EVMKeeper.ChainID(Ctx), Nonce: nonce, Gas: 100000,
 		GasFeeCap: big.NewInt(1000000000), To: &to,
 		Value: big.NewInt(1000), Data: []byte("abc"),
 	})
@@ -67,9 +70,10 @@ func newDebugTracerShapeFixture(t *testing.T) debugTracerShapeFixture {
 	require.True(t, ok)
 	require.NotNil(t, tx)
 	require.NotNil(t, tx.To())
-	from, err := types.Sender(types.LatestSignerForChainID(tx.ChainId()), tx)
+	signedFrom, err := types.Sender(types.LatestSignerForChainID(tx.ChainId()), tx)
 	require.NoError(t, err)
-	require.Equal(t, uint64(0), tx.Nonce())
+	require.Equal(t, from, signedFrom)
+	require.Equal(t, nonce, tx.Nonce())
 	require.Equal(t, tx.Nonce(), EVMKeeper.GetNonce(Ctx, from))
 
 	code := common.FromHex("0x602a60005260206000f3")

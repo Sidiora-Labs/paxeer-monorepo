@@ -15,7 +15,7 @@ use layerx_agentd::agent_rpc::{self, AgentRpcResponse};
 use layerx_agentd::agent_rpc_tls::{AgentRpcTls, AgentRpcTlsPaths};
 use layerx_agentd::audit::Redacted;
 use layerx_agentd::boot::readiness_gate;
-use layerx_agentd::budget::{LimitConfig, LimitId, LimitScope};
+use layerx_agentd::budget::{BudgetLimiter, LimitConfig, LimitId, LimitScope};
 use layerx_agentd::capability::CapabilityId;
 use layerx_agentd::enrolment::{
     self, BindingMode, BindingPublisher, DaemonSurface, EnrolmentRequest, ListenerDeclaration,
@@ -39,7 +39,7 @@ use layerx_agentd::read::{
 use layerx_agentd::session::{SessionId, SessionRegistry};
 use layerx_agentd::session_keys::SessionKeyRegistry;
 use layerx_agentd::store::{Store, TenantId};
-use layerx_client::lni::transport::Limits;
+use layerx_client::frame::transport::Limits;
 type PxEndpoint = layerx_client::px::PxEndpoint;
 type SequencerEndpoint = layerx_client::sequencer::SequencerEndpoint;
 use layerx_programs::{
@@ -284,13 +284,31 @@ fn mcp_web(config: &Config) -> Result<Option<WebDeclaration>, String> {
     let keys = NativeReadRoute::new(client, config.expected_chain_id)
         .signed_authority()
         .map_err(|error| format!("MCP receipt keys unavailable: {error:?}"))?;
-    let key = keys
-        .get(index)
-        .ok_or("LAYERX_AGENT_MCP_WEB_RECEIPT_KEY_INDEX has no px_getReceiptKeys entry")?;
+    if config.expected_chain_id != 125 {
+        return Err("the MCP web binding requires chain id 125".to_owned());
+    }
+    let address = |name: &str| -> Result<[u8; 20], String> {
+        let value = required(name)?;
+        let text = value
+            .strip_prefix("0x")
+            .ok_or_else(|| format!("{name} must be an EVM address"))?;
+        if text.len() != 40 || !text.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+            return Err(format!("{name} must be an EVM address"));
+        }
+        let mut bytes = [0; 20];
+        for (index, byte) in bytes.iter_mut().enumerate() {
+            *byte = u8::from_str_radix(&text[index * 2..index * 2 + 2], 16)
+                .map_err(|_| format!("{name} must be an EVM address"))?;
+        }
+        Ok(bytes)
+    };
     WebDeclaration::new(
         endpoint,
         required("LAYERX_AGENT_MCP_WEB_NETWORK")?,
-        key.public_key,
+        address("LAYERX_AGENT_MCP_WEB_PAYER_ADDRESS")?,
+        address("LAYERX_AGENT_MCP_WEB_RECEIVER_ADDRESS")?,
+        keys,
+        index,
         parse_u64("LAYERX_AGENT_MCP_WEB_TIMEOUT_MS")?,
         required("LAYERX_AGENT_MCP_WEB_PENDING_ATTEMPTS")?
             .parse()
@@ -464,24 +482,8 @@ fn publish_mcp_binding(
     Ok(republish)
 }
 
-fn human_lni_limits(deadline: Duration) -> Result<Limits, String> {
-    Limits {
-        maximum_frame_bytes: required("LAYERX_AGENT_HUMAN_MAX_FRAME_BYTES")?
-            .parse()
-            .map_err(|_| "human max frame is invalid")?,
-        maximum_connections: required("LAYERX_AGENT_HUMAN_MAX_CONNECTIONS")?
-            .parse()
-            .map_err(|_| "human max connections is invalid")?,
-        maximum_streams: required("LAYERX_AGENT_HUMAN_MAX_STREAMS")?
-            .parse()
-            .map_err(|_| "human max streams is invalid")?,
-        maximum_queued_bytes: required("LAYERX_AGENT_HUMAN_MAX_QUEUED_BYTES")?
-            .parse()
-            .map_err(|_| "human max queue is invalid")?,
-        deadline,
-    }
-    .validate()
-    .map_err(|_| "human LNI limits are invalid".to_owned())
+fn human_frame_limits(deadline: Duration) -> Result<Limits, String> {
+    layerx_agentd::human::human_frame_limits(deadline, required)
 }
 
 fn connect_human_node() -> Result<SequencerEndpoint, String> {
@@ -497,12 +499,6 @@ fn connect_human_node() -> Result<SequencerEndpoint, String> {
         Vec::new()
     };
     let roots: Vec<&[u8]> = certificates.iter().map(AsRef::as_ref).collect();
-    let network = PxEndpoint::new(&config.url, &roots)
-        .and_then(|endpoint| endpoint.network())
-        .map_err(|error| format!("human PX network head is unavailable: {error:?}"))?;
-    if network.paxeer.chain_id != config.chain_id {
-        return Err("human node RPC chain id mismatch".to_owned());
-    }
     let endpoint = SequencerEndpoint::new(&config.url, &roots)
         .map_err(|error| format!("human sequencer endpoint is invalid: {error:?}"))?;
     if endpoint
@@ -512,6 +508,8 @@ fn connect_human_node() -> Result<SequencerEndpoint, String> {
     {
         return Err("human sequencer chain id mismatch".to_owned());
     }
+    layerx_agentd::human_node::verify_direct_node_readiness(&endpoint, config.chain_id)
+        .map_err(|error| format!("human node evidence refused: {error:?}"))?;
     Ok(endpoint)
 }
 
@@ -699,7 +697,7 @@ fn start_human_owner(mcp: Option<McpBoot>) -> Result<OwnerStatus, String> {
         &denomination_sources,
         runtime_clock,
     )
-    .map(|(receiver, _, _)| receiver)
+    .map(|(receiver, _, _, _)| receiver)
 }
 
 fn start_shared_owner(
@@ -719,6 +717,7 @@ fn start_shared_owner(
         OwnerStatus,
         SharedAgentOwner<RemoteHumanAuthority>,
         mpsc::SyncSender<Result<(), String>>,
+        Arc<Mutex<Store>>,
     ),
     String,
 > {
@@ -739,7 +738,7 @@ fn start_shared_owner(
         );
     }
     let deadline = Duration::from_millis(parse_u64("LAYERX_AGENT_HUMAN_DEADLINE_MS")?);
-    let human_limits = human_lni_limits(deadline)?;
+    let human_limits = human_frame_limits(deadline)?;
     let store_path = PathBuf::from(required("LAYERX_AGENT_HUMAN_STORE")?);
     let socket_path = PathBuf::from(required("LAYERX_AGENT_HUMAN_SOCKET")?);
     let session_key_root = PathBuf::from(required("LAYERX_AGENT_HUMAN_SESSION_KEY_ROOT")?);
@@ -826,7 +825,7 @@ fn start_shared_owner(
     .map_err(|error| format!("human session key registry is invalid: {error:?}"))?;
     let mut unified = UnifiedAgentOwner::new(
         operations,
-        shared_store,
+        Arc::clone(&shared_store),
         &peers,
         vec![verified_limit()?],
         session_keys,
@@ -850,6 +849,9 @@ fn start_shared_owner(
             mode: u32::from_str_radix(&required("LAYERX_AGENT_HUMAN_SOCKET_MODE")?, 8)
                 .map_err(|_| "human socket mode is invalid")?,
             maximum_frame_bytes: human_limits.maximum_frame_bytes,
+            maximum_connections: human_limits.maximum_connections,
+            maximum_streams: human_limits.maximum_streams,
+            maximum_queued_bytes: human_limits.maximum_queued_bytes,
             deadline,
             peers,
         },
@@ -868,13 +870,14 @@ fn start_shared_owner(
             );
         })
         .map_err(|error| format!("human listener thread failed: {error}"))?;
-    Ok((receiver, owner, sender))
+    Ok((receiver, owner, sender, shared_store))
 }
 
 /// Starts the dedicated mutually authenticated agent RPC listener when it is
 /// configured. A configured listener without its complete TLS material refuses boot.
 fn start_agent_rpc(
     owner: SharedAgentOwner<RemoteHumanAuthority>,
+    shared_store: Arc<Mutex<Store>>,
 ) -> Result<Option<HttpPool>, String> {
     let Some(listen) = optional("LAYERX_AGENTD_RPC_LISTEN") else {
         return Ok(None);
@@ -915,7 +918,7 @@ fn start_agent_rpc(
         })
         .transpose()?
         .unwrap_or_default();
-    attach_mcp_payers(&owner, &mut mcp_bindings)?;
+    attach_mcp_payers(&owner, &shared_store, &mut mcp_bindings)?;
     let listener = TcpListener::bind(&listen)
         .map_err(|error| format!("agent rpc listener failed: {error}"))?;
     HttpPool::start(listener, move |stream| {
@@ -971,6 +974,7 @@ fn mcp_config_digest(value: &str) -> Result<[u8; 32], String> {
 
 fn attach_mcp_payers(
     owner: &SharedAgentOwner<RemoteHumanAuthority>,
+    shared_store: &Arc<Mutex<Store>>,
     bindings: &mut [layerx_mcp::binding::Binding],
 ) -> Result<(), String> {
     let Some(source) = optional("LAYERX_AGENTD_MCP_PAYERS") else {
@@ -985,6 +989,10 @@ fn attach_mcp_payers(
     if configs.is_empty() || configs.len() > 64 {
         return Err("MCP payer configuration count is invalid".to_owned());
     }
+    let limit = mcp_limit()?;
+    let limit_id = limit.id;
+    let limiter =
+        Arc::new(BudgetLimiter::new(vec![limit]).map_err(|_| "MCP payer budget limit is invalid")?);
     let mut attached = BTreeSet::new();
     for config in configs {
         let session_id = mcp_config_digest(&config.session_id)?;
@@ -1042,13 +1050,21 @@ fn attach_mcp_payers(
             &[&ca_der],
             receipt_keys,
         )
-        .map_err(|_| "MCP payer owner authority is unavailable")?;
+        .map_err(|_| "MCP payer owner authority is unavailable")?
+        .with_approval_resources(
+            Arc::clone(shared_store),
+            Arc::clone(&limiter),
+            vec![limit_id],
+        );
         let approvals = owner
             .lock()
             .map_err(|_| "MCP approval owner is unavailable")?
             .approvals
             .clone();
         binding.attach_web(layerx_mcp::binding::WebAuthority::new(
+            owner
+                .mcp_clock()
+                .map_err(|_| "MCP approval clock is unavailable")?,
             approvals,
             Box::new(payer.into_web_payer()),
         ));
@@ -1721,7 +1737,7 @@ fn serve(config: Config) -> Result<(), String> {
     let export_trust = receipt_keys
         .map(|keys| export_trust_source(keys, &config.authority_ca_der))
         .transpose()?;
-    let (human, owner, status) = start_shared_owner(
+    let (human, owner, status, shared_store) = start_shared_owner(
         mcp,
         Some(programs),
         export_trust,
@@ -1731,7 +1747,7 @@ fn serve(config: Config) -> Result<(), String> {
         &config.program_budget_denomination_sources,
         runtime_clock,
     )?;
-    let rpc = start_agent_rpc(owner)?;
+    let rpc = start_agent_rpc(owner, shared_store)?;
     drop(status);
     let node_config = NodeRpcConfig {
         url: config.node_endpoint.clone(),
@@ -1835,7 +1851,11 @@ fn mcp_evidence_mode() -> Option<Result<(), String>> {
 }
 
 fn main() {
-    if let Err(error) = refuse_retired_environment() {
+    if let Err(error) = layerx_agentd::human::refuse_retired_human_inputs(
+        env::vars_os().map(|(name, _)| name.to_string_lossy().into_owned()),
+    )
+    .and_then(|()| refuse_retired_environment())
+    {
         eprintln!("layerx-agentd: {}", Redacted::boot_diagnostic(&error));
         std::process::exit(2);
     }

@@ -1,0 +1,56 @@
+[repair.22.31.48]
+audit = "22.30.32"
+base_revision = "7a46d90eecc4435aea1d78bdd9590421997ccc7e"
+scope = "services/launchpad/gateway/internal/proxy"
+qualification = "The exact candidate revision, command, exit code and private log are emitted by hf-build and hf-done and retained in /out/run/gates.jsonl; no gate is claimed before it runs."
+baseline = "Not run: the explicit bounded gate order forbids testing before implementation and supersedes step 9's conflicting unchanged-tree request; no pre-change failures are claimed."
+
+[finding.export_capability]
+test = "TestRepair_48_export_capability"
+repair = "Forward one canonical 64-character capability, optionally prefixed Bearer, unchanged only on the declared export download GET; reject ambiguous and malformed values."
+proof = "Actual signed export creation, account worker, encrypted MinIO object, status-issued capability, real account GatewayHandler and DownloadHandler through mTLS gateway; owner bearer and cookie preservation, other-owner denial, single redemption, replay denial and route isolation."
+
+[finding.deletion_receipt]
+test = "TestRepair_48_deletion_receipt"
+repair = "Relay exactly one canonical bounded authority receipt on accepted deletion, bound to the response's job and account."
+proof = "Real identity reauthentication, signed deletion, atomic session revocation, receipt capture, authority process shutdown and pool reopening, receipt-only durable recovery, MAC tampering and unsigned service refusal."
+
+[finding.v2_recovery]
+test = "TestRepair_48_v2_recovery"
+repair = "Admit constrained receipt-only status requests on both v1 and frozen v2, preserving job binding and mTLS service assertions."
+proof = "Real v2 accepted deletion, revoked normal session, authority restart, generated v2 status decoder, both status versions, wrong-job and duplicate refusal."
+
+[finding.ingest_response]
+test = "TestRepair_48_ingest_response"
+repair = "Only successful authenticated owner POST ingest-key responses may carry the closed stream-bound credential shape, with bounded key, safe endpoint, short visibility and no-store; other responses retain the generic secret filter."
+proof = "Real lifecycle store, encrypted provider binding via real TLS Vault transit, wallet operation ledger, identity and canonical creator checks, real connectedCredential handler over gateway mTLS, owner consumer, non-owner and anonymous refusal, public read secrecy, malformed producer-output rejection."
+
+[finding.ticket_only_socket]
+test = "TestRepair_48_ticket_only_socket"
+disposition = "Gateway contract proven with the unmodified production platform social runtime; connected-runtime closure requires the owning domain's out-of-scope change."
+wiring_request = "services/launchpad/social/internal/app/app.go — social owner (domain 4): replace socialConnectedRuntime.authenticateTicket's unconditional browser-session authentication with fanout.TicketAuthenticator(r.chatIdentity, r.identity), retaining periodic session revocation checks, and run this journey under the connected runtime."
+proof = "Real identity-issued single-use chat ticket, gateway WebSocket tunnel, actual sociald production platform runtime, ticket-only upgrade, replay refusal, topic binding refusal, private subscription and real logout revocation during ongoing private operations."
+
+[gotcha.1]
+observed = "Sibling Go internal packages cannot be imported directly from the gateway module."
+resolution = "Test executables link the real authority packages from temporary child module paths with absolute local module replacements; no producer implementation is copied."
+
+[gotcha.2]
+observed = "Shared delivery schema DDL is not idempotent and must not be rerun during an authority restart."
+resolution = "Provision it once in fixture setup; stop and reopen the real authority process and its pool without repeating DDL."
+
+[gotcha.3]
+observed = "The credential proof requires the actual Vault transit executable in addition to the existing PostgreSQL, Redis and MinIO tools."
+resolution = "Use a throwaway TLS Vault dev process and transit key; never replace encryption or credential retrieval with a fake."
+
+[qualification.attempt1]
+revision = "525443f7f985c74d553b2d7f06e3d5244e913e43"
+command = "cg spec done 22.31.48 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Export and existing tests passed; deletion setup and socket logout called unregistered fixture routes, and anonymous ingest-key returned 403 instead of 401."
+assumption = "Use real exported identity lifecycle methods for proof setup and revocation, and explicitly reject missing owner credentials with 401 on the private ingest-key route."
+
+[gotcha.4]
+observed = "The existing identity proof fixture omits event delivery and therefore does not register reauthentication and logout HTTP routes."
+resolution = "Drive its real identity challenge, wallet verification and persisted logout methods for setup; retain real account and social HTTP and WebSocket paths under repair."

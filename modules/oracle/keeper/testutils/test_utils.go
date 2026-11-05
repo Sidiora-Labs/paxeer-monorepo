@@ -136,6 +136,11 @@ type TestInput struct {
 
 // CreateTestInput nolint
 func CreateTestInput(t *testing.T) TestInput {
+	return CreateTestInputWithDB(t, dbm.NewMemDB())
+}
+
+// CreateTestInputWithDB initializes real module keepers on the supplied database.
+func CreateTestInputWithDB(t *testing.T, db dbm.DB) TestInput {
 	keyAcc := sdk.NewKVStoreKey(authtypes.StoreKey)
 	keyBank := sdk.NewKVStoreKey(banktypes.StoreKey)
 	keyParams := sdk.NewKVStoreKey(paramstypes.StoreKey)
@@ -145,7 +150,6 @@ func CreateTestInput(t *testing.T) TestInput {
 	keyStaking := sdk.NewKVStoreKey(stakingtypes.StoreKey)
 	keyDistr := sdk.NewKVStoreKey(distrtypes.StoreKey)
 
-	db := dbm.NewMemDB()
 	ms := store.NewCommitMultiStore(db)
 	ctx := sdk.NewContext(ms, tmproto.Header{Time: time.Now().UTC()}, false)
 	encodingConfig := MakeEncodingConfig(t)

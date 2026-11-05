@@ -1,7 +1,6 @@
 package store
 
 import (
-	"bytes"
 	"errors"
 	"io"
 	"sort"
@@ -9,6 +8,7 @@ import (
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/tracekv"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/types"
+	dbm "github.com/tendermint/tm-db"
 )
 
 var ErrIteratorUnsupported = errors.New("unexpected iterator call on cachekv store")
@@ -168,7 +168,7 @@ func (store *Store) GetAllKeyStrsInRange(start, end []byte) (res []string) {
 	}
 	store.cache.Range(func(key, value any) bool {
 		kbz := []byte(key.(string))
-		if bytes.Compare(kbz, start) < 0 || bytes.Compare(kbz, end) >= 0 {
+		if !dbm.IsKeyInDomain(kbz, start, end) {
 			// we don't want to break out of the iteration since cache isn't sorted
 			return true
 		}

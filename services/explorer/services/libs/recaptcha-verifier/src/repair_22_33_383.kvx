@@ -1,0 +1,14 @@
+[repair.22.33.383]
+audit = "22.30.141"
+baseline = "No earlier gate ledger or repair test existed at session start. No pre-repair test result is claimed: the explicit task order forbids verification before full implementation and requires verification only through hf-done after hf-build."
+evidence = "Private runner ledger /out/run/gates.jsonl records the exact verified candidate revision, command, exit code and log; only a passing hf-done qualifies the repair."
+wiring_requests = []
+
+[finding.recaptcha-http-unbounded-wait]
+repair = "Default HTTP client has a 3-second connect deadline and a 10-second whole-request deadline covering response-body reads; with_http_client documents how to override both."
+tests = ["recaptcha_http_default_deadline_covers_open_body", "recaptcha_http_override_propagates_header_and_body_timeouts"]
+
+[finding.recaptcha-expected-fields-optional]
+repair = "VerifyMode distinguishes v2 from mandatory v3 score/action evidence. Explicit hostname, action and score requirements fail closed with MissingHostname, MissingAction and MissingScore; expectation builders and directly assigned public fields both impose v3 requirements."
+tests = ["recaptcha_expected_hostname_rejects_missing_and_null", "recaptcha_expected_action_rejects_missing_and_null", "recaptcha_v3_requirement_rejects_v2_and_null_score", "recaptcha_public_expectation_fields_require_v3", "recaptcha_v2_and_v3_accept_satisfied_expectations", "recaptcha_retains_value_and_provider_refusals"]
+fixtures = "Committed v2/v3 JSON transcripts and an in-process TCP HTTP peer in tests/repair_22_33_383.rs exercise production form encoding, HTTP transport, JSON decoding and policy consumption, with no external service or configuration."

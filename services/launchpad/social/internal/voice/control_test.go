@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/safety"
+	"github.com/Sidiora-Technologies/KindleLaunch/media/social/migrations"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -75,15 +76,18 @@ func fixture(t *testing.T) (*Control, context.Context) {
 		}
 		admin.Close()
 	})
-	for _, source := range schemaSources(t) {
-		ddl := strings.NewReplacer(
-			"chat.", ident+".",
-			"CREATE SCHEMA IF NOT EXISTS chat;", "CREATE SCHEMA IF NOT EXISTS "+ident+";",
-		).Replace(source.up)
-		if _, e = db.Exec(ctx, ddl); e != nil {
-			t.Fatalf("apply %s: %v", source.name, e)
-		}
+	raw, e := migrations.FS.ReadFile("00003_safety.sql")
+	if e != nil {
+		t.Fatal(e)
 	}
+	up, _, ok := strings.Cut(string(raw), "-- +goose Down")
+	if !ok {
+		t.Fatal("safety migration has no Down section")
+	}
+	if _, e = db.Exec(ctx, strings.ReplaceAll(up, "chat.", ident+".")); e != nil {
+		t.Fatal(e)
+	}
+
 	c := &Control{DB: db, Pools: knownPools{}, Policy: allowPolicy{}}
 	ctx = safety.WithPrincipal(ctx, safety.Principal{Wallet: host, SessionID: "voice-fixture", Expires: time.Now().Add(time.Hour)})
 	return c, ctx

@@ -47,7 +47,9 @@ impl VerifiedUnsignedNativeEffectRelease {
 
 #[derive(Clone, Serialize, Deserialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields)]
-pub(crate) struct NativeEffectApprovalCarrier {
+pub struct NativeEffectApprovalCarrier {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    call_bound: Option<super::call_bound::RetainedNativeCall>,
     version: u8,
     tenant: String,
     principal: String,
@@ -250,6 +252,7 @@ impl NativeEffectApprovalCarrier {
         let required = decision.outcome == NativeLocalOutcome::ApprovalRequired;
         let version = if profile.label().is_some() { 2 } else { 1 };
         let result = Self {
+            call_bound: None,
             version,
             tenant: peer.tenant.clone(),
             principal: peer.principal.clone(),
@@ -305,6 +308,12 @@ impl NativeEffectApprovalCarrier {
         .map_err(|_| NativeEffectError::Corrupt)
     }
     pub(crate) fn disclosure(&self) -> Result<Disclosure, NativeEffectError> {
+        if let Some(call) = &self.call_bound {
+            return call
+                .restore()
+                .map(|prepared| prepared.disclosure)
+                .map_err(|_| NativeEffectError::Binding);
+        }
         let registry = self.registry()?;
         let disclosure = match &self.budget_context {
             Some(c) => layerx_crypto::disclosure::bind_budget_mutation(
@@ -334,6 +343,9 @@ impl NativeEffectApprovalCarrier {
         Ok(disclosure)
     }
     fn validate(&self) -> Result<(), NativeEffectError> {
+        if super::call_bound::validate(self).map_err(|_| NativeEffectError::Binding)? {
+            return Ok(());
+        }
         let tenant = TenantId::new(self.tenant.clone()).map_err(|_| NativeEffectError::Corrupt)?;
         let _ = tenant;
         if !matches!(
@@ -478,6 +490,9 @@ impl NativeEffectApprovalCarrier {
         held.encoded()
     }
     pub(crate) fn held_digest(&self) -> Result<[u8; 32], NativeEffectError> {
+        if let Some(call) = &self.call_bound {
+            return call.held_digest().map_err(|_| NativeEffectError::Binding);
+        }
         Ok(Sha256::digest(self.immutable_hold_bytes()?).into())
     }
     pub(crate) fn budget(&self) -> Result<ProgramBudgetReservation, NativeEffectError> {
@@ -1094,6 +1109,9 @@ impl NativeEffectApprovalCarrier {
         &self,
         registry: &ModuleRegistry,
     ) -> Result<Prepared, NativeEffectError> {
+        if self.call_bound.is_some() {
+            return Err(NativeEffectError::Binding);
+        }
         use layerx_types::activity::{EnvelopeBuilder, TimestampBound};
         use layerx_types::amount::Amount;
         use layerx_types::ids::{Did, IdempotencyKey};
@@ -1171,3 +1189,131 @@ fn human_tenant(peer: &HumanPeer) -> Result<TenantId, NativeEffectError> {
     }
     TenantId::new(peer.tenant.clone()).map_err(|_| NativeEffectError::Binding)
 }
+
+impl super::call_bound::CallCarrier for NativeEffectApprovalCarrier {
+    const PROGRAM: bool = false;
+    const PREFIX: &'static [u8] = PREFIX;
+    fn call(&self) -> Option<&super::call_bound::RetainedNativeCall> {
+        self.call_bound.as_ref()
+    }
+    fn stage_unsigned_release<'a>(
+        &self,
+        budgets: &'a crate::budget::BudgetLimiter,
+    ) -> Result<crate::budget::StagedRelease<'a>, super::call_bound::CallApprovalError> {
+        use super::call_bound::{CallApprovalError, CallApprovalState};
+        let call = self.call_bound.as_ref().ok_or(CallApprovalError::Version)?;
+        if call.signed.is_some()
+            || !matches!(
+                call.state()?,
+                CallApprovalState::Rejected | CallApprovalState::Expired
+            )
+        {
+            return Err(CallApprovalError::Binding);
+        }
+        let budget = call.budget()?;
+        let result = if budget.allocations().is_some() {
+            let proof = VerifiedUnsignedNativeEffectRelease {
+                reservation_id: budget.id,
+                reservation_digest: budget
+                    .settlement_binding()
+                    .map_err(|_| CallApprovalError::Budget)?,
+            };
+            budgets.stage_native_effect_unsigned_release(&budget, &proof)
+        } else {
+            crate::budget::stage_release(
+                budgets,
+                budget.id,
+                crate::budget::ReleaseKind::Failed,
+                call.decision
+                    .as_ref()
+                    .ok_or(CallApprovalError::Binding)?
+                    .sequence,
+            )
+        };
+        result.map_err(|_| CallApprovalError::Budget)
+    }
+    fn from_call(
+        call: super::call_bound::RetainedNativeCall,
+    ) -> Result<Self, super::call_bound::CallApprovalError> {
+        use super::call_bound::{CallApprovalError, CallApprovalState};
+        let prepared = call.restore()?;
+        let budget = call.budget()?;
+        let state = match call.state()? {
+            CallApprovalState::Awaiting => NativeEffectApprovalState::Awaiting,
+            CallApprovalState::Expired => NativeEffectApprovalState::Expired,
+            CallApprovalState::Rejected => NativeEffectApprovalState::Rejected,
+            _ => NativeEffectApprovalState::Granted,
+        };
+        let release_ref = if state == NativeEffectApprovalState::Granted {
+            Some(
+                Sha256::new()
+                    .chain_update(b"layerx/native-effect-release/v1\0")
+                    .chain_update(call.held_digest()?)
+                    .chain_update(call.preparation)
+                    .finalize()
+                    .into(),
+            )
+        } else {
+            None
+        };
+        Ok(Self {
+            version: 3,
+            tenant: call.tenant.clone(),
+            principal: call.principal.clone(),
+            actor: prepared.disclosure.actor.clone(),
+            session: call.session,
+            generation: call.generation,
+            preparation: call.preparation,
+            activity_module: prepared.disclosure.activity_type.module() as u16,
+            activity_ordinal: prepared.disclosure.activity_type.ordinal(),
+            canonical_bytes: call.canonical_bytes.clone(),
+            authority: RetainedAuthority::Owner(call.sender.to_vec()),
+            disclosure_digest: call.disclosure_digest,
+            fee_asset: budget
+                .charges
+                .iter()
+                .find(|charge| charge.kind == crate::budget::ProgramChargeKind::Fee)
+                .ok_or(CallApprovalError::Budget)?
+                .asset,
+            fee_state_root: [0; 32],
+            fee_observed_sequence: call.observed_height,
+            budget_context: None,
+            capability: [0; 32],
+            purpose_hash: [0; 32],
+            created_at_sequence: call.observed_height,
+            created_at_unix_seconds: call.admitted_at_ms / 1000,
+            clock_generation: [0; 16],
+            budget_expiry_sequence: budget.expiry_sequence,
+            envelope_not_after: call.deadline()?,
+            budget: call.budget.clone(),
+            policy_source: Vec::new(),
+            requires_approval: true,
+            state,
+            terminal: call.decision.as_ref().map(|decision| NativeEffectTerminal {
+                key: decision.key,
+                principal: call.principal.clone(),
+                session: call.session,
+                generation: call.generation,
+                sequence: decision.sequence,
+                core_ms: decision.core_ms,
+                grant: decision.grant,
+                release_ref,
+                submission_ref: call
+                    .signed
+                    .as_ref()
+                    .filter(|_| call.queued)
+                    .map(|bytes| transaction_hash(bytes)),
+            }),
+            queued_submission: call.signed.as_ref().filter(|_| call.queued).map(|bytes| {
+                RetainedQueuedSubmission {
+                    submission_id: transaction_hash(bytes),
+                    activity_id: transaction_hash(bytes),
+                    signed_digest: Sha256::digest(bytes).into(),
+                }
+            }),
+            admission_profile: None,
+            call_bound: Some(call),
+        })
+    }
+}
+super::call_bound::impl_call_approval!(NativeEffectApprovalCarrier);

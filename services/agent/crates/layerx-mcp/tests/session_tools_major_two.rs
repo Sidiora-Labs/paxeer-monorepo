@@ -1,3 +1,7 @@
+use layerx_types::clock::Clock as _;
+#[path = "support/clock.rs"]
+mod test_clock;
+
 use layerx_agent_api::subscription::Cursor;
 use layerx_mcp::catalogue::{input_schema, validate};
 use serde_json::{json, Value};
@@ -188,6 +192,7 @@ fn approval_get_tool_reports_tx_hash_and_rung() {
         context.clone(),
         prepared.clone(),
         50,
+        &test_clock::TestClock::new(50),
     )
     .expect("register exact approval") else {
         panic!("approval required");
@@ -208,6 +213,12 @@ fn approval_get_tool_reports_tx_hash_and_rung() {
                 idempotency_key: &DecisionKey::new("major-two-approve").expect("decision key"),
                 approver: ApproverId::new("human:alice").expect("approver"),
                 current_sequence: 60,
+                current_time: layerx_agent_api::TimestampSeconds(
+                    test_clock::TestClock::new(60)
+                        .sample(std::time::Duration::from_secs(1))
+                        .expect("clock")
+                        .unix_seconds(),
+                ),
             },
             &prepared,
             &queue,
@@ -237,7 +248,7 @@ fn approval_get_tool_reports_tx_hash_and_rung() {
         transitions: Vec::new(),
     };
     let submissions = BTreeMap::from([(release_ref, tracked)]);
-    let arguments = json!({"approval_id": approval_id, "current_sequence": "60"});
+    let arguments = json!({"approval_id": approval_id, "current_sequence": "60", "current_time":test_clock::TestClock::new(60).now().to_string()});
     assert_eq!(validate("approval.get", &arguments), Ok(()));
     let facts = approval_get_tool(&service, &context.tenant, &submissions, &arguments)
         .expect("approval.get tool response");
@@ -246,6 +257,13 @@ fn approval_get_tool_reports_tx_hash_and_rung() {
         &approval_id,
         &tx_hash,
         Rung::Submitted.name(),
+    );
+    session_transport::approval_result_over_transport(
+        &service,
+        &context.tenant,
+        &submissions,
+        &arguments,
+        &facts,
     );
     assert_eq!(facts["state"], "Approved");
     assert_eq!(facts["actor"], prepared.disclosure.actor.as_str());
@@ -260,4 +278,14 @@ fn approval_get_tool_reports_tx_hash_and_rung() {
     drop(service);
     drop(expiry);
     std::fs::remove_dir_all(root).expect("remove approval decision store");
+}
+
+#[path = "support/session_transport.rs"]
+mod session_transport;
+
+#[test]
+fn session_transport_preserves_cursor_triples_and_reopened_approval_shapes() {
+    session_transport::session_tools_authenticated_daemon_codec();
+    session_transport::session_tools_bind_describe_and_acknowledge();
+    session_transport::all_session_tools_through_daemon_and_mcp();
 }

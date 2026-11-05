@@ -6,16 +6,17 @@ defmodule EthereumJSONRPC.Utility.CommonHelper do
   alias EthereumJSONRPC.Utility.EndpointAvailabilityObserver
 
   # converts duration like "5s", "2m", "1h5m" to milliseconds
-  @duration_regex ~r/(\d+)([smhSMH]?)/
+  @duration_regex ~r/(\d+)([smhSMH])/
+  @duration_format_regex ~r/\A(?:\d+[smhSMH])+\z/
   def parse_duration(duration) do
-    case Regex.scan(@duration_regex, duration) do
-      [] ->
-        {:error, :invalid_format}
-
-      parts ->
-        Enum.reduce(parts, 0, fn [_, number, granularity], acc ->
-          acc + convert_to_ms(String.to_integer(number), String.downcase(granularity))
-        end)
+    if Regex.match?(@duration_format_regex, duration) do
+      @duration_regex
+      |> Regex.scan(duration)
+      |> Enum.reduce(0, fn [_, number, granularity], acc ->
+        acc + convert_to_ms(String.to_integer(number), String.downcase(granularity))
+      end)
+    else
+      {:error, :invalid_format}
     end
   end
 

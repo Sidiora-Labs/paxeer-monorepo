@@ -37,6 +37,14 @@ const (
 	testSpan        = 20
 )
 
+// Independent inventory: adding a production projection cannot silently remove
+// it from the recovery oracle or the snapshot assertions.
+var expectedProjectionTables = []string{
+	"positions_current", "orders", "spot_orders", "account_margin", "user_stats", "user_pnl_daily",
+	"market_stats_rolling", "leaderboard", "spot_token_seen", "market_snapshots", "protocol_snapshots",
+	"spot_account_legs", "spot_leaderboard",
+}
+
 func requireEnv(t *testing.T, name string) string {
 	t.Helper()
 	v := os.Getenv(name)
@@ -69,7 +77,7 @@ func testDB(t *testing.T) *sql.DB {
 	for _, tb := range tables {
 		reset = append(reset, "perps."+tb.name)
 	}
-	for _, p := range projectionTables {
+	for _, p := range expectedProjectionTables {
 		reset = append(reset, "perps."+p)
 	}
 	for _, name := range reset {
@@ -121,7 +129,9 @@ func testSource(t *testing.T, db *sql.DB) (NodeSource, *source.RPC) {
 			return store.WriteBlock(ctx, tx, store.Block{Number: b.Number, Hash: b.Hash, ParentHash: b.ParentHash, Time: b.Time, Proposer: b.Proposer, TxCount: b.TxCount}, rows)
 		},
 		Rebuild: func(ctx context.Context, tx *sql.Tx, a source.Affected) error {
-			return store.Rebuild(ctx, tx, int64(a.From), int64(a.From))
+			return store.Rebuild(ctx, tx, int64(a.From), int64(a.From), store.Recovery{
+				Accounts: a.Accounts, Markets: a.Markets, FromTime: a.FromTime,
+			})
 		},
 	})
 	if err != nil {
@@ -211,7 +221,7 @@ func dump(t *testing.T, db *sql.DB, from, to int64) map[string][]string {
 	for _, tb := range tables {
 		queries["perps."+tb.name] = fmt.Sprintf(`SELECT * FROM perps.%s WHERE block BETWEEN %d AND %d`, tb.name, from, to)
 	}
-	for _, p := range projectionTables {
+	for _, p := range expectedProjectionTables {
 		queries["perps."+p] = `SELECT * FROM perps.` + p
 	}
 	out := map[string][]string{}
@@ -277,6 +287,7 @@ func (o *observed) Read(ctx context.Context, q decode.Querier, h uint64) (store.
 }
 
 func TestReplayRenewsLeaseWithinBatch(t *testing.T) {
+	db := testDB(t)
 	if os.Getenv(testRPCEnv) == "" || os.Getenv(testCometEnv) == "" {
 		t.Setenv("TMPDIR", t.TempDir())
 		envFile := filepath.Join(os.Getenv("TMPDIR"), "lx-localnode", "localnode.env")
@@ -307,7 +318,6 @@ func TestReplayRenewsLeaseWithinBatch(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	db := testDB(t)
 	src, rpc := testSource(t, db)
 	head, err := rpc.Head(ctx)
 	if err != nil || head < 2 {
@@ -443,6 +453,10 @@ VALUES ($1, 0, 0, 0, 0, 0, 0, 9)`,
 			`INSERT INTO perps.market_snapshots (market_id, hour, mark_price, volume_usd, trades_count)
 VALUES ($1, '2026-03-02 10:00:00+00', 1, 0, 0)`,
 			`INSERT INTO perps.spot_token_seen (token, first_block) VALUES ($3, 9)`,
+			`INSERT INTO perps.spot_account_legs (account, realized_usd, volume_usd, trades, updated_block)
+VALUES ($2, 1, 10, 1, 9)`,
+			`INSERT INTO perps.spot_leaderboard (kind, rank, account, value, updated_block)
+VALUES ('pnl', $1, $2, 1, 9)`,
 		}
 		for i, account := range []common.Address{a, b} {
 			token := []common.Address{tokenA, tokenB}[i]
@@ -455,17 +469,26 @@ VALUES ($1, '2026-03-02 10:00:00+00', 1, 0, 0)`,
 		if err := snapshot(ctx, tx, tables, 10, 10); err != nil {
 			t.Fatal(err)
 		}
-		for _, p := range projectionTables {
+		for _, p := range expectedProjectionTables {
 			query := `SELECT count(*) FROM ` + snapshotProjection + p
 			want := int64(1)
 			if p == "protocol_snapshots" {
 				want = 0
+			}
+			if p == "spot_leaderboard" {
+				want = 2
 			}
 			wantCount(t, tx, query, want)
 			switch p {
 			case "positions_current", "orders", "spot_orders", "account_margin", "user_stats", "user_pnl_daily", "leaderboard":
 				wantCount(t, tx, query+` WHERE account = $1`, 1, a.Bytes())
 				wantCount(t, tx, query+` WHERE account = $1`, 0, b.Bytes())
+			case "spot_account_legs":
+				wantCount(t, tx, query+` WHERE account = $1`, 1, a.Bytes())
+				wantCount(t, tx, query+` WHERE account = $1`, 0, b.Bytes())
+			case "spot_leaderboard":
+				wantCount(t, tx, query+` WHERE account = $1`, 1, a.Bytes())
+				wantCount(t, tx, query+` WHERE account = $1`, 1, b.Bytes())
 			case "market_stats_rolling", "market_snapshots":
 				wantCount(t, tx, query+` WHERE market_id = 1`, 1)
 				wantCount(t, tx, query+` WHERE market_id = 2`, 0)
@@ -552,11 +575,11 @@ VALUES ($1, '2026-03-02 10:00:00+00', 1, 0, 0)`,
 		if err := snapshot(ctx, tx, tables, 100, 101); err != nil {
 			t.Fatal(err)
 		}
-		names := []string{snapshotBlocks, "replay_accounts", "replay_markets", "replay_tokens"}
+		names := []string{snapshotBlocks, "replay_accounts", "replay_spot_accounts", "replay_markets", "replay_tokens"}
 		for i := range tables {
 			names = append(names, snapshotName(i))
 		}
-		for _, p := range projectionTables {
+		for _, p := range expectedProjectionTables {
 			names = append(names, snapshotProjection+p)
 		}
 		for _, name := range names {

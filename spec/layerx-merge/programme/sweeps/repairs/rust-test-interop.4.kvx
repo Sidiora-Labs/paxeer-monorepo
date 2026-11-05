@@ -1,0 +1,8 @@
+[repair.rust-test-interop.4]
+target = "layerx-bridge-relayer"
+command = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-bridge-relayer --no-fail-fast"
+revision = "c28b3930005a572a2d68be313164023c74e13e1e"
+result = "already-passing"
+change = "none"
+producer_input_tests = ["outbound_isolation_captured_production_boundaries requires LAYERX_BRIDGE_CAPTURE_MANIFEST naming an absolute path to a genuine layerx.bridge.outbound-isolation/v1 corpus and LAYERX_BRIDGE_CAPTURE_MANIFEST_SHA256 supplying its independent SHA256 pin, including pinned production executables, provenance, captures, configurations and a pending receipt journal."]
+qualification = "Decision 2325 and task 22.11.7 identify the genuine boundary corpus as a required producer input; decision 2506 excludes outbound_isolation_captured_production_boundaries from the standalone verification."

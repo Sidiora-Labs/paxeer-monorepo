@@ -156,6 +156,7 @@ func TestProofSequencerConfig(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, public, key.PublicKey())
 	in := vectorInput()
+	in.PaymentDenom = "upax"
 	in.Accepted.Height = 2
 	firstReceipt := assertReceiptKeySignature(t, key, in)
 	decoded, err := codec.DecodeReceipt(firstReceipt)

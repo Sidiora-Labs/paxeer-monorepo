@@ -1,9 +1,4 @@
-#!/bin/bash
-
-echo -n OS Password:
-read -s password
-echo
-
-curl "https://get.starport.network/faucet!" > /tmp/faucet_install.sh
-echo $password | sudo -S bash /tmp/faucet_install.sh
-faucet --cli-name ./build/newd --denoms uhpx
+#!/usr/bin/env bash
+set -euo pipefail
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+exec python3 "$SCRIPT_DIR/faucet_launcher.py" "$@"

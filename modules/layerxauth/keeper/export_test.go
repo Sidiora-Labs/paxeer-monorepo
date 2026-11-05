@@ -31,7 +31,7 @@ var (
 	AuthViewStores       = authViewStores
 )
 
-const CapabilityAuthorizationTypeURL = capabilityAuthorizationTypeURL
+const CapabilityAuthorizationTypeURL = "/cosmos.bank.v1beta1.MsgSend"
 
 func newHarness(t *testing.T) *harness                        { t.Helper(); return HarnessFactory(t) }
 func authExecuteActor(t *testing.T, f *authViewFixture) Actor { t.Helper(); return ExecuteActor(t, f) }

@@ -114,11 +114,13 @@ func TestSharedHostIdempotencyAcrossModules(t *testing.T) {
 	require.Equal(t, payer.DIDKey, mainAccount.AuthorityKey)
 	_, err = a.LayerXLedgerKeeper.Mint(ctx, ledgerActor, asset, holding, sdk.NewInt(100), [32]byte{0x35})
 	require.NoError(t, err)
-	_, err = a.LayerXLedgerKeeper.PayExact(ctx, ledgerActor, ledgertypes.PayExactArgs{
+	fundingReference := [32]byte{0x36}
+	funded, err := a.LayerXLedgerKeeper.PayExact(ctx, ledgerActor, ledgertypes.PayExactArgs{
 		From: holding, To: from, Asset: asset, Amount: sdk.NewInt(100),
-		ExpiresAt: now + 1000, PaymentReference: [32]byte{0x36},
+		ExpiresAt: now + 1000, PaymentReference: fundingReference,
 	})
 	require.NoError(t, err)
+	require.Equal(t, lxphost.Code(0), funded.Receipt.ResultCode)
 
 	key := [32]byte{0x41}
 	material = append(append(append([]byte(nil), from[:]...), to[:]...), asset[:]...)
@@ -190,13 +192,29 @@ func TestSharedHostIdempotencyAcrossModules(t *testing.T) {
 		}
 		return rows
 	}
-	assertNoIdempotency := func() {
+	// PayExact funds the main account with LX_ASSET_SEND; Send then pays the
+	// recipient. Only those successful sends persist payment-reference receipts.
+	paymentReferences := map[string][]byte{
+		string(append([]byte{0x04}, fundingReference[:]...)): funded.Receipt.Encoded,
+		string(append([]byte{0x04}, key[:]...)):              sent.Receipt.Encoded,
+	}
+	assertPaymentReferences := func() {
 		t.Helper()
+		module := ctx.KVStore(a.GetKey(authtypes.StoreKey))
+		moduleRows := module.Iterator(nil, nil)
+		for ; moduleRows.Valid(); moduleRows.Next() {
+			require.Equal(t, authtypes.ParamsKey, moduleRows.Key())
+		}
+		require.NoError(t, moduleRows.Close())
 		iterator := sdk.KVStorePrefixIterator(ctx.KVStore(hostKey), []byte{0x04})
 		defer iterator.Close()
-		require.False(t, iterator.Valid(), "shared host must not persist idempotency entries")
+		rows := map[string][]byte{}
+		for ; iterator.Valid(); iterator.Next() {
+			rows[string(iterator.Key())] = append([]byte(nil), iterator.Value()...)
+		}
+		require.Equal(t, paymentReferences, rows, "only successful LX_ASSET_SEND activities may persist payment references")
 	}
-	assertNoIdempotency()
+	assertPaymentReferences()
 
 	body, grantID := grantBody(payer, payerEpoch)
 	consumedSequence, err := a.LayerXHost.ReadIdentitySequence(ctx, payer.DID)
@@ -212,7 +230,7 @@ func TestSharedHostIdempotencyAcrossModules(t *testing.T) {
 	nextAccountSequence, err := a.LayerXHost.ReadIdentitySequence(ctx, payer.DID)
 	require.NoError(t, err)
 	require.Equal(t, consumedSequence+1, nextAccountSequence)
-	assertNoIdempotency()
+	assertPaymentReferences()
 
 	payload, err := authtypes.EncodeSessionPayload(body, 1000, [32]byte{0x51}, nil)
 	require.NoError(t, err)
@@ -230,7 +248,7 @@ func TestSharedHostIdempotencyAcrossModules(t *testing.T) {
 	require.ErrorAs(t, err, &code)
 	require.ErrorIs(t, authkeeper.FromKernel(code), authtypes.ErrSequenceReused)
 	require.Equal(t, before, snapshot())
-	assertNoIdempotency()
+	assertPaymentReferences()
 
 	otherBody, otherGrantID := grantBody(other, otherEpoch)
 	otherGranted, err := a.LayerXAuthKeeper.GrantSession(ctx, other, otherBody, 1000, [32]byte{0x53}, key)
@@ -253,5 +271,5 @@ func TestSharedHostIdempotencyAcrossModules(t *testing.T) {
 		require.Equal(t, sdk.NewInt(want), balance)
 		require.Equal(t, balance, a.BankKeeper.GetBalance(ctx, lxphost.BankAddress(account), ledgertypes.MirrorDenom(asset)).Amount)
 	}
-	assertNoIdempotency()
+	assertPaymentReferences()
 }

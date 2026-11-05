@@ -1,0 +1,33 @@
+[task]
+id = "22.33.1453"
+audit = "22.30.83"
+acceptance = "22998.1"
+status = "implementation-complete-evidence-in-private-gate-ledger"
+revision_source = "/out/run/gates.jsonl retains each candidate revision, exact command, exit code and private evidence location; hf-done is the sole verification invocation."
+baseline = "No earlier gate ledger or scoped edits existed at session start on 5f6b5f0aad35a415da93671f70183d5e5688bda0; no baseline tests ran because the explicit implementation-first order forbids a pre-change verification run, and the corrected proving test did not yet exist."
+planned_path_mapping = "repair_m1453_test.go maps to test_repair_22_33_1453.py under the explicit Python gate correction (gotcha 2984); no Go implementation or subprocess toolchain is introduced."
+proof_boundary = "Production native bootstrap/publication, durable Store, Unix SCM_RIGHTS broker/client, child supervision/materialization and FileProvider execute against committed native command/RPC peers and a committed Python core consumer; this gate does not certify an out-of-path native chain binary or image."
+
+[finding.generation-legacy-artifacts]
+test = "test_generation_legacy_artifacts_descriptor_adoption_and_child_restart"
+refusal_tests = "test_native_child_refuses_inherited_retired_exports; test_native_producer_refuses_retired_schema_before_publication"
+repair = "Preserve prerequisite native version-2 artifacts and committed prepared-generation hashes; share the version and closed native environment schema between producer, broker and client, refuse legacy publication or inherited retired exports, consume actual descriptors in a child and stop/reopen broker, Store and child against the retained generation."
+
+[finding.generation-guarantor-operation]
+test = "test_generation_guarantor_operation_refused_with_core_handoff"
+repair = "Preserve the prerequisite core-only broker authorization and prove retired identity, slot, capability, path and version requests return no descriptors while a subsequent authorized native core handoff succeeds; remove obsolete capability-file setup from the existing transport suite without removing its refusal cases."
+
+[finding.fixture-value]
+audit_id = "sequencer-seed-helper"
+task_id_alias = "fixture value"
+test = "test_fixture_value_native_signer_file_contract_and_reopen"
+repair = "Remove the unused seed-exporting sequencer-env.sh helper; native bootstrap and supervisor already use the owning --sequencer.receipt-key-file contract. Prove native start/reopen with exact committed commands and actual committed health, protected file signing/reopen, unchanged public generation identity and no seed bytes in published artifacts or adopted environment."
+
+[wiring.image]
+request = "docker/kernel/Dockerfile and docker/kernel/init.sh — image/native-chain domain: omit the retired sequencer-env.sh helper and package the native bootstrap/supervisor and version-2 generation modules with paxd receipt-key-file provisioning; no current helper callers remain in the inspected docker or hosted platform sources."
+
+[gotcha.gate-order]
+observed = "The historical pre-change verification step contradicts the explicit implementation-first order and one verify invocation; follow the corrected Python gate via hf-build then hf-done and record the lack of a baseline without claiming baseline failures."
+
+[gotcha.inherited-environment]
+observed = "A closed descriptor schema alone does not retire legacy exports when the client copies the parent environment; refuse inherited retired settings before constructing the child environment."

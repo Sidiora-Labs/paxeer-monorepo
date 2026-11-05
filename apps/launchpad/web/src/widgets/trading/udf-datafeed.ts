@@ -6,6 +6,8 @@ import { decodeV2Contract, type V2ContractTypes } from '@kindle/sdk';
 import type { LibrarySymbolInfo, ResolutionString } from '../../../public/charting_library/charting_library';
 
 const POLL_INTERVAL = 10_000;
+export const CHART_WINDOW_CANDLES = 5000;
+export const CHART_METADATA_DEADLINE_MS = 15000;
 
 export type ChartMode = 'price' | 'mcap';
 export type ChartStreamState = 'connecting' | 'snapshotting' | 'replaying' | 'live' | 'degraded' | 'offline' | 'resync_required' | 'closed';
@@ -85,6 +87,9 @@ function canonicalChartContent(value: unknown): string {
 
 export class CanonicalCandleRevisionMerge {
   private readonly candles = new Map<string, { revision: bigint; content: string }>();
+  constructor(private readonly evict: (key: string) => void = () => {}) {}
+  get size() { return this.candles.size; }
+  clear() { this.candles.clear(); }
   accept(value: unknown, pool: string, interval: string): 'apply' | 'ignore' | 'resync' {
     let candle: CanonicalCandle;
     try { candle = decodeV2Contract('Candle', value); } catch { return 'resync'; }
@@ -95,7 +100,11 @@ export class CanonicalCandleRevisionMerge {
     const old = this.candles.get(key);
     if (old && revision < old.revision) return 'ignore';
     if (old && revision === old.revision) return content === old.content ? 'ignore' : 'resync';
-    if (!old && this.candles.size >= 2048) return 'resync';
+    if (!old && this.candles.size >= CHART_WINDOW_CANDLES) {
+      const oldest = this.candles.keys().next().value!;
+      this.candles.delete(oldest); this.evict(oldest);
+    }
+    this.candles.delete(key);
     this.candles.set(key, { revision, content }); return 'apply';
   }
 }
@@ -178,37 +187,52 @@ export function chartSymbolInfo(value: unknown, poolAddress: string, mode: Chart
 }
 
 /** onReady / resolveSymbol / getServerTime over CHART_UDF_ROUTES; bars and live candles are owned by createReplayUdfDatafeed. */
-function createChartMetadataFeed(poolAddress: string, mode: ChartMode, origin?: string) {
+function createChartMetadataFeed(poolAddress: string, mode: ChartMode, origin: string | undefined, onFailure: (reason: string | null) => void) {
   let disposed = false;
   const requests = new Set<AbortController>();
+  const failures = new Map<string, string>();
+  const retries = new Map<string, () => void>();
   async function get(path: string, params?: Record<string, string>): Promise<unknown> {
     if (disposed) throw new DOMException('Datafeed disposed', 'AbortError');
     const controller = new AbortController(); requests.add(controller);
+    const deadline = setTimeout(() => controller.abort(new Error('Chart metadata deadline exceeded')), CHART_METADATA_DEADLINE_MS);
     try {
       const url = new URL(path, chartsOrigin(origin));
       if (params) for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
       const response = await fetch(url, { signal: controller.signal, headers: { Accept: 'application/json' } });
       if (!response.ok) throw new Error(`Trading charts ${path}: HTTP ${response.status}`);
       const body: unknown = await response.json();
-      if (disposed) throw new DOMException('Datafeed disposed', 'AbortError');
+      controller.signal.throwIfAborted();
       return body;
-    } finally { requests.delete(controller); }
+    } finally { clearTimeout(deadline); requests.delete(controller); }
+  }
+  function request<T>(path: string, parse: (body: unknown) => T, callback: (value: T) => void, params?: Record<string, string>, onError?: (error: string) => void) {
+    const run = () => {
+      if (disposed) return;
+      void get(path, params).then(parse).then(value => {
+        if (disposed) return;
+        failures.delete(path); retries.delete(path);
+        onFailure(failures.values().next().value ?? null);
+        callback(value);
+      }).catch(error => {
+        if (disposed) return;
+        const reason = reportUserFacingError(error, "Chart can't load right now", 'chart metadata');
+        failures.set(path, reason); retries.set(path, run); onFailure(reason); onError?.(reason);
+      });
+    };
+    run();
   }
   return {
     requestCount: () => requests.size,
-    dispose: () => { disposed = true; requests.forEach(controller => controller.abort()); requests.clear(); },
-    onReady: (callback: (config: Record<string, unknown>) => void) => {
-      get(CHART_UDF_ROUTES.config).then(value => { if (!disposed) callback(chartLibraryConfig(value)); }).catch(() => {});
-    },
+    retry: () => { const pending = [...retries.values()]; retries.clear(); pending.forEach(run => run()); },
+    dispose: () => { disposed = true; requests.forEach(controller => controller.abort()); requests.clear(); retries.clear(); failures.clear(); },
+    onReady: (callback: (config: Record<string, unknown>) => void) => request(CHART_UDF_ROUTES.config, chartLibraryConfig, callback),
     searchSymbols: (_input: string, _exchange: string, _type: string, onResult: (result: never[]) => void) => { if (!disposed) onResult([]); },
-    resolveSymbol: (_symbolName: string, onResolve: (info: LibrarySymbolInfo) => void, onError: (error: string) => void) => {
-      get(CHART_UDF_ROUTES.symbols, { symbol: poolAddress.toLowerCase() })
-        .then(value => { if (!disposed) onResolve(chartSymbolInfo(value, poolAddress, mode)); })
-        .catch(error => { if (!disposed) onError(reportUserFacingError(error, "Chart can't load right now", 'chart symbol')); });
-    },
-    getServerTime: (callback: (time: number) => void) => {
-      get(CHART_UDF_ROUTES.time).then(value => { if (!disposed && typeof value === 'number' && Number.isSafeInteger(value) && value > 0) callback(value); }).catch(() => {});
-    },
+    resolveSymbol: (_symbolName: string, onResolve: (info: LibrarySymbolInfo) => void, onError: (error: string) => void) => request(CHART_UDF_ROUTES.symbols, value => chartSymbolInfo(value, poolAddress, mode), onResolve, { symbol: poolAddress.toLowerCase() }, onError),
+    getServerTime: (callback: (time: number) => void) => request(CHART_UDF_ROUTES.time, value => {
+      if (typeof value !== 'number' || !Number.isSafeInteger(value) || value <= 0) throw new Error('Invalid chart server time');
+      return value;
+    }, callback),
   };
 }
 
@@ -391,35 +415,51 @@ export function tradingViewChartMark(marker: ConfirmedChartMarker, presentation:
  * is core/trading-charts, which serves every CHART_UDF_ROUTES document. Without it both
  * resolve through the page origin's rewrites.
  */
-export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = 'price', onFreshness: (value: ChartFreshness) => void = () => {}, _supply?: CanonicalSupply, authority?: { apiOrigin: string; valuationOrigin: string }, onView: (view: ChartAccessibleView) => void = () => {}, onValuation: (state: ValuationState) => void = () => {}) {
-  const metadata = createChartMetadataFeed(poolAddress, mode, authority?.valuationOrigin);
+export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = 'price', onFreshness: (value: ChartFreshness) => void = () => {}, _supply?: CanonicalSupply, authority?: { apiOrigin: string; valuationOrigin: string }, onView: (view: ChartAccessibleView) => void = () => {}, onValuation: (state: ValuationState) => void = () => {}, onMetadataError: (reason: string | null) => void = () => {}) {
+  let metadataError: string | null = null;
+  let lastFreshness: ChartFreshness = { sourceObservedAt: null, lastReceivedAt: null, lastSourceHeight: null, connectionStatus: 'connecting', lagReason: null };
+  const emitFreshness = (value: ChartFreshness) => {
+    lastFreshness = value;
+    onFreshness(metadataError ? { ...value, connectionStatus: 'offline', lagReason: metadataError } : value);
+  };
+  const metadata = createChartMetadataFeed(poolAddress, mode, authority?.valuationOrigin, reason => {
+    metadataError = reason; onMetadataError(reason); emitFreshness(lastFreshness);
+  });
   let markPresentation: ChartMarkPresentation = { enabled: true };
   const subscriptions = new Map<string, ReplayChartSubscription>();
   const historyRequests = new Set<AbortController>();
   const valuations = new Map<string, Bar>();
   const visibleCandles = new Map<string, CanonicalCandle>();
-  const viewMerge = new CanonicalCandleRevisionMerge();
+  const viewMerge = new CanonicalCandleRevisionMerge(key => {
+    const candle = visibleCandles.get(key);
+    visibleCandles.delete(key);
+    if (candle) {
+      valuations.delete(`${candle.start}:${candle.revision}`);
+      markers = markers.filter(marker => marker.candleStart !== candle.start || marker.interval !== candle.interval);
+    }
+  });
+  let historyWatermark: V2ContractTypes['Watermark'] | null = null;
+  let historyRevision: bigint | null = null;
   let annotationGeneration = 0;
   let annotationRequest: AbortController | undefined;
   let markers: ConfirmedChartMarker[] = [];
   let annotationState: ChartAccessibleView['annotationState'] = 'unavailable';
   let annotationReason: string | null = 'Confirmed fill annotations have not loaded';
-  const candleIdentity = (candle: CanonicalCandle) => `${candle.interval}:${candle.start}`;
+  const candleIdentity = (candle: CanonicalCandle) => `${candle.poolAddress.toLowerCase()}:${candle.interval}:${candle.start}`;
   const publishView = () => {
     if (disposed) return;
     onView({ rows: [...visibleCandles.values()].sort((a, b) => Date.parse(a.start) - Date.parse(b.start)).map(canonicalCandleTableRow), markers: [...markers], annotationState, annotationReason });
   };
-  function retain(candle: CanonicalCandle, resolution: string) {
+  function retain(candle: CanonicalCandle, resolution: string, publish = true) {
     const decision = viewMerge.accept(candle, poolAddress, resolutionToWsTimeframe(resolution));
     if (decision === 'resync') throw new Error('Visible history revision conflict');
     const key = candleIdentity(candle);
     if (decision === 'apply') {
-      if (!visibleCandles.has(key) && visibleCandles.size >= 2048) throw new Error('Visible chart retention exceeded');
       const old = visibleCandles.get(key);
       visibleCandles.set(key, candle);
       publishChartMeasurement({ kind: 'candle_state', received_utc_ns: chartMeasurementUtcNs(), topic: `market.candles.${poolAddress.toLowerCase()}.${candle.interval}`, payload: candle });
       if (old) { markers = markers.filter(marker => marker.candleStart !== candle.start || marker.interval !== candle.interval); annotationState = 'partial'; annotationReason = 'Historical correction requires confirmed marker reconciliation'; }
-      publishView();
+      if (publish) publishView();
     }
     return visibleCandles.get(key) ?? candle;
   }
@@ -467,7 +507,7 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
   const notify = (sub: ReplayChartSubscription, state: ChartStreamState, reason: string | null = null) => {
     if (!current(sub)) return;
     sub.freshness = { ...sub.freshness, connectionStatus: state, lagReason: reason };
-    onFreshness({ ...sub.freshness });
+    emitFreshness({ ...sub.freshness });
     publishChartMeasurement({ kind: 'replay_state', received_utc_ns: chartMeasurementUtcNs(), topic: `market.candles.${poolAddress.toLowerCase()}.${resolutionToWsTimeframe(sub.resolution)}`, generation: sub.generation, sequence: sub.sequence.toString(), replay_complete: sub.snapshotReady && !sub.replaying && sub.acknowledged, pending_bytes: sub.pendingBytes, state, reason });
   };
   function observe(sub: ReplayChartSubscription, watermark: V2ContractTypes['Watermark'] | null) {
@@ -480,7 +520,7 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
     const lag = received - Date.parse(watermark.observedAt);
     if (lag > 1000) notify(sub, 'degraded', 'Prices may be a little behind');
     else {
-      onFreshness({ ...sub.freshness });
+      emitFreshness({ ...sub.freshness });
       sub.lagTimer = setTimeout(() => { sub.lagTimer = undefined; notify(sub, 'degraded', 'Prices may be a little behind'); }, Math.max(1, 1001 - lag));
     }
   }
@@ -488,8 +528,8 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
     const result = sub.merge.accept(candle, poolAddress, resolutionToWsTimeframe(sub.resolution));
     if (result === 'resync') throw new Error('Candle revision conflict or retention exhausted');
     if (result !== 'apply') return;
-    retain(candle, sub.resolution);
-    const bar = display(candle);
+    const retained = retain(candle, sub.resolution);
+    const bar = display(retained);
     if (emit) void reconcileMarkers();
     if (bar.time < sub.lastTime) { sub.reset(); return; }
     sub.lastTime = bar.time;
@@ -501,11 +541,14 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
     let cursor: string | undefined;
     let watermark: V2ContractTypes['Watermark'] | null = null;
     let snapshotId: string | undefined;
+    let projectionRevision: string | null | undefined;
     const seen = new Set<string>();
     for (let pageNumber = 0; pageNumber < 100; pageNumber++) {
       const page = await fetchCanonicalCandlePage(poolAddress, resolution, new Date(from * 1000).toISOString(), new Date(to * 1000).toISOString(), Math.min(limit, 50), cursor, controller.signal, authority?.apiOrigin);
       controller.signal.throwIfAborted();
       if (snapshotId !== undefined && snapshotId !== page.data.snapshotId) throw new Error('History snapshot changed during pagination');
+      if (projectionRevision !== undefined && projectionRevision !== page.revision) throw new Error('History projection changed during pagination');
+      projectionRevision = page.revision;
       snapshotId = page.data.snapshotId;
       // core/api answers every canonical candle page with quality 'partial'
       // (rest/accounting_v2.go EncodeCachePage); only stale or quarantined
@@ -515,9 +558,12 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
       for (const candle of page.data.items) {
         if (items.length && Date.parse(candle.start) <= Date.parse(items[items.length - 1].start)) throw new Error('History page overlap or ordering conflict');
         items.push(candle);
-        if (items.length > 5000) throw new Error('History exceeds bounded chart window');
+        if (items.length > CHART_WINDOW_CANDLES) throw new Error('History exceeds bounded chart window');
       }
       if (!page.nextCursor) {
+        const revision = page.revision === null ? null : BigInt(page.revision);
+        if (historyRevision !== null && (revision === null || revision < historyRevision)) throw new Error('History projection revision regression');
+        if (historyWatermark && (!watermark || BigInt(watermark.height) < BigInt(historyWatermark.height) || (watermark.height === historyWatermark.height && watermark.blockHash !== historyWatermark.blockHash))) throw new Error('History watermark regression');
         if (mode === 'mcap' && items.length) {
           let valued: Map<string, Bar>;
           try { valued = await historicalValuationBars(items, resolution, from, to, controller.signal, page.data.snapshotId, authority?.valuationOrigin); }
@@ -528,11 +574,15 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
             }
             throw error;
           }
-          if (valuations.size + valued.size > 5000) valuations.clear();
+          if (valuations.size + valued.size > CHART_WINDOW_CANDLES) valuations.clear();
           valued.forEach((bar, key) => valuations.set(key, bar));
           if (!disposed) onValuation({ state: 'ready' });
         }
-        const reconciled = items.map(candle => retain(candle, resolution));
+        controller.signal.throwIfAborted();
+        if (watermark) historyWatermark = watermark;
+        if (revision !== null) historyRevision = revision;
+        const reconciled = items.map(candle => retain(candle, resolution, false));
+        publishView();
         void reconcileMarkers();
         return { items: reconciled, watermark };
       }
@@ -684,13 +734,13 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
     onReady: (callback: (config: Record<string, unknown>) => void) => metadata.onReady(config => callback({ ...config, supports_marks: true })),
     getBars: (_symbol: unknown, resolution: string, period: { from: number; to: number; countBack?: number; firstDataRequest?: boolean }, result: (bars: Bar[], meta: { noData?: boolean }) => void, error: (message: string) => void) => {
       if (disposed) return;
-      try { chartResolution(resolution); if (!Number.isSafeInteger(period.from) || !Number.isSafeInteger(period.to) || period.from < 0 || period.to <= period.from || (period.countBack !== undefined && (!Number.isSafeInteger(period.countBack) || period.countBack < 1 || period.countBack > 5000))) throw new Error('Invalid chart history window'); } catch (reason) { error(reportUserFacingError(reason, "Chart can't load right now", 'chart history range')); return; }
+      try { chartResolution(resolution); if (!Number.isSafeInteger(period.from) || !Number.isSafeInteger(period.to) || period.from < 0 || period.to <= period.from || (period.countBack !== undefined && (!Number.isSafeInteger(period.countBack) || period.countBack < 1 || period.countBack > CHART_WINDOW_CANDLES))) throw new Error('Invalid chart history window'); } catch (reason) { error(reportUserFacingError(reason, "Chart can't load right now", 'chart history range')); return; }
       const controller = new AbortController(); historyRequests.add(controller);
       const owners = [...subscriptions.values()].filter(sub => sub.resolution === resolution);
       owners.forEach(sub => { sub.loading++; sub.requests.add(controller); });
       void readHistory(resolution, period.from, period.to, controller).then(page => {
         if (disposed || controller.signal.aborted) return;
-        const bars = page.items.map(candle => display(retain(candle, resolution)));
+        const bars = page.items.map(candle => display(candle));
         for (const sub of owners) if (current(sub)) { for (const candle of page.items) applyCandle(sub, candle, false); }
         result(bars, { noData: bars.length === 0 });
       }).catch(reason => { if (!disposed && !controller.signal.aborted) error(reportUserFacingError(reason, "Chart can't load right now", 'chart history')); }).finally(() => {
@@ -712,7 +762,7 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
     },
     setMarkPresentation: (presentation: ChartMarkPresentation) => { markPresentation = presentation; },
     markPresentation: () => markPresentation,
-    retry: () => bindingChanged(),
+    retry: () => { metadata.retry(); bindingChanged(); },
     resumeFromCursor: (guid: string, cursor: string) => { const sub = subscriptions.get(guid); if (!sub || !current(sub) || !sub.snapshotReady) throw new Error('Existing authoritative chart snapshot required'); sub.cursor = decodeV2Contract('OpaqueResumeCursor', cursor); sub.retries = 0; void recover(sub, false); },
     replayStatus: () => [...subscriptions.values()].map(sub => ({ guid: sub.guid, generation: sub.generation, replayComplete: sub.snapshotReady && !sub.replaying && sub.acknowledged, pending: sub.pending.length, pendingBytes: sub.pendingBytes, sequence: sub.sequence.toString(), freshness: { ...sub.freshness } })),
     resourceCounts: () => ({
@@ -728,7 +778,7 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
       replayBindingListeners.delete(bindingChanged);
       if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', visible);
       if (typeof window !== 'undefined') window.removeEventListener('online', online);
-      annotationRequest?.abort(); ++annotationGeneration; visibleCandles.clear(); markers = []; valuations.clear(); metadata.dispose();
+      annotationRequest?.abort(); ++annotationGeneration; visibleCandles.clear(); viewMerge.clear(); markers = []; valuations.clear(); metadata.dispose();
     },
   };
 }

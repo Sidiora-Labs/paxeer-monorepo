@@ -1,34 +1,63 @@
 package main
 
 import (
+	"encoding/json"
+	"flag"
 	"fmt"
-	"strings"
+	"log"
+	"net"
+	"net/http"
+	"net/rpc"
+	"os"
 
-	"github.com/snikch/goodman/hooks"
-	"github.com/snikch/goodman/transaction"
+	jsonclient "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/jsonrpc/client"
 )
 
 func main() {
-	// This must be compiled beforehand and given to dredd as parameter, in the meantime the server should be running
-	h := hooks.NewHooks()
-	server := hooks.NewServer(hooks.NewHooksRunner(h))
-	h.BeforeAll(func(t []*transaction.Transaction) {
-		fmt.Println(t[0].Name)
-	})
-	h.BeforeEach(func(t *transaction.Transaction) {
-		if strings.HasPrefix(t.Name, "Tx") ||
-			// We need a proper example of evidence to broadcast
-			strings.HasPrefix(t.Name, "Info > /broadcast_evidence") ||
-			// We need a proper example of path and data
-			strings.HasPrefix(t.Name, "ABCI > /abci_query") ||
-			// We need to find a way to make a transaction before starting the tests,
-			// that hash should replace the dummy one in the openapi file
-			strings.HasPrefix(t.Name, "Info > /tx") {
-			t.Skip = true
-			fmt.Printf("%s Has been skipped\n", t.Name)
-		}
-	})
-	server.Serve()
-	defer func() { _ = server.Listener.Close() }()
-	fmt.Print("FINE")
+	// This must be compiled beforehand and given to dredd as parameter, in the meantime the server should be running.
+	port := flag.Int("port", 0, "The port that the hooks server will run on")
+	remote := flag.String("rpc", "", "RPC endpoint of the application described by the fixtures")
+	fixturesPath := flag.String("fixtures", "", "JSON fixtures containing funded, signed transactions and query/evidence inputs")
+	flag.Parse()
+	if *port == 0 || *remote == "" || *fixturesPath == "" {
+		log.Fatal("-port, -rpc and -fixtures are required")
+	}
+	data, err := os.ReadFile(*fixturesPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	var fixtures Fixtures
+	if err := json.Unmarshal(data, &fixtures); err != nil {
+		log.Fatal(err)
+	}
+	client, err := jsonclient.New(*remote)
+	if err != nil {
+		log.Fatal(err)
+	}
+	runner, err := newHooksRunner(client, fixtures)
+	if err != nil {
+		log.Fatal(err)
+	}
+	mux, err := hookHandler(runner)
+	if err != nil {
+		log.Fatal(err)
+	}
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer func() { _ = listener.Close() }()
+	if err := http.Serve(listener, mux); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func hookHandler(runner *HooksRunner) (http.Handler, error) {
+	server := rpc.NewServer()
+	if err := server.RegisterName("HooksRunner", runner); err != nil {
+		return nil, err
+	}
+	mux := http.NewServeMux()
+	mux.Handle("/", server)
+	return mux, nil
 }

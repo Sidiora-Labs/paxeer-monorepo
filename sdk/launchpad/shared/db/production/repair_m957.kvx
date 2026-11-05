@@ -1,0 +1,38 @@
+[repair.22.33.957]
+audit = "22.30.28"
+base_revision = "e3d7e5828b39e4182e9559fb6bc28d74c2f37e0f"
+baseline = "No extra unchanged-tree verification was run: the explicit Order requires complete implementation, hf-build, then hf-done as the sole initial verification. The supplied previous-attempt evidence below already records TestRepairM_957_CompatibilityFixture failing on the missing canonical examples.json."
+qualification = "The exact candidate revision, command, exit and private log are recorded by hf-build and hf-done in /out/run/gates.jsonl and copied into the final evidence line; no passing gate is claimed in this record."
+
+[finding.compatibility-fixture-missing]
+proof = "TestRepairM_957_CompatibilityFixture; TestRepairM_957_FrozenFixtureProvenance"
+change = "Restore examples.json through the existing protocol example generator using the committed, hash-pinned v1 schema and SDK selection. TestPhase2ReaderCompatibility and the offline regression share the protocol v1 fixture loader; the database test retains both independent reader binaries, expansion, backfill, raw serialization and distinct binary checksum assertions."
+path = "Canonical frozen examples.json -> shared compatibility fixture loader and real v1 validator -> legacy typed JSON reader and generated DecodePool consumer -> identical representations and exact raw decimal strings."
+status = "Implemented in the expanded scope; qualification is recorded by hf-build and hf-done."
+
+[wiring.protocol]
+resolution = "The continuation ruling adds sdk/launchpad/protocol/contracts/v1 to scope and requires generator output. The fixture is now restored there; no out-of-path implementation is required."
+
+[fixture.provenance]
+generator = "tools/launchpad/production/interfaces/examples_check.py --catalog <staged catalog.json> --contracts <staged inputs> --examples sdk/launchpad/protocol/contracts/v1/examples.json --write"
+generator_sha256 = "33fdc7d027250d995170ccdc16972fdb499f6f560933f42bacb779dc974b77c7"
+materializer_sha256 = "6fb3b90a7f04c5cbb945de187fff35f964984f56342e0382a86ebba637c02884"
+selection = "tools/launchpad/production/interfaces/testdata/repair_22_33_963/sdk-placement.json"
+selection_sha256 = "fdab1f1072eef405464c8ba58dec71322613cf4bd0c3d5c6027483ef085e805c"
+schema = "sdk/launchpad/packages/production-contracts/src/schemas.gen.json"
+schema_sha256 = "a2379b5862a29881c7fd9e764cd7c64ef3b92dc033986300fcca92606e8ff847"
+examples_sha256 = "89711be034e3cbcc2d80a6a23ca8cab041bfc4aa489ce207a6d10c4520a98850"
+reproduce = "Verify both selection.sources hashes; stage selection.catalog, selection.mapping and selection.openapi as catalog.json, catalog-map.json and openapi.json using json.dumps(indent=2, sort_keys=True) plus newline; copy selection.schemaSource bytes as schema-definitions.json; run the generator command above with jsonschema 4.26.0. No generated instance is edited by hand."
+scope = "These are schema-only examples emitted by the real generator from the frozen v1 schema, retaining the synthetic label. The committed SDK selection is not the missing production semantic catalogue; this repair proves reader compatibility, not handler, receipt or live database qualification."
+
+[gotcha.canonical_fixture]
+observed = "Both the retired integration fixture and the canonical protocol examples.json are absent on the supplied base; repointing alone cannot qualify compatibility."
+resolution = "The continuation ruling authorizes restoring the canonical fixture through the existing generator. The focused gate reads committed generator output in-process without a fallback, external service or subprocess."
+
+[qualification.missing_protocol_fixture]
+revision = "8ccb9af0bc24d2f3c66cb1e9c2f244824115431a"
+command = "cg spec done 22.33.957 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The build passed at this revision, but TestRepairM_957_CompatibilityFixture fails opening ../../../protocol/contracts/v1/examples.json because the canonical fixture is absent."
+assumption = "This historical failure prompted the continuation ruling expanding scope to protocol/contracts/v1; the fixture is restored before a new gate, with every existing assertion retained."

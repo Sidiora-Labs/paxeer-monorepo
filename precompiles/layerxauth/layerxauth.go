@@ -80,6 +80,10 @@ func (p *PrecompileExecutor) Execute(ctx sdk.Context, method *abi.Method, caller
 	if p.keeper == nil {
 		return nil, errors.New("LXP_PRECOMPILE_NO_CONTEXT: layerxauth keeper is unavailable")
 	}
+	handler, ok := authHandlers[method.Name]
+	if !ok {
+		return nil, pcommon.UnknownMethodError(PrecompileName, method.Name)
+	}
 	actor := authkeeper.Actor{}
 	if !method.IsConstant() {
 		var err error
@@ -88,10 +92,12 @@ func (p *PrecompileExecutor) Execute(ctx sdk.Context, method *abi.Method, caller
 			return nil, RevertError(err)
 		}
 	}
-	handler, ok := authHandlers[method.Name]
-	if !ok {
-		return nil, fmt.Errorf("LXP_PRECOMPILE_UNKNOWN_METHOD: layerxauth method %s is unavailable", method.Name)
+	branch, write := ctx.CacheContext()
+	ret, err := handler(p, branch, method, actor, args, evm, hooks)
+	if err != nil {
+		return ret, RevertError(err)
 	}
-	ret, err := handler(p, ctx, method, actor, args, evm, hooks)
-	return ret, RevertError(err)
+	write()
+	ctx.EventManager().EmitEvents(branch.EventManager().Events())
+	return ret, nil
 }

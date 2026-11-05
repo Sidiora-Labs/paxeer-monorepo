@@ -1,8 +1,8 @@
 [sweep.rust-build-explorer-verifier]
-revision = "03e2d849d7f3e9ca51cada79f6d3cfe90938a0fb"
+revision = "5903ffbb1db92c2e133ddd0fa7f87c058af7b5ed"
 command = "cargo build --locked --manifest-path services/explorer/services/smart-contract-verifier/Cargo.toml -p TARGET --all-targets"
 metadata_command = "cargo metadata --no-deps --format-version 1 --manifest-path services/explorer/services/smart-contract-verifier/Cargo.toml"
-qualification_record = "/out/logs/rust-build-explorer-verifier-results.json"
+qualification_record = "/out/logs/rust-build-explorer-verifier-22.91.93/results.json"
 targets_total = 5
 targets_passed = 2
 targets_failed = 3
@@ -13,14 +13,14 @@ target = "smart-contract-verifier"
 result = "failed"
 exit_code = 101
 observed = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/build.rs:37 failed during protobuf generation with Could not find `protoc`."
-assumption = "The build environment lacks the Protocol Buffers compiler (protoc) required by the protobuf dependency's build script."
+assumption = "The build environment lacks the Protocol Buffers compiler (protoc) required by the protobuf build script."
 
 [target.rust-build-explorer-verifier.2]
 target = "smart-contract-verifier-proto"
 result = "failed"
 exit_code = 101
 observed = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/build.rs:37 failed during protobuf generation with Could not find `protoc`."
-assumption = "The build environment lacks the Protocol Buffers compiler (protoc) required by this package's build script."
+assumption = "The build environment lacks the Protocol Buffers compiler (protoc) required by the protobuf build script."
 
 [target.rust-build-explorer-verifier.3]
 target = "verification-common"
@@ -37,4 +37,4 @@ target = "smart-contract-verifier-server"
 result = "failed"
 exit_code = 101
 observed = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/build.rs:37 failed during protobuf generation with Could not find `protoc`."
-assumption = "The build environment lacks the Protocol Buffers compiler (protoc) required by the protobuf dependency's build script."
+assumption = "The build environment lacks the Protocol Buffers compiler (protoc) required by the protobuf build script."

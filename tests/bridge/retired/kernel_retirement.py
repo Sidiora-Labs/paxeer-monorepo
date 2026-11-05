@@ -1,3 +1,4 @@
+import json
 import os
 import posixpath
 import re
@@ -173,6 +174,14 @@ def _without_comments(text: str, path: Path) -> str:
         text,
         flags=re.DOTALL,
     )
+
+
+def checkpoint_settlement(root: Path = REPO) -> dict:
+    document = json.loads((Path(root) / "contracts/config/checkpoint-settlement.json").read_text())
+    assert document["schema"] == "layerx/checkpoint-settlement/1"
+    assert document["chain_id"] == 125
+    assert document["offline_export"]["version"] == "paxeer-custody-state-v3"
+    return document
 
 
 def assert_retired(paths: Iterable[str | Path], root: Path = REPO) -> None:

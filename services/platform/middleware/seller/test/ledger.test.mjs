@@ -55,8 +55,8 @@ function encodesLedgerDrawCalldataWithDrawSelector() {
   assert.deepEqual(calldata.slice(0, 4), hash(DRAW_SIGNATURE).slice(0, 4));
   assert.deepEqual(LEDGER_DRAW_SELECTOR, calldata.slice(0, 4));
   assert.equal(Buffer.from(calldata.slice(0, 4)).toString("hex"), "2e89490f");
-  const expectedWords = [draw.from, draw.assetId, uintWord(draw.amount), draw.grantId,
-    uintWord(draw.receiverSequence), draw.idempotencyKey, draw.contextHash];
+  const expectedWords = [draw.grantId, draw.from, uintWord(draw.amount), draw.idempotencyKey,
+    uintWord(draw.receiverSequence), draw.assetId, draw.contextHash];
   for (const [index, word] of expectedWords.entries()) {
     assert.deepEqual(calldata.slice(4 + index * 32, 4 + (index + 1) * 32), word);
   }

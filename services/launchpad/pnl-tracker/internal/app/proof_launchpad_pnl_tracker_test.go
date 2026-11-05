@@ -9,9 +9,8 @@
 // revoke that replay immediately, proving the producer rechecks ownership.
 // The proof waits for the real transfer receipt before checking the new owner;
 // transaction submission alone does not guarantee that Anvil has mined it.
-// services/launchpad/pnl-tracker/internal/migrate/migrate.go: migrate.Up does
-// not create l18_requests or l18_audit; the expected runtime storage contract
-// is exercised below with those tables explicitly created in the owned database.
+// Reward storage is provisioned exclusively by the checked-in deployment SQL,
+// including migration 180001, before the production ledger admission check.
 package app
 
 import (
@@ -36,9 +35,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/internaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/migrate"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l18"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/db/production"
 	iface "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/queue"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -48,10 +49,16 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func TestProofLaunchpadPnlTracker(t *testing.T) {
+	proveLaunchpadPnLTracker(t)
+}
+
+func proveLaunchpadPnLTracker(t *testing.T) {
+	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 	_, source, _, _ := runtime.Caller(0)
@@ -64,7 +71,7 @@ func TestProofLaunchpadPnlTracker(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	execSQL("CREATE SCHEMA proof_rewards; CREATE SCHEMA recovery; CREATE SCHEMA indexer")
+	execSQL("CREATE SCHEMA recovery; CREATE SCHEMA indexer")
 	epochTemplate, err := os.ReadFile(filepath.Join(root, "deploy/launchpad/production/recovery/epoch.sql"))
 	if err != nil {
 		t.Fatal(err)
@@ -75,18 +82,9 @@ func TestProofLaunchpadPnlTracker(t *testing.T) {
 	}
 	execSQL(epochSQL)
 	execSQL(`INSERT INTO recovery.recovery_control(singleton,epoch,region,revision,checkpoint_sha256) VALUES(true,1,'local',1,$1)`, strings.Repeat("a", 64))
-	execSQL("SET search_path TO proof_rewards; " + l18.SchemaDDL)
-	// The journey's runtime request table is not in the legacy goose migration.
-	// Supply its real SQL storage contract, never pre-filled responses.
-	execSQL(`CREATE TABLE proof_rewards.l18_requests (
-		actor text NOT NULL, request_key text NOT NULL, digest text NOT NULL,
-		method text NOT NULL, path text NOT NULL, response bytea NOT NULL,
-		expires_at timestamptz NOT NULL, release_digest text NOT NULL,
-		interface_digest text NOT NULL, PRIMARY KEY(actor,request_key));
-        CREATE TABLE proof_rewards.l18_audit (
-        identity text PRIMARY KEY, actor text NOT NULL, action text NOT NULL,
-        reason text NOT NULL, payload jsonb NOT NULL);
-		CREATE TABLE indexer.indexer_canonical_creations (
+	proofLaunchpadBootstrapRewardCoordinator(t, ctx, pool, root)
+	proofLaunchpadApplyRegisteredRewardMigration(t, ctx, pool, root)
+	execSQL(`CREATE TABLE indexer.indexer_canonical_creations (
 		nft_id numeric PRIMARY KEY,pool text NOT NULL,creator text NOT NULL,
 		height bigint NOT NULL,block_hash text NOT NULL,transaction_hash text NOT NULL,
 		transaction_index numeric NOT NULL,log_index numeric NOT NULL);
@@ -156,7 +154,7 @@ func TestProofLaunchpadPnlTracker(t *testing.T) {
 	}
 	open := func(p *pgxpool.Pool) (*l18.JourneyService, *httptest.Server) {
 		t.Helper()
-		ledger, err := l18.NewRuntimeLedger(p, "proof_rewards", "proof", nil, guard.Assert)
+		ledger, err := newRewardLedger(ctx, p, "pnl", "proof", nil, guard.Assert)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -180,6 +178,7 @@ func TestProofLaunchpadPnlTracker(t *testing.T) {
 	service, server := open(pool)
 	var lastRewardsRequest string
 	var firstClaim []byte
+	var persistedPreparation string
 	claimKey := uuid.NewString()
 	claim := []byte(fmt.Sprintf(`{"rewardIds":["creator:1"],"recipient":%q}`, fixture.Alice))
 	for attempt := 0; attempt < 2; attempt++ {
@@ -240,6 +239,19 @@ func TestProofLaunchpadPnlTracker(t *testing.T) {
 			firstClaim = append([]byte(nil), raw...)
 		} else if !bytes.Equal(firstClaim, raw) {
 			t.Fatalf("persisted preparation changed after reopen: first=%s reopened=%s", firstClaim, raw)
+		}
+		var persisted string
+		if err := pool.QueryRow(ctx, `SELECT jsonb_build_array(to_jsonb(r),to_jsonb(a),to_jsonb(o))::text
+			FROM pnl.l18_requests r
+			JOIN pnl.l18_audit a ON a.identity=r.actor||':'||r.request_key::text
+			JOIN pnl.l18_outbox o ON o.identity='prepare:'||a.identity
+			WHERE r.actor=$1 AND r.request_key=$2`, fixture.Alice, claimKey).Scan(&persisted); err != nil {
+			t.Fatalf("durable request, audit and outbox identity: %v", err)
+		}
+		if attempt == 0 {
+			persistedPreparation = persisted
+		} else if persisted != persistedPreparation {
+			t.Fatalf("stored preparation changed after reconnect and replay: before=%s after=%s", persistedPreparation, persisted)
 		}
 		if _, err := iface.DecodeRewardClaimResponse(raw[:len(raw)/2]); err == nil {
 			t.Fatal("consumer decoded truncated producer preparation")
@@ -333,18 +345,152 @@ func TestProofLaunchpadPnlTracker(t *testing.T) {
 		t.Fatalf("new owner consumer status=%d claim=%+v err=%v body=%s", status, bobPrepared, err, raw)
 	}
 	var count int
-	if err := pool.QueryRow(ctx, "SELECT count(*) FROM proof_rewards.l18_requests").Scan(&count); err != nil || count != 2 {
+	if err := pool.QueryRow(ctx, "SELECT count(*) FROM pnl.l18_requests").Scan(&count); err != nil || count != 2 {
 		t.Fatalf("preparation persistence: count=%d err=%v", count, err)
 	}
-	if err := pool.QueryRow(ctx, "SELECT count(*) FROM proof_rewards.l18_audit WHERE action='prepare_claim'").Scan(&count); err != nil || count != 2 {
+	if err := pool.QueryRow(ctx, "SELECT count(*) FROM pnl.l18_audit WHERE action='prepare_claim'").Scan(&count); err != nil || count != 2 {
 		t.Fatalf("preparation audit persistence: count=%d err=%v", count, err)
 	}
-	if err := pool.QueryRow(ctx, "SELECT count(*) FROM proof_rewards.l18_outbox WHERE topic='reward.claim_prepared'").Scan(&count); err != nil || count != 2 {
+	if err := pool.QueryRow(ctx, "SELECT count(*) FROM pnl.l18_outbox WHERE topic='reward.claim_prepared'").Scan(&count); err != nil || count != 2 {
 		t.Fatalf("preparation outbox persistence: count=%d err=%v", count, err)
 	}
 }
 
 type proofLaunchpadFixture struct{ Pool, Alice, Bob string }
+
+func proofLaunchpadRewardRegistry(root string) (production.MigrationRegistry, error) {
+	raw, err := os.ReadFile(filepath.Join(root, "launchpad/spec/production-system/integration/migrations/registry.json"))
+	if err != nil {
+		return production.MigrationRegistry{}, err
+	}
+	approval, err := os.ReadFile(filepath.Join(root, "launchpad/spec/production-system/integration/migrations/pnl-reward-approval.json"))
+	if err != nil {
+		return production.MigrationRegistry{}, err
+	}
+	reader, err := os.ReadFile(filepath.Join(root, "sdk/launchpad/shared/interfaces/v2/validators.gen.go"))
+	if err != nil {
+		return production.MigrationRegistry{}, err
+	}
+	return migrate.LoadRewardRegistry(raw, approval, reader)
+}
+
+// Bootstrap the legacy deployment and predecessor history before the reward
+// coordinator runs, as the shared coordinator fixture does for legacy services.
+func proofLaunchpadBootstrapRewardCoordinator(t *testing.T, ctx context.Context, pool *pgxpool.Pool, root string) {
+	t.Helper()
+	registry, err := proofLaunchpadRewardRegistry(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalog, err := registry.ValidateOrder()
+	if err != nil {
+		t.Fatal(err)
+	}
+	conn, err := pool.Acquire(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Release()
+	var locked bool
+	if err := conn.QueryRow(ctx, "SELECT pg_try_advisory_lock($1)", production.CoordinatorKey).Scan(&locked); err != nil || !locked {
+		t.Fatalf("bootstrap coordinator lock: %v", err)
+	}
+	defer func() {
+		if err := conn.QueryRow(ctx, "SELECT pg_advisory_unlock($1)", production.CoordinatorKey).Scan(&locked); err != nil || !locked {
+			t.Errorf("bootstrap coordinator unlock: %v", err)
+		}
+	}()
+	exec := func(query string, args ...any) {
+		t.Helper()
+		if _, err := conn.Exec(ctx, query, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	exec(production.MigrationControlDDL())
+	history, err := production.HistoryDDL("core/pnl-tracker", "pnl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// HistoryDDL uses SET LOCAL ROLE and therefore belongs to one transaction.
+	tx, err := conn.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, production.OnlineIndexControlDDL()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(ctx, history); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	exec("CREATE ROLE pnl_owner NOLOGIN; GRANT USAGE, CREATE ON SCHEMA pnl TO pnl_owner")
+	for _, id := range []int64{80003, 160000, 180000} {
+		m := catalog[id]
+		sql, err := os.ReadFile(filepath.Join(root, "launchpad", m.Path))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if production.Checksum(sql) != m.SHA256 {
+			t.Fatalf("bootstrap predecessor %d source drift", id)
+		}
+		tx, err := conn.Begin(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err = tx.Exec(ctx, "SET LOCAL lock_timeout='2s'"); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = tx.Exec(ctx, "SET LOCAL ROLE "+pgx.Identifier{"pnl_owner"}.Sanitize()); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = tx.Exec(ctx, string(sql)); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = tx.Exec(ctx, "RESET ROLE"); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = tx.Exec(ctx, "INSERT INTO migration_control.pnl_tracker_versions(version_id,is_applied) VALUES($1,true)", id); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = tx.Exec(ctx, "INSERT INTO migration_control.applied_migrations(migration_id,service,schema_name,checksum,registry_digest) VALUES($1,$2,$3,$4,$5)", id, m.Service, m.Schema, m.SHA256, registry.ApprovalDigest); err != nil {
+			t.Fatal(err)
+		}
+		if err := tx.Commit(ctx); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func proofLaunchpadApplyRegisteredRewardMigration(t *testing.T, ctx context.Context, pool *pgxpool.Pool, root string) {
+	t.Helper()
+	registry, err := proofLaunchpadRewardRegistry(root)
+	if err != nil {
+		t.Fatalf("production reward migration registry: %v", err)
+	}
+	catalog, err := registry.ValidateOrder()
+	if err != nil {
+		t.Fatal(err)
+	}
+	migration, ok := catalog[180001]
+	if !ok || migration.Service != "core/pnl-tracker" || migration.Schema != "pnl" {
+		t.Fatal("production registry does not register reward migration 180001 for core/pnl-tracker")
+	}
+	sql, err := os.ReadFile(filepath.Join(root, "launchpad", migration.Path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	conn, err := pool.Acquire(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Release()
+	if err := production.ApplyCoordinatedMigration(ctx, conn.Conn(), migration, sql, catalog, migration.InterfaceDigest, registry.ApprovalDigest, migration.ReaderMinVersion); err != nil {
+		t.Fatalf("production reward migration 180001: %v", err)
+	}
+}
 
 func proofLaunchpadPostgres(t *testing.T, ctx context.Context) (string, *pgxpool.Pool) {
 	t.Helper()
@@ -433,60 +579,8 @@ func proofLaunchpadPostgres(t *testing.T, ctx context.Context) (string, *pgxpool
 
 func proofLaunchpadChain(t *testing.T, ctx context.Context, root string) (*rpc.Client, proofLaunchpadFixture) {
 	t.Helper()
-	anvil, err := exec.LookPath("anvil")
-	if err != nil {
-		t.Fatalf("services/launchpad/pnl-tracker/internal/production/l18/fixture.cjs requires a local Anvil executable: %v", err)
-	}
-	// The existing fixture requires this exact loopback endpoint and verifies
-	// the PID, start time, and socket ownership before every chain mutation.
-	cmd := exec.CommandContext(ctx, anvil, "--host", "127.0.0.1", "--port", "21800", "--chain-id", "125", "--silent")
-	log, err := os.CreateTemp(t.TempDir(), "anvil-*.log")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer log.Close()
-	cmd.Stdout, cmd.Stderr = log, log
-	if err := cmd.Start(); err != nil {
-		t.Fatalf("real Anvil required on PATH: %v", err)
-	}
-	t.Cleanup(func() { _ = cmd.Process.Kill(); _ = cmd.Wait() })
-	stat, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", cmd.Process.Pid))
-	if err != nil {
-		t.Fatal(err)
-	}
-	fields := strings.Fields(string(stat[strings.LastIndexByte(string(stat), ')')+1:]))
-	identity, _ := json.Marshal(map[string]any{"pid": cmd.Process.Pid, "starttime": fields[19]})
-	r, err := rpc.DialContext(ctx, "http://127.0.0.1:21800")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(r.Close)
-	ready := false
-	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); {
-		var chain hexutil.Uint64
-		if err := r.CallContext(ctx, &chain, "eth_chainId"); err == nil && chain == 125 {
-			ready = true
-			break
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-	if !ready {
-		t.Fatal("owned real chain did not become ready")
-	}
-	fixture := exec.CommandContext(ctx, "node", filepath.Join(root, "services/launchpad/pnl-tracker/internal/production/l18/fixture.cjs"))
-	fixture.Env = append(os.Environ(), "L18_ANVIL_IDENTITY="+string(identity))
-	var stderr bytes.Buffer
-	fixture.Stderr = &stderr
-	raw, err := fixture.Output()
-	if err != nil {
-		t.Fatalf("actual contract fixture: %v: %s", err, stderr.String())
-	}
-	var result proofLaunchpadFixture
-	if err := json.Unmarshal(raw, &result); err != nil {
-		t.Fatal(err)
-	}
-	result.Alice, result.Bob, result.Pool = strings.ToLower(result.Alice), strings.ToLower(result.Bob), strings.ToLower(result.Pool)
-	return r, result
+	r, fixture := internaltest.NewAnvilFixture(t, ctx, root)
+	return r, proofLaunchpadFixture{Pool: fixture.Pool, Alice: fixture.Alice, Bob: fixture.Bob}
 }
 
 func proofLaunchpadABI(t *testing.T, root, group, name string) abi.ABI {

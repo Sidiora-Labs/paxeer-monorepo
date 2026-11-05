@@ -280,16 +280,11 @@ defmodule Indexer.Fetcher.Optimism.Interop.MessageQueue do
       timestamp: timestamp,
       relay_chain_id: message.relay_chain_id,
       payload: message.payload,
+      signature_version: 2,
       signature: nil
     }
 
-    data_to_sign =
-      data.sender_address_hash <>
-        data.target_address_hash <>
-        Integer.to_string(message.nonce) <>
-        Integer.to_string(message.init_chain_id) <>
-        data.init_transaction_hash <>
-        Integer.to_string(timestamp) <> Integer.to_string(message.relay_chain_id) <> to_string(message.payload)
+    {:ok, data_to_sign} = signing_payload(data)
 
     {:ok, {signature, _}} =
       data_to_sign
@@ -306,13 +301,11 @@ defmodule Indexer.Fetcher.Optimism.Interop.MessageQueue do
       relay_chain_id: message.relay_chain_id,
       relay_transaction_hash: Hash.to_string(message.relay_transaction_hash),
       failed: message.failed,
+      signature_version: 2,
       signature: nil
     }
 
-    data_to_sign =
-      Integer.to_string(message.nonce) <>
-        Integer.to_string(message.init_chain_id) <>
-        Integer.to_string(message.relay_chain_id) <> data.relay_transaction_hash <> to_string(message.failed)
+    {:ok, data_to_sign} = signing_payload(data)
 
     {:ok, {signature, _}} =
       data_to_sign
@@ -321,6 +314,93 @@ defmodule Indexer.Fetcher.Optimism.Interop.MessageQueue do
 
     set_post_data_signature(message.init_chain_id, data, signature)
   end
+
+  @doc """
+  Canonical v2 peer-signature preimage. V1 concatenated signatures are not
+  accepted by this codec; peers must migrate their import endpoint to v2 before
+  enabling the v2 queue. The domain, version and direction are signed ABI words.
+  """
+  @spec signing_payload(map()) :: {:ok, binary()} | {:error, :invalid_signature_payload}
+  def signing_payload(data) when is_map(data) do
+    normalized = Map.new(data, fn {key, value} -> {to_string(key), value} end)
+
+    if map_size(normalized) != map_size(data), do: raise(ArgumentError, "duplicate signature fields")
+    encode_signing_payload(normalized)
+  rescue
+    ArgumentError -> {:error, :invalid_signature_payload}
+  end
+
+  defp encode_signing_payload(%{"signature_version" => 2} = data) do
+    domain = ExKeccak.hash_256("blockscout.optimism.interop")
+    common_types = [{:bytes, 32}, {:uint, 8}, {:uint, 8}, {:uint, 256}, {:uint, 256}, {:uint, 256}]
+    common = [domain, 2, nil, uint!(data["nonce"]), uint!(data["init_chain_id"]), uint!(data["relay_chain_id"])]
+
+    {direction, fields, types, values} =
+      case {Map.has_key?(data, "init_transaction_hash"), Map.has_key?(data, "relay_transaction_hash")} do
+        {true, false} ->
+          {0, ~w(sender_address_hash target_address_hash init_transaction_hash timestamp payload),
+           [:address, :address, {:bytes, 32}, {:uint, 256}, :bytes],
+           [
+             bytes!(data["sender_address_hash"], 20),
+             bytes!(data["target_address_hash"], 20),
+             bytes!(data["init_transaction_hash"], 32),
+             uint!(data["timestamp"]),
+             bytes!(data["payload"], :any)
+           ]}
+
+        {false, true} ->
+          unless is_boolean(data["failed"]), do: raise(ArgumentError, "invalid failure status")
+
+          {1, ~w(relay_transaction_hash failed), [{:bytes, 32}, :bool],
+           [bytes!(data["relay_transaction_hash"], 32), data["failed"]]}
+
+        _ ->
+          raise ArgumentError, "invalid message direction"
+      end
+
+    allowed = fields ++ ~w(signature_version signature nonce init_chain_id relay_chain_id)
+    unless Enum.all?(Map.keys(data), &(&1 in allowed)), do: raise(ArgumentError, "unknown signature fields")
+
+    {:ok, ABI.TypeEncoder.encode(List.replace_at(common, 2, direction) ++ values, common_types ++ types)}
+  end
+
+  defp encode_signing_payload(_), do: {:error, :invalid_signature_payload}
+
+  @doc "Verifies a v2 peer request without accepting legacy or malformed encodings."
+  @spec verify_post_data(map(), binary()) :: :ok | {:error, :invalid_signature}
+  def verify_post_data(data, public_key) do
+    with {:ok, encoded} <- signing_payload(data),
+         signature = Map.get(data, "signature", Map.get(data, :signature)),
+         signature_bytes = bytes!(signature, 64),
+         :ok <- ExSecp256k1.verify(ExKeccak.hash_256(encoded), signature_bytes, public_key) do
+      :ok
+    else
+      _ -> {:error, :invalid_signature}
+    end
+  rescue
+    ArgumentError -> {:error, :invalid_signature}
+  end
+
+  defp uint!(value)
+       when is_integer(value) and value >= 0 and
+              value < 0x10000000000000000000000000000000000000000000000000000000000000000,
+       do: value
+
+  defp uint!(_), do: raise(ArgumentError, "invalid uint256")
+
+  defp bytes!(%Data{bytes: bytes}, size), do: check_bytes!(bytes, size)
+
+  defp bytes!("0x" <> hex, size) do
+    case Base.decode16(hex, case: :mixed) do
+      {:ok, bytes} -> check_bytes!(bytes, size)
+      :error -> raise ArgumentError, "invalid hex bytes"
+    end
+  end
+
+  defp bytes!(_, _), do: raise(ArgumentError, "invalid bytes")
+  defp check_bytes!(bytes, :any), do: bytes
+  defp check_bytes!(bytes, size) when byte_size(bytes) == size, do: bytes
+  defp check_bytes!(_, _), do: raise(ArgumentError, "invalid byte length")
 
   # Adds signature to the data sent as POST request to the remote API endpoint.
   #

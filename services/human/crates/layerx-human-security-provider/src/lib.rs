@@ -1,7 +1,7 @@
 mod state;
 mod transport;
 
-pub use state::{ingest_recovery_receipt, RecoveryReceipt, Store};
+pub use state::{ingest_recovery_receipt, RecoveryReceipt, RecoveryTransactionEvidence, Store};
 pub use transport::{serve, Config};
 
 use std::io;

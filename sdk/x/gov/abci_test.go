@@ -456,6 +456,12 @@ func TestExpeditedProposalPassAndConvertToRegular(t *testing.T) {
 				// Validator votes YES, letting the expedited proposal pass.
 				err = app.GovKeeper.AddVote(ctx, proposal.ProposalId, addrs[0], types.NewNonSplitVoteOption(types.OptionYes))
 				require.NoError(t, err)
+			} else if tc.isRegularEventuallyPassing {
+				err = app.GovKeeper.AddVote(ctx, proposal.ProposalId, addrs[0], types.WeightedVoteOptions{
+					{Option: types.OptionYes, Weight: sdk.MustNewDecFromStr("0.6")},
+					{Option: types.OptionNo, Weight: sdk.MustNewDecFromStr("0.4")},
+				})
+				require.NoError(t, err)
 			}
 
 			// Here the expedited proposal is converted to regular after expiry.
@@ -470,6 +476,7 @@ func TestExpeditedProposalPassAndConvertToRegular(t *testing.T) {
 				require.True(t, ok)
 
 				require.Equal(t, types.StatusPassed, proposal.Status)
+				require.Empty(t, app.GovKeeper.GetVotes(ctx, proposal.ProposalId))
 
 				submitterEventualBalance := app.BankKeeper.GetAllBalances(ctx, addrs[0])
 				depositorEventualBalance := app.BankKeeper.GetAllBalances(ctx, addrs[1])
@@ -495,6 +502,14 @@ func TestExpeditedProposalPassAndConvertToRegular(t *testing.T) {
 			require.Equal(t, types.StatusVotingPeriod, proposal.Status)
 			require.False(t, proposal.IsExpedited)
 			require.Equal(t, proposal.VotingStartTime.Add(votingParams.VotingPeriod), proposal.VotingEndTime)
+			if tc.isRegularEventuallyPassing {
+				vote, found := app.GovKeeper.GetVote(ctx, proposal.ProposalId, addrs[0])
+				require.True(t, found)
+				require.Equal(t, []types.WeightedVoteOption{
+					{Option: types.OptionYes, Weight: sdk.MustNewDecFromStr("0.6")},
+					{Option: types.OptionNo, Weight: sdk.MustNewDecFromStr("0.4")},
+				}, vote.Options)
+			}
 
 			// We also want to make sure that the deposit is not refunded yet and is still present in the module account
 			macc = app.GovKeeper.GetGovernanceAccount(ctx)
@@ -560,6 +575,8 @@ func TestExpeditedProposalPassAndConvertToRegular(t *testing.T) {
 			require.Equal(t, types.StatusRejected, proposal.Status)
 		})
 	}
+
+	t.Run("minority vote survives committed restart and regular tally", repairM679ConversionRestart)
 }
 
 func TestEndBlockerProposalHandlerFailed(t *testing.T) {

@@ -1,0 +1,1009 @@
+# Decision 2515: exact 68-member pre-upgrade agent audit.
+
+[audit.22.30.94]
+task = "22.30.94"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 68
+findings = 48
+docs_reviewed = 17
+upgrade_ready = false
+blocking = ["receipt_rpc_roundtrip"]
+
+[file.01]
+path = "modules/sequencer/keeper/ics23_evm_storage_vector_test.go"
+lines = 90
+verdict = "clean"
+note = "Real IAVL/multistore ICS23 vector producer binds EVM storage slot/value to committed app root and rejects changed key, value and roots; sequencer here is an on-chain module, not a separate service."
+
+[file.02]
+path = "services/agent/crates/layerx-agentd/Cargo.toml"
+lines = 50
+verdict = "clean"
+note = "Reviewed local crate dependencies, one-way MCP boundary, rustls provider, pinned versions, explicit test targets and dev-only OpenSSL/native-tls inputs."
+
+[file.03]
+path = "services/agent/crates/layerx-agentd/README.md"
+lines = 45
+verdict = "issues"
+note = "Human-owner startup and advertised TLS test instructions drift from the implementation; see findings."
+
+[file.04]
+path = "services/agent/crates/layerx-agentd/examples/review_audit_export.rs"
+lines = 23
+verdict = "clean"
+note = "Minimal offline audit-export example verifies chain material and each export envelope and counts receipts; main only references its review function."
+
+[file.05]
+path = "services/agent/crates/layerx-agentd/src/agent_rpc_peer.rs"
+lines = 163
+verdict = "clean"
+note = "Permit revalidation, exactly one tenant subject-bound peer, MCP owner-DID binding, retained lookup identity and commit linearization agree with session-control consumers."
+
+[file.06]
+path = "services/agent/crates/layerx-agentd/src/agent_rpc_tls.rs"
+lines = 157
+verdict = "issues"
+note = "Mandatory client CA, exact non-wildcard DNS identity, mutual TLS and matching SAN fail closed; registry wrongly identifies a fixture hostname as an error."
+
+[file.07]
+path = "services/agent/crates/layerx-agentd/src/authority.rs"
+lines = 147
+verdict = "issues"
+note = "Freshness and exact authority/generation/scope checks were read; unbounded retention and unsupported production caller attribution are recorded."
+
+[file.08]
+path = "services/agent/crates/layerx-agentd/src/boot.rs"
+lines = 155
+verdict = "issues"
+note = "Protected policy, chain-checked readiness, receipt-key intervals, disconnect-before-refresh and guarded writes were read; registry still names the removed handshake API."
+
+[file.09]
+path = "services/agent/crates/layerx-agentd/src/compat.rs"
+lines = 127
+verdict = "issues"
+note = "Contract 2 tuple, client-version refusal and published matrix agree; stable registry declaration of contract 1 is stale."
+
+[file.10]
+path = "services/agent/crates/layerx-agentd/src/human_node.rs"
+lines = 102
+verdict = "clean"
+note = "HumanNode methods delegate to typed NodeRpc; head receipt-key uniqueness and committed-height/hash checks agree with consumers."
+
+[file.11]
+path = "services/agent/crates/layerx-agentd/src/human_owner_mode.rs"
+lines = 186
+verdict = "issues"
+note = "Closed mode selection, loopback authenticated health, separate credentials, dependency rechecks and supervision agree; health registry credential notes do not."
+
+[file.12]
+path = "services/agent/crates/layerx-agentd/src/human_peer_config.rs"
+lines = 179
+verdict = "clean"
+note = "Exact uid/tenant/principal fields, duplicate and zero uid refusal, bounded tenant and DID parsing agree with configured peer consumers and rejection tests."
+
+[file.13]
+path = "services/agent/crates/layerx-agentd/src/human_receipt_frame.rs"
+lines = 173
+verdict = "issues"
+note = "Read every presence variant, fixed field order, verification and rung codes and owned-byte limits; Human service shares the decoder, but Agent RPC uses an incompatible decoder."
+
+[file.14]
+path = "services/agent/crates/layerx-agentd/src/identity.rs"
+lines = 201
+verdict = "clean"
+note = "Verified core observations, tenant-scoped persistence, authority tags and fresh revalidation were read; production startup re-registers from core state, so no data-loss claim is made."
+
+[file.15]
+path = "services/agent/crates/layerx-agentd/src/managed_agent_rotation.rs"
+lines = 57
+verdict = "clean"
+note = "Rotation projection returns the explicit rotation_unsupported refusal without mutating store or sessions, matching owner-rotation refusal coverage."
+
+[file.16]
+path = "services/agent/crates/layerx-agentd/src/outbound_tls.rs"
+lines = 70
+verdict = "clean"
+note = "Private CA and system roots use rustls and active shared TLS qualification; missing registration of the separate tests file is recorded there."
+
+[file.17]
+path = "services/agent/crates/layerx-agentd/src/outbound_tls/tests.rs"
+lines = 187
+verdict = "issues"
+note = "Read every generated-certificate and RemoteHumanAuthority bound test; this handwritten module is not registered in the Rust module tree."
+
+[file.18]
+path = "services/agent/crates/layerx-agentd/src/protocol_evidence_time_tests.rs"
+lines = 119
+verdict = "issues"
+note = "Captured receipt/header signature, clock/count/denomination and tamper checks were read; the positive fixture still uses retired custody credit."
+
+[file.19]
+path = "services/agent/crates/layerx-agentd/src/sign_verify.rs"
+lines = 98
+verdict = "clean"
+note = "Exact signing hash, full type-2 call comparison, recovered secp256k1 sender, re-bound disclosure and exact signed-byte/transaction-hash wrapper agree with signing consumers."
+
+[file.20]
+path = "services/agent/crates/layerx-agentd/tests/admin_retry_rung.rs"
+lines = 84
+verdict = "clean"
+note = "Legacy settlement retry is refused and checkpoint retry maps to Committed; old names are negative migration cases."
+
+[file.21]
+path = "services/agent/crates/layerx-agentd/tests/attenuation.rs"
+lines = 148
+verdict = "clean"
+note = "Deep attenuation, no widening, subtree revocation and only-unsubmitted cancellation survive real graph/store reopen."
+
+[file.22]
+path = "services/agent/crates/layerx-agentd/tests/audit_chain.rs"
+lines = 144
+verdict = "clean"
+note = "Durable audit-before-effect, changed entries, tail/whole-log removal, reorder and anchor failures refuse the operation."
+
+[file.23]
+path = "services/agent/crates/layerx-agentd/tests/authority.rs"
+lines = 132
+verdict = "clean"
+note = "Authority cache age, future-sequence eviction, current generation, scope and revocation assertions match the helper API; these are unit tests, not production wiring evidence."
+
+[file.24]
+path = "services/agent/crates/layerx-agentd/tests/availability_blocks.rs"
+lines = 69
+verdict = "clean"
+note = "Availability returns committed block roots/count and distinguishes missing, ahead and pruned heights without a separate finality service."
+
+[file.25]
+path = "services/agent/crates/layerx-agentd/tests/balance.rs"
+lines = 154
+verdict = "clean"
+note = "RPC-backed balance proves identity bytes, achieved rung and block-height freshness; hostile requested levels cannot raise verified evidence."
+
+[file.26]
+path = "services/agent/crates/layerx-agentd/tests/budget_divergence.rs"
+lines = 81
+verdict = "clean"
+note = "Opaque budget leaves are deliberate refusal fixtures and cannot derive divergence or replace accounting."
+
+[file.27]
+path = "services/agent/crates/layerx-agentd/tests/budget_mutations_layerxpay.rs"
+lines = 207
+verdict = "clean"
+note = "BudgetCreate selector and ABI words match precompiles/layerxpay/abi.json; signed sender, budgetFund/budgetRevoke identity, expiry and limit refusals are asserted."
+
+[file.28]
+path = "services/agent/crates/layerx-agentd/tests/budget_reserve.rs"
+lines = 102
+verdict = "clean"
+note = "Concurrent five-scope reservations, leak-free refusal, deterministic release and unknown-hold retention match limiter types."
+
+[file.29]
+path = "services/agent/crates/layerx-agentd/tests/budget_schema.rs"
+lines = 169
+verdict = "issues"
+note = "Canonical 278-byte budget record, key and verified reconciliation agree with the producer codec; the successful restart case never reopens state."
+
+[file.30]
+path = "services/agent/crates/layerx-agentd/tests/budget_unknown.rs"
+lines = 141
+verdict = "clean"
+note = "Unknown hold survives actual drop/reopen; opaque state cannot grant readiness and duplicate receipt/activity evidence is rejected."
+
+[file.31]
+path = "services/agent/crates/layerx-agentd/tests/capability.rs"
+lines = 112
+verdict = "clean"
+note = "Every capability dimension, stable refusal ordering, boundary values and tenant-scoped restore agree; capability remains a local restriction."
+
+[file.32]
+path = "services/agent/crates/layerx-agentd/tests/ceiling.rs"
+lines = 184
+verdict = "clean"
+note = "Unreconciled ceilings fail closed; verified receipts rebuild consumption without manufacturing protocol authority and duplicate identities are refused."
+
+[file.33]
+path = "services/agent/crates/layerx-agentd/tests/config.rs"
+lines = 201
+verdict = "issues"
+note = "Explicit override precedence, protected inputs and chain/map/path errors agree; positive endpoint fixtures retain the retired /rpc path."
+
+[file.34]
+path = "services/agent/crates/layerx-agentd/tests/config_node_rpc.rs"
+lines = 172
+verdict = "issues"
+note = "Node URL and retired protocol-setting refusals agree; negative Unix/LNI examples remain correct, while positive /rpc fixtures drift."
+
+[file.35]
+path = "services/agent/crates/layerx-agentd/tests/disclosure.rs"
+lines = 167
+verdict = "issues"
+note = "Semantic disclosure and mutation refusal are exercised with a positive kernel-envelope fixture contrary to requirement 22061.1."
+
+[file.36]
+path = "services/agent/crates/layerx-agentd/tests/enforcement_report.rs"
+lines = 96
+verdict = "clean"
+note = "All enforcement dimensions and identical Contract/MCP/A2A reports are checked; daemon-only guarantees are labelled and misleading wording rejected."
+
+[file.37]
+path = "services/agent/crates/layerx-agentd/tests/evm_preimage_golden.rs"
+lines = 133
+verdict = "clean"
+note = "Ledger call EIP-1559 golden signing hash, pending nonce refusal and head base-fee derivation agree with the live call types."
+
+[file.38]
+path = "services/agent/crates/layerx-agentd/tests/faucet_claim_retired.rs"
+lines = 49
+verdict = "clean"
+note = "Generated catalogue/scopes omit faucet.claim and daemon/SDK reject it before authorization with the exact typed reason."
+
+[file.39]
+path = "services/agent/crates/layerx-agentd/tests/grant_revocation_on_chain.rs"
+lines = 179
+verdict = "issues"
+note = "Local revocation generation/isolation assertions are sound; manually constructed identity/event inputs do not prove on-chain transport or recovery."
+
+[file.40]
+path = "services/agent/crates/layerx-agentd/tests/history_block_cursor.rs"
+lines = 90
+verdict = "clean"
+note = "History cursor is the exact block-height/transaction-index/log-index triple with bounded paging and invalid-coordinate refusal."
+
+[file.41]
+path = "services/agent/crates/layerx-agentd/tests/human_frame.rs"
+lines = 105
+verdict = "clean"
+note = "Length-prefix codec checks exact bounds, rejection before oversized body read, truncation, concatenated frames and shutdown; unused loopback_chain is not relied on as socket evidence."
+
+[file.42]
+path = "services/agent/crates/layerx-agentd/tests/human_node.rs"
+lines = 181
+verdict = "issues"
+note = "Head/history RPC requests and paging agree; positive receipt-key fixture disagrees with object shape, integer heights and nonzero range."
+
+[file.43]
+path = "services/agent/crates/layerx-agentd/tests/human_node_preparation.rs"
+lines = 170
+verdict = "clean"
+note = "Preparation reads pending address binding/nonce and committed block time/height over RPC, refreshes twice, clears invalid actor cache and refuses chain-id overflow."
+
+[file.44]
+path = "services/agent/crates/layerx-agentd/tests/human_peer_retired.rs"
+lines = 31
+verdict = "clean"
+note = "Above-Committed exports and old settlement names are refused with the declared typed reason and unchanged legacy response bytes."
+
+[file.45]
+path = "services/agent/crates/layerx-agentd/tests/identity.rs"
+lines = 147
+verdict = "issues"
+note = "Registration provenance and unknown/frozen/unverified refusal agree; the reopened-store test keeps its IdentityRecord in memory."
+
+[file.46]
+path = "services/agent/crates/layerx-agentd/tests/metrics_rungs.rs"
+lines = 192
+verdict = "clean"
+note = "Metrics assert exactly three rung labels and current node degraded states with bounded vocabulary."
+
+[file.47]
+path = "services/agent/crates/layerx-agentd/tests/narrowing.rs"
+lines = 90
+verdict = "clean"
+note = "Capability binding refuses initial widening and later protocol narrowing, reporting each local versus protocol-enforced dimension."
+
+[file.48]
+path = "services/agent/crates/layerx-agentd/tests/native_reads_daemon.rs"
+lines = 72
+verdict = "clean"
+note = "Live node availability/head/history, block roots/count, bounded cursor and invalid selectors use explicit external node inputs."
+
+[file.49]
+path = "services/agent/crates/layerx-agentd/tests/no_admission_daemon.rs"
+lines = 26
+verdict = "clean"
+note = "Structural source check excludes admission-daemon/replica dependencies from native-read tests without fabricating a runtime result."
+
+[file.50]
+path = "services/agent/crates/layerx-agentd/tests/operator_route.rs"
+lines = 127
+verdict = "issues"
+note = "Audited inspect and forbidden mutation assertions call the route helper directly, leaving the socket/authentication path claimed by the test unproven."
+
+[file.51]
+path = "services/agent/crates/layerx-agentd/tests/policy.rs"
+lines = 187
+verdict = "clean"
+note = "Missing protocol budget intentionally denies before permit/conflicting rules, matcher and step limits; test names correctly describe fail-closed precedence."
+
+[file.52]
+path = "services/agent/crates/layerx-agentd/tests/policy_dryrun.rs"
+lines = 131
+verdict = "clean"
+note = "Dry-run equals live missing-budget refusal, records the decision and explains local restrictions with stable machine-readable InvalidContext output."
+
+[file.53]
+path = "services/agent/crates/layerx-agentd/tests/policy_version.rs"
+lines = 142
+verdict = "issues"
+note = "Version snapshots, failed activation rollback and bounded source loading agree; behavioral permit-to-deny activation is masked by InvalidContext."
+
+[file.54]
+path = "services/agent/crates/layerx-agentd/tests/prepare.rs"
+lines = 187
+verdict = "clean"
+note = "Real ledger payload inside type-2 ABI call binds signing/disclosure; stale nonce, closed-port RPC and exact fee/payload bounds are checked."
+
+[file.55]
+path = "services/agent/crates/layerx-agentd/tests/program_adapters_rungs.rs"
+lines = 180
+verdict = "clean"
+note = "Program call adapter returns tx_hash and rung and schema/SDK requests name no kernel protocol fields."
+
+[file.56]
+path = "services/agent/crates/layerx-agentd/tests/protocol2_restart.rs"
+lines = 22
+verdict = "issues"
+note = "Restart helper reloads the readiness authority but never persists or compares signed program-call evidence promised by the test name."
+
+[file.57]
+path = "services/agent/crates/layerx-agentd/tests/readiness_node_rpc.rs"
+lines = 103
+verdict = "issues"
+note = "Contract 2 compatibility and empty-key write closure are intended; imported malformed key fixture prevents the empty-key assertions from being reached."
+
+[file.58]
+path = "services/agent/crates/layerx-agentd/tests/redaction.rs"
+lines = 170
+verdict = "clean"
+note = "Secret and retention redaction agree across surfaces, preserve tenant isolation and omit full audit payloads and input-bearing diagnostics."
+
+[file.59]
+path = "services/agent/crates/layerx-agentd/tests/rotation_refused.rs"
+lines = 130
+verdict = "clean"
+note = "Typed unsupported owner rotation preserves active sessions and owner state without silent fallback."
+
+[file.60]
+path = "services/agent/crates/layerx-agentd/tests/sdk_owner_credential_envelope.rs"
+lines = 43
+verdict = "clean"
+note = "Real SDK bootstrap JSON goes through daemon decode with exact tenant/session/token/generation/idempotency coordinates and missing-credential refusal."
+
+[file.61]
+path = "services/agent/crates/layerx-agentd/tests/session_seed.rs"
+lines = 91
+verdict = "clean"
+note = "Encrypted session seeds bind peer/scope/public key and survive actual registry restart without plaintext persistence."
+
+[file.62]
+path = "services/agent/crates/layerx-agentd/tests/signature_binding.rs"
+lines = 171
+verdict = "clean"
+note = "Real signed type-2 wrapper preserves exact bytes and transaction hash; old signatures cannot authorize amount, recipient or fee alterations."
+
+[file.63]
+path = "services/agent/crates/layerx-agentd/tests/subscription_cursor_v3.rs"
+lines = 185
+verdict = "clean"
+note = "Cursor-v3 block triple survives store reopen; LXS2 demands explicit reset and is not silently rewritten."
+
+[file.64]
+path = "services/agent/crates/layerx-agentd/tests/tenant_leakage.rs"
+lines = 128
+verdict = "clean"
+note = "Cross-tenant existing and missing objects have equal shape/work; diagnostics omit foreign context and metrics use bounded labels."
+
+[file.65]
+path = "services/agent/crates/layerx-agentd/tests/tenant_store.rs"
+lines = 138
+verdict = "clean"
+note = "Every durable object requires a valid tenant and canonical tenant/kind/object delimiters; deterministic fuzz covers encoding collisions."
+
+[file.66]
+path = "services/agent/crates/layerx-agentd/tests/w7_owner_binding.rs"
+lines = 191
+verdict = "issues"
+note = "Owner/foreign-key refusal and exact bytes are checked on a positive kernel-envelope path contrary to the ledger-call authorization requirement."
+
+[file.67]
+path = "tests/ci/test_retired_finality_vector.py"
+lines = 34
+verdict = "clean"
+note = "Retired finality vector absence/reference scan checks both git exit codes and explicitly excludes specifications and documentation."
+
+[file.68]
+path = "tests/qualification/lxp_wallet_caps_vectors.c"
+lines = 71
+verdict = "clean"
+note = "Real native budget v1/v2/extreme codec producer checks maximal delegates and round-trip; historical producer tag is intentionally preserved for caps-codecs.py and requirement 8310.1, and no grant-save operation runs."
+
+[finding.receipt_rpc_roundtrip]
+file = "services/agent/crates/layerx-agentd/src/human_receipt_frame.rs"
+line = 74
+class = "interface-mismatch"
+severity = "high"
+observed = "ReceiptLookupFrame::write emits canonical bytes, five AuthorizedBatch hashes, verification_level, tx_hash, receipt_hash, block_height, rung, signed_receipt and key/height bindings. human_runtime.rs:13188 returns this frame for found receipts. agent_rpc_dispatch.rs:892-915 still reads only canonical bytes, five hashes and one byte as a Rung. ProgramReceipt at line 1896 uses this old decoder and dispatched at line 1223 requires full consumption, so the real found receipt becomes owner.response_malformed. Human service agent_runtime.rs:4462 correctly shares the new decoder."
+expected = "The RECEIPT_LOOKUP and program.receipt interfaces must round-trip the same verified receipt and explicit achieved rung from owner through Agent RPC/MCP, including transaction, receipt-key and inclusion-height bindings."
+proposal = "Use ReceiptLookupFrame/ReceiptLookupAnswer in services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs for receipt decoding and project the explicit rung while preserving all binding checks. Prove an actual found receipt through owner, HTTP and SDK/MCP before and after store reopen, retaining absent/submitted and malformed-frame refusals."
+owner_domain = 9
+interface = "9.proto-human-peer-receipt-lookup"
+
+[finding.human_node_key_fixture]
+file = "services/agent/crates/layerx-agentd/tests/human_node.rs"
+line = 94
+class = "test-gap"
+severity = "medium"
+observed = "human_node_head_and_receipt_keys_come_from_json_rpc serves a bare array with string firstHeight/lastHeight and a firstHeight of zero. Gateway chain_reads.rs:290-303 emits an object containing keys and numeric heights. Client sequencer.rs:879-918 requires that object, integer heights and positive firstHeight, so the fixture cannot reach its success assertions."
+expected = "Requirement 22105.1 requires the producer object shape in every fixture; requirement 5250.1 and the client also refuse a receipt-key interval starting at zero."
+proposal = "Replace the positive fixture in services/agent/crates/layerx-agentd/tests/human_node.rs with gateway-produced keys and numeric positive ranges, retaining exact key/head assertions. Add malformed-array, string-height and zero-height refusals against the real NodeRpc decoder."
+owner_domain = 9
+interface = "8.rpc-gateway-px-getreceiptkeys"
+
+[finding.readiness_empty_key_fixture]
+file = "services/agent/crates/layerx-agentd/tests/readiness_node_rpc.rs"
+line = 32
+class = "test-gap"
+severity = "medium"
+observed = "The test imports empty_node_config from handshake_gate.rs:89-95, which serves a bare empty array, then unwraps node.receipt_keys() and expects an empty Vec and GateError::NoReceiptKeys. NodeRpc delegates to decode_receipt_keys, which rejects both the array and an empty keys object as Malformed before those assertions."
+expected = "Requirement 22105.1 requires the empty fixture to contain an empty keys list and still prove refused startup through the actual decoder and gate."
+proposal = "Update tests/handshake_gate.rs and services/agent/crates/layerx-agentd/tests/readiness_node_rpc.rs together to use the producer object and assert the actual typed refusal with writes closed. If NoReceiptKeys is a distinct contract, explicitly map the empty-list failure at readiness without bypassing receipt-key validation."
+owner_domain = 9
+interface = "8.rpc-gateway-px-getreceiptkeys"
+
+[finding.orphan_tls_tests]
+file = "services/agent/crates/layerx-agentd/src/outbound_tls/tests.rs"
+line = 118
+class = "test-gap"
+severity = "medium"
+observed = "The generated-certificate loopback and RemoteHumanAuthority input-bound tests reside in src/outbound_tls/tests.rs, but outbound_tls.rs declares only tls_boundary and never this tests module; Cargo.toml has no target for it. The shared private_ca_checks_the_actual_server_identity test remains active, but these additional cases do not execute."
+expected = "Advertised TLS and Human authority bound cases must execute through registered test modules against the outbound client."
+proposal = "Register the existing module under cfg(test) in services/agent/crates/layerx-agentd/src/outbound_tls.rs or relocate its cases to an active target, preserving wrong-CA, wrong-host, empty-CA, bearer, deadline and response-bound assertions. Update the README to identify the executed targets."
+owner_domain = 9
+
+[finding.readme_startup]
+file = "services/agent/crates/layerx-agentd/README.md"
+line = 17
+class = "doc-drift"
+severity = "medium"
+observed = "Human-owner mode instructions require HUMAN_* LNI inputs and promise a fresh node LNI handshake at line 25. human_owner_mode.rs:42-54 reads LAYERX_AGENT_NODE_RPC_URL/LAYERX_AGENT_NODE_CHAIN_ID and calls NodeRpc::connect before checking the authority registry."
+expected = "Human-owner deployment guidance must describe merged node JSON-RPC readiness and actual required configuration under requirement 9003 and brief facts 1-3."
+proposal = "Rewrite services/agent/crates/layerx-agentd/README.md prerequisites and health behavior around chain-checked node JSON-RPC and the authority registry; list both node environment keys and remove the retired LNI dependency."
+owner_domain = 9
+interface = "9.env-layerx-agent-human-node-lni"
+
+[finding.readme_tls_registration]
+file = "services/agent/crates/layerx-agentd/README.md"
+line = 43
+class = "doc-drift"
+severity = "low"
+observed = "The README advertises src/outbound_tls/tests.rs as the crate TLS tests although that file is not registered. The active outbound_tls.rs test uses the shared TLS boundary qualification helper instead."
+expected = "Testing instructions must identify Cargo-discovered tests and the inputs required by their actual TLS harness."
+proposal = "Correct services/agent/crates/layerx-agentd/README.md after registering or relocating the orphan cases, naming both the active target and the shared TLS qualification inputs."
+owner_domain = 9
+
+[finding.health_bearer_registry]
+file = "services/agent/crates/layerx-agentd/src/human_owner_mode.rs"
+line = 69
+class = "config-drift"
+severity = "medium"
+observed = "The healthz registry notes identify LAYERX_AGENT_HUMAN_AUTHORITY_BEARER as the health credential. serve_human_owner reads LAYERX_AGENT_PROGRAM_BEARER_TOKEN and explicitly rejects equality with the authority bearer at lines 73-75. The README agrees with code; following the registry uses a refused credential."
+expected = "The declared health contract must distinguish the loopback health bearer from the outbound authority bearer and preserve their separation."
+proposal = "Correct 9.http-agentd-human-owner-get-healthz in spec/layerx-merge/interfaces.kvx and its owning contract to name LAYERX_AGENT_PROGRAM_BEARER_TOKEN. Preserve the distinct-credential check and cover both credentials at the actual health listener."
+owner_domain = 9
+interface = "9.http-agentd-human-owner-get-healthz"
+
+[finding.boot_registry_transport]
+file = "services/agent/crates/layerx-agentd/src/boot.rs"
+line = 77
+class = "config-drift"
+severity = "medium"
+observed = "The change-status registry row declares handshake_gate with FrameTransport and HandshakeStatus, while boot.rs exposes Gate::readiness_gate(&NodeRpc) and ReadinessStatus with fresh receipt keys and protected-policy checks. No handshake_gate declaration remains."
+expected = "The startup interface declaration must name the JSON-RPC readiness API and its real callers, including disconnect and failed-refresh behavior required by 21128.1 and 22045.1."
+proposal = "Replace the obsolete signature/callers in spec/layerx-merge/interfaces.kvx with the current boot.rs readiness API and document chain/key-policy refusals, preserving generation increments and write closure on failed refresh."
+owner_domain = 9
+interface = "9.rs-agentd-boot-handshake-gate"
+
+[finding.compat_registry_version]
+file = "services/agent/crates/layerx-agentd/src/compat.rs"
+line = 4
+class = "config-drift"
+severity = "medium"
+observed = "CONTRACT_VERSION is 2 and readiness_node_rpc.rs asserts 2, but the stable registry row declares CONTRACT_VERSION = 1. services/agent/COMPATIBILITY.md correctly publishes contract 2."
+expected = "The executable tuple, published matrix and stable interface declaration must agree on the supported contract version."
+proposal = "Update 9.rs-agentd-compat-contract-version-j43 in spec/layerx-merge/interfaces.kvx to 2 and align dependent compatibility references with compat.rs; retain explicit rejection of contract 1."
+owner_domain = 9
+interface = "9.rs-agentd-compat-contract-version-j43"
+
+[finding.tls_fixture_registered_as_error]
+file = "services/agent/crates/layerx-agentd/src/agent_rpc_tls.rs"
+line = 150
+class = "dead-code"
+severity = "low"
+observed = "The registry lists reason gateway.invalid as an error interface, but it is only a DNS fixture in absent_material_and_inexact_peer_fail_closed. The actual Peer error renders agent rpc tls peer identity refused at line 39."
+expected = "Public error declarations must represent errors the production TLS boundary emits, rather than hostnames used in negative tests."
+proposal = "Remove the erroneous public-error classification of 9.err-reason-gateway-invalid from spec/layerx-merge/interfaces.kvx and register actual AgentRpcTlsError behavior/callers, preserving wildcard and missing-material refusal tests."
+owner_domain = 9
+interface = "9.err-reason-gateway-invalid"
+
+[finding.authority_cache_unbounded]
+file = "services/agent/crates/layerx-agentd/src/authority.rs"
+line = 33
+class = "runtime-risk"
+severity = "medium"
+observed = "AuthorityCache is called bounded but its BTreeMap has no entry/byte cap. resolve inserts every new authority at line 94. maximum_cache_age bounds reuse, not retention, and distinct expired/revoked authorities are never evicted. Current tree callers exercise this helper only in unit tests."
+expected = "A reusable authority cache must bound memory as well as freshness so a long-lived caller cannot retain every authority it has ever observed."
+proposal = "Give AuthorityCache in services/agent/crates/layerx-agentd/src/authority.rs a configured capacity and deterministic stale-entry eviction. Preserve fail-closed generation/revocation checks and prove bounded retention across many rotating keys."
+owner_domain = 9
+interface = "9.rs-agentd-authority-authoritycache-j43"
+
+[finding.authority_registry_caller]
+file = "services/agent/crates/layerx-agentd/src/authority.rs"
+line = 64
+class = "dead-code"
+severity = "low"
+observed = "The registry lists admin.rs:151 as a production resolve caller, but admin.rs has no authority::resolve call and services/agent contains only tests/authority.rs using AuthorityCache/AuthorityResolver. Its advertised every-write-boundary role has no demonstrated production wiring."
+expected = "Authority API declarations must identify the live enforcement path and distinguish it from an unconsumed library helper."
+proposal = "Trace actual Human/session authority enforcement and correct the caller/lifecycle notes for 9.rs-agentd-authority-resolve-j43 in spec/layerx-merge/interfaces.kvx. Retire this helper if superseded, or wire it through its owning adapter with a real-path refusal proof."
+owner_domain = 9
+interface = "9.rs-agentd-authority-resolve-j43"
+
+[finding.identity_restart_test]
+file = "services/agent/crates/layerx-agentd/tests/identity.rs"
+line = 130
+class = "test-gap"
+severity = "medium"
+observed = "restored_binding_is_revalidated_and_freeze_is_observed reopens Store but keeps the original IdentityRecord and passes it to revalidate. It never reconstructs the record from durable state. Production main.rs separately registers fresh core observations, so this test alone does not establish data loss."
+expected = "A restart claim must reconstruct binding state using durable inputs and current verified core observations after all pre-restart identity objects are dropped."
+proposal = "Extend services/agent/crates/layerx-agentd/tests/identity.rs through production startup/registration after reopening, dropping old records/resolvers. Assert a refreshed binding and frozen/unknown identity refusal without retained process memory."
+owner_domain = 9
+interface = "9.rs-agentd-identity-revalidate-j43"
+
+[finding.budget_schema_restart_test]
+file = "services/agent/crates/layerx-agentd/tests/budget_schema.rs"
+line = 96
+class = "test-gap"
+severity = "medium"
+observed = "restart_recovery_reconciles_receipts_and_held_unknowns_against_core_state persists a reservation then calls rebuild/recover on the same open Store. It neither reopens the store nor reconstructs receipt inputs from durable state."
+expected = "Budget recovery must preserve unknown holds and reconcile verified state after a real stop/reopen rather than use surviving process objects as the persistence proof."
+proposal = "Extend services/agent/crates/layerx-agentd/tests/budget_schema.rs to persist receipt/hold inputs, drop handles, reopen and invoke production recovery. Preserve exact consumed/held amounts and mismatch refusal and assert second-recovery idempotence."
+owner_domain = 9
+interface = "9.rs-agentd-budget-mod-hold-unknown-j43"
+
+[finding.protocol2_evidence_test]
+file = "services/agent/crates/layerx-agentd/tests/protocol2_restart.rs"
+line = 4
+class = "test-gap"
+severity = "medium"
+observed = "protocol2_recovers_identical_signed_program_call_evidence only calls try_evidence_authority_after_restart. support/real_authority.rs:173-218 reloads Gate and refreshes readiness, but no signed program call or durable program-call evidence is created or compared."
+expected = "A claim of identical signed program-call evidence after restart requires an actual call, durable receipt/outbox transport and exact recovered identity/bytes comparison."
+proposal = "Extend services/agent/crates/layerx-agentd/tests/protocol2_restart.rs with a real program-call producer and persisted receipt/outbox, reopen and compare exact signed bytes and verified outcome. Retain gate-reload refusal/readiness assertions separately."
+owner_domain = 9
+
+[finding.revocation_chain_path_test]
+file = "services/agent/crates/layerx-agentd/tests/grant_revocation_on_chain.rs"
+line = 116
+class = "test-gap"
+severity = "medium"
+observed = "The on_chain_grant_revocation test constructs RevocationEvent directly and uses BoundaryIdentity with model-identity bytes. It asserts local invalidation but exercises no node revocation producer, verified event transport or post-reopen token refusal."
+expected = "On-chain revocation coverage must prove real chain-derived evidence reaches invalidation and remains effective after restart without affecting unrelated identities/tenants."
+proposal = "Extend services/agent/crates/layerx-agentd/tests/grant_revocation_on_chain.rs through the verified node authority adapter, reopen Store/SessionRegistry and refuse old tokens. Retain same-DID, different-grant and different-DID isolation assertions."
+owner_domain = 9
+
+[finding.operator_socket_test]
+file = "services/agent/crates/layerx-agentd/tests/operator_route.rs"
+line = 42
+class = "test-gap"
+severity = "medium"
+observed = "human_socket_operator_commands_reach_the_audited_admin_dispatch calls route_operator_command directly with typed OperatorCommand values. It never opens a Human socket, frames OPERATOR, authenticates a peer or decodes a response."
+expected = "The declared Human OPERATOR route needs proof through bounded frame transport and the authenticated dispatcher in addition to direct helper tests."
+proposal = "Extend services/agent/crates/layerx-agentd/tests/operator_route.rs through the real Human listener and frame codec, exercising accepted inspect and forbidden mutation and checking the audit chain after reopen. Preserve direct helper assertions."
+owner_domain = 9
+interface = "9.proto-human-peer-operator"
+
+[finding.legacy_disclosure_test]
+file = "services/agent/crates/layerx-agentd/tests/disclosure.rs"
+line = 102
+class = "retired-reference"
+severity = "medium"
+observed = "Positive disclosure tests use prepare_activity to construct an unsigned kernel envelope and compare its envelope disclosure instead of preparing the ledger type-2 call."
+expected = "Requirement 22061.1 requires signing/binding tests to build authorization from the ledger payment call and encode no activity envelope; 22056.1 binds disclosure to that call."
+proposal = "Migrate services/agent/crates/layerx-agentd/tests/disclosure.rs to prepare::evm::prepare_bound and call-bound disclosure APIs, preserving all semantic fields and mutation refusal on the exact type-2 bytes."
+owner_domain = 9
+
+[finding.legacy_owner_signature_test]
+file = "services/agent/crates/layerx-agentd/tests/w7_owner_binding.rs"
+line = 125
+class = "retired-reference"
+severity = "medium"
+observed = "Owner-binding tests prepare a kernel envelope, sign with LocalSigner/sign_disclosed and call attach_kernel_signature/verify_kernel_before_submit. They do not exercise the secp256k1 type-2 signing path in sign_verify.rs."
+expected = "Requirement 22061.1 requires these binding tests to authorize a ledger payment call without encoding an activity envelope."
+proposal = "Migrate services/agent/crates/layerx-agentd/tests/w7_owner_binding.rs to real call-bound disclosure and secp256k1 signing/submission APIs; preserve foreign-key refusal and correct-owner success with exact bytes, transaction hash and recovered sender."
+owner_domain = 9
+
+[finding.retired_bridge_time_fixture]
+file = "services/agent/crates/layerx-agentd/src/protocol_evidence_time_tests.rs"
+line = 9
+class = "retired-reference"
+severity = "medium"
+observed = "Positive native-time tests load custody/daemon-light-credit-receipt, register ModuleId::Bridge ordinal 1 and decode its signed activity. Successful counts and receipt denomination depend on custody credit retired from the kernel, rather than a current payment producer."
+expected = "Brief facts 1-3 and requirements 1070.1/16966.4 retire custody credit and daemon funding; current time-window proofs must use transactions the merged network produces."
+proposal = "Capture current node ledger-payment activity and committed receipt/header material for services/agent/crates/layerx-agentd/src/protocol_evidence_time_tests.rs, preserving exact time/count/denomination, missing/duplicate and tampering checks. Mark retained historical decode fixtures as migration-only."
+owner_domain = 9
+
+[finding.config_rpc_path]
+file = "services/agent/crates/layerx-agentd/tests/config.rs"
+line = 27
+class = "retired-reference"
+severity = "low"
+observed = "Positive startup fixtures and overrides use https://node.example/rpc and https://override.example/rpc, endorsing the retired public endpoint path although a generic URL parser can accept custom paths."
+expected = "Brief facts 2-3 put public merged node JSON-RPC at the root; successful network examples should use that root."
+proposal = "Use root-path URLs in services/agent/crates/layerx-agentd/tests/config.rs while preserving override precedence, transport, credential and chain-id coverage. Isolate custom paths as generic parser cases if intentionally supported."
+owner_domain = 9
+interface = "9.cfg-agentd-startup-node-endpoint"
+
+[finding.config_node_rpc_path]
+file = "services/agent/crates/layerx-agentd/tests/config_node_rpc.rs"
+line = 13
+class = "retired-reference"
+severity = "low"
+observed = "Positive URL fixtures use /rpc, including the accepted node.example endpoint and IPv6 path. Negative layerxd/Unix paths correctly assert refusal and are not the issue."
+expected = "Merged public node examples must use the root JSON-RPC path while retaining explicit refusal of retired transport inputs."
+proposal = "Change positive network examples in services/agent/crates/layerx-agentd/tests/config_node_rpc.rs to root URLs; preserve invalid-scheme, embedded-credential, fragment and retired-setting assertions, separating generic custom-path support from network defaults."
+owner_domain = 9
+interface = "9.cfg-agentd-startup-node-endpoint"
+
+[finding.policy_activation_behavior]
+file = "services/agent/crates/layerx-agentd/tests/policy_version.rs"
+line = 101
+class = "test-gap"
+severity = "medium"
+observed = "The activation test retains v1 Permit and activates v2 Deny, but evaluates both with without_protocol_budget. Both decisions are InvalidContext before any rule effect, so it proves snapshot labels but not the advertised behavioral switch."
+expected = "A valid in-flight request must keep the old policy behavior while a valid later request observes the activated rule behavior."
+proposal = "Extend services/agent/crates/layerx-agentd/tests/policy_version.rs with verified current budget/effect context from the real producer so v1 allows and v2 denies. Retain missing-context refusal, invalid activation rollback and decision-audit assertions."
+owner_domain = 9
+
+[finding.missing_agent_contract_pages]
+file = "services/agent/crates/layerx-agentd/src/human_receipt_frame.rs"
+line = 0
+class = "doc-drift"
+severity = "medium"
+observed = "The registry links receipt, health and configuration contracts to contracts/agent-human-peer.md, contracts/agent-api.md and contracts/agent-config.md; none exists at the audited revision."
+expected = "Declared agent contracts must resolve to maintained pages describing actual frame fields, authentication, configuration keys and recovery."
+proposal = "Publish contracts/agent-human-peer.md, contracts/agent-api.md and contracts/agent-config.md or repoint the registry to maintained sources. Describe the complete receipt frame/program.receipt round-trip, separate health/authority credentials and restart behavior."
+owner_domain = 9
+interface = "9.proto-human-peer-receipt-lookup"
+
+[finding.running_site_startup]
+file = "docs/site/docs/agents/running.md"
+line = 96
+class = "doc-drift"
+severity = "medium"
+observed = "The guide calls node_endpoint an absolute normalized socket path rather than HTTPS at lines 96-99 and still lists expected_protocol_version/sequencer_authority_source at lines 697-702. config.rs, boot.rs and config_node_rpc.rs now use node JSON-RPC, expected_chain_id and receipt_key_source."
+expected = "Startup guidance must match merged JSON-RPC readiness configuration and retire LNI/protocol-version settings."
+proposal = "Rewrite startup and configuration tables in docs/site/docs/agents/running.md from the current parser with root node URL, expected_chain_id and protected receipt-key source. Explain chain-id mismatch, key-policy failure and disconnect behavior."
+owner_domain = 9
+interface = "9.cfg-agentd-startup-node-endpoint"
+
+[finding.running_site_faucet_and_endpoint]
+file = "docs/site/docs/agents/running.md"
+line = 512
+class = "doc-drift"
+severity = "medium"
+observed = "The guide sends eth_sendRawTransaction to /rpc at line 512 and advertises faucet.request/write:faucet:claim and FaucetClaim at lines 659-680. The daemon retires faucet.claim and the generated operation catalogue has no FaucetClaim."
+expected = "Brief facts 2-3 require root-path node RPC and requirement 9009.1 removes faucet.claim and its scope from the supported agent catalogue."
+proposal = "Replace the submission URL and regenerate operation/MCP capability tables in docs/site/docs/agents/running.md from the current schema/catalogue. Remove faucet instructions and document the unavailable_capability refusal for retired clients."
+owner_domain = 9
+interface = "9.http-rpc-faucet-claim"
+
+[finding.running_site_budget_creation]
+file = "docs/site/docs/agents/running.md"
+line = 438
+class = "doc-drift"
+severity = "medium"
+observed = "The guide says create_protocol_budget returns ProtocolObjectEffectUnavailable and never Ok. Current budget/create.rs:543-610 verifies a layerxpay receipt and committed state and returns ProtocolBudget. Its _store parameter remains unused; successful return is not itself a durable object write."
+expected = "Budget instructions must distinguish a successful verified return from unavailable/malformed evidence and distinguish the returned object from any caller-owned durable accounting; local limits still grant no protocol authority."
+proposal = "Rewrite the budget section in docs/site/docs/agents/running.md around layerxpay budgetCreate, exact committed-state matching and the returned verified object. Describe actual caller persistence/recovery responsibilities separately and retain the warning that local figures cannot manufacture protocol authority."
+owner_domain = 9
+
+[finding.running_wiki_startup]
+file = "docs/wiki/RunningAnAgent.md"
+line = 96
+class = "doc-drift"
+severity = "medium"
+observed = "The guide calls node_endpoint an absolute normalized socket path rather than HTTPS at lines 96-99 and still lists expected_protocol_version/sequencer_authority_source at lines 697-702. config.rs, boot.rs and config_node_rpc.rs now use node JSON-RPC, expected_chain_id and receipt_key_source."
+expected = "Startup guidance must match merged JSON-RPC readiness configuration and retire LNI/protocol-version settings."
+proposal = "Rewrite startup and configuration tables in docs/wiki/RunningAnAgent.md from the current parser with root node URL, expected_chain_id and protected receipt-key source. Explain chain-id mismatch, key-policy failure and disconnect behavior."
+owner_domain = 9
+interface = "9.cfg-agentd-startup-node-endpoint"
+
+[finding.running_wiki_faucet_and_endpoint]
+file = "docs/wiki/RunningAnAgent.md"
+line = 512
+class = "doc-drift"
+severity = "medium"
+observed = "The guide sends eth_sendRawTransaction to /rpc at line 512 and advertises faucet.request/write:faucet:claim and FaucetClaim at lines 659-680. The daemon retires faucet.claim and the generated operation catalogue has no FaucetClaim."
+expected = "Brief facts 2-3 require root-path node RPC and requirement 9009.1 removes faucet.claim and its scope from the supported agent catalogue."
+proposal = "Replace the submission URL and regenerate operation/MCP capability tables in docs/wiki/RunningAnAgent.md from the current schema/catalogue. Remove faucet instructions and document the unavailable_capability refusal for retired clients."
+owner_domain = 9
+interface = "9.http-rpc-faucet-claim"
+
+[finding.running_wiki_budget_creation]
+file = "docs/wiki/RunningAnAgent.md"
+line = 438
+class = "doc-drift"
+severity = "medium"
+observed = "The guide says create_protocol_budget returns ProtocolObjectEffectUnavailable and never Ok. Current budget/create.rs:543-610 verifies a layerxpay receipt and committed state and returns ProtocolBudget. Its _store parameter remains unused; successful return is not itself a durable object write."
+expected = "Budget instructions must distinguish a successful verified return from unavailable/malformed evidence and distinguish the returned object from any caller-owned durable accounting; local limits still grant no protocol authority."
+proposal = "Rewrite the budget section in docs/wiki/RunningAnAgent.md around layerxpay budgetCreate, exact committed-state matching and the returned verified object. Describe actual caller persistence/recovery responsibilities separately and retain the warning that local figures cannot manufacture protocol authority."
+owner_domain = 9
+
+[finding.agentd_site_readiness]
+file = "docs/site/docs/agents/agentd.md"
+line = 51
+class = "doc-drift"
+severity = "medium"
+observed = "Protocol-evidence startup names StartupConfig.sequencer_authority_source and handshake_gate at lines 51-63, and the table near line 520 retains expected_protocol_version. Those fields and LNI API have been replaced by JSON-RPC readiness and receipt-key policy."
+expected = "The daemon contract must name the actual node connection, expected_chain_id, receipt_key_source and readiness_gate behavior at startup, refresh and disconnect."
+proposal = "Rewrite startup/evidence/configuration sections in docs/site/docs/agents/agentd.md from config.rs and boot.rs, preserving protected-policy loading and refusal of untrusted receipt-key intervals."
+owner_domain = 9
+interface = "9.rs-agentd-boot-handshake-gate"
+
+[finding.agentd_site_budgets]
+file = "docs/site/docs/agents/agentd.md"
+line = 31
+class = "doc-drift"
+severity = "medium"
+observed = "The page says create_protocol_budget never returns Ok and reconcile always returns ProtocolStateSchemaUnavailable, preventing divergence alerts at lines 167-184. Current create.rs returns a verified ProtocolBudget and budget_schema.rs proves canonical decoding and successful reconciliation. The separate statement that the creation store argument is unused remains correct."
+expected = "Documentation must describe canonical budget schema and successful verified return/reconciliation while accurately retaining the distinction between an in-memory return, durable accounting and protocol authority."
+proposal = "Replace the create/reconcile/divergence sections in docs/site/docs/agents/agentd.md using current budget/create.rs, accounting.rs and reconcile.rs. Describe committed-state matching, successful returns, actual store ownership and recovery, malformed-schema refusal and conservative unknown-hold handling."
+owner_domain = 9
+
+[finding.agentd_site_finality]
+file = "docs/site/docs/agents/agentd.md"
+line = 479
+class = "doc-drift"
+severity = "medium"
+observed = "Finality is described through augment_verified, node-authority VerifiedCheckpoint and CHECKPOINT_FINALISED progression. Current agent types use Submitted/Receipted/Committed; admin_retry_rung.rs maps legacy checkpoint requests to Committed and refuses settlement anchoring."
+expected = "Receipts on the merged BFT network are final at committed blocks; guidance must describe current rungs without a second checkpoint/settlement authority."
+proposal = "Rewrite finality/degraded-mode/retry guidance in docs/site/docs/agents/agentd.md from finality.rs and current rung types, marking old verification labels as migration metadata and preserving explicit refusal above Committed."
+owner_domain = 9
+
+[finding.agentd_wiki_readiness]
+file = "docs/wiki/Agentd.md"
+line = 52
+class = "doc-drift"
+severity = "medium"
+observed = "Protocol-evidence startup names StartupConfig.sequencer_authority_source and handshake_gate at lines 51-63, and the table near line 520 retains expected_protocol_version. Those fields and LNI API have been replaced by JSON-RPC readiness and receipt-key policy."
+expected = "The daemon contract must name the actual node connection, expected_chain_id, receipt_key_source and readiness_gate behavior at startup, refresh and disconnect."
+proposal = "Rewrite startup/evidence/configuration sections in docs/wiki/Agentd.md from config.rs and boot.rs, preserving protected-policy loading and refusal of untrusted receipt-key intervals."
+owner_domain = 9
+interface = "9.rs-agentd-boot-handshake-gate"
+
+[finding.agentd_wiki_budgets]
+file = "docs/wiki/Agentd.md"
+line = 32
+class = "doc-drift"
+severity = "medium"
+observed = "The page says create_protocol_budget never returns Ok and reconcile always returns ProtocolStateSchemaUnavailable, preventing divergence alerts at lines 167-184. Current create.rs returns a verified ProtocolBudget and budget_schema.rs proves canonical decoding and successful reconciliation. The separate statement that the creation store argument is unused remains correct."
+expected = "Documentation must describe canonical budget schema and successful verified return/reconciliation while accurately retaining the distinction between an in-memory return, durable accounting and protocol authority."
+proposal = "Replace the create/reconcile/divergence sections in docs/wiki/Agentd.md using current budget/create.rs, accounting.rs and reconcile.rs. Describe committed-state matching, successful returns, actual store ownership and recovery, malformed-schema refusal and conservative unknown-hold handling."
+owner_domain = 9
+
+[finding.agentd_wiki_finality]
+file = "docs/wiki/Agentd.md"
+line = 480
+class = "doc-drift"
+severity = "medium"
+observed = "Finality is described through augment_verified, node-authority VerifiedCheckpoint and CHECKPOINT_FINALISED progression. Current agent types use Submitted/Receipted/Committed; admin_retry_rung.rs maps legacy checkpoint requests to Committed and refuses settlement anchoring."
+expected = "Receipts on the merged BFT network are final at committed blocks; guidance must describe current rungs without a second checkpoint/settlement authority."
+proposal = "Rewrite finality/degraded-mode/retry guidance in docs/wiki/Agentd.md from finality.rs and current rung types, marking old verification labels as migration metadata and preserving explicit refusal above Committed."
+owner_domain = 9
+
+[finding.agent_api_wire]
+file = "docs/wiki/AgentApi.md"
+line = 4
+class = "doc-drift"
+severity = "medium"
+observed = "The API page announces contract major 1 minor 2 and a binary canonical-map operation envelope. compat.rs requires contract 2 and agent_rpc.rs accepts a bounded version-1 JSON envelope with explicit credential coordinates; binary version exchange is separate."
+expected = "Public documentation must distinguish schema contract version, HTTP JSON envelope version and binary negotiation and specify the actual SDK/daemon fields."
+proposal = "Rewrite docs/wiki/AgentApi.md version/wire sections from schema/agent-api/v1.kvx, agent_rpc.rs and SDK agent_envelope.rs, including exact credential/idempotency rules and separate binary negotiation."
+owner_domain = 9
+interface = "9.rs-agentd-agent-rpc-decode"
+
+[finding.agent_api_catalogue]
+file = "docs/wiki/AgentApi.md"
+line = 77
+class = "doc-drift"
+severity = "medium"
+observed = "The budget section says verified creation always fails with ProtocolObjectEffectUnavailable and calls faucet.claim a supported test-network operation. Current creation returns a verified ProtocolBudget without writing its unused Store parameter, and RETIRED_OPERATIONS refuses faucet.claim before authorization."
+expected = "The operation documentation must match current budget results and the retired faucet capability rule in 9009.1."
+proposal = "Replace docs/wiki/AgentApi.md budget and faucet claims with current create/fund/revoke result contracts and explicit retired-operation refusal. Generate supported names from the same catalogue used by daemon and SDK."
+owner_domain = 9
+interface = "9.http-rpc-faucet-claim"
+
+[finding.agent_api_read_rungs]
+file = "docs/wiki/AgentApi.md"
+line = 120
+class = "doc-drift"
+severity = "medium"
+observed = "The read/evidence sections describe read.batch/read.checkpoint and the old verification ladder. Requirements 9005/9006 and package read tests instead carry block-height freshness, three-position history cursors and Submitted/Receipted/Committed rungs."
+expected = "Read/stream documentation must use current rung and height types and must not promise retired checkpoint authority."
+proposal = "Regenerate docs/wiki/AgentApi.md read/stream examples from current read.kvx, stream.kvx and mirror types, including block cursor triples, achieved_rung and typed refusal above Committed."
+owner_domain = 9
+
+[finding.payments_site_rpc]
+file = "docs/site/docs/overview/payments.md"
+line = 21
+class = "doc-drift"
+severity = "medium"
+observed = "The guide exports https://api-mainnet-beta.paxeer.network/rpc as the router origin and later submits native activities through lx_sendActivity. The brief declares no router/unified /rpc, public node RPC at the root and hosted px methods under their own gateway contract."
+expected = "Payment integrators must use the merged node root endpoint and supported transaction/precompile methods, identifying hosted gateway calls separately."
+proposal = "Rewrite endpoint setup, public reads, fee/signing/submission steps in docs/site/docs/overview/payments.md for chain 125 and the ledger/layerxpay type-2 transaction path. Keep valid native guest examples separate and identify the hosted gateway contract explicitly."
+owner_domain = 8
+
+[finding.payments_wiki_rpc]
+file = "docs/wiki/PaymentsQuickstart.md"
+line = 22
+class = "doc-drift"
+severity = "medium"
+observed = "The guide exports https://api-mainnet-beta.paxeer.network/rpc as the router origin and later submits native activities through lx_sendActivity. The brief declares no router/unified /rpc, public node RPC at the root and hosted px methods under their own gateway contract."
+expected = "Payment integrators must use the merged node root endpoint and supported transaction/precompile methods, identifying hosted gateway calls separately."
+proposal = "Rewrite endpoint setup, public reads, fee/signing/submission steps in docs/wiki/PaymentsQuickstart.md for chain 125 and the ledger/layerxpay type-2 transaction path. Keep valid native guest examples separate and identify the hosted gateway contract explicitly."
+owner_domain = 8
+
+[finding.payments_wiki_custody]
+file = "docs/wiki/PaymentsQuickstart.md"
+line = 80
+class = "doc-drift"
+severity = "medium"
+observed = "The funding procedure instructs a deposit to 0x1013, tests/bridge/custody_credit.py and build/tests/bridge/sign-credit followed by router submission. Kernel custody credit and its signing suites are retired; the site payment guide already states this retirement."
+expected = "Requirements 1070.1 and 16966.4 retire custody credit/signing; account funding must use the supported network payment flow."
+proposal = "Replace section 3 of docs/wiki/PaymentsQuickstart.md with current account funding and confirmations, remove deposit-to-credit/sign-credit commands and synchronize with the site retirement notice."
+owner_domain = 8
+interface = "6.pc-0x1013-deposit"
+
+[finding.cli_endpoint]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The CLI guide requires --rpc to end in /rpc and later describes unified gateway RPC and eth_sendRawTransaction to /rpc at lines 278-298. This points merged-network clients at the retired path."
+expected = "Brief facts 2-3 require root node RPC and distinguish hosted px methods from the node namespaces."
+proposal = "Rewrite docs/site/docs/platform/cli.md global endpoint rules and submission examples with root node URLs and chain-id checking, identifying separate hosted settings by their current contract."
+owner_domain = 8
+interface = "8.cli-cli-layerx-rpc"
+
+[finding.cli_implemented_commands]
+file = "docs/site/docs/platform/cli.md"
+line = 106
+class = "doc-drift"
+severity = "medium"
+observed = "After a table listing wallet/token commands as implemented, the guide says those groups have no implementation and only --json is global. wallet.rs exists, the earlier table cites real implementation and later sections list its actual RPC refusals."
+expected = "The command catalogue must consistently distinguish shipped commands, unavailable remote capabilities and genuinely absent commands."
+proposal = "Replace lines 106-138 of docs/site/docs/platform/cli.md with a catalogue derived from the current parser, preserving typed registration/history/watch unavailable errors and documenting actual flags/defaults."
+owner_domain = 8
+
+[finding.hosted_topology]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "The page calls the router the only unified eth/lx/px endpoint, describes sixteen public names as EVM-only and advertises /rpc, /rpc/schema and /rpc/ws at lines 39-52 and 198-200. The brief specifies one BFT network, root node RPC, api1 through api14 plus the alias and distinct hosted px methods."
+expected = "Operator topology and endpoint tables must describe the merged network without retired unified router paths."
+proposal = "Rewrite docs/site/docs/platform/hosted-gateway.md topology/routes to separate root node RPC from the gateway openrpc.json contract, correct the public node inventory and remove router, /rpc/schema and /rpc/ws deployment guidance."
+owner_domain = 8
+
+[finding.hosted_lni_snapshot]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 629
+class = "doc-drift"
+severity = "medium"
+observed = "Bring-up requires an LNI preparation snapshot through a node socket as UID 4021. human_owner_mode.rs now uses node JSON-RPC and human_node_preparation.rs obtains pending nonce and committed block time through RPC."
+expected = "Bring-up guidance must exercise the same chain-checked node and authenticated authority dependencies used by the running Human owner."
+proposal = "Replace the LNI snapshot procedure in docs/site/docs/platform/hosted-gateway.md with current NodeRpc/chain-id and Human owner health checks, preserving independent authority-registry and peer validation."
+owner_domain = 8
+
+[finding.programs_missing_feature_claim]
+file = "docs/site/docs/programs/index.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The guide says LXT-20 codecs, payments-merchant and pay5 fixtures are absent at lines 18,145,281-282. programs/sdk/rust/src/lxt20.rs, token-lxt20/payments-merchant examples and pay5/account-authorization-vectors.json exist; payment/porting pages already use them."
+expected = "Program developers must be told which codecs, guest examples and replay fixtures actually ship at the audited revision."
+proposal = "Correct docs/site/docs/programs/index.md feature/fixture statements to link the existing LXT-20 SDK, merchant example and pay5 artifacts, aligning runnable examples and limits with the porting guide."
+owner_domain = 13
+
+[finding.programs_retired_transport]
+file = "docs/site/docs/programs/index.md"
+line = 119
+class = "doc-drift"
+severity = "medium"
+observed = "Simulation is described as LNI tags 30/31 via lxp_daemon_lni_simulate in cmd/layerxd, and line 249 directs lx_sendActivity submission. These running-component instructions conflict with the merged node and current agent call preparation."
+expected = "Brief facts 1-3 retire the separate daemon/LayerX router; simulation and submission must name actual node, precompile and supported Programs interfaces."
+proposal = "Rewrite simulation/signing/submission in docs/site/docs/programs/index.md for the current Programs ABI and node transaction path. Preserve non-committing simulation and exact-call binding and mark historical native transport discussion explicitly."
+owner_domain = 13
+
+[doc.01]
+path = "docs/site/docs/agents/running.md"
+status = "stale"
+notes = "Reviewed the complete page, including mirror differences where applicable. Exact drift and rewrite proposals are recorded in running_site_startup, running_site_faucet_and_endpoint, running_site_budget_creation."
+
+[doc.02]
+path = "docs/wiki/RunningAnAgent.md"
+status = "stale"
+notes = "Reviewed the complete page, including mirror differences where applicable. Exact drift and rewrite proposals are recorded in running_wiki_startup, running_wiki_faucet_and_endpoint, running_wiki_budget_creation."
+
+[doc.03]
+path = "docs/site/docs/agents/agentd.md"
+status = "stale"
+notes = "Reviewed the complete page, including mirror differences where applicable. Exact drift and rewrite proposals are recorded in agentd_site_readiness, agentd_site_budgets, agentd_site_finality."
+
+[doc.04]
+path = "docs/wiki/Agentd.md"
+status = "stale"
+notes = "Reviewed the complete page, including mirror differences where applicable. Exact drift and rewrite proposals are recorded in agentd_wiki_readiness, agentd_wiki_budgets, agentd_wiki_finality."
+
+[doc.05]
+path = "docs/wiki/AgentApi.md"
+status = "stale"
+notes = "Reviewed the complete page, including mirror differences where applicable. Exact drift and rewrite proposals are recorded in agent_api_wire, agent_api_catalogue, agent_api_read_rungs."
+
+[doc.06]
+path = "docs/site/docs/overview/payments.md"
+status = "stale"
+notes = "Reviewed the complete page, including mirror differences where applicable. Exact drift and rewrite proposals are recorded in payments_site_rpc."
+
+[doc.07]
+path = "docs/site/docs/operators/porting.md"
+status = "accurate"
+notes = "Reviewed the complete guide and mirror link differences: native guest ABI, scoped account authorization, token/merchant examples and replay evidence agree with the cited implementations. No running retired daemon/router or custody-credit funding path is prescribed."
+
+[doc.08]
+path = "docs/wiki/PaymentsQuickstart.md"
+status = "stale"
+notes = "Reviewed the complete page, including mirror differences where applicable. Exact drift and rewrite proposals are recorded in payments_wiki_rpc, payments_wiki_custody."
+
+[doc.09]
+path = "docs/wiki/Porting.md"
+status = "accurate"
+notes = "Reviewed the complete guide and mirror link differences: native guest ABI, scoped account authorization, token/merchant examples and replay evidence agree with the cited implementations. No running retired daemon/router or custody-credit funding path is prescribed."
+
+[doc.10]
+path = "docs/site/docs/platform/cli.md"
+status = "stale"
+notes = "Reviewed the complete page, including mirror differences where applicable. Exact drift and rewrite proposals are recorded in cli_endpoint, cli_implemented_commands."
+
+[doc.11]
+path = "docs/site/docs/platform/hosted-gateway.md"
+status = "stale"
+notes = "Reviewed the complete page, including mirror differences where applicable. Exact drift and rewrite proposals are recorded in hosted_topology, hosted_lni_snapshot."
+
+[doc.12]
+path = "docs/site/docs/programs/index.md"
+status = "stale"
+notes = "Reviewed the complete page, including mirror differences where applicable. Exact drift and rewrite proposals are recorded in programs_missing_feature_claim, programs_retired_transport."
+
+[doc.13]
+path = "services/agent/crates/layerx-agentd/README.md"
+status = "stale"
+notes = "Reviewed all 45 lines. Credential separation agrees with code; LNI startup and TLS test registration claims are stale. See readme_startup and readme_tls_registration."
+
+[doc.14]
+path = "services/agent/COMPATIBILITY.md"
+status = "accurate"
+notes = "Reviewed the full matrix: daemon 0.1.0, node 1.0+, contract 2 and SDK 0.1.0 agree with compat.rs. Historical additive approval 1.1 wording conveys no protocol authority."
+
+[doc.15]
+path = "contracts/agent-human-peer.md"
+status = "missing"
+notes = "The registry contract link resolves to no file at the audited revision. Publish or repoint the owning agent contract as proposed in missing_agent_contract_pages."
+
+[doc.16]
+path = "contracts/agent-config.md"
+status = "missing"
+notes = "The registry contract link resolves to no file at the audited revision. Publish or repoint the owning agent contract as proposed in missing_agent_contract_pages."
+
+[doc.17]
+path = "contracts/agent-api.md"
+status = "missing"
+notes = "The registry contract link resolves to no file at the audited revision. Publish or repoint the owning agent contract as proposed in missing_agent_contract_pages."

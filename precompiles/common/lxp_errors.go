@@ -161,7 +161,7 @@ var lxpRevertTable = []lxpRevertEntry{
 	{code: "LXP_ROOT_MISMATCH", message: "root mismatch", kernel: true, value: -801},
 	{code: "LXP_TIMESTAMP_REGRESSION", message: "timestamp regression", kernel: true, value: -802},
 	{code: "LXP_ATTESTATION_THRESHOLD", message: "attestation threshold", kernel: true, value: -803},
-	{code: "LXP_DA_MISSING", message: "da missing"},
+	{code: "LXP_DA_MISSING", message: "da missing"}, // Service delivery refusal; the retired -804 has no kernel emitter.
 	{code: "LXP_EQUIVOCATION", message: "equivocation", kernel: true, value: -805},
 	{code: "LXP_LOG_CORRUPT", message: "log corrupt", kernel: true, value: -900},
 	{code: "LXP_LOG_TRUNCATED", message: "log truncated", kernel: true, value: -901},
@@ -198,6 +198,7 @@ var lxpRevertTable = []lxpRevertEntry{
 	{code: "LXP_XWEB_INVALID_API", message: "invalid api payload", goErr: xwebtypes.ErrInvalidApi},
 	{code: "LXP_XWEB_INVALID_ENVELOPE", message: "invalid credential envelope", goErr: xwebtypes.ErrInvalidEnvelope},
 	{code: "LXP_XWEB_INVALID_LEVEL", message: "invalid attestation level", goErr: xwebtypes.ErrInvalidLevel},
+	{code: "LXP_XWEB_INVALID_PAYLOAD", message: "invalid storage receipt payload", goErr: xwebtypes.ErrInvalidPayload},
 	{code: "LXP_XWEB_DELEGATECALL", message: "cannot delegatecall xweb"},
 	{code: "LXP_XWEB_STATICCALL", message: "cannot call xweb <method> from staticcall"},
 	{code: "LXP_XWEB_KEEPER_MISSING", message: "xweb: the xweb keeper is not wired into this application"},

@@ -33,17 +33,28 @@ PROGRAM_CALLS = {
         "eth_sendRawTransaction", ["setExitRoute", "deprecate", "tombstone", "exitValue"]
     ),
 }
-TRANSACTION_FIELDS = ["chainId:u64", "nonce:u64", "gas:u64", "to:utf8", "data:lowercase_hex"]
+EIP1559_PREPARE_FIELDS = [
+    "preparation_ref:utf8", "chain_id:decimal_string", "nonce:decimal_string",
+    "max_priority_fee_per_gas:decimal_string", "max_fee_per_gas:decimal_string",
+    "gas_limit:decimal_string", "to:lowercase_hex", "data:lowercase_hex",
+    "signing_hash:hex32", "activity_type:decimal_string", "actor:utf8", "authority:utf8",
+    "account_sequence:decimal_string", "not_before:decimal_string", "not_after:decimal_string",
+    "fee_limit:decimal_string", "payload:lowercase_hex", "payload_hash:hex32",
+    "idempotency_key:hex32",
+]
+EIP1559_PREPARE_REQUEST_FIELDS = [
+    "activity_type:decimal_string", "actor:utf8", "authority:utf8",
+    "account_sequence:decimal_string", "not_before:decimal_string", "not_after:decimal_string",
+    "idempotency_key:hex32", "fee_limit:decimal_string", "payload:lowercase_hex",
+    "payload_hash:hex32",
+]
 PROGRAM_CALL_FIELDS = ["to:utf8", "data:lowercase_hex", "chainId:u64"]
 
 
 def agent_plane(repo: Path) -> Plane:
     plane = Plane("Agent", sections(repo / "services/agent/schema/agent-api"))
-    plane.models["NativePrepareResultV1"] = {"fields": TRANSACTION_FIELDS}
+    plane.models["Eip1559PrepareResult"] = {"fields": EIP1559_PREPARE_FIELDS}
     plane.models["McpNativeWriteV1"]["preparation"] = "NativePrepareResultV1"
-    plane.values["operation.prepare"] = {
-        **plane.values["operation.prepare"], "response": "NativePrepareResultV1"
-    }
     plane.models["NativeProgramCallFields"] = {"required": PROGRAM_CALL_FIELDS}
     for model in ("NativeProgramCallRequest", "NativeProgramDeployRequest",
                   "NativeProgramUpgradeRequest", "NativeProgramWindDownRequest"):
@@ -279,6 +290,8 @@ def record_source(name: str, fields: list[tuple[str, str | None, bool]], plane: 
     parameters = []
     for wire, declared, optional in fields:
         annotation = f'@JsonProperty("{wire}") ' if field_name(wire) != wire else ""
+        if plane.name == "Agent" and name in {"NativePrepareResultV1", "NativeActivityV1"}:
+            annotation = f'@JsonProperty(value = "{wire}", required = true) '
         if plane.scalars.get(declared or "", {}).get("wire") == "decimal_string" and plane.java_type(declared, optional) == "BigInteger":
             annotation += "@JsonSerialize(using = ToStringSerializer.class) "
             annotation += "@JsonDeserialize(using = SchemaTypes.DecimalU64Deserializer.class) "
@@ -311,6 +324,10 @@ def record_source(name: str, fields: list[tuple[str, str | None, bool]], plane: 
             validations.append(f"SchemaTypes.protocolU64({field});")
     if plane.name == "Agent" and name == "NativeProgramCallFields":
         validations.append('if (!ProgramsClient.PROGRAMS_ADDRESS.equals(to)) throw new IllegalArgumentException("invalid program target");')
+    if plane.name == "Agent" and name in {"NativePrepareResultV1", "NativeActivityV1"}:
+        validations.append('if (!"1".equals(version)) throw new IllegalArgumentException("invalid native version");')
+    if plane.name == "Agent" and name == "NativePrepareResultV1":
+        validations.append('if (approval_required != (approval_id != null)) throw new IllegalArgumentException("invalid native approval reference");')
     if validations:
         if delegating:
             lines.append(f"{indent}    @JsonCreator(mode = JsonCreator.Mode.DELEGATING)")
@@ -328,9 +345,49 @@ def record_source(name: str, fields: list[tuple[str, str | None, bool]], plane: 
     return lines
 
 
+def render_verification_status(plane: Plane) -> list[str]:
+    entries = plane.models.get("VerificationStatus")
+    if entries is None:
+        raise SystemExit("missing record.VerificationStatus.verification_status")
+    supported = 'Either {state:"achieved",rung:R}, {state:"unverified",requested:R,achieved:R,reason:ReasonCode} with achieved strictly below requested, {state:"pending",requested:R,achieved:R} with achieved strictly below requested for a submitted-but-unreceipted lookup, or {state:"absent",requested:R} when no submission is known; R is one of submitted, receipted, committed. An unverified or pending status that violates the ordering is refused as VerificationFailure verification.inconsistent.'
+    if entries != {"verification_status": supported}:
+        raise SystemExit("unsupported VerificationStatus contract")
+    return """        @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+        public record VerificationStatus(String state, String rung, String requested, String achieved, String reason) implements SchemaTypes.GeneratedResponse {
+            @JsonCreator
+            public VerificationStatus {
+                Objects.requireNonNull(state, "state");
+                boolean valid = switch (state) {
+                    case "achieved" -> rung != null && requested == null && achieved == null && reason == null;
+                    case "unverified" -> rung == null && requested != null && achieved != null && reason != null && !reason.isEmpty();
+                    case "pending" -> rung == null && requested != null && achieved != null && reason == null;
+                    case "absent" -> rung == null && requested != null && achieved == null && reason == null;
+                    default -> false;
+                };
+                if (!valid) throw new IllegalArgumentException("invalid verification status shape");
+                if (rung != null) rank(rung);
+                if (requested != null) rank(requested);
+                if (achieved != null && rank(achieved) >= rank(requested)) {
+                    throw new IllegalArgumentException("verification.inconsistent");
+                }
+            }
+            private static int rank(String rung) {
+                return switch (rung) {
+                    case "submitted" -> 0;
+                    case "receipted" -> 1;
+                    case "committed" -> 2;
+                    default -> throw new IllegalArgumentException("unknown verification rung");
+                };
+            }
+        }
+""".splitlines()
+
+
 def render_models(plane: Plane) -> list[str]:
     lines = [f"    public static final class {plane.name}Models {{", f"        private {plane.name}Models() {{}}"]
     for model, entries in sorted(plane.models.items()):
+        if plane.name == "Agent" and model == "VerificationStatus":
+            continue
         name = plane.model_name(model)
         variants = plane.variants(entries)
         payload_variant = any(f"{variant}.required" in entries for variant in variants)
@@ -391,6 +448,8 @@ def render_models(plane: Plane) -> list[str]:
         elif fields:
             marker = "GeneratedEvent" if "Event" in name else "GeneratedResponse"
             lines.extend(record_source(name, fields, plane, marker, "        "))
+    if plane.name == "Agent":
+        lines.extend(render_verification_status(plane))
     lines.append("    }")
     return lines
 
@@ -423,6 +482,29 @@ def render_operations(plane: Plane, specs: list[dict[str, object]],
                 f"        public static final ProgramTransport {constant_name(spec['wire'])}_TRANSPORT = "
                 f'new ProgramTransport("{rpc}", "0x000000000000000000000000000000000000101d", '
                 f"List.of({arguments}));"
+            )
+    if plane.name == "Agent":
+        prepare = next(spec for spec in specs if spec["wire"] == "prepare")
+        lines.extend(record_source(
+            "NativePrepareRequest", plane.fields("NativePrepareRequestV1", []),
+            plane, "GeneratedRequest", "        ",
+        ))
+        evm_request = {
+            "required": EIP1559_PREPARE_REQUEST_FIELDS, "optional": ["capability_id:hex32"]
+        }
+        request_plane = Plane("Agent", {"type.Eip1559PrepareRequest": evm_request})
+        lines.extend(record_source(
+            "Eip1559PrepareRequest", request_plane.fields("Eip1559PrepareRequest", []),
+            plane, "GeneratedRequest", "        ",
+        ))
+        for constant, request, response in [
+            ("NATIVE_PREPARE", "NativePrepareRequest", "NativePrepareResultV1"),
+            ("EIP1559_PREPARE", "Eip1559PrepareRequest", "Eip1559PrepareResult"),
+        ]:
+            lines.append(
+                f"        public static final SchemaTypes.TypedOperation<{request}, AgentModels.{response}> {constant} = "
+                f'new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, "prepare", '
+                f"{str(prepare['idempotency']).lower()}, {request}.class, AgentModels.{response}.class);"
             )
     lines.append("    }")
     return lines
@@ -545,8 +627,13 @@ def main() -> int:
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--stdout", action="store_true")
     parser.add_argument("--agent-only", action="store_true")
+    parser.add_argument("--verification-status", action="store_true")
     arguments = parser.parse_args()
     repo = Path(os.path.expandvars(arguments.repo)).resolve()
+    if arguments.verification_status:
+        plane = Plane("Agent", sections(repo / "services/agent/schema/agent-api"))
+        print("\n".join(render_verification_status(plane)))
+        return 0
     destination = repo / "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
     expected = generate_jvm(repo)
     contract = destination.parent / "GeneratedContract.java"

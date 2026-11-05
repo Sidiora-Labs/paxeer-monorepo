@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/base64"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -152,7 +153,7 @@ func NewSubmitMisbehaviourCmd() *cobra.Command {
 					return fmt.Errorf("neither JSON input nor path to .json file for misbehaviour were provided: %w", err)
 				}
 
-				if err := cdc.UnmarshalInterfaceJSON(contents, misbehaviour); err != nil {
+				if err := cdc.UnmarshalInterfaceJSON(contents, &misbehaviour); err != nil {
 					return fmt.Errorf("error unmarshalling misbehaviour file: %w", err)
 				}
 			}
@@ -170,12 +171,13 @@ func NewSubmitMisbehaviourCmd() *cobra.Command {
 // NewUpgradeClientCmd defines the command to upgrade an IBC light client.
 func NewUpgradeClientCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "upgrade [client-identifier] [path/to/client_state.json] [path/to/consensus_state.json] [upgrade-client-proof] [upgrade-consensus-state-proof]",
+		Use:   "upgrade [client-identifier] [path/to/client_state.json] [path/to/consensus_state.json] [upgrade-client-proof-base64] [upgrade-consensus-state-proof-base64]",
 		Short: "upgrade an IBC client",
 		Long: `upgrade the IBC client associated with the provided client identifier while providing proof committed by the counterparty chain to the new client and consensus states
+	- Both proof arguments must be non-empty, canonical padded standard base64 (RFC 4648) encodings of the binary protobuf MerkleProof returned by the proof query, as used by JSON byte fields. Pass only the base64 value, without JSON quotes or whitespace; when encoding binary proof files, use base64 -w 0.
 	- ClientState JSON example: {"@type":"/ibc.lightclients.solomachine.v1.ClientState","sequence":"1","frozen_sequence":"0","consensus_state":{"public_key":{"@type":"/cosmos.crypto.secp256k1.PubKey","key":"AtK50+5pJOoaa04qqAqrnyAqsYrwrR/INnA6UPIaYZlp"},"diversifier":"testing","timestamp":"10"},"allow_update_after_proposal":false}
 	- ConsensusState JSON example: {"@type":"/ibc.lightclients.solomachine.v1.ConsensusState","public_key":{"@type":"/cosmos.crypto.secp256k1.PubKey","key":"AtK50+5pJOoaa04qqAqrnyAqsYrwrR/INnA6UPIaYZlp"},"diversifier":"testing","timestamp":"10"}`,
-		Example: fmt.Sprintf("%s tx ibc %s upgrade [client-identifier] [path/to/client_state.json] [path/to/consensus_state.json] [client-state-proof] [consensus-state-proof] --from node0 --home ../node0/<app>cli --chain-id $CID", version.AppName, types.SubModuleName),
+		Example: fmt.Sprintf("%s tx ibc %s upgrade [client-identifier] [path/to/client_state.json] [path/to/consensus_state.json] [client-state-proof-base64] [consensus-state-proof-base64] --from node0 --home ../node0/<app>cli --chain-id $CID", version.AppName, types.SubModuleName),
 		Args:    cobra.ExactArgs(5),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clientCtx, err := client.GetClientTxContext(cmd)
@@ -217,8 +219,14 @@ func NewUpgradeClientCmd() *cobra.Command {
 				}
 			}
 
-			proofUpgradeClient := []byte(args[3])
-			proofUpgradeConsensus := []byte(args[4])
+			proofUpgradeClient, err := decodeUpgradeProof(args[3])
+			if err != nil {
+				return fmt.Errorf("invalid upgrade client proof: %w", err)
+			}
+			proofUpgradeConsensus, err := decodeUpgradeProof(args[4])
+			if err != nil {
+				return fmt.Errorf("invalid upgrade consensus state proof: %w", err)
+			}
 
 			msg, err := types.NewMsgUpgradeClient(clientID, clientState, consensusState, proofUpgradeClient, proofUpgradeConsensus, clientCtx.GetFromAddress().String())
 			if err != nil {
@@ -232,6 +240,17 @@ func NewUpgradeClientCmd() *cobra.Command {
 	flags.AddTxFlagsToCmd(cmd)
 
 	return cmd
+}
+
+func decodeUpgradeProof(encoded string) ([]byte, error) {
+	proof, err := base64.StdEncoding.Strict().DecodeString(encoded)
+	if err != nil {
+		return nil, fmt.Errorf("expected canonical padded standard base64: %w", err)
+	}
+	if len(proof) == 0 || base64.StdEncoding.EncodeToString(proof) != encoded {
+		return nil, fmt.Errorf("expected non-empty canonical padded standard base64 without whitespace")
+	}
+	return proof, nil
 }
 
 // NewCmdSubmitUpdateClientProposal implements a command handler for submitting an update IBC client proposal transaction.

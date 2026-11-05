@@ -1,0 +1,63 @@
+[repair.22.33.1282]
+audit = "22.30.65"
+base_revision = "90c597177fcfcac6653ca7effb29d994ae45b128"
+contract = "XWebProgramRequested(bytes32 indexed programId,uint64 indexed requestId,uint8 kind,bytes payload,uint64 sequence): kind=1 fetch, kind=2 search; program origin=2 is implicit in the event, not the kind field; sequence is the accepted program call sequence, not a deadline. Admission emits one program-only log; pending Fulfilled=false becomes a permanent Fulfilled=true replay tombstone on fulfilProgram."
+qualification = "Only hf-done success qualifies this task; /out/run/gates.jsonl records exact candidate revision, command, exit and private evidence location. Attempt 3 aligns both in-scope Solidity interfaces with the unchanged canonical producer ABI; qualification remains conditional on the declared gate."
+baseline = "Attempt 2 qualified the unchanged inherited implementation first through hf-build and hf-done: SolidityProgramEventFields passed; EventParityIncludesNames failed on the external method/deadline declaration and byte equality; ABIProgramEventContext and ProgramEventRealLogs failed because the test mistook fulfil's remaining gas for a revert reason. No original pre-implementation baseline is claimed."
+
+[finding.solidity-program-event-fields]
+test = "TestRepairM_1282_SolidityProgramEventFields"
+status = "Both published Solidity interfaces use the canonical kind/payload/sequence schema; named parity and real-log decoding cover both."
+proof = "Compare complete named Solidity events to the embedded JSON ABI, pin fetch/search and origin enum values, then admit through the real precompile and keeper and decode its actual log through all three schemas."
+
+[finding.abi-program-event-context]
+test = "TestRepairM_1282_ABIProgramEventContext"
+status = "Existing canonical JSON ABI confirmed on real producer logs; registry and consumer migration remain wiring requests."
+proof = "Actual fetch/search logs traverse JSON serialization and the production ABI decoder plus both Solidity schemas; persisted nonzero call sequences and composite identities match admission and fulfilProgram replay tombstones. This Go proof does not execute the Rust watcher."
+
+[finding.program-event-test-third-shape]
+test = "TestRepairM_1282_ProgramEventRealLogs"
+status = "Go path extended; actual domain-11 watcher replay/restart proof remains unclosed under the no-subprocess-toolchain gate."
+proof = "Preserve original topic/staticcall/duplicate checks, pin sequence=23 and pending lifecycle, and add both kinds, high nonzero u64 sequences, parent rollback, same-id distinct programs and EVM, actual-log ABI decoding, real signing and fulfilProgram acceptance and replay refusal."
+
+[finding.event-parity-ignores-names]
+test = "TestRepairM_1282_EventParityIncludesNames"
+status = "Both Solidity declarations aligned; strict complete named-schema, tuple, selector, topic and byte-equality assertions retained."
+proof = "Existing topic/signature/indexed assertions remain; complete parameter names/types/indexing and anonymity are additionally compared for both published Solidity interfaces against abi.json. Existing byte-identical consumer assertion remains intact; real emitted fetch/search logs decode with both published interfaces and the producer ABI."
+
+[resolved.solidity]
+resolution = "Attempt 3 brings contracts/src/precompiles/IXWeb.sol into scope and aligns it byte-for-byte with precompiles/xweb/XWeb.sol, preserving all types, selectors, topics and strict parity assertions. Structs already match abi.json. The active Go precompile embeds abi.json directly; no derived Go bindings require regeneration, and versioned legacy/v68 artifacts retain historical semantics."
+
+[wiring.registry]
+request = "Domains 6 and 11: update spec/layerx-merge/interfaces.kvx with canonical programId/requestId/kind/payload/sequence, kind=1 fetch/2 search, implicit origin=2, admission/pending/fulfilled tombstone lifecycle and explicit historical decoder/journal version boundaries for the unchanged topic."
+
+[wiring.interop]
+request = "Domain 11: run services/interop/crates/x-websearch/src/watch.rs RequestWatcher and src/program.rs observation_bytes on the real Go producer logs using the shared precompiles/xweb/repair_130_test.go and testdata/repair_130_consumer.rs case, including replay/restart and fulfilProgram acceptance; its cargo subprocess is forbidden in this task's declared Go gate."
+
+[gotcha.scope-parity]
+observed = "The requested local canonical label repair conflicts with an existing byte-identical assertion against an out-of-scope Solidity file."
+resolution = "Attempt 3 expands scope to contracts/src/precompiles/IXWeb.sol; align the declaration and retain both assertions without weakening either."
+
+[gotcha.baseline-order]
+observed = "The task step asks for unchanged-tree verification, while the controlling ordered gates prohibit testing before implementation or invoking verify_cmd by hand."
+resolution = "Use only hf-build then hf-done after complete implementation; report no baseline result."
+
+[gotcha.consumer-toolchain]
+observed = "The actual domain-11 consumer is Rust and the prerequisite real-log watcher proof invokes cargo, but this task prohibits any subprocess toolchain during its Go gate."
+resolution = "Do not copy or fake the watcher; prove the available production Go path and leave the real watcher/restart obligation explicitly unclosed for its owning domain."
+
+[qualification.attempt2.initial]
+revision = "2dff434415dbfade9b8fecff95f7c263ef6cdb18"
+command = "cg spec done 22.33.1282 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "External contracts/src/precompiles/IXWeb.sol retains method/deadline and fails named-schema and byte-equality assertions; preserve the assertions and leave that domain-6 wiring request outstanding."
+
+[gotcha.fulfil-helper-results]
+observed = "h.fulfil returns callback outcome, gas used and gas left; checking its third return as a revert reason rejected a successful EVM fulfilment."
+resolution = "Call the real EVM through h.call and retain the empty-revert-reason assertion alongside the fulfilled request-status assertion."
+
+[continuation.attempt3]
+implementation = "Continue the five inherited paths; align the newly in-scope contracts interface and decode real JSON-transported fetch/search logs through both named Solidity schemas and the embedded ABI. No selectors, topics, wire types or persisted lifecycle values change."
+baseline = "The prior attempt reported SolidityProgramEventFields, ABIProgramEventContext and ProgramEventRealLogs passing; EventParityIncludesNames failed on method/deadline in the contracts interface. No additional unchanged gate is run because this continuation permits only implementation, hf-build, then hf-done."
+evidence = "The final hf-done ledger entry in /out/run/gates.jsonl identifies the verified candidate revision, command, exit and private evidence location; the runner publishes that unchanged candidate."

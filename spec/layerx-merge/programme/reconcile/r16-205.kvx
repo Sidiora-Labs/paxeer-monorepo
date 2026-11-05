@@ -1,0 +1,243 @@
+[reconcile.r16-205]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 30
+
+[row.r16-205.1]
+interface = "interface.16.mk-docker-cluster-stop-monitoring"
+verdict = "served"
+path = "Makefile"
+line = 2422
+symbol = "$(PAXEER_FORWARDED_TARGETS)"
+evidence = "docker-cluster-stop-monitoring is listed in PAXEER_FORWARDED_TARGETS at Makefile:2414; the registered $(PAXEER_FORWARDED_TARGETS): declaration at 2422 forwards it through $(PAXEER_MAKE) $@."
+
+[row.r16-205.2]
+interface = "interface.16.mk-ensure-integration-ci-images"
+verdict = "served"
+path = "Makefile"
+line = 2422
+symbol = "$(PAXEER_FORWARDED_TARGETS)"
+evidence = "ensure-integration-ci-images is listed in PAXEER_FORWARDED_TARGETS at Makefile:2415; the registered $(PAXEER_FORWARDED_TARGETS): declaration at 2422 forwards it through $(PAXEER_MAKE) $@."
+
+[row.r16-205.3]
+interface = "interface.16.mk-fuzz-codec-smoke"
+verdict = "served"
+path = "Makefile"
+line = 1258
+symbol = "fuzz-codec-smoke"
+evidence = "Makefile:1258 declares fuzz-codec-smoke: $(BUILD_DIR)/tests/lxp_fuzz_codec and runs that binary with ASAN_OPTIONS and UBSAN_OPTIONS; lines 63 and 274 are target lists."
+
+[row.r16-205.4]
+interface = "interface.16.mk-giga-integration-test"
+verdict = "served"
+path = "Makefile"
+line = 2422
+symbol = "$(PAXEER_FORWARDED_TARGETS)"
+evidence = "giga-integration-test is listed in PAXEER_FORWARDED_TARGETS at Makefile:2415; the registered $(PAXEER_FORWARDED_TARGETS): declaration at 2422 forwards it through $(PAXEER_MAKE) $@."
+
+[row.r16-205.5]
+interface = "interface.16.mk-giga-mixed-integration-test"
+verdict = "served"
+path = "Makefile"
+line = 2422
+symbol = "$(PAXEER_FORWARDED_TARGETS)"
+evidence = "giga-mixed-integration-test is listed in PAXEER_FORWARDED_TARGETS at Makefile:2416; the registered $(PAXEER_FORWARDED_TARGETS): declaration at 2422 forwards it through $(PAXEER_MAKE) $@."
+
+[row.r16-205.6]
+interface = "interface.16.mk-hpx-public-check"
+verdict = "served"
+path = "Makefile"
+line = 2611
+symbol = "hpx-public-check"
+evidence = "Makefile:2611 declares hpx-public-check: with the public health, checksum and chain-info checks in its recipe; line 2374 is a target list."
+
+[row.r16-205.7]
+interface = "interface.16.mk-human-build"
+verdict = "served"
+path = "Makefile"
+line = 1639
+symbol = "human-build"
+evidence = "Makefile:1639 declares human-build: and builds the agent SDK, checks the Human API and builds the Human workspace and web app; line 2596 is a prerequisite use and lines 3091 and 3098 are command strings."
+
+[row.r16-205.8]
+interface = "interface.16.mk-human-check"
+verdict = "served"
+path = "Makefile"
+line = 1796
+symbol = "human-check"
+evidence = "Makefile:1796 declares human-check: with cargo check, boundary and schema checks, and the Human web typecheck in its recipe."
+
+[row.r16-205.9]
+interface = "interface.16.mk-human-e2e"
+verdict = "served"
+path = "Makefile"
+line = 1808
+symbol = "human-e2e"
+evidence = "Makefile:1808 declares human-e2e: human-test-e2e, preserving the registered dependency-only alias."
+
+[row.r16-205.10]
+interface = "interface.16.mk-human-gen-api"
+verdict = "served"
+path = "Makefile"
+line = 1634
+symbol = "human-gen-api"
+evidence = "Makefile:1634 declares human-gen-api: platform-human-api-generate; the registered human-gen-api: signature now has a platform-human-api-generate prerequisite. Line 1633 is its .PHONY declaration."
+
+[row.r16-205.11]
+interface = "interface.16.mk-human-js-install"
+verdict = "served"
+path = "Makefile"
+line = 1629
+symbol = "human-js-install"
+evidence = "Makefile:1629 declares human-js-install: and installs the agent TypeScript SDK and Human web dependencies with npm ci; line 1628 is .PHONY and line 2540 is a recursive make invocation."
+
+[row.r16-205.12]
+interface = "interface.16.mk-human-lint"
+verdict = "served"
+path = "Makefile"
+line = 1773
+symbol = "human-lint"
+evidence = "Makefile:1773 declares human-lint: human-lint-copy with clippy, boundary, dependency-policy, advisory and web lint commands; line 2606 is a workspace prerequisite use."
+
+[row.r16-205.13]
+interface = "interface.16.mk-human-lint-copy"
+verdict = "served"
+path = "Makefile"
+line = 1781
+symbol = "human-lint-copy"
+evidence = "Makefile:1781 declares human-lint-copy: with copy-lint clippy, tests and execution followed by web typecheck and tests; line 1773 uses it as a prerequisite."
+
+[row.r16-205.14]
+interface = "interface.16.mk-human-qualify"
+verdict = "served"
+path = "Makefile"
+line = 1834
+symbol = "human-qualify"
+evidence = "Makefile:1834 declares human-qualify: and invokes python3 tools/qualification/release_runner.py $@; line 1812 belongs to the .PHONY list."
+
+[row.r16-205.15]
+interface = "interface.16.mk-human-qualify-fabrication"
+verdict = "served"
+path = "Makefile"
+line = 1825
+symbol = "human-qualify-fabrication"
+evidence = "Makefile:1825 declares human-qualify-fabrication: and invokes python3 tools/qualification/release_runner.py $@; line 1811 belongs to the .PHONY list."
+
+[row.r16-205.16]
+interface = "interface.16.mk-human-qualify-faults"
+verdict = "served"
+path = "Makefile"
+line = 1828
+symbol = "human-qualify-faults"
+evidence = "Makefile:1828 declares human-qualify-faults: and invokes python3 tools/qualification/release_runner.py $@; line 1811 is .PHONY membership and line 3111 is a command string."
+
+[row.r16-205.17]
+interface = "interface.16.mk-human-qualify-journeys"
+verdict = "served"
+path = "Makefile"
+line = 1822
+symbol = "human-qualify-journeys"
+evidence = "Makefile:1822 declares human-qualify-journeys: and invokes python3 tools/qualification/release_runner.py $@; line 1810 is its .PHONY declaration."
+
+[row.r16-205.18]
+interface = "interface.16.mk-human-qualify-perf"
+verdict = "served"
+path = "Makefile"
+line = 1831
+symbol = "human-qualify-perf"
+evidence = "Makefile:1831 declares human-qualify-perf: and invokes python3 tools/qualification/release_runner.py $@; line 1811 belongs to the .PHONY list."
+
+[row.r16-205.19]
+interface = "interface.16.mk-human-test-activity"
+verdict = "served"
+path = "Makefile"
+line = 1726
+symbol = "human-test-activity"
+evidence = "Makefile:1726 declares human-test-activity: and runs the activity, detail, export and VerificationStatus doctests through the runtime clock wrapper; line 3097 is a command string."
+
+[row.r16-205.20]
+interface = "interface.16.mk-human-test-component"
+verdict = "served"
+path = "Makefile"
+line = 1742
+symbol = "human-test-component"
+evidence = "Makefile:1742 declares human-test-component: with $(HUMAN_NPM) run test:component as its recipe; line 3098 is a command string."
+
+[row.r16-205.21]
+interface = "interface.16.mk-human-test-custody-prerequisites"
+verdict = "served"
+path = "Makefile"
+line = 1658
+symbol = "human-test-custody-prerequisites"
+evidence = "Makefile:1658 declares human-test-custody-prerequisites: and builds public TLS prerequisites, layerx-genesis and paxeer-build; line 1654 is .PHONY and line 1655 uses it as a prerequisite."
+
+[row.r16-205.22]
+interface = "interface.16.mk-human-test-e2e"
+verdict = "served"
+path = "Makefile"
+line = 1764
+symbol = "human-test-e2e"
+evidence = "Makefile:1764 declares human-test-e2e: with $(HUMAN_NPM) run test:e2e as its recipe; line 1808 uses it as the prerequisite of human-e2e."
+
+[row.r16-205.23]
+interface = "interface.16.mk-human-test-hosted-provisioning"
+verdict = "served"
+path = "Makefile"
+line = 1675
+symbol = "human-test-hosted-provisioning"
+evidence = "Makefile:1675 declares human-test-hosted-provisioning: with Python dependency checks, identity-provider build and hosted Human pytest execution; line 1646 is a prerequisite use and line 1674 is .PHONY."
+
+[row.r16-205.24]
+interface = "interface.16.mk-human-test-journey"
+verdict = "served"
+path = "Makefile"
+line = 1752
+symbol = "human-test-journey"
+evidence = "Makefile:1752 declares human-test-journey: with $(HUMAN_NPM) run test:journey as its recipe, matching the registered target signature."
+
+[row.r16-205.25]
+interface = "interface.16.mk-human-test-webhooks"
+verdict = "served"
+path = "Makefile"
+line = 1670
+symbol = "human-test-webhooks"
+evidence = "Makefile:1670 declares human-test-webhooks: and builds the layerx-webhooks binary from the platform workspace; line 1667 is .PHONY and line 1668 uses it as a prerequisite."
+
+[row.r16-205.26]
+interface = "interface.16.mk-install"
+verdict = "served"
+path = "Makefile"
+line = 2422
+symbol = "$(PAXEER_FORWARDED_TARGETS)"
+evidence = "install is listed in PAXEER_FORWARDED_TARGETS at Makefile:2416; the registered $(PAXEER_FORWARDED_TARGETS): declaration at 2422 forwards it through $(PAXEER_MAKE) $@. The go install command at 2509 is unrelated."
+
+[row.r16-205.27]
+interface = "interface.16.mk-install-bench"
+verdict = "served"
+path = "Makefile"
+line = 2422
+symbol = "$(PAXEER_FORWARDED_TARGETS)"
+evidence = "install-bench is listed in PAXEER_FORWARDED_TARGETS at Makefile:2416; the registered $(PAXEER_FORWARDED_TARGETS): declaration at 2422 forwards it through $(PAXEER_MAKE) $@."
+
+[row.r16-205.28]
+interface = "interface.16.mk-install-mock-balances"
+verdict = "served"
+path = "Makefile"
+line = 2422
+symbol = "$(PAXEER_FORWARDED_TARGETS)"
+evidence = "install-mock-balances is listed in PAXEER_FORWARDED_TARGETS at Makefile:2416; the registered $(PAXEER_FORWARDED_TARGETS): declaration at 2422 forwards it through $(PAXEER_MAKE) $@."
+
+[row.r16-205.29]
+interface = "interface.16.mk-install-rocksdb"
+verdict = "served"
+path = "Makefile"
+line = 2422
+symbol = "$(PAXEER_FORWARDED_TARGETS)"
+evidence = "install-rocksdb is listed in PAXEER_FORWARDED_TARGETS at Makefile:2417; the registered $(PAXEER_FORWARDED_TARGETS): declaration at 2422 forwards it through $(PAXEER_MAKE) $@."
+
+[row.r16-205.30]
+interface = "interface.16.mk-install-with-race-detector"
+verdict = "served"
+path = "Makefile"
+line = 2422
+symbol = "$(PAXEER_FORWARDED_TARGETS)"
+evidence = "install-with-race-detector is listed in PAXEER_FORWARDED_TARGETS at Makefile:2417; the registered $(PAXEER_FORWARDED_TARGETS): declaration at 2422 forwards it through $(PAXEER_MAKE) $@."

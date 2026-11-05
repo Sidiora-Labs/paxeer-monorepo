@@ -1,0 +1,253 @@
+[reconcile.r8-155]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r8-155.1]
+interface = "interface.8.rs-cli-wallet-encoding-encode-j42"
+verdict = "served"
+path = "tools/platform/cli/src/wallet_encoding.rs"
+line = 104
+symbol = "encode"
+evidence = "AssetOperation::encode is declared as pub fn encode(&self) -> Result<Vec<u8>, String> at line 104. The registered signature matches this definition, rather than the Payment::encode calls used in its match arms."
+
+[row.r8-155.2]
+interface = "interface.8.rs-cli-wallet-signing-preparedpayment-j42"
+verdict = "served"
+path = "tools/platform/cli/src/wallet_signing.rs"
+line = 160
+symbol = "PreparedPayment"
+evidence = "The pub struct PreparedPayment declaration is at line 160, before its impl at line 168. It now stores an Eip1559Call, sender, Disclosure, public key and optional source sequence; the registered struct name remains unchanged."
+
+[row.r8-155.3]
+interface = "interface.8.rs-cli-wallet-signing-sign-with-id-j42"
+verdict = "served"
+path = "tools/platform/cli/src/wallet_signing.rs"
+line = 265
+symbol = "sign_with_id"
+evidence = "PreparedPayment::sign_with_id is declared at line 265 and returns Result<(Vec<u8>, [u8; 32]), String>. Its parameter changed from signer: &dyn Signer to key: &EvmSigningKey, and it delegates the disclosed EVM call to PreparedTransaction::sign; line 260 is only a call."
+
+[row.r8-155.4]
+interface = "interface.8.rs-cli-wallet-signing-signingfacts-j42"
+verdict = "served"
+path = "tools/platform/cli/src/wallet_signing.rs"
+line = 149
+symbol = "SigningFacts"
+evidence = "The declaration pub struct SigningFacts<'a> is at line 149, before PreparedPayment. It retains the registered name and lifetime and declares actor, public_key, network_id, identity sequence, validity, fee limit and idempotency facts; later occurrences are parameter types."
+
+[row.r8-155.5]
+interface = "interface.8.cli-emulator-layerx-emulator-up-listen"
+verdict = "served"
+path = "tools/platform/emulator/src/main.rs"
+line = 1640
+symbol = "--listen"
+evidence = "parse_config defines the --listen match arm at line 1640, matching the registered CLI signature. It parses a SocketAddr and requires a loopback IP; later occurrences are test arguments."
+
+[row.r8-155.6]
+interface = "interface.8.cli-emulator-layerx-emulator-up-network-id"
+verdict = "served"
+path = "tools/platform/emulator/src/main.rs"
+line = 1649
+symbol = "--network-id"
+evidence = "parse_config defines the --network-id match arm at line 1649 and parses its value into config.network_id. This is the registered option definition, rather than the usage string."
+
+[row.r8-155.7]
+interface = "interface.8.cli-emulator-layerx-emulator-up-parse-config"
+verdict = "served"
+path = "tools/platform/emulator/src/main.rs"
+line = 1624
+symbol = "up"
+evidence = "The emulator subcommand is defined by if arguments.next().as_deref() != Some(\"up\") at line 1624 inside parse_config. This matches the registered signature; the usage string and test inputs are separate occurrences."
+
+[row.r8-155.8]
+interface = "interface.8.cli-emulator-layerx-emulator-up-prefund"
+verdict = "served"
+path = "tools/platform/emulator/src/main.rs"
+line = 1679
+symbol = "--prefund"
+evidence = "parse_config defines --prefund at line 1679 with config.prefunds.push(parse_prefund(&value)?), exactly the registered option arm. The usage string is only a mention."
+
+[row.r8-155.9]
+interface = "interface.8.cli-emulator-layerx-emulator-up-protocol-version"
+verdict = "served"
+path = "tools/platform/emulator/src/main.rs"
+line = 1652
+symbol = "--protocol-version"
+evidence = "parse_config defines the --protocol-version match arm at line 1652, with values 2 and 3 accepted and other values refused. The registered arm remains present; later occurrences are test arguments."
+
+[row.r8-155.10]
+interface = "interface.8.cli-emulator-layerx-emulator-up-sequencer-seed-file"
+verdict = "served"
+path = "tools/platform/emulator/src/main.rs"
+line = 1662
+symbol = "--sequencer-seed-file"
+evidence = "parse_config defines --sequencer-seed-file at line 1662. Its arm reads 32 raw bytes or 64 hexadecimal characters into config.sequencer_seed; the later startup requirement is not the option definition."
+
+[row.r8-155.11]
+interface = "interface.8.cli-emulator-layerx-emulator-up-time-ms"
+verdict = "served"
+path = "tools/platform/emulator/src/main.rs"
+line = 1659
+symbol = "--time-ms"
+evidence = "parse_config defines the --time-ms match arm at line 1659 and parses its value into config.timestamp_ms, preserving the registered option signature."
+
+[row.r8-155.12]
+interface = "interface.8.err-emulator-core-invalid-output"
+verdict = "served"
+path = "tools/platform/emulator/src/main.rs"
+line = 1384
+symbol = "core_invalid_output"
+evidence = "The core_invalid_output error is still emitted as HTTP 503 in receipt_read at line 1384 when hex_decode(receipt_hex) fails. The registered Err(error) => refusal(..., &error) arm is gone; the current let-else branch reports that the retained receipt is not hexadecimal. Other emitters guard core buffers and receipt bodies."
+
+[row.r8-155.13]
+interface = "interface.8.err-emulator-invalid-argument"
+verdict = "served"
+path = "tools/platform/emulator/src/main.rs"
+line = 908
+symbol = "invalid_argument"
+evidence = "invalid_argument remains an HTTP 400 refusal, defined in prefund at line 908 for a failed decode_json::<PrefundBody>. The registered activity-must-not-be-empty branch is absent; current emitters validate prefund input, time updates and fault configuration."
+
+[row.r8-155.14]
+interface = "interface.8.err-emulator-invalid-program-activity-selector"
+verdict = "retired"
+path = "tools/platform/emulator/src/main.rs"
+line = 3082
+symbol = "invalid_program_activity_selector"
+evidence = "The invalid_program_activity_selector literal is absent from the registered emulator file. Repository-wide exact-identifier searches excluding spec and docs found no remaining files mentioning this error; the old program activity selector refusal is gone."
+remaining_refs = 0
+remaining = []
+
+[row.r8-155.15]
+interface = "interface.8.err-emulator-invalid-program-call"
+verdict = "retired"
+path = "tools/platform/emulator/src/main.rs"
+line = 3464
+symbol = "invalid_program_call"
+evidence = "The invalid_program_call literal and its registered HTTP 400 program-call refusal are absent from the emulator. Repository-wide exact-identifier searches excluding spec and docs found no remaining references."
+remaining_refs = 0
+remaining = []
+
+[row.r8-155.16]
+interface = "interface.8.err-emulator-invalid-program-receipt-selector"
+verdict = "retired"
+path = "tools/platform/emulator/src/main.rs"
+line = 3043
+symbol = "invalid_program_receipt_selector"
+evidence = "The invalid_program_receipt_selector literal is absent from the emulator, including its current route dispatch. Repository-wide exact-identifier searches excluding spec and docs found no remaining references to the registered program receipt selector refusal."
+remaining_refs = 0
+remaining = []
+
+[row.r8-155.17]
+interface = "interface.8.err-emulator-invalid-program-selector"
+verdict = "retired"
+path = "tools/platform/emulator/src/main.rs"
+line = 3395
+symbol = "invalid_program_selector"
+evidence = "The invalid_program_selector literal and registered program-selector refusal are absent from the emulator. Repository-wide exact-identifier searches excluding spec and docs found no remaining files mentioning this error."
+remaining_refs = 0
+remaining = []
+
+[row.r8-155.18]
+interface = "interface.8.err-emulator-invalid-program-success"
+verdict = "served_elsewhere"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 1241
+symbol = "invalid_program_success"
+evidence = "The emulator no longer contains invalid_program_success. Hosted gateway agent_response defines the same reason field at line 1241 when a successful upstream response lacks a value or result; it returns an InternalFault envelope with HTTP 500, rather than a consumer mention."
+
+[row.r8-155.19]
+interface = "interface.8.err-emulator-invalid-program-u64"
+verdict = "served_elsewhere"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 1258
+symbol = "invalid_program_u64"
+evidence = "The emulator no longer contains invalid_program_u64. Hosted gateway agent_response defines the same reason field at line 1258 when normalize_program_u64s fails, producing an InternalFault envelope with HTTP 500."
+
+[row.r8-155.20]
+interface = "interface.8.err-emulator-invalid-request"
+verdict = "served"
+path = "tools/platform/emulator/src/main.rs"
+line = 2180
+symbol = "invalid_request"
+evidence = "The registered refusal(trace, 400, \"invalid_request\", &error) expression is at line 2180 in the emulator transition loop. It handles work.request parse errors after advancing the trace; this is the actual emitter."
+
+[row.r8-155.21]
+interface = "interface.8.err-emulator-invalid-snapshot"
+verdict = "served"
+path = "tools/platform/emulator/src/main.rs"
+line = 1286
+symbol = "invalid_snapshot"
+evidence = "import_snapshot defines Err(error) => return refusal(trace, 400, \"invalid_snapshot\", &error) at line 1286 for decode_recovery_snapshot failures. This exactly matches the registered signature; the later metadata-mismatch branch uses a different message."
+
+[row.r8-155.22]
+interface = "interface.8.err-emulator-move-encoding-failed"
+verdict = "retired"
+path = "tools/platform/emulator/src/main.rs"
+line = 5932
+symbol = "move_encoding_failed"
+evidence = "The move_encoding_failed literal and its registered HTTP 503 encoding refusal are absent from the emulator. Repository-wide exact-identifier searches excluding spec and docs found no remaining references."
+remaining_refs = 0
+remaining = []
+
+[row.r8-155.23]
+interface = "interface.8.err-emulator-receipt-pending"
+verdict = "served_elsewhere"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 1106
+symbol = "receipt_pending"
+evidence = "The emulator no longer contains receipt_pending. Hosted gateway program_verification_status defines the registered reason field at line 1106 for unknown or pending program state, with requested SequencerSigned and achieved Unverified; SDK occurrences only consume this reason."
+
+[row.r8-155.24]
+interface = "interface.8.err-emulator-server-side-receipt-verification-only"
+verdict = "served_elsewhere"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 1133
+symbol = "server_side_receipt_verification_only"
+evidence = "The emulator no longer contains server_side_receipt_verification_only. Hosted gateway program_verification_status emits the registered reason field at line 1133 when a declared registry or deployment verification has not achieved client-verifiable proof; SDK checks and CLI test data are not definitions."
+
+[row.r8-155.25]
+interface = "interface.8.err-emulator-snapshot-encoding-failed"
+verdict = "served"
+path = "tools/platform/emulator/src/main.rs"
+line = 1279
+symbol = "snapshot_encoding_failed"
+evidence = "export_snapshot defines Err(error) => refusal(trace, 503, \"snapshot_encoding_failed\", &error) at line 1279. This matches the registered signature and handles encode_recovery_snapshot failures."
+
+[row.r8-155.26]
+interface = "interface.8.err-emulator-unknown-program"
+verdict = "served_elsewhere"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 728
+symbol = "unknown_program"
+evidence = "The emulator no longer contains unknown_program. Hosted gateway program_registry_upstream emits HTTP 404 with unknown_program at line 728 when the registry upstream returns 404. Its response(404, ..., None) replaces the registered emulator refusal message; SDK failure-kind mappings are separate references."
+
+[row.r8-155.27]
+interface = "interface.8.http-emulator-get-emulator-snapshot"
+verdict = "served"
+path = "tools/platform/emulator/src/main.rs"
+line = 1552
+symbol = "/__emulator/snapshot"
+evidence = "route defines (\"GET\", \"/__emulator/snapshot\") => export_snapshot(emulator, trace) at line 1552, exactly matching the registered signature. The adjacent PUT arm imports snapshots, while the later occurrence enforces methods."
+
+[row.r8-155.28]
+interface = "interface.8.http-emulator-get-healthz"
+verdict = "served"
+path = "tools/platform/emulator/src/main.rs"
+line = 1540
+symbol = "/healthz"
+evidence = "route defines (\"GET\", \"/healthz\") => health(emulator, trace) at line 1540. This is the registered HTTP handler arm, preserving its method, path and callee."
+
+[row.r8-155.29]
+interface = "interface.8.http-emulator-get-sequence"
+verdict = "served"
+path = "tools/platform/emulator/src/main.rs"
+line = 1545
+symbol = "/sequence"
+evidence = "route defines the GET arm with path.starts_with(\"/v1/dids/\") && path.ends_with(\"/sequence\") at line 1545 and calls identity_sequence_read. The earlier strip_suffix occurrence parses the DID and is not the route definition."
+
+[row.r8-155.30]
+interface = "interface.8.http-emulator-get-v1-dids"
+verdict = "served"
+path = "tools/platform/emulator/src/main.rs"
+line = 1545
+symbol = "/v1/dids/"
+evidence = "The registered GET path.starts_with(\"/v1/dids/\") && path.ends_with(\"/sequence\") arm is defined at line 1545 in route. This shares the sequence route definition; the earlier strip_prefix occurrence belongs to identity_sequence_read, not dispatch."

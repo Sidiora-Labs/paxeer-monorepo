@@ -52,19 +52,25 @@ import (
 
 // App is a fully-wired, ready-to-run trading-charts service.
 type App struct {
-	accounting  *consumer.AccountingConsumer
-	transport   *natsdriver.Consumer
-	nats        *nats.Conn
-	rpc         *ethclient.Client
-	devRPC      *gethrpc.Client
-	verifiedRPC *sharedchain.Client
-	exact       *store.ExactStore
-	features    config.ChartRuntimeFeatures
-	secretStop  context.CancelFunc
-	tracker     *sharedprocess.Tracker
-	Router      http.Handler
-	Builder     *engine.Builder
-	Consumer    *consumer.SwapConsumer
+	accounting       *consumer.AccountingConsumer
+	transport        *natsdriver.Consumer
+	chartPublisher   *natsdriver.Publisher
+	chartOutbox      chartOutboxConfig
+	chartRelayStop   context.CancelFunc
+	chartRelayDone   chan struct{}
+	completenessStop context.CancelFunc
+	completenessDone chan struct{}
+	nats             *nats.Conn
+	rpc              *ethclient.Client
+	devRPC           *gethrpc.Client
+	verifiedRPC      *sharedchain.Client
+	exact            *store.ExactStore
+	features         config.ChartRuntimeFeatures
+	secretStop       context.CancelFunc
+	tracker          *sharedprocess.Tracker
+	Router           http.Handler
+	Builder          *engine.Builder
+	Consumer         *consumer.SwapConsumer
 
 	pool  *pgxpool.Pool
 	redis *goredis.Client
@@ -144,6 +150,8 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	var features config.ChartRuntimeFeatures
 	var archive *store.ArchiveReader
 	var accountingConsumer *consumer.AccountingConsumer
+	var chartPublisher *natsdriver.Publisher
+	var chartOutbox chartOutboxConfig
 	var transport *natsdriver.Consumer
 	var nc *nats.Conn
 	var rpc *ethclient.Client
@@ -156,6 +164,10 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		if d.Schema != "candles" || d.SourceStream == "" || d.Owner == "" || d.ConsumerID == "" || d.Generation == "" || d.ProjectionVersion == "" {
 			return nil, errors.New("charts: incomplete runtime configuration")
 		}
+		if err = d.ChartOutbox.validate(d.Policy); err != nil {
+			return nil, err
+		}
+		chartOutbox = d.ChartOutbox
 		features, err = cfg.RuntimeFeatures()
 		if err != nil {
 			return nil, err
@@ -234,6 +246,10 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 				nc.Close()
 			}
 		}()
+		chartPublisher, e = natsdriver.NewPublisher(nc, chartOutbox.Stream)
+		if e != nil {
+			return nil, e
+		}
 		secretChecks["verified_rpc"] = func(c context.Context) error {
 			pin, e := verifiedRPC.Pin(c, features.AnchorHeight)
 			if e != nil {
@@ -266,6 +282,15 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 
 	// Register routes (NewRouter returns *chi.Mux, which satisfies chi.Router).
 	httpapi.RegisterUDF(router, st)
+	// The unversioned store has no bounded history/cursor authority. Retire
+	// history explicitly instead of advertising a permanently unavailable read.
+	router.Get("/history", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("Link", `</v2/udf/history>; rel="successor-version"`)
+		sharedhttp.WriteJSON(w, http.StatusGone, map[string]any{
+			"code": "LEGACY_HISTORY_RETIRED", "message": "Use /v2/udf/history with the versioned UDF contract", "retryable": false,
+		})
+	})
 	if cfg.NodeEnv == "production" {
 		historyCache, e := httpapi.NewHistoryCache(rdb, httpapi.PostgresHistoryRevision{Pool: pool, Schema: "candles"}, features.MaxHistoryOrigins)
 		if e != nil {
@@ -300,12 +325,10 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			Secret:  cfg.WebhookHMACSecret,
 		})
 	}
-	httpapi.RegisterWS(ctx, router, httpapi.WSDeps{
-		RedisURL:       cfg.RedisURL,
-		Logger:         logger,
-		MaxConnections: cfg.WSMaxConnections,
-		MaxPerIP:       cfg.WSMaxPerIP,
-	})
+	// RegisterWS serves the explicit legacy retirement response before upgrade.
+	// Durable delivery is mounted above only through the admitted replay gateway;
+	// the raw development builder cannot supply decimal/provenance authority.
+	httpapi.RegisterWS(ctx, router, httpapi.WSDeps{})
 
 	if metrics != nil {
 		router.Handle("/metrics", metrics)
@@ -315,6 +338,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	}
 	secretOwned = true
 	return &App{secretStop: secretStop, tracker: tracker,
+		chartPublisher: chartPublisher, chartOutbox: chartOutbox,
 		accounting: accountingConsumer, transport: transport, nats: nc, rpc: rpc, devRPC: devRPC, verifiedRPC: verifiedRPC, exact: exactStore, features: features,
 		Router:   runtimeHandler(tracker, router, metrics),
 		Builder:  builder,
@@ -326,6 +350,15 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 
 // Close releases all resources.
 func (a *App) Close() {
+	if a.completenessStop != nil {
+		a.completenessStop()
+		<-a.completenessDone
+	}
+
+	if a.chartRelayStop != nil {
+		a.chartRelayStop()
+		<-a.chartRelayDone
+	}
 	if a.transport != nil {
 		a.transport.Close()
 	}
@@ -373,9 +406,30 @@ func Run(parent context.Context) error {
 		return err
 	}
 	defer app.Close()
+	if app.chartPublisher != nil {
+		if err = app.startChartOutbox(ctx, logger); err != nil {
+			return err
+		}
+	}
 
 	// Start Redis pub/sub swap consumer.
 	if app.accounting != nil {
+		release, e := app.tracker.Acquire()
+		if e != nil {
+			return e
+		}
+		completenessCtx, stop := context.WithCancel(ctx)
+		app.completenessStop = stop
+		app.completenessDone = make(chan struct{})
+		go func() {
+			defer close(app.completenessDone)
+			defer release()
+			if e := app.accounting.RunCompleteness(completenessCtx, logger); e != nil && !errors.Is(e, context.Canceled) {
+				logger.Error("chart completeness loop failed", slog.Any("err", e))
+				app.tracker.BeginDrain()
+				cancel()
+			}
+		}()
 		go func() {
 			release, e := app.tracker.Acquire()
 			if e != nil {
@@ -499,6 +553,81 @@ type chartRuntimeDocument struct {
 	MaxReplayFills    int                       `json:"maxReplayFills"`
 	Policy            delivery.Policy           `json:"policy"`
 	Consumer          natsdriver.ConsumerConfig `json:"consumer"`
+	ChartOutbox       chartOutboxConfig         `json:"chartOutbox"`
+}
+
+type chartOutboxConfig struct {
+	Stream         string `json:"stream"`
+	Subject        string `json:"subject"`
+	Batch          int    `json:"batch"`
+	IntervalMillis int    `json:"intervalMillis"`
+}
+
+func (c chartOutboxConfig) validate(policy delivery.Policy) error {
+	if !policy.Subjects[c.Subject] {
+		return errors.New("charts: chart outbox subject is not admitted")
+	}
+	return c.validateBounds()
+}
+
+func (c chartOutboxConfig) validateBounds() error {
+	if !regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`).MatchString(c.Stream) || c.Subject != "candle.updated.v2" || c.Batch < 1 || c.Batch > 64 || c.IntervalMillis < 10 || c.IntervalMillis > 10000 {
+		return errors.New("charts: admitted bounded chart outbox configuration required")
+	}
+	return nil
+}
+
+func (a *App) startChartOutbox(parent context.Context, logger *slog.Logger) error {
+	if a.exact == nil || a.chartPublisher == nil || a.tracker == nil || logger == nil || a.chartRelayDone != nil {
+		return errors.New("charts: chart outbox lifecycle unavailable")
+	}
+	if err := a.chartOutbox.validateBounds(); err != nil {
+		return err
+	}
+	release, err := a.tracker.Acquire()
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithCancel(parent)
+	a.chartRelayStop = cancel
+	a.chartRelayDone = make(chan struct{})
+	go func() {
+		defer close(a.chartRelayDone)
+		defer release()
+		interval := time.Duration(a.chartOutbox.IntervalMillis) * time.Millisecond
+		retry := interval
+		for ctx.Err() == nil {
+			bounded, stop := context.WithTimeout(ctx, 10*time.Second)
+			var publishErr error
+			for i := 0; i < a.chartOutbox.Batch && bounded.Err() == nil; i++ {
+				var published bool
+				published, publishErr = a.exact.PublishNextCommitted(bounded, a.chartPublisher, a.chartOutbox.Subject)
+				if publishErr != nil || !published {
+					break
+				}
+			}
+			stop()
+			if ctx.Err() != nil {
+				return
+			}
+			delay := interval
+			if publishErr != nil {
+				logger.Error("chart outbox publication failed", slog.Any("err", publishErr))
+				delay = retry
+				retry = min(2*retry, 5*time.Second)
+			} else {
+				retry = interval
+			}
+			timer := time.NewTimer(delay)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return
+			case <-timer.C:
+			}
+		}
+	}()
+	return nil
 }
 
 func registerSeriesRuntime(router chi.Router, exact *store.ExactStore, archive *store.ArchiveReader, operatorToken string) {

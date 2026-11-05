@@ -1,3 +1,5 @@
+#define _POSIX_C_SOURCE 200809L
+
 #include "lxp_test_harness.h"
 
 #include "layerx/lxp_activity.h"
@@ -9,6 +11,8 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #define TEST_ACTIVITY UINT32_C(0x00070005)
 
@@ -611,14 +615,60 @@ static int timelock_resolution(void)
     return failed;
 }
 
+static int cli_case(const char *option, const char *name, int expected,
+                    const char *output)
+{
+    int descriptors[2];
+    int status;
+    char observed[512];
+    size_t used = 0U;
+    pid_t child;
+    if (pipe(descriptors) != 0) return 1;
+    child = fork();
+    if (child == 0) {
+        (void)close(descriptors[0]);
+        if (dup2(descriptors[1], STDOUT_FILENO) < 0) _exit(125);
+        (void)close(descriptors[1]);
+        if (name != NULL)
+            execl("/proc/self/exe", "test_authority_multisig", option, name,
+                  (char *)NULL);
+        else
+            execl("/proc/self/exe", "test_authority_multisig", option,
+                  (char *)NULL);
+        _exit(126);
+    }
+    (void)close(descriptors[1]);
+    if (child < 0) { (void)close(descriptors[0]); return 1; }
+    while (used < sizeof(observed) - 1U) {
+        ssize_t count = read(descriptors[0], observed + used,
+                             sizeof(observed) - 1U - used);
+        if (count < 0) { (void)close(descriptors[0]); (void)waitpid(child, &status, 0); return 1; }
+        if (count == 0) break;
+        used += (size_t)count;
+    }
+    observed[used] = '\0';
+    (void)close(descriptors[0]);
+    return waitpid(child, &status, 0) != child || !WIFEXITED(status) ||
+        WEXITSTATUS(status) != expected || strcmp(observed, output) != 0;
+}
+
+static int authority_cli_selection(void)
+{
+    return cli_case("--run", "authority.multisig-resolution", 0,
+                    "PASS authority.multisig-resolution\n") ||
+        cli_case("--run", "authority.unknown", 2, "") ||
+        cli_case("--unknown", NULL, 2, "");
+}
+
 int main(int argc, char **argv)
 {
-    int list_only = argc == 2 && strcmp(argv[1], "--list") == 0;
     if (lxp_test_register("authority.existing-grants-byte-identical",
                           existing_grants_byte_identical) != 0) return 1;
     if (lxp_test_register("authority.multisig-resolution",
                           multisig_resolution) != 0) return 1;
     if (lxp_test_register("authority.timelock-resolution",
                           timelock_resolution) != 0) return 1;
-    return lxp_test_run_all(list_only);
+    if (lxp_test_register("authority.cli-selection",
+                          authority_cli_selection) != 0) return 1;
+    return lxp_test_main(argc, argv);
 }

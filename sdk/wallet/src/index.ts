@@ -7,7 +7,7 @@ import {
 } from '@supabase/supabase-js';
 import { keccak256, serializeTransaction, type Hex, type TransactionSerializable } from 'viem';
 import { JsonRpcClient } from './rpc.js';
-import { decodeSequencerReceipt, readSequencerReceipt } from './receipt.js';
+import { authenticateSequencerReceipt, readSequencerReceipt } from './receipt.js';
 import {
   assertSendTxResponse,
   PaxeerWalletError,
@@ -75,6 +75,8 @@ export interface EvmReviewStorage {
   setItem(key: string, value: string): void | Promise<void>;
 }
 
+const evmStorageLocks = new WeakMap<EvmReviewStorage, Map<string, Promise<unknown>>>();
+
 export type EvmReviewWalletConfig = PaxeerWalletConfig & {
   readonly evmReview?: { readonly storage: EvmReviewStorage };
 };
@@ -91,8 +93,9 @@ export type EvmReviewWalletConfig = PaxeerWalletConfig & {
 export class PaxeerWallet {
   readonly supabase: SupabaseClient;
   private readonly apiUrl: string;
+  private readonly evmOrigin: string;
   private readonly fetchImpl: typeof fetch;
-  private readonly evmLocks = new Map<string, Promise<unknown>>();
+  private readonly evmLocks: Map<string, Promise<unknown>>;
   private readonly evmStorage?: EvmReviewStorage;
 
   constructor(config: EvmReviewWalletConfig) {
@@ -101,6 +104,7 @@ export class PaxeerWallet {
     if (!config.supabaseAnonKey) throw new Error('PaxeerWallet: supabaseAnonKey required');
 
     this.apiUrl = config.apiUrl.replace(/\/$/, '');
+    this.evmOrigin = new URL(this.apiUrl).origin;
     this.fetchImpl = config.fetch ?? globalThis.fetch.bind(globalThis);
     if (
       config.evmReview &&
@@ -108,7 +112,17 @@ export class PaxeerWallet {
         typeof config.evmReview.storage?.setItem !== 'function')
     )
       throw new TypeError('EVM review storage is required');
-    if (config.evmReview) this.evmStorage = config.evmReview.storage;
+    if (config.evmReview) {
+      this.evmStorage = config.evmReview.storage;
+      let locks = evmStorageLocks.get(this.evmStorage);
+      if (!locks) {
+        locks = new Map();
+        evmStorageLocks.set(this.evmStorage, locks);
+      }
+      this.evmLocks = locks;
+    } else {
+      this.evmLocks = new Map();
+    }
     this.supabase = createClient(config.supabaseUrl, config.supabaseAnonKey, {
       auth: {
         persistSession: true,
@@ -219,7 +233,9 @@ export class PaxeerWallet {
 
   /** Sign a transaction without broadcasting. Returns serialized signed tx hex. */
   signTransaction(tx: TxRequest): Promise<SignTxResponse> {
-    return this.callJson<SignTxResponse>('POST', '/v1/wallet/sign', { tx: serialize(tx) });
+    return this.callJson<SignTxResponse>('POST', '/v1/wallet/sign', {
+      tx: serialize(tx),
+    });
   }
 
   /** Sign + broadcast and return the tx hash with its available sequencer receipt. */
@@ -228,10 +244,16 @@ export class PaxeerWallet {
       tx: serialize(tx),
     });
     assertSendTxResponse(response, tx.chainId === undefined ? {} : { chainId: tx.chainId });
-    let receipt = response.receipt ? decodeSequencerReceipt(response.receipt) : null;
+    const { chain } = await this.getWallet();
+    const rpc = new JsonRpcClient({ url: chain.rpc_url, fetch: this.fetchImpl });
+    let receipt = response.receipt
+      ? await authenticateSequencerReceipt(
+          (method, params) => rpc.call(method, params),
+          response.receipt,
+          response.tx_hash
+        )
+      : null;
     if (!receipt) {
-      const { chain } = await this.getWallet();
-      const rpc = new JsonRpcClient({ url: chain.rpc_url, fetch: this.fetchImpl });
       try {
         receipt = await readSequencerReceipt(
           (method, params) => rpc.call(method, params),
@@ -258,7 +280,9 @@ export class PaxeerWallet {
 
   /** EIP-191 personal_sign over a message string. */
   signMessage(message: string): Promise<SignMessageResponse> {
-    return this.callJson<SignMessageResponse>('POST', '/v1/wallet/sign-message', { message });
+    return this.callJson<SignMessageResponse>('POST', '/v1/wallet/sign-message', {
+      message,
+    });
   }
 
   async reviewEvmTransaction(
@@ -307,8 +331,8 @@ export class PaxeerWallet {
   }
 
   async approveEvmTransaction(reviewId: string): Promise<EvmApproval> {
-    return this.evmExclusive(`evm:${reviewId}`, async () => {
-      const principal = await this.evmPrincipal();
+    const principal = await this.evmPrincipal();
+    return this.evmExclusive(`${this.evmStorageKey(principal)}:review:${reviewId}`, async () => {
       const review = (await this.evmLoad(principal)).find((entry) => entry.id === reviewId);
       if (!review) throw new TypeError('original EVM review is required');
       const approval = await this.callJson<EvmApproval>('POST', '/v1/wallet/evm/approve', {
@@ -356,7 +380,7 @@ export class PaxeerWallet {
   }
 
   private evmStorageKey(principal: string): string {
-    return `paxeer:evm-review:v1:${principal}`;
+    return `paxeer:evm-review:v2:${encodeURIComponent(this.evmOrigin)}:${encodeURIComponent(principal)}`;
   }
 
   private async evmPrincipal(): Promise<string> {
@@ -368,7 +392,24 @@ export class PaxeerWallet {
 
   private async evmLoad(principal: string): Promise<(EvmTransactionReview | EvmApproval)[]> {
     const raw = await this.evmStorage!.getItem(this.evmStorageKey(principal));
-    if (raw === null) return [];
+    if (raw === null) {
+      const legacy = await this.evmStorage!.getItem(`paxeer:evm-review:v1:${principal}`);
+      if (legacy !== null) {
+        let entries: unknown;
+        try {
+          entries = JSON.parse(legacy);
+        } catch {
+          throw new TypeError(
+            'ambiguous legacy EVM reviews: gateway origin unknown; re-review required'
+          );
+        }
+        if (!Array.isArray(entries) || entries.length !== 0)
+          throw new TypeError(
+            'ambiguous legacy EVM reviews: gateway origin unknown; re-review required'
+          );
+      }
+      return [];
+    }
     const saved: unknown = JSON.parse(raw);
     if (
       !Array.isArray(saved) ||
@@ -377,7 +418,9 @@ export class PaxeerWallet {
           !entry ||
           entry.principal !== principal ||
           typeof entry.id !== 'string' ||
-          typeof entry.signing_hash !== 'string'
+          typeof entry.signing_hash !== 'string' ||
+          !Number.isSafeInteger(entry.chain_id) ||
+          entry.chain_id <= 0
       )
     ) {
       throw new TypeError('invalid retained EVM reviews');
@@ -418,8 +461,12 @@ export class PaxeerWallet {
   ): Promise<void> {
     if ((await this.evmPrincipal()) !== principal)
       throw new TypeError('authenticated principal changed');
-    await this.evmExclusive(`evm-storage:${principal}`, async () => {
+    await this.evmExclusive(this.evmStorageKey(principal), async () => {
+      if ((await this.evmPrincipal()) !== principal)
+        throw new TypeError('authenticated principal changed');
       const saved = await this.evmLoad(principal);
+      const prior = saved.find((entry) => entry.id === artifact.id);
+      if (prior) this.evmMatch(prior, artifact);
       await this.evmStorage!.setItem(
         this.evmStorageKey(principal),
         JSON.stringify([...saved.filter((entry) => entry.id !== artifact.id), artifact])

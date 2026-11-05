@@ -13,6 +13,15 @@ type CalloutService struct {
 	Authority SourceAuthority
 }
 
+// CalloutTargetEvent is the public discovery-to-notification authority message.
+// Account-deletion removals carry no actor, including retries.
+type CalloutTargetEvent struct {
+	TargetKind, TargetID, Actor string
+	Revision                    uint64
+	Removed                     bool
+	CreatedAt                   time.Time
+}
+
 func (c CalloutService) Publish(ctx context.Context, actor, squadID string, next Callout) error {
 	if c.Authority == nil {
 		return ErrUnavailable
@@ -113,12 +122,7 @@ func persistCallout(ctx context.Context, tx *sql.Tx, c Callout) error {
 	if e != nil {
 		return e
 	}
-	event := struct {
-		TargetKind, TargetID, Actor string
-		Revision                    uint64
-		Removed                     bool
-		CreatedAt                   time.Time
-	}{"callout", c.ID, c.AuthorAccountID, c.Revision, c.Deleted, c.CreatedAt}
+	event := CalloutTargetEvent{"callout", c.ID, c.AuthorAccountID, c.Revision, c.Deleted, c.CreatedAt}
 	_, e = tx.ExecContext(ctx, `INSERT INTO narrative_discovery.outbox(id,kind,document)VALUES($1,'callout-target-ref-v2',$2)`, ref.EventID, encode(event))
 	return e
 }

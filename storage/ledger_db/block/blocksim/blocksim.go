@@ -3,6 +3,7 @@ package blocksim
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"time"
 
@@ -34,8 +35,9 @@ type BlockSim struct {
 	totalBytesWritten           int64
 	highestBlockHeight          uint64
 
-	// A message is sent on this channel when the benchmark is fully stopped.
+	// Closed after teardown publishes the first workload or teardown error.
 	closeChan chan struct{}
+	err       error
 
 	// Suspend/resume toggle channel.
 	suspendChan chan bool
@@ -108,7 +110,7 @@ func NewBlockSim(
 		consoleUpdatePeriod:   consoleUpdatePeriod,
 		lastConsoleUpdateTime: start,
 		startTimestamp:        start,
-		closeChan:             make(chan struct{}, 1),
+		closeChan:             make(chan struct{}),
 		suspendChan:           make(chan bool, 1),
 		rateLimiter:           rateLimiter,
 	}
@@ -139,6 +141,9 @@ func (b *BlockSim) run() {
 		case isSuspended := <-b.suspendChan:
 			if isSuspended {
 				b.suspend()
+				if b.err != nil {
+					return
+				}
 			}
 		case <-timeoutChan:
 			fmt.Printf("\nBenchmark timed out after %s.\n",
@@ -148,6 +153,9 @@ func (b *BlockSim) run() {
 		case blk := <-b.generator.blocksChan:
 			b.maybeThrottle()
 			b.handleNextBlock(blk)
+			if b.err != nil {
+				return
+			}
 		}
 
 		b.generateConsoleReport(false)
@@ -167,7 +175,7 @@ func (b *BlockSim) maybeThrottle() {
 func (b *BlockSim) handleNextBlock(blk *block.BinaryBlock) {
 	b.metrics.SetMainThreadPhase("write_block")
 	if err := b.db.WriteBlock(b.ctx, blk); err != nil {
-		fmt.Printf("failed to write block %d: %v\n", blk.Height, err)
+		b.recordError(fmt.Errorf("failed to write block %d: %w", blk.Height, err))
 		b.cancel()
 		return
 	}
@@ -187,7 +195,7 @@ func (b *BlockSim) handleNextBlock(blk *block.BinaryBlock) {
 	if b.config.FlushIntervalBlocks > 0 && b.totalBlocksWritten%int64(b.config.FlushIntervalBlocks) == 0 { //nolint:gosec
 		b.metrics.SetMainThreadPhase("flush")
 		if err := b.db.Flush(b.ctx); err != nil {
-			fmt.Printf("failed to flush: %v\n", err)
+			b.recordError(fmt.Errorf("failed to flush: %w", err))
 			b.cancel()
 			return
 		}
@@ -195,11 +203,11 @@ func (b *BlockSim) handleNextBlock(blk *block.BinaryBlock) {
 	}
 
 	// Periodic prune.
-	if blk.Height > 0 && blk.Height%b.config.PruneIntervalBlocks == 0 {
+	if blk.Height > b.config.UnprunedBlocks && blk.Height%b.config.PruneIntervalBlocks == 0 {
 		b.metrics.SetMainThreadPhase("prune")
 		lowestToKeep := blk.Height - b.config.UnprunedBlocks
 		if err := b.db.Prune(b.ctx, lowestToKeep); err != nil {
-			fmt.Printf("failed to prune: %v\n", err)
+			b.recordError(fmt.Errorf("failed to prune: %w", err))
 			b.cancel()
 			return
 		}
@@ -210,7 +218,9 @@ func (b *BlockSim) handleNextBlock(blk *block.BinaryBlock) {
 func (b *BlockSim) suspend() {
 	// Flush before suspending so state is durable.
 	if err := b.db.Flush(b.ctx); err != nil {
-		fmt.Printf("failed to flush on suspend: %v\n", err)
+		b.recordError(fmt.Errorf("failed to flush on suspend: %w", err))
+		b.cancel()
+		return
 	}
 
 	fmt.Printf("Benchmark suspended.\n")
@@ -236,28 +246,36 @@ func (b *BlockSim) suspend() {
 }
 
 func (b *BlockSim) teardown() {
+	defer close(b.closeChan)
+	b.cancel()
+	ctx := context.WithoutCancel(b.ctx)
 	fmt.Printf("Flushing and closing database.\n")
-	if err := b.db.Flush(b.ctx); err != nil {
-		fmt.Printf("failed to flush during teardown: %v\n", err)
+	if err := b.db.Flush(ctx); err != nil {
+		b.recordError(fmt.Errorf("failed to flush during teardown: %w", err))
 	}
-	if err := b.db.Close(b.ctx); err != nil {
-		fmt.Printf("failed to close database: %v\n", err)
+	if err := b.db.Close(ctx); err != nil {
+		b.recordError(fmt.Errorf("failed to close database: %w", err))
 	}
 
 	if b.config.CleanDataOnExit {
 		fmt.Printf("CleanDataOnExit is enabled, removing contents of: %s\n", b.config.DataDir)
 		if err := removeContents(b.config.DataDir); err != nil {
-			fmt.Printf("failed to clean data directory on exit: %v\n", err)
+			b.recordError(fmt.Errorf("failed to clean data directory on exit: %w", err))
 		}
 	}
 	if b.config.CleanLogsOnExit {
 		fmt.Printf("CleanLogsOnExit is enabled, removing contents of: %s\n", b.config.LogDir)
 		if err := removeContents(b.config.LogDir); err != nil {
-			fmt.Printf("failed to clean log directory on exit: %v\n", err)
+			b.recordError(fmt.Errorf("failed to clean log directory on exit: %w", err))
 		}
 	}
+}
 
-	b.closeChan <- struct{}{}
+func (b *BlockSim) recordError(err error) {
+	if b.err == nil {
+		b.err = err
+	}
+	fmt.Printf("%v\n", err)
 }
 
 func (b *BlockSim) generateConsoleReport(force bool) {
@@ -285,18 +303,28 @@ func (b *BlockSim) generateConsoleReport(force bool) {
 }
 
 // Blocks until the benchmark has halted.
-func (b *BlockSim) BlockUntilHalted() {
+func (b *BlockSim) BlockUntilHalted() error {
 	<-b.closeChan
-	b.closeChan <- struct{}{}
+	return b.err
 }
 
 // Close shuts down the benchmark and releases resources.
 func (b *BlockSim) Close() error {
 	b.cancel()
-	<-b.closeChan
-	b.closeChan <- struct{}{}
+	if err := b.BlockUntilHalted(); err != nil {
+		return err
+	}
 	fmt.Printf("Benchmark terminated successfully.\n")
 	return nil
+}
+
+// CLIExitCode reports the benchmark result and returns the process exit status.
+func CLIExitCode(err error, stderr io.Writer) int {
+	if err != nil {
+		fmt.Fprintf(stderr, "Error: %v\n", err)
+		return 1
+	}
+	return 0
 }
 
 // Suspend the benchmark. Call Resume() to continue.

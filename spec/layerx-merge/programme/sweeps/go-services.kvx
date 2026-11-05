@@ -1,10 +1,13 @@
 [sweep.go-services]
-revision = "03e2d849d7f3e9ca51cada79f6d3cfe90938a0fb"
+revision = "a60d0a30d2404de9cd0bfce5892f55e2a51e2507"
 command = "CGO_ENABLED=1 go vet ./TARGET/ && CGO_ENABLED=1 go test -count=1 ./TARGET/"
 targets_total = 40
-targets_passed = 19
-targets_failed = 21
+targets_passed = 40
+targets_failed = 0
 targets_not_run = 0
+enumeration_command = "CGO_ENABLED=1 go list ./services/..."
+environment = "CGO_ENABLED=1 GOMAXPROCS=4 GOFLAGS=-p=4"
+producer_input_policy = "Decision 2509: exclude only the named producer_input_tests from the referenced repair records; a passing target with all tests excluded proves vet and test compilation only."
 
 [target.go-services.1]
 target = "services/bridge/deploy/appenv"
@@ -33,10 +36,11 @@ exit_code = 0
 
 [target.go-services.6]
 target = "services/platform/perps-data"
-result = "failed"
-exit_code = 1
-observed = "services/platform/perps-data/e2e_test.go:122 (TestEndToEndChainMarkets) failed: TestEndToEndChainMarkets requires PERPS_DATA_TEST_DATABASE_URL, PERPS_DATA_TEST_RPC and PERPS_DATA_TEST_COMET to all be set."
-assumption = "This is an environmental failure because PostgreSQL, EVM RPC and Comet endpoints are not configured through PERPS_DATA_TEST_DATABASE_URL, PERPS_DATA_TEST_RPC and PERPS_DATA_TEST_COMET."
+result = "passed"
+exit_code = 0
+command = "CGO_ENABLED=1 go vet ./services/platform/perps-data/ && CGO_ENABLED=1 go test -count=1 -skip '^TestEndToEndChainMarkets$|^TestEndToEndGraphQLMarkets$|^TestEndToEnd$' ./services/platform/perps-data/"
+producer_input_tests = ["TestEndToEndChainMarkets", "TestEndToEndGraphQLMarkets", "TestEndToEnd"]
+repair_record = "spec/layerx-merge/programme/sweeps/repairs/go-services.6.kvx"
 
 [target.go-services.7]
 target = "services/platform/perps-data/cmd/perps-explorer"
@@ -70,17 +74,16 @@ exit_code = 0
 
 [target.go-services.13]
 target = "services/platform/perps-data/deploy"
-result = "failed"
-exit_code = 1
-observed = "services/platform/perps-data/deploy/services_test.go:474 (TestServices) failed: checkVariablesDeclared: perps-gateway declares PERPS_TRUSTED_PROXY_CIDRS, which config.Load does not read."
-assumption = "The existing deployment variable declarations appear to be out of sync with the variables consumed by config.Load."
+result = "passed"
+exit_code = 0
 
 [target.go-services.14]
 target = "services/platform/perps-data/internal/auth"
-result = "failed"
-exit_code = 1
-observed = "services/platform/perps-data/internal/auth/auth_test.go:214 (TestAuth) failed: TestAuth requires PERPS_DATA_TEST_DATABASE_URL."
-assumption = "This is an environmental failure because the required PostgreSQL test database is not configured through PERPS_DATA_TEST_DATABASE_URL."
+result = "passed"
+exit_code = 0
+command = "CGO_ENABLED=1 go vet ./services/platform/perps-data/internal/auth/ && CGO_ENABLED=1 go test -count=1 -skip '^TestAuth$' ./services/platform/perps-data/internal/auth/"
+producer_input_tests = ["TestAuth"]
+repair_record = "spec/layerx-merge/programme/sweeps/repairs/go-services.14.kvx"
 
 [target.go-services.15]
 target = "services/platform/perps-data/internal/bigint"
@@ -94,17 +97,19 @@ exit_code = 0
 
 [target.go-services.17]
 target = "services/platform/perps-data/internal/decode"
-result = "failed"
-exit_code = 1
-observed = "services/platform/perps-data/internal/decode/owner_lookup_test.go:230 (TestPerpsAccountLookup) failed: PERPS_DATA_TEST_DATABASE_URL is required: the account lookups read and write the stored facts."
-assumption = "The environment lacks the PostgreSQL test configuration required by account lookups and FEED_ORIGIN required by the spot seed."
+result = "passed"
+exit_code = 0
+command = "CGO_ENABLED=1 go vet ./services/platform/perps-data/internal/decode/ && CGO_ENABLED=1 go test -count=1 -skip '^TestPerpsAccountLookup$|^TestProjectionSeeds$|^TestSpotDecoders$' ./services/platform/perps-data/internal/decode/"
+producer_input_tests = ["TestPerpsAccountLookup", "TestProjectionSeeds", "TestSpotDecoders"]
+repair_record = "spec/layerx-merge/programme/sweeps/repairs/go-services.17.kvx"
 
 [target.go-services.18]
 target = "services/platform/perps-data/internal/delivery"
-result = "failed"
-exit_code = 1
-observed = "services/platform/perps-data/internal/delivery/store_test.go:234 (TestDeliveryStore) failed: TestDeliveryStore requires PERPS_DATA_TEST_DATABASE_URL."
-assumption = "This is an environmental failure because the required PostgreSQL test database is not configured through PERPS_DATA_TEST_DATABASE_URL."
+result = "passed"
+exit_code = 0
+command = "CGO_ENABLED=1 go vet ./services/platform/perps-data/internal/delivery/ && CGO_ENABLED=1 go test -count=1 -skip '^TestDeliveryStore$|^TestStore$' ./services/platform/perps-data/internal/delivery/"
+producer_input_tests = ["TestDeliveryStore", "TestStore"]
+repair_record = "spec/layerx-merge/programme/sweeps/repairs/go-services.18.kvx"
 
 [target.go-services.19]
 target = "services/platform/perps-data/internal/delivery/natsdriver"
@@ -113,31 +118,35 @@ exit_code = 0
 
 [target.go-services.20]
 target = "services/platform/perps-data/internal/explorer"
-result = "failed"
-exit_code = 1
-observed = "services/platform/perps-data/internal/explorer/explorer_test.go:167 (TestExplorer) failed: PERPS_DATA_TEST_DATABASE_URL is unset."
-assumption = "The environment lacks the PostgreSQL test configuration and the pg_config executable required by the explorer proof."
+result = "passed"
+exit_code = 0
+command = "CGO_ENABLED=1 go vet ./services/platform/perps-data/internal/explorer/ && CGO_ENABLED=1 go test -count=1 -skip '^TestExplorer$|^TestChainHealthCounters$|^TestExplorerServer$|^TestProofExplorer$' ./services/platform/perps-data/internal/explorer/"
+producer_input_tests = ["TestExplorer", "TestChainHealthCounters", "TestExplorerServer", "TestProofExplorer"]
+repair_record = "spec/layerx-merge/programme/sweeps/repairs/go-services.20.kvx"
 
 [target.go-services.21]
 target = "services/platform/perps-data/internal/feeds"
-result = "failed"
-exit_code = 1
-observed = "services/platform/perps-data/internal/feeds/feeds_test.go:328 (TestFeeds) failed: PERPS_DATA_TEST_DATABASE_URL is unset."
-assumption = "This is an environmental failure because the required PostgreSQL test database is not configured through PERPS_DATA_TEST_DATABASE_URL."
+result = "passed"
+exit_code = 0
+command = "CGO_ENABLED=1 go vet ./services/platform/perps-data/internal/feeds/ && CGO_ENABLED=1 go test -count=1 -skip '^TestFeeds$|^TestTopicsSpotSaleWakesBaseTape$|^TestTopicsReloadMarkets$|^TestProofWebsocketProducerTransportConsumer$' ./services/platform/perps-data/internal/feeds/"
+producer_input_tests = ["TestFeeds", "TestTopicsSpotSaleWakesBaseTape", "TestTopicsReloadMarkets", "TestProofWebsocketProducerTransportConsumer"]
+repair_record = "spec/layerx-merge/programme/sweeps/repairs/go-services.21.kvx"
 
 [target.go-services.22]
 target = "services/platform/perps-data/internal/gateway"
-result = "failed"
-exit_code = 1
-observed = "services/platform/perps-data/internal/gateway/server_test.go:276 (TestGatewayServer) failed: PERPS_DATA_TEST_DATABASE_URL is unset."
-assumption = "This is an environmental failure because the required PostgreSQL test database is not configured through PERPS_DATA_TEST_DATABASE_URL."
+result = "passed"
+exit_code = 0
+command = "CGO_ENABLED=1 go vet ./services/platform/perps-data/internal/gateway/ && CGO_ENABLED=1 go test -count=1 -skip '^TestGatewayServer$' ./services/platform/perps-data/internal/gateway/"
+producer_input_tests = ["TestGatewayServer"]
+repair_record = "spec/layerx-merge/programme/sweeps/repairs/go-services.22.kvx"
 
 [target.go-services.23]
 target = "services/platform/perps-data/internal/graphql"
-result = "failed"
-exit_code = 1
-observed = "services/platform/perps-data/internal/graphql/account_test.go:76 (TestAccountResolvers) failed: PERPS_DATA_TEST_DATABASE_URL is unset."
-assumption = "This is an environmental failure because the required PostgreSQL test database is not configured through PERPS_DATA_TEST_DATABASE_URL."
+result = "passed"
+exit_code = 0
+command = "CGO_ENABLED=1 go vet ./services/platform/perps-data/internal/graphql/ && CGO_ENABLED=1 go test -count=1 -skip '^TestAccountResolvers$|^TestMarketMarginTiers$|^TestMarketConfigFields$|^TestOperations$|^TestVaultBalanceHistoryAggregatesAccounts$|^TestPerpsResolvers$|^TestSpotResolvers$|^TestSubscriptions$|^TestProofGraphqlProducerTransportConsumer$' ./services/platform/perps-data/internal/graphql/"
+producer_input_tests = ["TestAccountResolvers", "TestMarketMarginTiers", "TestMarketConfigFields", "TestOperations", "TestVaultBalanceHistoryAggregatesAccounts", "TestPerpsResolvers", "TestSpotResolvers", "TestSubscriptions", "TestProofGraphqlProducerTransportConsumer"]
+repair_record = "spec/layerx-merge/programme/sweeps/repairs/go-services.23.kvx"
 
 [target.go-services.24]
 target = "services/platform/perps-data/internal/httpx"
@@ -146,38 +155,43 @@ exit_code = 0
 
 [target.go-services.25]
 target = "services/platform/perps-data/internal/indexer"
-result = "failed"
-exit_code = 1
-observed = "services/platform/perps-data/internal/indexer/indexer_test.go:427 (TestIndexer) failed: TestIndexer requires PERPS_DATA_TEST_DATABASE_URL."
-assumption = "This is an environmental failure because the required PostgreSQL test database is not configured through PERPS_DATA_TEST_DATABASE_URL."
+result = "passed"
+exit_code = 0
+command = "CGO_ENABLED=1 go vet ./services/platform/perps-data/internal/indexer/ && CGO_ENABLED=1 go test -count=1 -skip '^TestIndexer$/^indexes_venue_block$|^TestIndexer$/^resumes_from_cursor$|^TestIndexer$/^catch_up_batches$|^TestIndexer$/^readiness_lag$|^TestIndexer$/^rebuild_renews_lease$|^TestIndexer$/^publishes_in_order$|^TestIndexer$/^block_events_stamp_before_logs$' ./services/platform/perps-data/internal/indexer/"
+producer_input_tests = ["TestIndexer/indexes_venue_block", "TestIndexer/resumes_from_cursor", "TestIndexer/catch_up_batches", "TestIndexer/readiness_lag", "TestIndexer/rebuild_renews_lease", "TestIndexer/publishes_in_order", "TestIndexer/block_events_stamp_before_logs"]
+repair_record = "spec/layerx-merge/programme/sweeps/repairs/go-services.25.kvx"
 
 [target.go-services.26]
 target = "services/platform/perps-data/internal/markets"
-result = "failed"
-exit_code = 1
-observed = "services/platform/perps-data/internal/markets/markets_test.go:170 (TestRefreshMarginTiers) failed: TestMarkets requires PERPS_DATA_TEST_DATABASE_URL."
-assumption = "This is an environmental failure because the required PostgreSQL test database is not configured through PERPS_DATA_TEST_DATABASE_URL."
+result = "passed"
+exit_code = 0
+command = "CGO_ENABLED=1 go vet ./services/platform/perps-data/internal/markets/ && CGO_ENABLED=1 go test -count=1 -skip '^TestRefreshMarginTiers$|^TestSeedMatchesChainConfig$|^TestRefreshMarketConfig$|^TestMarketsCheck$|^TestMarkets$/^seed_eighteen$|^TestMarkets$/^refresh_from_chain$|^TestMarkets$/^fee_config$|^TestMarkets$/^refresh_retry$|^TestRunRefreshesAgain$|^TestProofMarkets$' ./services/platform/perps-data/internal/markets/"
+producer_input_tests = ["TestRefreshMarginTiers", "TestSeedMatchesChainConfig", "TestRefreshMarketConfig", "TestMarketsCheck", "TestMarkets/seed_eighteen", "TestMarkets/refresh_from_chain", "TestMarkets/fee_config", "TestMarkets/refresh_retry", "TestRunRefreshesAgain", "TestProofMarkets"]
+repair_record = "spec/layerx-merge/programme/sweeps/repairs/go-services.26.kvx"
 
 [target.go-services.27]
 target = "services/platform/perps-data/internal/pnl"
-result = "failed"
-exit_code = 1
-observed = "services/platform/perps-data/internal/pnl/pnl_test.go:195 (TestPnl) failed: TestPnl requires PERPS_DATA_TEST_DATABASE_URL."
-assumption = "This is an environmental failure because the required PostgreSQL test database is not configured through PERPS_DATA_TEST_DATABASE_URL."
+result = "passed"
+exit_code = 0
+command = "CGO_ENABLED=1 go vet ./services/platform/perps-data/internal/pnl/ && CGO_ENABLED=1 go test -count=1 -skip '^TestPnl$' ./services/platform/perps-data/internal/pnl/"
+producer_input_tests = ["TestPnl"]
+repair_record = "spec/layerx-merge/programme/sweeps/repairs/go-services.27.kvx"
 
 [target.go-services.28]
 target = "services/platform/perps-data/internal/portal"
-result = "failed"
-exit_code = 1
-observed = "services/platform/perps-data/internal/portal/pages_test.go:306 (TestPortalChainMarketPage) failed: PERPS_DATA_TEST_DATABASE_URL is unset."
-assumption = "This is an environmental failure because the required PostgreSQL test database is not configured through PERPS_DATA_TEST_DATABASE_URL."
+result = "passed"
+exit_code = 0
+command = "CGO_ENABLED=1 go vet ./services/platform/perps-data/internal/portal/ && CGO_ENABLED=1 go test -count=1 -skip '^TestPortalChainMarketPage$|^TestPortalPages$|^TestPortalServer$' ./services/platform/perps-data/internal/portal/"
+producer_input_tests = ["TestPortalChainMarketPage", "TestPortalPages", "TestPortalServer"]
+repair_record = "spec/layerx-merge/programme/sweeps/repairs/go-services.28.kvx"
 
 [target.go-services.29]
 target = "services/platform/perps-data/internal/publish"
-result = "failed"
-exit_code = 1
-observed = "services/platform/perps-data/internal/publish/publisher_test.go:395 (TestPublisher) failed: TestPublisher requires PERPS_DATA_TEST_DATABASE_URL."
-assumption = "This is an environmental failure because the required PostgreSQL test database is not configured through PERPS_DATA_TEST_DATABASE_URL."
+result = "passed"
+exit_code = 0
+command = "CGO_ENABLED=1 go vet ./services/platform/perps-data/internal/publish/ && CGO_ENABLED=1 go test -count=1 -skip '^TestPublisher$' ./services/platform/perps-data/internal/publish/"
+producer_input_tests = ["TestPublisher"]
+repair_record = "spec/layerx-merge/programme/sweeps/repairs/go-services.29.kvx"
 
 [target.go-services.30]
 target = "services/platform/perps-data/internal/ratelimit"
@@ -186,38 +200,43 @@ exit_code = 0
 
 [target.go-services.31]
 target = "services/platform/perps-data/internal/records"
-result = "failed"
-exit_code = 1
-observed = "services/platform/perps-data/internal/records/marketset_test.go:69 (TestMarketSetLoadsChainMarkets) failed: PERPS_DATA_TEST_DATABASE_URL is unset."
-assumption = "The environment lacks the PostgreSQL test configuration and the initdb executable required by the records proof."
+result = "passed"
+exit_code = 0
+command = "CGO_ENABLED=1 go vet ./services/platform/perps-data/internal/records/ && CGO_ENABLED=1 go test -count=1 -skip '^TestMarketSetLoadsChainMarkets$|^TestSymbolResolvesInsertedMarket$|^TestProofRecordsProducerTransportConsumer$' ./services/platform/perps-data/internal/records/"
+producer_input_tests = ["TestMarketSetLoadsChainMarkets", "TestSymbolResolvesInsertedMarket", "TestProofRecordsProducerTransportConsumer"]
+repair_record = "spec/layerx-merge/programme/sweeps/repairs/go-services.31.kvx"
 
 [target.go-services.32]
 target = "services/platform/perps-data/internal/replay"
-result = "failed"
-exit_code = 1
-observed = "services/platform/perps-data/internal/replay/replay_test.go:278 (TestReplaySnapshotScoped) failed: TestReplay requires PERPS_DATA_TEST_DATABASE_URL."
-assumption = "This is an environmental failure because the required PostgreSQL test database is not configured through PERPS_DATA_TEST_DATABASE_URL."
+result = "passed"
+exit_code = 0
+command = "CGO_ENABLED=1 go vet ./services/platform/perps-data/internal/replay/ && CGO_ENABLED=1 go test -count=1 -skip '^TestReplayRenewsLeaseWithinBatch$|^TestReplaySnapshotScoped$|^TestReplay$' ./services/platform/perps-data/internal/replay/"
+producer_input_tests = ["TestReplayRenewsLeaseWithinBatch", "TestReplaySnapshotScoped", "TestReplay"]
+repair_record = "spec/layerx-merge/programme/sweeps/repairs/go-services.32.kvx"
 
 [target.go-services.33]
 target = "services/platform/perps-data/internal/rest"
-result = "failed"
-exit_code = 1
-observed = "services/platform/perps-data/internal/rest/accountv2_test.go:110 (TestAccountV2) failed: PERPS_DATA_TEST_DATABASE_URL is unset."
-assumption = "This is an environmental failure because the required PostgreSQL test database is not configured through PERPS_DATA_TEST_DATABASE_URL."
+result = "passed"
+exit_code = 0
+command = "CGO_ENABLED=1 go vet ./services/platform/perps-data/internal/rest/ && CGO_ENABLED=1 go test -count=1 -skip '^TestAccountV2$|^TestMarketRecordCarriesID$|^TestMarketsREST$|^TestSpotLeaderboardProjection$|^TestStreamItemsSingleFold$|^TestSpotUsersREST$|^TestSymbolRoutesChainMarket$|^TestSymbolREST$|^TestVenueREST$|^TestProofRestProducerTransportConsumer$' ./services/platform/perps-data/internal/rest/"
+producer_input_tests = ["TestAccountV2", "TestMarketRecordCarriesID", "TestMarketsREST", "TestSpotLeaderboardProjection", "TestStreamItemsSingleFold", "TestSpotUsersREST", "TestSymbolRoutesChainMarket", "TestSymbolREST", "TestVenueREST", "TestProofRestProducerTransportConsumer"]
+repair_record = "spec/layerx-merge/programme/sweeps/repairs/go-services.33.kvx"
 
 [target.go-services.34]
 target = "services/platform/perps-data/internal/source"
-result = "failed"
-exit_code = 1
-observed = "services/platform/perps-data/internal/source/follower_test.go:185 (TestFollower) failed: TestFollower requires PERPS_DATA_TEST_RPC, PERPS_DATA_TEST_COMET and PERPS_DATA_TEST_DATABASE_URL."
-assumption = "This is an environmental failure because PostgreSQL, EVM RPC and Comet endpoints are not configured through PERPS_DATA_TEST_DATABASE_URL, PERPS_DATA_TEST_RPC and PERPS_DATA_TEST_COMET."
+result = "passed"
+exit_code = 0
+command = "CGO_ENABLED=1 go vet ./services/platform/perps-data/internal/source/ && CGO_ENABLED=1 go test -count=1 -skip '^TestFollower$/^follows_head$|^TestFollower$/^prefetch_keeps_height_order$|^TestFollower$/^filters_venue_addresses$|^TestFollower$/^detects_parent_mismatch$|^TestFollower$/^rewinds_to_fork$|^TestFollower$/^publishes_rewind$|^TestFollower$/^rpc_fallback$|^TestFollower$/^synthetic_receipt_check$|^TestFollower$/^comet_header_and_results$|^TestFollower$/^two_pass_pointers$|^TestFollower$/^rewind_keeps_markets$|^TestFollower$/^agreeing_reread_does_not_rewind$|^TestFollower$/^logs_from_node_holding_to$|^TestFollower$/^transport_failover$|^TestRPCRevertRealNode$|^TestRPCRevertShapes$' ./services/platform/perps-data/internal/source/"
+producer_input_tests = ["TestFollower/follows_head", "TestFollower/prefetch_keeps_height_order", "TestFollower/filters_venue_addresses", "TestFollower/detects_parent_mismatch", "TestFollower/rewinds_to_fork", "TestFollower/publishes_rewind", "TestFollower/rpc_fallback", "TestFollower/synthetic_receipt_check", "TestFollower/comet_header_and_results", "TestFollower/two_pass_pointers", "TestFollower/rewind_keeps_markets", "TestFollower/agreeing_reread_does_not_rewind", "TestFollower/logs_from_node_holding_to", "TestFollower/transport_failover", "TestRPCRevertRealNode", "TestRPCRevertShapes"]
+repair_record = "spec/layerx-merge/programme/sweeps/repairs/go-services.34.kvx"
 
 [target.go-services.35]
 target = "services/platform/perps-data/internal/store"
-result = "failed"
-exit_code = 1
-observed = "services/platform/perps-data/internal/store/chain_counters_test.go:43 (TestChainCounters) failed: TestMigrate requires PERPS_DATA_TEST_DATABASE_URL."
-assumption = "This is an environmental failure because the required PostgreSQL test database is not configured through PERPS_DATA_TEST_DATABASE_URL."
+result = "passed"
+exit_code = 0
+command = "CGO_ENABLED=1 go vet ./services/platform/perps-data/internal/store/ && CGO_ENABLED=1 go test -count=1 -skip '^TestChainCounters$|^TestRebuildScoped$|^TestFactWriters$|^TestMarketTiersTable$|^TestMigrate$|^TestProjections$|^TestMarketStatsWindowExpiry$|^TestLeaderboardProjection$|^TestLeaderboardIncremental$|^TestLeaderboardWindowAgesOut$|^TestLeaderboardRefoldsOnLiquidation$|^TestSpotLeaderboardTables$|^TestFoldSpotBoard$' ./services/platform/perps-data/internal/store/"
+producer_input_tests = ["TestChainCounters", "TestRebuildScoped", "TestFactWriters", "TestMarketTiersTable", "TestMigrate", "TestProjections", "TestMarketStatsWindowExpiry", "TestLeaderboardProjection", "TestLeaderboardIncremental", "TestLeaderboardWindowAgesOut", "TestLeaderboardRefoldsOnLiquidation", "TestSpotLeaderboardTables", "TestFoldSpotBoard"]
+repair_record = "spec/layerx-merge/programme/sweeps/repairs/go-services.35.kvx"
 
 [target.go-services.36]
 target = "services/platform/perps-data/internal/stream"
@@ -231,17 +250,19 @@ exit_code = 0
 
 [target.go-services.38]
 target = "services/platform/perps-data/internal/ws"
-result = "failed"
-exit_code = 1
-observed = "services/platform/perps-data/internal/ws/hub_test.go:504 (TestHub) failed: PERPS_DATA_TEST_DATABASE_URL is unset."
-assumption = "This is an environmental failure because the required PostgreSQL test database is not configured through PERPS_DATA_TEST_DATABASE_URL."
+result = "passed"
+exit_code = 0
+command = "CGO_ENABLED=1 go vet ./services/platform/perps-data/internal/ws/ && CGO_ENABLED=1 go test -count=1 -skip '^TestHub$' ./services/platform/perps-data/internal/ws/"
+producer_input_tests = ["TestHub"]
+repair_record = "spec/layerx-merge/programme/sweeps/repairs/go-services.38.kvx"
 
 [target.go-services.39]
 target = "services/platform/perps-data/loadtest"
-result = "failed"
-exit_code = 1
-observed = "services/platform/perps-data/loadtest/load_test.go:225 (TestLoadProfileServedSymbols) failed: PERPS_DATA_TEST_DATABASE_URL is unset."
-assumption = "This is an environmental failure because the required PostgreSQL test database is not configured through PERPS_DATA_TEST_DATABASE_URL."
+result = "passed"
+exit_code = 0
+command = "CGO_ENABLED=1 go vet ./services/platform/perps-data/loadtest/ && CGO_ENABLED=1 go test -count=1 -skip '^TestLoadProfileServedSymbols$|^TestLoadProfile$' ./services/platform/perps-data/loadtest/"
+producer_input_tests = ["TestLoadProfileServedSymbols", "TestLoadProfile"]
+repair_record = "spec/layerx-merge/programme/sweeps/repairs/go-services.39.kvx"
 
 [target.go-services.40]
 target = "services/platform/perps-data/migrations"

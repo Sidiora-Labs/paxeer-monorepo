@@ -24,6 +24,7 @@ func waitForHeight(ctx context.Context, testnet *e2e.Testnet, height int64) (*ty
 		lastIncrease    = time.Now()
 		nodesAtHeight   = map[string]struct{}{}
 		numRunningNodes int
+		blockErr        error
 	)
 	if height == 0 {
 		height = testnet.InitialHeight
@@ -44,6 +45,9 @@ func waitForHeight(ctx context.Context, testnet *e2e.Testnet, height int64) (*ty
 	for {
 		select {
 		case <-ctx.Done():
+			if blockErr != nil {
+				return nil, nil, fmt.Errorf("fetching target block at height %d: %w", height, errors.Join(ctx.Err(), blockErr))
+			}
 			return nil, nil, ctx.Err()
 		case <-timer.C:
 			for _, node := range testnet.Nodes {
@@ -85,25 +89,28 @@ func waitForHeight(ctx context.Context, testnet *e2e.Testnet, height int64) (*ty
 					// add this node to the set of target
 					// height nodes
 					nodesAtHeight[node.Name] = struct{}{}
+				}
+			}
 
-					// if not all of the nodes that we
-					// have clients for have reached the
-					// target height, keep trying.
-					if numRunningNodes > len(nodesAtHeight) {
+			// All nodes are at or above the target height. Fetch the target block on
+			// every retry, even when height tracking skips all converged nodes.
+			// Try all clients because some may have pruning set, while archive
+			// nodes retain the target block.
+			if numRunningNodes > 0 && len(nodesAtHeight) == numRunningNodes {
+				for _, c := range clients {
+					result, err := c.Block(ctx, &height)
+					if err != nil {
+						blockErr = err
 						continue
 					}
-
-					// All nodes are at or above the target height. Now fetch the block for that target height
-					// and return it. We loop again through all clients because some may have pruning set but
-					// at least two of them should be archive nodes.
-					for _, c := range clients {
-						result, err := c.Block(ctx, &height)
-						if err != nil || result == nil || result.Block == nil {
-							continue
-						}
-						return result.Block, &result.BlockID, err
+					if result == nil || result.Block == nil {
+						blockErr = errors.New("target block unavailable after height convergence")
+						continue
 					}
+					return result.Block, &result.BlockID, nil
 				}
+				timer.Reset(time.Second)
+				continue
 			}
 
 			if len(clients) == 0 {

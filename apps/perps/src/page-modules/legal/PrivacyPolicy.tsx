@@ -2,7 +2,7 @@ import { LegalLayout } from "./LegalLayout";
 
 export default function PrivacyPolicy() {
   return (
-    <LegalLayout title="Privacy Policy" lastUpdated="12 May 2026">
+    <LegalLayout title="Privacy Policy" lastUpdated="4 November 2026">
       <p>
         This Privacy Policy explains how <strong>Paxeer Network Foundation</strong> ("we", "us", or "our")
         collects, uses, and protects information when you access or use the HyperPax decentralised
@@ -10,9 +10,10 @@ export default function PrivacyPolicy() {
         (collectively, the "Services").
       </p>
       <p>
-        <strong>HyperPax is a non-custodial protocol.</strong> We do not hold, control, or have access
-        to your private keys, funds, or on-chain assets at any time. Transactions are executed
-        directly on the Paxeer Network blockchain via smart contracts.
+        <strong>The Interface does not hold your private keys.</strong> Perpetuals execute in native
+        chain software on the Paxeer Network, with USDL collateral held by the perps module account.
+        Wallet-linked off-chain application records are separate from this public-chain state. See
+        the <a href="/terms">Terms of Service</a> for execution, custody and governance risks.
       </p>
 
       <h2>1. Information We Collect</h2>
@@ -24,9 +25,34 @@ export default function PrivacyPolicy() {
           history. Your private key is never transmitted to us.
         </li>
         <li>
-          <strong>Usage data.</strong> We collect anonymised information about how the Interface is used,
-          including pages visited, features interacted with, browser type, and approximate geographic
-          region (country level). This data is used solely to improve the Interface.
+          <strong>Operational error reports.</strong> When Sentry is configured, browser and server
+          exceptions may be transmitted regardless of cookie preference. Reports can include messages,
+          stack traces, URLs, device information, breadcrumbs, environment and release, diagnostic
+          context and optional feedback contact details. They are not guaranteed to be anonymous.
+          See the <a href="/cookies">Cookie Policy</a> for fields, controls and retention limits.
+        </li>
+        <li>
+          <strong>Wallet authentication.</strong> The perps data service stores your wallet address,
+          challenge nonce, sign-in message, issue and expiry timestamps, and a used-at timestamp to
+          verify ownership and prevent replay. A challenge is valid for five minutes; a bearer token
+          is valid for one hour, with refresh limited to 24 hours from sign-in. These validity periods
+          do not delete stored challenge records.
+        </li>
+        <li>
+          <strong>Referrals.</strong> Off-chain records link your wallet address to a referral code,
+          the referring wallet address, the time a referral was applied and total rewards earned.
+          They support referral attribution, reward accounting, tiers and fee discounts.
+        </li>
+        <li>
+          <strong>Competitions.</strong> Off-chain entries store competition identifier, wallet address
+          and join time. They support participation and rankings derived from trading activity;
+          rankings may display your wallet address and score publicly.
+        </li>
+        <li>
+          <strong>Alerts and account views.</strong> The service stores wallet-linked alert identifiers,
+          alert types, market identifiers, thresholds, enabled state, creation and trigger times.
+          It also indexes chain-derived balances, deposits, withdrawals, positions, trades and daily
+          profit, loss and volume to provide account history and statistics.
         </li>
         <li>
           <strong>Cookies and local storage.</strong> We use essential cookies required for the Interface
@@ -39,14 +65,15 @@ export default function PrivacyPolicy() {
         </li>
       </ul>
       <p>
-        We do <strong>not</strong> collect names, email addresses, government-issued identification, or
-        any other personally identifying information unless you voluntarily provide it. The Interface
-        does not require account registration.
+        Wallet addresses and linked records can be personal data. Wallet sign-in does not require
+        a name, email address or government-issued identification. You may voluntarily provide contact
+        information in communications or error feedback. Protected account features create wallet-linked
+        records even without a conventional username or email registration.
       </p>
 
       <h2>2. On-Chain Data</h2>
       <p>
-        All transactions executed through the Interface are recorded on the Paxeer Network public
+        Confirmed transactions submitted through the Interface are recorded on the Paxeer Network public
         blockchain. By nature of blockchain technology, this data is publicly visible, immutable, and
         outside our control. We are not responsible for the privacy implications of publicly visible
         on-chain activity.
@@ -79,6 +106,10 @@ export default function PrivacyPolicy() {
           authorise.
         </li>
         <li>
+          <strong>Sentry.</strong> Processes operational error reports and any submitted error feedback.
+          Collection and retention are described in the <a href="/cookies">Cookie Policy</a>.
+        </li>
+        <li>
           <strong>StatusPage.io.</strong> Used for system status monitoring. A small status embed script
           may load from their CDN. See Atlassian's privacy policy for details.
         </li>
@@ -86,14 +117,33 @@ export default function PrivacyPolicy() {
 
       <h2>5. Data Retention</h2>
       <p>
-        Anonymised analytics data is retained for up to 24 months before being aggregated or deleted.
-        Cookie consent preferences stored in your browser persist until you clear them or withdraw
-        consent. We do not retain wallet addresses or transaction data beyond what is visible on-chain.
+        Off-chain authentication challenges, referral relationships and competition entries persist
+        in the application database. The current service does not implement automatic expiry-based
+        deletion for these records or a self-service deletion endpoint for them. Challenge or token
+        expiry prevents authentication use; it does not erase a database row. Disconnecting a wallet,
+        clearing browser storage or withdrawing optional cookie consent does not delete these records.
+      </p>
+      <p>
+        Alert records remain until deleted using the authenticated alert controls. Chain-derived
+        account history is retained in the service's index and can be reconstructed from public chain
+        records. No fixed maximum retention period for these application records is enforced by the
+        current service. Sentry retention depends on the deployed project's settings; changing cookie
+        preferences does not erase error reports. Browser preferences remain until overwritten or
+        cleared in your browser.
+      </p>
+      <p>
+        Request access, correction, the applicable retention period or deletion of wallet-linked
+        off-chain records at <a href="mailto:privacy@paxeer.network">privacy@paxeer.network</a>.
+        Requests require verification of wallet ownership; never send a private key or seed phrase.
+        Deletion is handled by the service operator subject to applicable legal obligations and
+        technical limits, rather than promised as an automatic consequence of a browser action.
+        Deleting an off-chain record cannot erase immutable public-chain history or independent
+        copies held by other parties.
       </p>
 
       <h2>6. International Transfers</h2>
       <p>
-        Our analytics infrastructure may process data in jurisdictions outside your home country,
+        Our application and error-reporting infrastructure may process data in jurisdictions outside your home country,
         including the United States and European Union. Where required by law, we implement appropriate
         safeguards such as Standard Contractual Clauses for transfers outside the EEA.
       </p>
@@ -112,9 +162,9 @@ export default function PrivacyPolicy() {
         <li><strong>Right to withdraw consent</strong> — withdraw cookie consent at any time via the Cookie Settings link in the footer.</li>
       </ul>
       <p>
-        Because HyperPax is a non-custodial protocol and we do not link wallet addresses to real-world
-        identities, exercising some of the above rights may be limited in practice. To make a request,
-        contact us at <a href="mailto:privacy@paxeer.network">privacy@paxeer.network</a>.
+        These rights apply to wallet-linked off-chain records as well as information you voluntarily
+        provide, subject to applicable law. Public-chain records cannot be erased by the operator.
+        To verify ownership and discuss a request, contact us at <a href="mailto:privacy@paxeer.network">privacy@paxeer.network</a>.
       </p>
 
       <h2>8. Security</h2>

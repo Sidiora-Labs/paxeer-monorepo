@@ -1,0 +1,42 @@
+[repair]
+task = "22.31.535"
+acceptance = "22998.1"
+gotcha = "3134"
+decision = "2593"
+baseline = "No pre-change gate run; the initial runner ledger contained no build or verification runs."
+
+[producers]
+budget = "src/human/budget_state.rs::produce_session: the shared budget-state read/export document emits VerificationLevel::COMMITTED.wire_rank(); all evidence and remaining fields are preserved."
+scope = "src/human.rs::native_capability_scope: the capability-scope document emits VerificationLevel::COMMITTED.wire_rank()."
+policy = "src/human.rs::native_key_policy: the key-policy document emits VerificationLevel::COMMITTED.wire_rank()."
+
+[consumers]
+policy = "services/agent/crates/layerx-agentd/src/human_runtime.rs::RemoteHumanAuthority::key_rotation_policy decodes from_wire_rank and requires COMMITTED."
+scope_observation = "services/agent/crates/layerx-agentd/src/human_runtime.rs::verified_grant_scope decodes from_wire_rank and requires COMMITTED."
+scope_install = "services/agent/crates/layerx-agentd/src/human_runtime.rs::validate_capability decodes the observed scope through from_wire_rank and requires COMMITTED."
+stored_policy = "services/agent/crates/layerx-agentd/src/managed_agent.rs::key_policy_observation decodes from_wire_rank and requires COMMITTED."
+budget_proof = "services/agent/crates/layerx-agentd/src/budget/budget_proof.rs::budget_verification_level decodes from_wire_rank and requires COMMITTED."
+budget_read = "RemoteHumanAuthority::budget_state also uses the shared decoder and requires COMMITTED."
+scope_read = "RemoteHumanAuthority::capability_scope now refuses retired and non-committed ranks before returning a scope to either downstream consumer."
+
+[cases]
+authority = "repair_22_31_535_producers_emit_committed_documents drives budget-state, budget-proof, capability-scope and key-policy through production authority routes, TLS, canonical native proofs and retained/reopened receipt evidence; asserts wire_rank and from_wire_rank equality to COMMITTED."
+transport = "The authority test atomically retains its actual documents under a checkout-and-producer-source-specific private temporary directory; the second half of the declared ordered verify_cmd reads those exact documents. No hand-built replacement responses, credential, environment variable or live endpoint is required."
+daemon = "repair_22_31_535_remote_consumers_require_committed_producer_documents serves the actual three producer documents over loopback TLS to production RemoteHumanAuthority; committed succeeds and ranks 4, 5, 0, 1, 2, 3, 7 and 255 return Refused on each of budget_state, key_rotation_policy and capability_scope (27 requests)."
+proof = "The daemon integration target includes the production budget_proof module, executing its in-crate tests: the existing signed-checkpoint/export transcript accepts COMMITTED, rejects ranks 4 and 5 plus all declared non-committed cases, and retains tamper, owner and freshness assertions. The retired fixture label and expected verification level are migrated to COMMITTED in the in-crate fixture loader."
+proof_boundary = "Current native authority exports include native_account_proof and receipt_sequence_proof; the budget-proof verifier still expects the earlier account_join.layerx.accounts representation and a signed ServedCheckpoint. This task proves its label through the in-crate replay tests, without changing that separate proof-format interface or using a live chain."
+fixtures = "tests/human_approval_budget_actor.rs and tests/human_projection_facts.rs are unchanged; task 22.31.516 owns their committed-label migration."
+harness = "Unchanged helper implementations from repair_22_33_1471.rs are shared via tests/support/committed_human_fixture.rs; every existing test and assertion remains in place."
+
+[gates]
+build_command = "hf-build: cargo build --locked --manifest-path services/platform/hosted/authority/Cargo.toml --tests && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test repair_22_31_535"
+verify_command = "hf-done: cg spec done 22.31.535 -f layerx-merge --root /work/paxeer-monorepo"
+verify_cmd = "cargo test --locked --manifest-path services/platform/hosted/authority/Cargo.toml --test repair_22_31_535 && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_535"
+results = "Exact candidate revision, command, exit and private log path are the build/verify rows of /out/run/gates.jsonl, written by hf-build/hf-done after this record is frozen; the final response copies the last gate evidence verbatim. No unrun gate is claimed here."
+
+[repair_cycle.1]
+revision = "2e0041babcbc2bf4b3be89dfa8960d867062fd62"
+command = "cargo build --locked --manifest-path services/platform/hosted/authority/Cargo.toml --tests && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test repair_22_31_535"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The new integration test imported HumanOperationError through human_runtime, where that enum is private; import it through its public human module. No assertion or production check changed."

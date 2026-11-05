@@ -1,0 +1,15 @@
+[repair.22.33.1333]
+finding = "payment-codec-retired-dependency"
+implementation = "payments.rs uses its maintained private payments/codec.rs for bounded big-endian payload I/O, exact NUL-terminated signature domains and supported authorization versions 1, 2 and 3."
+tests = ["payment_codec_preserves_native_bytes_and_canonical_refusals", "payment_codec_keeps_bounded_lengths_counts_and_boolean_encodings", "payment_codec_preserves_domains_versions_and_signature_refusals", "payment_codec_reaches_the_transaction_and_disclosure_consumer"]
+baseline = "Not run: the task's ordered instructions prohibit testing before implementation and prohibit running verify_cmd by hand; no baseline test failure is claimed."
+evidence = "The private hf-build/hf-done ledger records the candidate revision, exact command, exit code and log location; completion requires hf-done success on the built candidate."
+wiring_request = "services/agent/crates/layerx-crypto/Cargo.toml — domain 9: remove the layerx-wire dependency after the separately owned remaining activity-wire consumers are migrated."
+
+[gotcha.crypto_minimal_feature_error]
+observed = "The initial build failed because the minimal-feature k256 signing-key error does not implement std::error::Error."
+repair = "Convert that test-helper error explicitly without changing assertions or enabling extra features."
+revision = "d934f372bc51f69ec0840e4d5c921b85c2b38f29"
+command = "cargo build --locked --manifest-path services/agent/crates/layerx-crypto/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"

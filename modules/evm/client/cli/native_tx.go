@@ -127,7 +127,7 @@ func RegisterEvmPointerCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			nonce, err := getNonce(rpc, key.PublicKey)
+			nonce, err := getNonce(cmd.Context(), rpc, key.PublicKey)
 			if err != nil {
 				return err
 			}
@@ -137,7 +137,7 @@ func RegisterEvmPointerCmd() *cobra.Command {
 			addr := pInfo.Address
 			txData.To = &addr
 
-			resp, err := sendTx(txData, rpc, key)
+			resp, err := sendTx(cmd.Context(), txData, rpc, key)
 			if err != nil {
 				return err
 			}

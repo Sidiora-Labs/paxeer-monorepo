@@ -213,12 +213,23 @@ public sealed class ProgramsClient
         internal BigInteger Arrears { get; set; }
     }
 
+    /// <summary>Retired REST constructor. Use ProgramsClient(Programs, ReceiptKeys, byte[]) for native node RPC,
+    /// or explicitly supply Programs with the migration constructor.</summary>
     public ProgramsClient(PlatformClient client, byte[] sequencerPublicKey,
         TimeProvider? timeProvider = null, TimeSpan? maximumSimulationAge = null, ushort protocolVersion = 2)
+    {
+        ArgumentNullException.ThrowIfNull(client);
+        throw new PlatformSdkException(SdkErrorCode.UnavailableCapability, RetryClass.Never);
+    }
+
+    /// <summary>Migrates a platform client using an explicitly supplied native node transport.</summary>
+    public ProgramsClient(PlatformClient client, Programs nativePrograms, byte[] sequencerPublicKey,
+        TimeProvider? timeProvider = null, TimeSpan? maximumSimulationAge = null, ushort protocolVersion = 2, ReceiptKeys? receiptKeys = null)
     {
         if (protocolVersion != 2 && protocolVersion != 3) throw Invalid();
         _protocolVersion = protocolVersion;
         ArgumentNullException.ThrowIfNull(client);
+        _rpc = nativePrograms ?? throw Invalid(); _receiptKeys = receiptKeys;
         if (sequencerPublicKey?.Length != 32 || sequencerPublicKey.All(value => value == 0)) throw Invalid();
         _sequencerPublicKey = sequencerPublicKey.ToArray(); _timeProvider = timeProvider ?? TimeProvider.System;
         var age = maximumSimulationAge ?? TimeSpan.FromMinutes(5);

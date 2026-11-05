@@ -1,8 +1,12 @@
 //! Sequencer subscriptions.
 
+use std::io::{self, Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
-use std::sync::Arc;
-use std::time::Duration;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
+use std::time::{Duration, Instant};
 
 use serde_json::{json, Map, Value};
 use tungstenite::{
@@ -26,8 +30,111 @@ pub enum SubscriptionTopic {
 }
 
 pub struct NodeSubscription {
-    socket: WebSocket<MaybeTlsStream<TcpStream>>,
+    socket: WebSocket<MaybeTlsStream<DeadlineTcp>>,
     id: String,
+}
+
+/// One total response budget, including control traffic. Cancellation is checked
+/// between I/O calls and at most every 50ms while waiting on an idle socket.
+/// Expiry and cancellation return `SequencerError::Unavailable`.
+#[derive(Clone, Debug)]
+pub struct WaitOptions {
+    pub timeout: Duration,
+    pub cancellation: Option<Arc<AtomicBool>>,
+}
+
+impl Default for WaitOptions {
+    fn default() -> Self {
+        Self {
+            timeout: TIMEOUT,
+            cancellation: None,
+        }
+    }
+}
+
+#[derive(Clone)]
+struct OperationDeadline {
+    end: Instant,
+    options: WaitOptions,
+}
+
+impl OperationDeadline {
+    fn new(options: &WaitOptions) -> Result<Self, SequencerError> {
+        let end = Instant::now()
+            .checked_add(options.timeout)
+            .ok_or(SequencerError::Malformed)?;
+        let deadline = Self {
+            end,
+            options: options.clone(),
+        };
+        deadline.remaining()?;
+        Ok(deadline)
+    }
+
+    fn remaining(&self) -> Result<Duration, SequencerError> {
+        if self
+            .options
+            .cancellation
+            .as_ref()
+            .is_some_and(|flag| flag.load(Ordering::Acquire))
+        {
+            return Err(SequencerError::Unavailable);
+        }
+        self.end
+            .checked_duration_since(Instant::now())
+            .filter(|left| !left.is_zero())
+            .ok_or(SequencerError::Unavailable)
+    }
+
+    fn socket(
+        &self,
+        socket: &mut WebSocket<MaybeTlsStream<DeadlineTcp>>,
+    ) -> Result<(), SequencerError> {
+        self.remaining()?;
+        let stream = match socket.get_mut() {
+            MaybeTlsStream::Plain(stream) => stream,
+            MaybeTlsStream::Rustls(stream) => &mut stream.sock,
+            _ => return Err(SequencerError::Tls),
+        };
+        stream.deadline = self.clone();
+        Ok(())
+    }
+}
+
+// Enforce the absolute deadline at every underlying I/O, including partial
+// writes inside tungstenite flush and reads inside the TLS/HTTP handshake.
+struct DeadlineTcp {
+    stream: TcpStream,
+    deadline: OperationDeadline,
+}
+impl DeadlineTcp {
+    fn prepare(&self) -> io::Result<()> {
+        let mut left = self
+            .deadline
+            .remaining()
+            .map_err(|_| io::Error::from(io::ErrorKind::TimedOut))?;
+        if self.deadline.options.cancellation.is_some() {
+            left = left.min(Duration::from_millis(50));
+        }
+        self.stream.set_read_timeout(Some(left))?;
+        self.stream.set_write_timeout(Some(left))
+    }
+}
+impl Read for DeadlineTcp {
+    fn read(&mut self, bytes: &mut [u8]) -> io::Result<usize> {
+        self.prepare()?;
+        self.stream.read(bytes)
+    }
+}
+impl Write for DeadlineTcp {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        self.prepare()?;
+        self.stream.write(bytes)
+    }
+    fn flush(&mut self) -> io::Result<()> {
+        self.prepare()?;
+        self.stream.flush()
+    }
 }
 
 pub fn subscribe(
@@ -35,6 +142,16 @@ pub fn subscribe(
     trust_anchors: &[&[u8]],
     topic: SubscriptionTopic,
 ) -> Result<NodeSubscription, SequencerError> {
+    subscribe_with_options(url, trust_anchors, topic, &WaitOptions::default())
+}
+
+pub fn subscribe_with_options(
+    url: &str,
+    trust_anchors: &[&[u8]],
+    topic: SubscriptionTopic,
+    options: &WaitOptions,
+) -> Result<NodeSubscription, SequencerError> {
+    let deadline = OperationDeadline::new(options)?;
     let request = url
         .into_client_request()
         .map_err(|_| SequencerError::Endpoint)?;
@@ -92,18 +209,16 @@ pub fn subscribe(
         .map_err(|_| SequencerError::Unavailable)?;
     let mut connected = None;
     for address in addresses {
-        if let Ok(stream) = TcpStream::connect_timeout(&address, TIMEOUT) {
+        if let Ok(stream) = TcpStream::connect_timeout(&address, deadline.remaining()?) {
             connected = Some(stream);
             break;
         }
     }
     let stream = connected.ok_or(SequencerError::Unavailable)?;
-    stream
-        .set_read_timeout(Some(TIMEOUT))
-        .map_err(|_| SequencerError::Unavailable)?;
-    stream
-        .set_write_timeout(Some(TIMEOUT))
-        .map_err(|_| SequencerError::Unavailable)?;
+    let stream = DeadlineTcp {
+        stream,
+        deadline: deadline.clone(),
+    };
     let config = WebSocketConfig::default()
         .max_message_size(Some(MAX_MESSAGE_BYTES))
         .max_frame_size(Some(MAX_MESSAGE_BYTES));
@@ -113,6 +228,7 @@ pub fn subscribe(
                 HandshakeError::Failure(error) => socket_error(error),
                 HandshakeError::Interrupted(_) => SequencerError::Unavailable,
             })?;
+    deadline.socket(&mut socket)?;
     socket
         .send(Message::Text(
             json!({"jsonrpc":"2.0", "id":1, "method":"eth_subscribe", "params":params})
@@ -120,7 +236,7 @@ pub fn subscribe(
                 .into(),
         ))
         .map_err(socket_error)?;
-    let value = receive(&mut socket)?;
+    let value = receive(&mut socket, &deadline)?;
     let id = response(&value, 1)?
         .as_str()
         .filter(|id| !id.is_empty())
@@ -131,11 +247,22 @@ pub fn subscribe(
 
 impl NodeSubscription {
     pub fn next(&mut self) -> Result<Value, SequencerError> {
-        let value = receive(&mut self.socket)?;
+        self.next_with_options(&WaitOptions::default())
+    }
+
+    pub fn next_with_options(&mut self, options: &WaitOptions) -> Result<Value, SequencerError> {
+        let deadline = OperationDeadline::new(options)?;
+        let value = receive(&mut self.socket, &deadline)?;
         notification(&value, &self.id).cloned()
     }
 
     pub fn close(&mut self) -> Result<(), SequencerError> {
+        self.close_with_options(&WaitOptions::default())
+    }
+
+    pub fn close_with_options(&mut self, options: &WaitOptions) -> Result<(), SequencerError> {
+        let deadline = OperationDeadline::new(options)?;
+        deadline.socket(&mut self.socket)?;
         self.socket
             .send(Message::Text(
                 json!({"jsonrpc":"2.0", "id":2, "method":"eth_unsubscribe", "params":[self.id]})
@@ -144,7 +271,7 @@ impl NodeSubscription {
             ))
             .map_err(socket_error)?;
         for _ in 0..=MAX_PENDING_EVENTS {
-            let value = receive(&mut self.socket)?;
+            let value = receive(&mut self.socket, &deadline)?;
             if value.get("method").and_then(Value::as_str) == Some("eth_subscription") {
                 notification(&value, &self.id)?;
                 continue;
@@ -152,7 +279,9 @@ impl NodeSubscription {
             if response(&value, 2)? != &Value::Bool(true) {
                 return Err(SequencerError::Malformed);
             }
-            return self.socket.close(None).map_err(socket_error);
+            deadline.socket(&mut self.socket)?;
+            self.socket.close(None).map_err(socket_error)?;
+            return flush(&mut self.socket, &deadline);
         }
         Err(SequencerError::Unavailable)
     }
@@ -199,13 +328,50 @@ fn response(value: &Value, id: u64) -> Result<&Value, SequencerError> {
     }
 }
 
-fn receive(socket: &mut WebSocket<MaybeTlsStream<TcpStream>>) -> Result<Value, SequencerError> {
+fn timed_out(error: &tungstenite::Error) -> bool {
+    matches!(error, tungstenite::Error::Io(error) if matches!(error.kind(),
+        std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock))
+}
+
+fn flush(
+    socket: &mut WebSocket<MaybeTlsStream<DeadlineTcp>>,
+    deadline: &OperationDeadline,
+) -> Result<(), SequencerError> {
     loop {
-        match socket.read().map_err(socket_error)? {
-            Message::Text(text) => {
-                return serde_json::from_str(&text).map_err(|_| SequencerError::Malformed);
+        deadline.socket(socket)?;
+        match socket.flush() {
+            Ok(()) => {
+                deadline.remaining()?;
+                return Ok(());
             }
-            Message::Ping(_) | Message::Pong(_) => socket.flush().map_err(socket_error)?,
+            Err(error) if timed_out(&error) => {
+                deadline.remaining()?;
+            }
+            Err(error) => return Err(socket_error(error)),
+        }
+    }
+}
+
+fn receive(
+    socket: &mut WebSocket<MaybeTlsStream<DeadlineTcp>>,
+    deadline: &OperationDeadline,
+) -> Result<Value, SequencerError> {
+    loop {
+        deadline.socket(socket)?;
+        let message = match socket.read() {
+            Ok(message) => message,
+            Err(error) if timed_out(&error) => {
+                deadline.remaining()?;
+                continue;
+            }
+            Err(error) => return Err(socket_error(error)),
+        };
+        deadline.remaining()?;
+        match message {
+            Message::Text(text) => {
+                return serde_json::from_str(&text).map_err(|_| SequencerError::Malformed)
+            }
+            Message::Ping(_) | Message::Pong(_) => flush(socket, deadline)?,
             Message::Close(_) => return Err(SequencerError::Unavailable),
             _ => return Err(SequencerError::Malformed),
         }

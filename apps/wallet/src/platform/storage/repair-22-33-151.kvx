@@ -1,0 +1,38 @@
+[repair.22.33.151]
+audit = "22.30.116"
+test_file = "apps/wallet/src/platform/storage/repair-22-33-151.test.ts"
+evidence = "The runner's private hf-build/hf-done ledger records the exact candidate revision, command, exit code and log; this record makes no qualification claim before that gate."
+baseline = "Not run: the ordered task instructions prohibit testing before complete implementation and prohibit running verify_cmd outside hf-done; no pre-change failures are claimed as measured."
+
+[finding.migration-delete-on-failure]
+tests = ["migration_setItem_refusal_survives_reopen_and_retry", "migration_security_choice_refuses_without_deleting_source_until_retry", "migration_record_quota_preserves_source_across_reopen", "migration_validation_refusal_preserves_source_across_reopen", "legacy_session_pending_send_survives_refusal_reopen_and_retry"]
+repair = "Collectors return read-only migration values and source keys; the registry retires those keys only after setItem succeeds, preserves sources on validation or persistence refusal, and distinguishes persistence refusal from corruption."
+
+[finding.storage-unsaved-success]
+tests = ["storage_unavailable_refuses_write_update_and_contact_success_across_reopen", "storage_quota_refuses_write_update_and_contact_success_across_reopen", "storage_record_quota_update_refuses_without_acknowledging_unsaved_state"]
+repair = "write returns PersistedStorageValue only after persistence and throws StoragePersistenceError on unavailable storage, repository quota, or setItem refusal; update returns the persisted value, and contact producers propagate refusal instead of acknowledging unsaved changes."
+
+[finding.legacy-transfer-loss]
+tests = ["legacy_transfer_partial_data_survives_quota_reopen_and_retry", "legacy_metadata_partial_data_survives_quota_reopen_and_retry"]
+repair = "Transfer and metadata collectors validate independently readable entries without deleting any source; the registry removes collected source keys after committing the replacement envelope. Tests use production SDK transfer identity/observation producers and real contact, metadata, and pending-send producers and consumers with browser Storage."
+
+[wiring.locale]
+request = "apps/wallet/src/providers/LocaleProvider.tsx — wallet domain 12: move locale UI acknowledgement after preferences persistence and surface StoragePersistenceError instead of swallowing it."
+
+[wiring.currency]
+request = "apps/wallet/src/widgets/settings/SettingsWidget.tsx — wallet domain 12: move currency UI acknowledgement after preferences persistence and display the declared refusal."
+
+[wiring.callers]
+request = "apps/wallet/src/providers/PWAProvider.tsx, apps/wallet/src/components/ui/WhatsNewModal.tsx, apps/wallet/src/components/NetworkSwitcher.tsx, apps/wallet/src/wallet/WalletProvider.tsx, apps/wallet/src/lib/notification-triggers.ts, apps/wallet/src/lib/currency.ts, apps/wallet/src/lib/metaCache.ts, apps/wallet/src/widgets/portfolio/useTokenFilters.ts, apps/wallet/src/widgets/send/useSendForm.ts, apps/wallet/src/components/TransferSuccess.tsx, apps/wallet/src/app/auth/callback/CallbackClient.tsx — wallet domain 12: handle StoragePersistenceError at each UI/background boundary and acknowledge saved state only after write/update succeeds."
+
+[gotcha.scope]
+observed = "The task requests spec/task and root gotcha entries while its explicit scope prohibits edits to those files; this in-scope record retains the finding-to-test mapping, wiring requests and baseline limitation."
+
+[gotcha.vitest_registration]
+observed = "Vitest 4 treats test(function) as a TODO without executing it; named declared test functions must be registered as test(function.name, function). The first gate exited zero with ten TODOs and is not behavioral qualification; the repaired registration requires ten executed passing tests."
+
+[gotcha.browser_storage_fixture]
+observed = "Vitest wraps environment-options in the environment name itself, so nesting jsdom again ignores storageQuota; Node runtimes with native Storage globals also prevent Vitest from exposing jsdom Storage automatically. Use flat storageQuota options and forward globals to the real jsdom window Storage getters, restoring descriptors after each test. The inherited attempt reported seven failures before this fixture repair; these were not pre-change production failures."
+
+[gotcha.opaque_origin_fixture]
+observed = "Reconfiguring the shared test browser to about:blank did not make its Storage getter refuse in the qualification environment; construct a separate real jsdom browser with an opaque origin and forward the Storage getters to it during the unavailable-storage case, then restore the original browser and durable data."

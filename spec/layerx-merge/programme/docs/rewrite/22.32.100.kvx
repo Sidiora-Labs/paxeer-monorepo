@@ -1,0 +1,43 @@
+[manifest]
+task = "22.32.100"
+domain = 11
+owner_role = "fm-interop"
+pages = 4
+
+[page.1]
+path = "docs/wiki/Ap2Mandates.md"
+status = "stale"
+bytes = 1818
+source_1 = "record 22.30.110 [doc.006] (stale): Mounted routes are accurate; lines 31-45 contain inaccessible public API names, missing descriptor inputs and nonexistent vectors path."
+
+[page.2]
+path = "docs/wiki/Interop.md"
+status = "stale"
+bytes = 3156
+source_1 = "record 22.30.108 [doc.11] (stale): Lines 10-12 use migration rather than migration-v2; lines 32-49 omit the versioned migration route table. Existing gateway receipt verification description remains applicable."
+source_2 = "record 22.30.109 [doc.011] (stale): Full page read. Lines 18-23 freeze old migration status; lines 32-49 omit current V2 routes and source observation. See interop-route-doc."
+source_3 = "record 22.30.110 [doc.002] (stale): Route inventory and adapter boundary reviewed; line 51 mistakes the package name for the layerx-interop-gateway executable."
+source_4 = "record 22.30.111 [doc.2] (stale): Lines 18-23 retain historical platform status and production-client gaps; present current implementations and qualification limits."
+source_5 = "record 22.30.112 [doc.02] (stale): Read the complete page. Drift at line 12: The wiki routes readers to layerx-interop-gateway/src/server.rs for current routes and middleware, including line 29; runtime HTTP implementation lives in layerx-interop-service/src/server.rs."
+
+[page.3]
+path = "docs/wiki/Mirrors.md"
+status = "stale"
+bytes = 1762
+source_1 = "record 22.30.111 [doc.7] (stale): Lines 17-26 list removed node/LNI types; lines 40-42 describe signed batch-header inclusion absent from the current committed receipt path."
+
+[page.4]
+path = "docs/wiki/X402Transport.md"
+status = "misleading"
+bytes = 37586
+source_1 = "record 22.30.1 [doc.7] (stale): Lines 91-110 repeat the removed /rpc and guarantor finality flow; 139-149 repeat layerx:* offers. Content matches the site page except the opening interop link and navigation."
+source_2 = "record 22.30.108 [doc.12] (misleading): Lines 26-27, 83-103, 132-165 and the legacy settlement sections around 375-412 contradict the later SequencerEvidence flow: retired /rpc, commitments, grants and batch proofs remain."
+source_3 = "record 22.30.110 [doc.005] (misleading): Full page reviewed with its site counterpart; lines 28, 85-112, 176-191 and 249 onward repeat retired activity transport and settlement identities."
+source_4 = "record 22.30.111 [doc.6] (misleading): Mirrors the stale site x402 transport/rung/evidence descriptions, including /rpc at line 91; both copies need the same current contract."
+source_5 = "record 22.30.125 [doc.x402_wiki] (misleading): Read full page. Site lines 94-110 (wiki 95-111) require retired /rpc and lx methods plus sequencer, batch-header and guarantor evidence. Amount precision, recipient/purpose binding and same-payment retry remain useful; transport and finality need replacement. See x402_wiki_finality."
+source_6 = "record 22.30.138 [doc.12] (stale): Read in full. Current-deployment transport/topology or finality drift is anchored in x402-wiki-transport. Rewrite for one paxd chain, root node RPC and committed-block finality."
+source_7 = "record 22.30.27 [doc.010] (misleading): Misleading public transport at lines 91-105 and activity recovery around lines 175-176; replace retired RPC and guarantor finality with native committed payments."
+source_8 = "record 22.30.69 [doc.07] (stale): Full page read, including site/wiki shared text and link differences. Site lines 90-104 (wiki +1) prescribe /rpc, lx activity recovery and guarantor checkpoint finality instead of merged EVM submission and BFT commitment."
+source_9 = "record 22.30.79 [doc.004] (misleading): Lines 91-104 retain /rpc, lx_sendActivity, authorized kernel batches and checkpoint evidence. Synchronize this wiki page with the merged payment submission and verified sequencer receipt contract."
+source_10 = "record 22.30.84 [doc.02] (stale): Read the complete mirrored guide, using identical-region comparison for shared text and reading wiki-specific differences. Lines 91-110 repeat retired transport/finality; see x402-wiki-retired-transport."
+source_11 = "record 22.30.93 [doc.08] (misleading): Read the full page and compared the mirror. Site lines 90-105 (wiki plus one) retain /rpc, lx_sendActivity and guarantor-certificate finality. Preserve the reviewed encoding, payment identity and deduplication rules while rewriting the chain integration."

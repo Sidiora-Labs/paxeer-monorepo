@@ -76,7 +76,6 @@ fn retired_surface_gate_flags_each_retired_rule_in_a_fixture() {
 
     for import in [
         "layerx_client::lni",
-        "layerx_proof::receipt::AuthorizedBatch",
         "layerx_proof::checkpoint::SettlementDomain",
         "layerx_wire::activity",
     ] {
@@ -147,6 +146,10 @@ fn retired_surface_gate_passes_a_clean_fixture() {
         "[workspace]\nmembers = [\"sample\"]\nexclude = [\"layerx-paxeer-client\"]\n\
          [workspace.dependencies]\nlayerx-paxeer-client-extra = \"1\"\n\
          # layerx-human-movement-provider = \"1\"\n",
+    );
+    fixture.write(
+        "sample/src/lib.rs",
+        "use layerx_proof::receipt::AuthorizedBatch;\n",
     );
     fixture.write(
         "sample/src/other_journeys/deposit.rs",

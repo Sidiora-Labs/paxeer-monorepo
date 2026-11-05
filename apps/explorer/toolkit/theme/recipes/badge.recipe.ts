@@ -24,7 +24,7 @@ export const recipe = defineRecipe({
     height: 'auto',
     whiteSpace: 'nowrap',
     overflow: 'hidden',
-    fontVariantNumeric: 'normal',
+    fontVariantNumeric: 'tabular-nums',
     userSelect: 'text',
     '& > span': {
       minWidth: 0,
@@ -41,6 +41,8 @@ export const recipe = defineRecipe({
   },
   variants: {
     variant: {
+      solid: {},
+
       subtle: {},
       direction: {
         borderRadius: 'sm',
@@ -166,6 +168,9 @@ export const recipe = defineRecipe({
       },
     },
   },
+  compoundVariants: [
+    { variant: 'direction', css: { borderRadius: 'full' } },
+  ],
   defaultVariants: {
     variant: 'subtle',
     colorPalette: 'gray',

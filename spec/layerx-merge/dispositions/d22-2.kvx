@@ -1,0 +1,59 @@
+[disposition.22.6.4.7]
+finding = "22.6.4.7"
+status = "resolved"
+evidence = "054988c9f53ec52ac1f21d54dfcdb58d6e0f9ffa added MergePlanActive over the application's committed upgrade state in node/precompiles.go:120 and gates merge VM publication at precompiles/setup.go:493 and precompiles/setup.go:518, preserving the pre-activation absence and post-activation publication assertions."
+follow_up = "closure"
+
+[disposition.22.9.27.1]
+finding = "22.9.27.1"
+status = "resolved"
+evidence = "2bfc83f6dd887f656ce428083106a0b178bc1744 mounts both sequencer and chain-registry stores in rpc/sequencer_receipt_test.go:84 and supplies the served application's own SequencerKeeper in rpc/resolution_pending_test.go:151, removing the unregistered-store harness mismatch while the receipt route retains its keeper and context."
+follow_up = "closure"
+
+[disposition.22.1.9.2]
+finding = "22.1.9.2"
+status = "open"
+evidence = "Although b069914d5f4fe792d9c418dc49cf7b582bda7344 removed web from genesis-modules.conf, services/platform/hosted/node/bootstrap.sh:235 still includes web in the beta profile and services/platform/hosted/node/bootstrap.sh:248 still accepts it as an enabled module, requiring programme-authored follow-up 22.1.13 to retire those options and their help text."
+follow_up = "22.1.13"
+
+[disposition.22.2.5.6]
+finding = "22.2.5.6"
+status = "resolved"
+evidence = "ea039363eee9b135bcc504e4c82802cd930c0c8a refreshed the ledger and auth frozen digests at precompiles/layerxledger/abi_published_views_test.go:64 and synchronized services/wallet/attestor/internal/policy/evm/abi/layerxledger.json with the published ledger ABI's register, openAccount and issueGrant outputs."
+follow_up = "closure"
+
+[disposition.22.0.1.1]
+finding = "22.0.1.1"
+status = "open"
+evidence = "Despite the input corrections in 7c4799271, spec/layerx-merge/dispositions/d10-3.kvx:106 still assigns follow-up 18.1434.1, whose spec/layerx-merge/spec.kvx:135639 status is pending, so the live closure prerequisite that every assigned follow-up be done remains unsatisfied and task 22.0.1 must await the outstanding repairs."
+follow_up = "22.0.1"
+
+[disposition.22.23.10.1]
+finding = "22.23.10.1"
+status = "resolved"
+evidence = "a5a196edb6008c2a1ed2991e44230b26b5f3a658 changed replayedSettlementAnswersStoredTransaction at services/platform/middleware/seller/test/settlement-response.test.mjs:353 to assert the returned 409 receipt_reuse refusal with two settlements and one release, retaining the fulfillment-conflict assertion for a mismatched stored transaction hash."
+follow_up = "closure"
+
+[disposition.22.6.4.8]
+finding = "22.6.4.8"
+status = "resolved"
+evidence = "054988c9f53ec52ac1f21d54dfcdb58d6e0f9ffa corrected TestSidioraFeePaid at tests/chain/sidiora_fee_test.go:195 to expect zero FeeCollected and 32697 FeeRouted at tests/chain/sidiora_fee_test.go:199, matching the end-of-block sweep without changing routing or payer assertions."
+follow_up = "closure"
+
+[disposition.22.2.5.8]
+finding = "22.2.5.8"
+status = "resolved"
+evidence = "41642833f92d2e1db4289d7d1589ec246321a8a7 moved the authHandlers lookup to precompiles/layerxauth/layerxauth.go:83 before Actor resolution at precompiles/layerxauth/layerxauth.go:90, so unavailable methods return the unknown-method refusal that TestAuthWriteRefusals asserts at precompiles/layerxauth/layerxauth_test.go:121."
+follow_up = "closure"
+
+[disposition.22.24.16.1]
+finding = "22.24.16.1"
+status = "resolved"
+evidence = "ca07914ff9e9fed65781c9c08c73a62d63e77c33 restored services/wallet/attestor/go.sum with the filippo.io/edwards25519 v1.1.1 module and manifest checksums at services/wallet/attestor/go.sum:1, and 3260ae0399bad15c3094edddaadd1008a71a8ff2 restored the kernelvectors Cargo.lock deleted by 3a45b8541."
+follow_up = "closure"
+
+[disposition.22.9.28.2]
+finding = "22.9.28.2"
+status = "open"
+evidence = "rpc/server.go:325 registers the px receipt-keys service added by b333bce4cf409f360f0e236826d6ad24a3258d79, but rpc/testdata/served_methods_http.golden:100 proceeds from pax_uninstallFilter directly to txpool_content without px_getReceiptKeys, so the golden regeneration assigned to task 22.7.3 has not landed."
+follow_up = "22.7.3"

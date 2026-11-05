@@ -1,0 +1,7 @@
+[issue.1555]
+number = 1555
+title = "[Coherence] Repeated revokes can no longer return LXP_IDEMPOTENT_REPLAY, but the revoke tests still expect it"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "already-fixed"
+evidence = "Commit 41642833f92d2e1db4289d7d1589ec246321a8a7 corrected all three replay assertions at modules/layerxauth/keeper/revoke_test.go:133, modules/layerxauth/keeper/revoke_test.go:165 and modules/layerxauth/keeper/revoke_test.go:171 to ErrAuthScope while retaining unchanged-state checks, matching the global-sequence refusal at src/modules/governance/lxp_governance.c:629 and its error mapping at modules/layerxauth/keeper/kernel_codes.go:9."
+close_comment = "The revoke tests now expect ErrAuthScope for repeated revocations of both capability and session grants, matching the kernel's revocation-sequence check. They retain checks that refused replays leave grant state unchanged."

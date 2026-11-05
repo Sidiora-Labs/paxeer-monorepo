@@ -76,7 +76,7 @@ function noDeclaredRuntimeDependencyIsUnused(): void {
 
 function declaresTestAndTypecheckScripts(): void {
   expect(manifest.scripts.test).toBe('vitest run');
-  expect(manifest.scripts.typecheck).toBe('tsc --noEmit -p tsconfig.json');
+  expect(manifest.scripts.typecheck.split(' && ')).toEqual([ 'next typegen', 'tsc --noEmit -p tsconfig.json' ]);
 }
 
 function declaresNoTelemetryPackages(): void {
@@ -91,5 +91,5 @@ function declaresNoTelemetryPackages(): void {
 
 test(everyImportedPackageIsDeclared);
 test(noDeclaredRuntimeDependencyIsUnused);
-test(declaresTestAndTypecheckScripts);
+test(declaresTestAndTypecheckScripts.name, declaresTestAndTypecheckScripts);
 test(declaresNoTelemetryPackages);

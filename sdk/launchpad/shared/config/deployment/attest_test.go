@@ -57,12 +57,15 @@ func runtime(f evmFixture, name string, self common.Address) []byte {
 func slot(n int64) common.Hash      { return common.BigToHash(big.NewInt(n)) }
 func addrWord(a string) common.Hash { return common.BytesToHash(common.HexToAddress(a).Bytes()) }
 
-// newEVM uses the current Solidity artifact bytecodes with explicit isolated
+// newEVM uses the approved proxy deployment's Solidity bytecodes with explicit isolated
 // genesis storage. These are actual pinned EVM reads, not fabricated RPC replies.
 func newEVM(t *testing.T, mutate func(*Manifest, types.GenesisAlloc), chainID int64) (Manifest, Reader, common.Hash, Policy) {
 	t.Helper()
 	f := fixtures(t)
-	m := Current()
+	m, ok := Approved(generation2Height)
+	if !ok {
+		t.Fatal("approved proxy deployment unavailable")
+	}
 	m.Status = "eligible"
 	m.ActivationHeight = 1
 	alloc := types.GenesisAlloc{}

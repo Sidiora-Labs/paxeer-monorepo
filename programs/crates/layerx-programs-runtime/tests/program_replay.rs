@@ -137,11 +137,14 @@ fn guest(trap: bool, start: bool) -> Vec<u8> {
     module(&sections)
 }
 
-fn run(
+fn try_run(
     trap: bool,
     start: bool,
     profile: bool,
-) -> layerx_programs_runtime::V2AuthorizedExecutionRecord {
+) -> Result<
+    layerx_programs_runtime::V2AuthorizedExecutionRecord,
+    layerx_programs_runtime::ExecutionError,
+> {
     let engine = WasmEngine::declared().unwrap();
     let module = engine.validate_v2(&guest(trap, start)).unwrap();
     let executor = Executor::new(ResourceBudget::declared(), FeeSchedule::declared());
@@ -150,27 +153,25 @@ fn run(
     } else {
         executor
     };
-    executor
-        .execute_authorized_v2(
-            &mut Storage::new(),
-            AuthorizedExecutionRequest {
-                module: &module,
-                program: ProgramId::new([1; 32]).unwrap(),
-                authorization: AuthorizationContext::new(
-                    PrincipalId::new([2; 32]).unwrap(),
-                    CapabilitySet::empty(),
-                ),
-                receipts: &UnavailableReceiptOracle,
-                entrypoint: "layerx_call",
-                calldata: &[],
-                composition: CompositionContext::new(
-                    Rc::new(ProgramCatalog::new()),
-                    CompositionRules::declared(),
-                ),
-                response_capacity: 0,
-            },
-        )
-        .unwrap_or_else(|error| panic!("real production producer: {error:?}"))
+    executor.execute_authorized_v2(
+        &mut Storage::new(),
+        AuthorizedExecutionRequest {
+            module: &module,
+            program: ProgramId::new([1; 32]).unwrap(),
+            authorization: AuthorizationContext::new(
+                PrincipalId::new([2; 32]).unwrap(),
+                CapabilitySet::empty(),
+            ),
+            receipts: &UnavailableReceiptOracle,
+            entrypoint: "layerx_call",
+            calldata: &[],
+            composition: CompositionContext::new(
+                Rc::new(ProgramCatalog::new()),
+                CompositionRules::declared(),
+            ),
+            response_capacity: 0,
+        },
+    )
 }
 
 #[test]
@@ -198,30 +199,23 @@ fn actual_production_capture_is_opt_in_and_bounded() {
     );
 }
 #[test]
-fn actual_module_start_is_retained() {
-    let started = run(false, true, true);
-    let ordinary = run(false, false, true);
-    let engine = WasmEngine::declared().unwrap();
-    let module = engine.validate_v2(&guest(false, true)).unwrap();
-    let initializer = wasmparser_nostd::Parser::new(0)
-        .parse_all(module.meter_injection().instrumented_wasm())
-        .find_map(|payload| match payload.unwrap() {
-            wasmparser_nostd::Payload::StartSection { func, .. } => Some(func),
-            _ => None,
-        })
-        .expect("actual instrumented initializer");
-    assert!(actual_leaves(started.replay_record().unwrap())
-        .iter()
-        .any(|leaf| captured_functions(leaf).contains(&initializer)));
-    assert!(
-        started.replay_record().unwrap().boundary_count()
-            > ordinary.replay_record().unwrap().boundary_count()
+fn actual_module_start_refuses_unobservable_start_state() {
+    // 3e660e358 (done task 104.35.20) enables capture before pre.start in
+    // validate.rs::instantiate_state_replay_retained. wasmi's
+    // engine/mod.rs::execute_wasm_func maps observer refusal to UnreachableCodeReached
+    // before execute.rs::record_legacy_commitments can compare canonical accounting.
+    assert_eq!(
+        try_run(false, true, true),
+        Err(layerx_programs_runtime::ExecutionError::Fault(
+            layerx_programs_runtime::ExecutionFault::UnreachableExecuted
+        ))
     );
-    assert_ne!(
-        started.replay_record().unwrap().boundary_root(),
-        ordinary.replay_record().unwrap().boundary_root()
-    );
+    assert!(matches!(
+        try_run(false, true, false).unwrap().outcome(),
+        V2ActivityOutcome::Success { .. }
+    ));
 }
+
 #[test]
 fn actual_unreachable_has_a_distinct_retained_terminal_record() {
     let result = run(true, false, true);
@@ -245,4 +239,13 @@ fn invalid_signed_profile_bounds_are_refused() {
     ] {
         assert!(ProgramReplayProfile::new(bounds.0, bounds.1).is_err());
     }
+}
+
+fn run(
+    trap: bool,
+    start: bool,
+    profile: bool,
+) -> layerx_programs_runtime::V2AuthorizedExecutionRecord {
+    try_run(trap, start, profile)
+        .unwrap_or_else(|error| panic!("real production producer: {error:?}"))
 }

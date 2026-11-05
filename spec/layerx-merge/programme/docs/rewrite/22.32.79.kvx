@@ -1,0 +1,23 @@
+[manifest]
+task = "22.32.79"
+domain = 8
+owner_role = "fm-platform"
+pages = 3
+
+[page.1]
+path = "sdk/chainflow/python/SKILL.md"
+status = "stale"
+bytes = 2544
+source_1 = "record 22.30.71 [doc.15] (stale): Read as SDK documentation in full; lines 12-14 and 52-60 repeat base-only installation and an incomplete REST-only WebSocket example. Its authentication descriptions otherwise identify the distinct keys."
+
+[page.2]
+path = "sdk/chainflow/python/api.md"
+status = "stale"
+bytes = 19715
+source_1 = "record 22.30.71 [doc.17] (stale): Read in full; operation response caveats describe text UDF time, HTTP-200 application errors and display/raw ticker scaling, but the token and WebSocket setup examples do not supply their declared credentials."
+
+[page.3]
+path = "sdk/chainflow/rust/README.md"
+status = "stale"
+bytes = 9208
+source_1 = "record 22.30.72 [doc.13] (stale): Read in full; OAuth/token-cache language and the unconditional feature-combination promise disagree with implementation; see sdk-doc-oauth and sdk-doc-feature-matrix."

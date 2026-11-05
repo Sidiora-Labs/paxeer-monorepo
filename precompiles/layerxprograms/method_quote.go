@@ -1,7 +1,6 @@
 package layerxprograms
 
 import (
-	"crypto/sha256"
 	"fmt"
 	"math/big"
 
@@ -38,6 +37,5 @@ func quoteHandler(ctx sdk.Context, p *PrecompileExecutor, call callContext, args
 			return nil, fmt.Errorf("LXP_OVERFLOW: programs fee ceiling exceeds uint128")
 		}
 	}
-	digest := sha256.Sum256(record)
-	return programsABI.Methods["quoteCallFee"].Outputs.Pack(schedule.Version, ceiling, digest)
+	return programsABI.Methods["quoteCallFee"].Outputs.Pack(schedule.Version, ceiling, schedule.Asset)
 }

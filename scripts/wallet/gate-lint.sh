@@ -46,7 +46,19 @@ Exit status is non-zero when any target is absent, failed or the budget ran out.
 EOF
 }
 
-GOFMT_CMD='out="$(gofmt -l .)"; if [ -n "$out" ]; then printf "unformatted:\n%s\n" "$out"; exit 1; fi'
+GOFMT_CMD='gofmt_result() {
+  local status="$1" out="$2"
+  if [ "$status" -ne 0 ]; then
+    return "$status"
+  fi
+  if [ -n "$out" ]; then
+    printf "unformatted:\n%s\n" "$out"
+    return 1
+  fi
+}
+out="$(gofmt -l .)"
+status=$?
+gofmt_result "$status" "$out"'
 PNPM_ESLINT_CMD='pnpm -r exec bash -c '"'"'if compgen -G "eslint.config.*" >/dev/null || compgen -G ".eslintrc*" >/dev/null; then exec eslint .; fi'"'"
 SDK_BUILD_CMD='pnpm --filter @paxeer/wallet run build'
 PNPM_TSC_CMD="$SDK_BUILD_CMD"' && pnpm -r exec bash -c '"'"'if [ -f tsconfig.json ]; then exec tsc --noEmit; fi'"'"

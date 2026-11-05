@@ -86,6 +86,10 @@ func (c configurator) RegisterMigration(moduleName string, forVersion uint64, ha
 // runModuleMigrations runs all in-place store migrations for one given module from a
 // version to another version.
 func (c configurator) runModuleMigrations(ctx sdk.Context, moduleName string, fromVersion, toVersion uint64) error {
+	if fromVersion > toVersion {
+		return sdkerrors.Wrapf(sdkerrors.ErrInvalidVersion, "cannot downgrade module %s from version %d to version %d", moduleName, fromVersion, toVersion)
+	}
+
 	// No-op if toVersion is the initial version or if the version is unchanged.
 	if toVersion <= 1 || fromVersion == toVersion {
 		return nil

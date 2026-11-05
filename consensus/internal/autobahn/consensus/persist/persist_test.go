@@ -6,7 +6,6 @@ import (
 	"hash/crc32"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	"google.golang.org/protobuf/proto"
@@ -146,80 +145,155 @@ func TestNewPersisterInvalidDirError(t *testing.T) {
 }
 
 func TestPersistWriteErrorReturnsError(t *testing.T) {
-	// When the directory becomes inaccessible (e.g. permission denied),
+	// When the directory is replaced with a regular file,
 	// Persist returns error from OpenFile.
-	if runtime.GOOS == "windows" {
-		t.Skip("chmod 000 on directory not reliable on Windows")
-	}
-	dir := t.TempDir()
+	dir := filepath.Join(t.TempDir(), "state")
+	require.NoError(t, os.Mkdir(dir, 0700))
 	w, _, err := NewPersister[*wrapperspb.StringValue](utils.Some(dir), "test")
 	require.NoError(t, err)
 	require.NoError(t, w.Persist(wrapperspb.String("data1")))
-	// Remove all permissions from dir so OpenFile fails with EACCES
-	require.NoError(t, os.Chmod(dir, 0000))
-	defer os.Chmod(dir, 0700) //nolint:errcheck
+	require.NoError(t, os.Rename(dir, dir+"-backup"))
+	require.NoError(t, os.WriteFile(dir, nil, 0600))
 	err = w.Persist(wrapperspb.String("data2"))
 	require.Error(t, err)
+	var pathErr *os.PathError
+	require.True(t, errors.As(err, &pathErr))
 }
 
 func TestPersistWriteErrorDoesNotAdvanceSeq(t *testing.T) {
-	// When Persist fails (e.g. permission denied), seq must not advance.
+	// When Persist fails, seq must not advance.
 	// Otherwise the next successful write would target the same file as the
 	// last good write, destroying the only valid backup.
-	if runtime.GOOS == "windows" {
-		t.Skip("chmod 000 on directory not reliable on Windows")
+	for _, tc := range []struct {
+		name         string
+		writes       uint64
+		backupSuffix string
+		targetSuffix string
+	}{
+		{"write_B", 1, suffixA, suffixB},
+		{"write_A", 2, suffixB, suffixA},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := filepath.Join(t.TempDir(), "state")
+			require.NoError(t, os.Mkdir(dir, 0700))
+			w, _, err := NewPersister[*wrapperspb.StringValue](utils.Some(dir), "test")
+			require.NoError(t, err)
+			for range tc.writes {
+				require.NoError(t, w.Persist(wrapperspb.String("good")))
+			}
+			backupName := "test" + tc.backupSuffix
+			targetName := "test" + tc.targetSuffix
+			backupBytes, err := os.ReadFile(filepath.Join(dir, backupName))
+			require.NoError(t, err)
+			targetBytes, err := os.ReadFile(filepath.Join(dir, targetName))
+			require.NoError(t, err)
+
+			// A regular file in place of the state directory fails even as root.
+			savedDir := dir + "-backup"
+			require.NoError(t, os.Rename(dir, savedDir))
+			require.NoError(t, os.WriteFile(dir, nil, 0600))
+			err = w.Persist(wrapperspb.String("fail"))
+			require.Error(t, err)
+			var pathErr *os.PathError
+			require.True(t, errors.As(err, &pathErr))
+			require.Equal(t, filepath.Join(dir, targetName), pathErr.Path)
+			require.Equal(t, tc.writes, w.(*abPersister[*wrapperspb.StringValue]).seq)
+			for name, want := range map[string][]byte{backupName: backupBytes, targetName: targetBytes} {
+				got, err := os.ReadFile(filepath.Join(savedDir, name))
+				require.NoError(t, err)
+				require.Equal(t, want, got, "failed write must leave both snapshots intact")
+			}
+			require.NoError(t, os.Remove(dir))
+			require.NoError(t, os.Rename(savedDir, dir))
+
+			// Reopening after the failure must still recover the last good state.
+			_, loaded, err := NewPersister[*wrapperspb.StringValue](utils.Some(dir), "test")
+			require.NoError(t, err)
+			msg, ok := loaded.Get()
+			require.True(t, ok)
+			require.Equal(t, "good", msg.GetValue())
+
+			// Retry the original writer: the loser slot gets the next sequence,
+			// while the valid backup remains byte-for-byte unchanged.
+			require.NoError(t, w.Persist(wrapperspb.String("recovered")))
+			written, err := loadFile(dir, targetName)
+			require.NoError(t, err)
+			require.Equal(t, tc.writes+1, written.seq)
+			var decoded wrapperspb.StringValue
+			require.NoError(t, proto.Unmarshal(written.data, &decoded))
+			require.Equal(t, "recovered", decoded.GetValue())
+			gotBackup, err := os.ReadFile(filepath.Join(dir, backupName))
+			require.NoError(t, err)
+			require.Equal(t, backupBytes, gotBackup)
+			backup, err := loadFile(dir, backupName)
+			require.NoError(t, err)
+			require.Equal(t, tc.writes, backup.seq)
+
+			_, loaded, err = NewPersister[*wrapperspb.StringValue](utils.Some(dir), "test")
+			require.NoError(t, err)
+			msg, ok = loaded.Get()
+			require.True(t, ok)
+			require.Equal(t, "recovered", msg.GetValue())
+		})
 	}
-	dir := t.TempDir()
-	w, _, err := NewPersister[*wrapperspb.StringValue](utils.Some(dir), "test")
-	require.NoError(t, err)
-
-	// Successful write: seq=1 → A
-	require.NoError(t, w.Persist(wrapperspb.String("good")))
-
-	// Make dir unwritable so next Persist fails
-	require.NoError(t, os.Chmod(dir, 0000))
-	err = w.Persist(wrapperspb.String("fail"))
-	require.Error(t, err)
-	require.NoError(t, os.Chmod(dir, 0700))
-
-	// Next successful write should go to B (seq=2), preserving A.
-	// If seq had incorrectly advanced during the failed write, this would
-	// write to A (seq=3), overwriting our only good data.
-	require.NoError(t, w.Persist(wrapperspb.String("recovered")))
-
-	// Verify: "recovered" is latest.
-	_, loaded, err := NewPersister[*wrapperspb.StringValue](utils.Some(dir), "test")
-	require.NoError(t, err)
-	msg, ok := loaded.Get()
-	require.True(t, ok)
-	require.Equal(t, "recovered", msg.GetValue())
 }
 
 func TestLoadPersistedOSErrorPropagates(t *testing.T) {
 	// When one A/B file has an OS-level error (not corrupt data),
 	// loadPersisted should propagate the error instead of silently
 	// falling back to the other file.
-	if runtime.GOOS == "windows" {
-		t.Skip("chmod 000 on file not reliable on Windows")
+	for _, suffix := range []string{suffixA, suffixB} {
+		t.Run(suffix, func(t *testing.T) {
+			dir := t.TempDir()
+
+			// Write to both files: A(seq=1), B(seq=2).
+			w, _, err := NewPersister[*wrapperspb.StringValue](utils.Some(dir), "test")
+			require.NoError(t, err)
+			require.NoError(t, w.Persist(wrapperspb.String("first")))
+			require.NoError(t, w.Persist(wrapperspb.String("second")))
+
+			// Reading a directory as a snapshot is an OS error even as root.
+			// Test both the older slot and the winner: neither may be ignored.
+			filename := "test" + suffix
+			path := filepath.Join(dir, filename)
+			savedPath := path + "-backup"
+			require.NoError(t, os.Rename(path, savedPath))
+			require.NoError(t, os.Mkdir(path, 0700))
+			_, readErr := os.ReadFile(path)
+			require.Error(t, readErr)
+			var readPathErr *os.PathError
+			require.True(t, errors.As(readErr, &readPathErr))
+
+			assertReadError := func(t *testing.T, err error) {
+				t.Helper()
+				require.Error(t, err)
+				require.False(t, errors.Is(err, ErrCorrupt), "OS error should not be wrapped as ErrCorrupt")
+				require.False(t, errors.Is(err, ErrNoData), "should not be ErrNoData")
+				require.False(t, errors.Is(err, os.ErrNotExist), "the conflicting path exists")
+				var pathErr *os.PathError
+				require.True(t, errors.As(err, &pathErr))
+				require.Equal(t, path, pathErr.Path)
+				require.ErrorIs(t, err, readPathErr.Err)
+			}
+			_, err = loadFile(dir, filename)
+			assertReadError(t, err)
+			_, err = loadPersisted(dir, "test")
+			assertReadError(t, err)
+			failedWriter, loaded, err := NewPersister[*wrapperspb.StringValue](utils.Some(dir), "test")
+			assertReadError(t, err)
+			require.Nil(t, failedWriter)
+			require.False(t, loaded.IsPresent())
+
+			// Removing only the obstruction restores the real persisted state.
+			require.NoError(t, os.Remove(path))
+			require.NoError(t, os.Rename(savedPath, path))
+			_, loaded, err = NewPersister[*wrapperspb.StringValue](utils.Some(dir), "test")
+			require.NoError(t, err)
+			msg, ok := loaded.Get()
+			require.True(t, ok)
+			require.Equal(t, "second", msg.GetValue())
+		})
 	}
-	dir := t.TempDir()
-
-	// Write to both files: A(seq=1), B(seq=2)
-	w, _, err := NewPersister[*wrapperspb.StringValue](utils.Some(dir), "test")
-	require.NoError(t, err)
-	require.NoError(t, w.Persist(wrapperspb.String("first")))  // seq=1, A
-	require.NoError(t, w.Persist(wrapperspb.String("second"))) // seq=2, B
-
-	// Make B unreadable (OS error, not corrupt data)
-	pathB := filepath.Join(dir, "test"+suffixB)
-	require.NoError(t, os.Chmod(pathB, 0000))
-	defer os.Chmod(pathB, 0600) //nolint:errcheck
-
-	// loadPersisted should fail — not silently fall back to A
-	_, err = loadPersisted(dir, "test")
-	require.Error(t, err)
-	require.False(t, errors.Is(err, ErrCorrupt), "OS error should not be wrapped as ErrCorrupt")
-	require.False(t, errors.Is(err, ErrNoData), "should not be ErrNoData")
 }
 
 func TestNewPersisterResumeSeq(t *testing.T) {

@@ -1,0 +1,4 @@
+interface.9.ts-sdk-rpc-walletaccount
+interface.9.ts-sdk-verifier-receipteffect
+interface.9.ts-sdk-verifier-receiptverification
+interface.9.ts-sdk-verifier-receiptverificationerror

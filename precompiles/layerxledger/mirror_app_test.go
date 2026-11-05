@@ -41,10 +41,19 @@ func TestBankMirrorMatchesKernelBalances(t *testing.T) {
 	abi := p.GetABI()
 	call := func(caller common.Address, name string, args ...interface{}) []interface{} {
 		t.Helper()
+		before := storeSnapshot(t, ctx.KVStore(a.GetKey(app.LayerXHostStoreKey)))
+		logs := len(db.GetAllLogs())
 		input, err := abi.Pack(name, args...)
 		require.NoError(t, err, name)
 		evm.TxContext.Origin = caller
 		data, err := p.Run(evm, caller, caller, input, nil, abi.Methods[name].IsConstant(), false, nil)
+		if name == "issueGrant" || name == "draw" {
+			require.ErrorIs(t, err, vm.ErrExecutionReverted)
+			assertLedgerRevert(t, data, "LXP_NO_PAYER_GRANT")
+			require.Equal(t, before, storeSnapshot(t, ctx.KVStore(a.GetKey(app.LayerXHostStoreKey))))
+			require.Len(t, db.GetAllLogs(), logs)
+			return nil
+		}
 		require.NoError(t, err, "%s returned %x", name, data)
 		outputs := abi.Methods[name].Outputs
 		switch name {
@@ -83,10 +92,7 @@ func TestBankMirrorMatchesKernelBalances(t *testing.T) {
 	denom := types.MirrorDenom(asset)
 	_, issuance, err := lxphost.IssuanceAccountID(asset)
 	require.NoError(t, err)
-	main := transferMainAccount(t, &harness{
-		ctx: ctx, host: a.LayerXHost, hostKey: a.GetKey(app.LayerXHostStoreKey),
-	}, payer, asset)
-	balances := map[[32]byte]int64{issuance: cap, main: 0}
+	balances := map[[32]byte]int64{issuance: cap}
 	assertMirror := func(stage string, units int64) {
 		t.Helper()
 		var sum int64
@@ -128,23 +134,23 @@ func TestBankMirrorMatchesKernelBalances(t *testing.T) {
 	assertMirror("mint", 250)
 
 	now := uint64(ctx.BlockTime().UnixMilli())
-	call(payerCaller, "payExact", from, main, asset, big.NewInt(100), now+1000, [32]byte{0x42})
-	balances[from], balances[main] = 150, 100
-	assertMirror("fund main with payExact", 250)
+	call(payerCaller, "payExact", from, to, asset, big.NewInt(100), now+1000, [32]byte{0x42})
+	balances[from], balances[to] = 150, 100
+	assertMirror("payExact to opened recipient", 250)
 	key := [32]byte{0x43}
-	material = append(append(append([]byte(nil), main[:]...), to[:]...), asset[:]...)
+	material = append(append(append([]byte(nil), from[:]...), to[:]...), asset[:]...)
 	var amount [16]byte
 	big.NewInt(40).FillBytes(amount[:])
 	material = append(material, amount[:]...)
 	contextHash, err := codec.DomainHash(codec.DomainContextHash, append(material, key[:]...))
 	require.NoError(t, err)
-	mainName, _, err := lxphost.MainAccountID(payer.DIDKey)
+	fromName, _, err := lxphost.AssetAccountID(payer.DIDKey, asset)
 	require.NoError(t, err)
-	mainAccount, err := a.LayerXHost.ReadAccount(ctx, mainName, main)
+	fromAccount, err := a.LayerXHost.ReadAccount(ctx, fromName, from)
 	require.NoError(t, err)
 	payload, err := types.EncodeSendPayload(types.SendArgs{
-		From: main, To: to, Asset: asset, Amount: mainAccount.Balance.SubRaw(60),
-		Sequence: mainAccount.NextSequence, IdempotencyKey: key, ExpiresAt: now + 1000,
+		From: from, To: to, Asset: asset, Amount: fromAccount.Balance.SubRaw(110),
+		Sequence: fromAccount.NextSequence, IdempotencyKey: key, ExpiresAt: now + 1000,
 		ContextHash: contextHash, PublicKey: payer.DIDKey,
 		NetworkID: uint32(a.EvmKeeper.ChainID(ctx).Uint64()), ProtocolVersion: codec.StateCommitmentProtocolVersion,
 	})
@@ -158,7 +164,7 @@ func TestBankMirrorMatchesKernelBalances(t *testing.T) {
 	copy(payload[authorization+65:authorization+129], ed25519.Sign(private, digest[:]))
 	require.NoError(t, types.ValidateSendEnvelope(payload))
 	call(payerCaller, "send", payload)
-	balances[main], balances[to] = 60, 40
+	balances[from], balances[to] = 110, 140
 	assertMirror("send", 250)
 
 	purpose := [32]byte{0x44}
@@ -184,13 +190,13 @@ func TestBankMirrorMatchesKernelBalances(t *testing.T) {
 	grant := append(append([]byte(nil), grantID[:]...), body...)
 	grant = append(grant, ed25519.Sign(private, grantID[:])...)
 	require.NoError(t, types.ValidateIssueGrantPayload(grant))
-	require.Equal(t, []interface{}{grantID}, call(payerCaller, "issueGrant", grant))
+	call(payerCaller, "issueGrant", grant)
 	assertMirror("issueGrant", 250)
-	sequence := call(payeeCaller, "nextSequence", payee.DIDKey, asset)[0].(uint64)
+	sequence := call(payeeCaller, "nextSequence", to, asset)[0].(uint64)
 	call(payeeCaller, "draw", grantID, to, big.NewInt(15), [32]byte{0x45}, sequence, purpose, contextHash)
-	balances[from], balances[to] = 135, 55
+	balances[from], balances[to] = 110, 140
 	assertMirror("draw", 250)
 	call(payerCaller, "payExact", from, to, asset, big.NewInt(3), now+1000, [32]byte{0x46})
-	balances[from], balances[to] = 132, 58
+	balances[from], balances[to] = 107, 143
 	assertMirror("payExact", 250)
 }

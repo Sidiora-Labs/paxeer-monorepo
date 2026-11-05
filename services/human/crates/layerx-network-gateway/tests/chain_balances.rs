@@ -1,7 +1,11 @@
 use layerx_network_gateway::{
-    AssetBalance, Evidence, GatewayError, decode_account, decode_account_balances,
+    decode_account, decode_account_balances, AssetBalance, Evidence, GatewayError,
+    WalletObservation,
 };
-use serde_json::{Value, json};
+use serde_json::{json, Value};
+
+#[path = "support/hosted_gateway.rs"]
+mod hosted_gateway;
 
 fn account_document() -> Value {
     json!({
@@ -43,11 +47,11 @@ fn balances_decode_bank_coins_at_one_height() {
         vec![
             AssetBalance {
                 denom: "upax".to_owned(),
-                amount: 5000
+                amount: 5000.into()
             },
             AssetBalance {
                 denom: "uusdc".to_owned(),
-                amount: 7
+                amount: 7.into()
             },
         ]
     );
@@ -55,28 +59,58 @@ fn balances_decode_bank_coins_at_one_height() {
     assert_eq!(balances.asset("uusdc"), balances.balances.get(1));
     assert_eq!(balances.asset("missing"), None);
 
-    let vectors: Value = serde_json::from_str(include_str!(
-        "../../../../platform/hosted/gateway/tests/fixtures/paxeer-abi-vectors.json"
-    ))
-    .expect("recorded bank ABI answers");
-    let bank = vectors["cases"]
-        .as_array()
-        .expect("recorded cases")
+    answer = hosted_gateway::balances();
+    let recorded = decode_account_balances(&answer).expect("recorded uint256 balances decode");
+    let bank = hosted_gateway::vector("bank.all_balances");
+    assert_eq!(recorded.height, 16);
+    assert_eq!(recorded.balances.len(), 2);
+    for (row, expected) in recorded
+        .balances
         .iter()
-        .find(|case| case["name"] == "bank.all_balances")
-        .expect("recorded all_balances answer used by task 8.5.1");
-    answer["height"] = json!(16);
-    answer["balances"] = bank["out"]["response"].clone();
+        .zip(bank["out"]["response"].as_array().unwrap())
+    {
+        assert_eq!(row.denom, expected["denom"].as_str().unwrap());
+        assert_eq!(row.amount.to_string(), expected["amount"].as_str().unwrap());
+    }
     assert_eq!(
-        decode_account_balances(&answer),
-        Err(GatewayError::MalformedAnswer)
+        recorded.balances[1].amount.for_operation("native-send"),
+        Err(GatewayError::AmountOutOfRange {
+            operation: "native-send"
+        })
+    );
+
+    let observed = WalletObservation::accept(recorded).expect("real production wallet consumer");
+    let denom = &hosted_gateway::coins()[1].0;
+    assert_eq!(
+        observed.balance(denom).unwrap().to_string(),
+        hosted_gateway::TWO_TO_200
+    );
+    assert_eq!(observed.joined().balances.len(), 2);
+    assert_eq!(observed.balance("ulxp"), Some(123_456_789.into()));
+    assert_eq!(observed.balance("missing"), None);
+    assert_eq!(
+        observed.joined().account,
+        decode_account(&hosted_gateway::account()).unwrap().account
+    );
+
+    answer["balances"][1]["amount"] = json!("340282366920938463463374607431768211456");
+    let large = decode_account_balances(&answer).expect("valid 2^128 balance decodes");
+    assert_eq!(
+        large.balances[1].amount.to_string(),
+        "340282366920938463463374607431768211456"
+    );
+    assert_eq!(
+        large.balances[1].amount.for_operation("native-send"),
+        Err(GatewayError::AmountOutOfRange {
+            operation: "native-send"
+        })
     );
 
     answer["height"] = json!(u64::MAX.to_string());
     answer["balances"] = json!([{"denom": "upax", "amount": u128::MAX.to_string()}]);
     let maximum = decode_account_balances(&answer).expect("exact integer bounds decode");
     assert_eq!(maximum.height, u64::MAX);
-    assert_eq!(maximum.balances[0].amount, u128::MAX);
+    assert_eq!(maximum.balances[0].amount, u128::MAX.into());
     answer["balances"] = json!([]);
     let empty = decode_account_balances(&answer).expect("empty bank answer decodes");
     assert_eq!(empty.height, u64::MAX);
@@ -110,12 +144,24 @@ fn balances_refuse_row_without_denom() {
         decode_account_balances(&answer),
         Err(GatewayError::MalformedAnswer)
     );
-    answer = balance_answer();
-    answer["balances"][1]["amount"] = json!("340282366920938463463374607431768211456");
-    assert_eq!(
-        decode_account_balances(&answer),
-        Err(GatewayError::MalformedAnswer)
-    );
+    for invalid in [
+        json!(hosted_gateway::OVERFLOW),
+        json!(format!("0x1{}", "0".repeat(64))),
+        Value::Null,
+        json!(true),
+        json!(-1),
+        json!(1.5),
+        json!("-1"),
+        json!("1e2"),
+        json!("0xgg"),
+    ] {
+        answer = balance_answer();
+        answer["balances"][1]["amount"] = invalid;
+        assert_eq!(
+            decode_account_balances(&answer),
+            Err(GatewayError::MalformedAnswer)
+        );
+    }
     for height in [Value::Null, json!("18446744073709551616"), json!(-1)] {
         answer = balance_answer();
         answer["height"] = height;
@@ -141,7 +187,7 @@ fn account_decodes_paxeer_account_with_height() {
     assert_eq!(account.evidence, Evidence::GatewayReported);
     let paxeer = account.paxeer.expect("Paxeer chain account");
     assert_eq!(Some(paxeer.address), account.account.evm_address);
-    assert_eq!(paxeer.balance, 9);
+    assert_eq!(paxeer.balance, 9.into());
     assert_eq!(paxeer.nonce, 3);
     assert_eq!(paxeer.height, 812);
 
@@ -150,7 +196,7 @@ fn account_decodes_paxeer_account_with_height() {
     answer["paxeer"]["height"] = json!(16);
     let recorded = decode_account(&answer).expect("task 8.5.1 account answer decodes");
     let recorded = recorded.paxeer.expect("recorded Paxeer account");
-    assert_eq!(recorded.balance, 0x123456789abcdef);
+    assert_eq!(recorded.balance, 0x123456789abcdef.into());
     assert_eq!(recorded.nonce, 42);
     assert_eq!(recorded.height, 16);
 

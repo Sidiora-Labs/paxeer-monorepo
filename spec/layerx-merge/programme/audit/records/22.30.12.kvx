@@ -1,0 +1,2337 @@
+[audit.22.30.12]
+task = "22.30.12"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 155
+findings = 99
+docs_reviewed = 16
+upgrade_ready = false
+blocking = ["f004", "f036", "f037", "f038"]
+produces_reviewed = 268
+consumes_reviewed = 285
+review_basis = "All 155 member files read in full against package acceptance criteria, 268 produced and 285 consumed registry rows, documentation and real query/amount/stream producers. This record proposes repairs only and claims no application-test qualification."
+registry_notes = "Domain-8 assets/markets/quotes/paxeer configuration rows and domain-11 gas-timeout/domain-12 NODE_ENV consumed rows include lexical name matches, not schema calls from these widgets. Historical anchors were compared with current code. Disposable private testnet fixtures are not public-chain drift."
+
+[file.001]
+path = "apps/perps/data_api.md"
+lines = 675
+verdict = "issues"
+note = "Read in full. The /perp_stats and perp_stats topic examples still advertise est_funding_rate, volume_24h and open_interest as the funding and notional contract. The current client expects exact funding_rate strings and volume_24h_usd, and records.PerpStats exposes last_funding_rate_hourly instead."
+
+[file.002]
+path = "apps/perps/sentry.client.config.ts"
+lines = 79
+verdict = "issues"
+note = "Read in full. beforeSend only redacts event.message and exception values; redactSecrets does not match 0x-prefixed private keys or wallet addresses, and request, breadcrumbs and extra data pass through unchanged."
+consumes = ["12.env-gw-node-env"]
+
+[file.003]
+path = "apps/perps/sentry.edge.config.ts"
+lines = 23
+verdict = "issues"
+note = "Read in full. The edge Sentry initialization enables reporting without the beforeSend sanitization used by the client configuration."
+consumes = ["12.env-gw-node-env"]
+
+[file.004]
+path = "apps/perps/src/components/paxeer/ActiveOrders.tsx"
+lines = 54
+verdict = "issues"
+note = "Read in full. ActiveOrders remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+produces = ["3.ts-perps-components-paxeer-activeorders-activeorders", "3.ts-perps-components-paxeer-activeorders-default"]
+
+[file.005]
+path = "apps/perps/src/components/paxeer/AddressChip.tsx"
+lines = 97
+verdict = "issues"
+note = "Read in full. AddressChip remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+produces = ["3.ts-perps-components-paxeer-addresschip-addresschip", "3.ts-perps-components-paxeer-addresschip-default"]
+
+[file.006]
+path = "apps/perps/src/components/paxeer/ClosedPositions.tsx"
+lines = 60
+verdict = "issues"
+note = "Read in full. ClosedPositions remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+produces = ["3.ts-perps-components-paxeer-closedpositions-closedpositions", "3.ts-perps-components-paxeer-closedpositions-default"]
+
+[file.007]
+path = "apps/perps/src/components/paxeer/CommandPalette.tsx"
+lines = 74
+verdict = "issues"
+note = "Read in full. CommandPalette remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+produces = ["3.ts-perps-components-paxeer-commandpalette-commandpalette", "3.ts-perps-components-paxeer-commandpalette-default"]
+
+[file.008]
+path = "apps/perps/src/components/paxeer/ConfirmSlider.tsx"
+lines = 113
+verdict = "issues"
+note = "Read in full. ConfirmSlider remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+produces = ["3.ts-perps-components-paxeer-confirmslider-confirmslider", "3.ts-perps-components-paxeer-confirmslider-default"]
+
+[file.009]
+path = "apps/perps/src/components/paxeer/CumulativePnL.tsx"
+lines = 69
+verdict = "issues"
+note = "Read in full. CumulativePnL remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+produces = ["3.ts-perps-components-paxeer-cumulativepnl-cumulativepnl", "3.ts-perps-components-paxeer-cumulativepnl-default"]
+
+[file.010]
+path = "apps/perps/src/components/paxeer/DataInput.tsx"
+lines = 103
+verdict = "issues"
+note = "Read in full. DataInput remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+produces = ["3.ts-perps-components-paxeer-datainput-datainput", "3.ts-perps-components-paxeer-datainput-default"]
+
+[file.011]
+path = "apps/perps/src/components/paxeer/DepthChart.tsx"
+lines = 66
+verdict = "issues"
+note = "Read in full. DepthChart remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+produces = ["3.ts-perps-components-paxeer-depthchart-default", "3.ts-perps-components-paxeer-depthchart-depthchart"]
+
+[file.012]
+path = "apps/perps/src/components/paxeer/EpochCountdown.tsx"
+lines = 67
+verdict = "issues"
+note = "Read in full. EpochCountdown remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+produces = ["3.ts-perps-components-paxeer-epochcountdown-default", "3.ts-perps-components-paxeer-epochcountdown-epochcountdown"]
+
+[file.013]
+path = "apps/perps/src/components/paxeer/FeesBreakdown.tsx"
+lines = 71
+verdict = "issues"
+note = "Read in full. FeesBreakdown remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+produces = ["3.ts-perps-components-paxeer-feesbreakdown-default", "3.ts-perps-components-paxeer-feesbreakdown-feesbreakdown"]
+
+[file.014]
+path = "apps/perps/src/components/paxeer/GasWeather.tsx"
+lines = 71
+verdict = "issues"
+note = "Read in full. GasWeather remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+produces = ["3.ts-perps-components-paxeer-gasweather-default", "3.ts-perps-components-paxeer-gasweather-gasweather"]
+
+[file.015]
+path = "apps/perps/src/components/paxeer/GestureUnlock.tsx"
+lines = 91
+verdict = "issues"
+note = "Read in full. GestureUnlock remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+produces = ["3.ts-perps-components-paxeer-gestureunlock-default", "3.ts-perps-components-paxeer-gestureunlock-gestureunlock"]
+
+[file.016]
+path = "apps/perps/src/components/paxeer/GhostHold.tsx"
+lines = 54
+verdict = "issues"
+note = "Read in full. GhostHold remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+produces = ["3.ts-perps-components-paxeer-ghosthold-default", "3.ts-perps-components-paxeer-ghosthold-ghosthold"]
+
+[file.017]
+path = "apps/perps/src/components/paxeer/Leaderboard.tsx"
+lines = 114
+verdict = "issues"
+note = "Read in full. Leaderboard remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+produces = ["3.ts-perps-components-paxeer-leaderboard-default", "3.ts-perps-components-paxeer-leaderboard-leaderboard"]
+
+[file.018]
+path = "apps/perps/src/components/paxeer/LeaderboardStats.tsx"
+lines = 40
+verdict = "issues"
+note = "Read in full. LeaderboardStats remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+produces = ["3.ts-perps-components-paxeer-leaderboardstats-default", "3.ts-perps-components-paxeer-leaderboardstats-leaderboardstats"]
+
+[file.019]
+path = "apps/perps/src/components/paxeer/LeverageDial.tsx"
+lines = 104
+verdict = "issues"
+note = "Read in full. LeverageDial remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+produces = ["3.ts-perps-components-paxeer-leveragedial-default", "3.ts-perps-components-paxeer-leveragedial-leveragedial"]
+
+[file.020]
+path = "apps/perps/src/components/paxeer/LiquidStat.tsx"
+lines = 92
+verdict = "issues"
+note = "Read in full. LiquidStat remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+produces = ["3.ts-perps-components-paxeer-liquidstat-default", "3.ts-perps-components-paxeer-liquidstat-liquidstat"]
+
+[file.021]
+path = "apps/perps/src/components/paxeer/MagneticSwap.tsx"
+lines = 168
+verdict = "issues"
+note = "Read in full. MagneticSwap remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+produces = ["3.ts-perps-components-paxeer-magneticswap-default", "3.ts-perps-components-paxeer-magneticswap-magneticswap"]
+
+[file.022]
+path = "apps/perps/src/components/paxeer/NetworkPill.tsx"
+lines = 88
+verdict = "issues"
+note = "Read in full. NetworkPill remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+produces = ["3.ts-perps-components-paxeer-networkpill-default", "3.ts-perps-components-paxeer-networkpill-networkpill"]
+consumes = ["8.cfg-ramp-reference-config-paxeer", "8.cfg-ramps-paxeer"]
+
+[file.023]
+path = "apps/perps/src/components/paxeer/OrbitalSelector.tsx"
+lines = 109
+verdict = "issues"
+note = "Read in full. OrbitalSelector remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+produces = ["3.ts-perps-components-paxeer-orbitalselector-default", "3.ts-perps-components-paxeer-orbitalselector-orbitalselector"]
+
+[file.024]
+path = "apps/perps/src/components/paxeer/OrderBook.tsx"
+lines = 97
+verdict = "issues"
+note = "Read in full. OrderBook remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+produces = ["3.ts-perps-components-paxeer-orderbook-default", "3.ts-perps-components-paxeer-orderbook-orderbook"]
+
+[file.025]
+path = "apps/perps/src/components/paxeer/OrderEntry.tsx"
+lines = 146
+verdict = "issues"
+note = "Read in full. OrderEntry remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+produces = ["3.ts-perps-components-paxeer-orderentry-default", "3.ts-perps-components-paxeer-orderentry-orderentry"]
+consumes = ["8.cfg-paxai-worker-config-market"]
+
+[file.026]
+path = "apps/perps/src/components/paxeer/OrderbookTopo.tsx"
+lines = 65
+verdict = "issues"
+note = "Read in full. OrderbookTopo remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+produces = ["3.ts-perps-components-paxeer-orderbooktopo-default", "3.ts-perps-components-paxeer-orderbooktopo-orderbooktopo"]
+
+[file.027]
+path = "apps/perps/src/components/paxeer/Overview.tsx"
+lines = 51
+verdict = "issues"
+note = "Read in full. Overview remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+produces = ["3.ts-perps-components-paxeer-overview-default", "3.ts-perps-components-paxeer-overview-overview"]
+
+[file.028]
+path = "apps/perps/src/components/paxeer/Performance.tsx"
+lines = 62
+verdict = "issues"
+note = "Read in full. Performance remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+produces = ["3.ts-perps-components-paxeer-performance-default", "3.ts-perps-components-paxeer-performance-performance"]
+
+[file.029]
+path = "apps/perps/src/components/paxeer/PositionCard.tsx"
+lines = 122
+verdict = "issues"
+note = "Read in full. PositionCard remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+produces = ["3.ts-perps-components-paxeer-positioncard-default", "3.ts-perps-components-paxeer-positioncard-positioncard"]
+
+[file.030]
+path = "apps/perps/src/components/paxeer/PulseFeed.tsx"
+lines = 81
+verdict = "issues"
+note = "Read in full. PulseFeed remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+produces = ["3.ts-perps-components-paxeer-pulsefeed-default", "3.ts-perps-components-paxeer-pulsefeed-pulsefeed"]
+
+[file.031]
+path = "apps/perps/src/components/paxeer/README.md"
+lines = 225
+verdict = "issues"
+note = "Read in full. Line 3 calls unmounted demonstrations production-ready; lines 139-143 promise address, onClick, value, chainId and onConfirm props absent from the implementations. Retire the drop-in claims and point integrators at wired widgets."
+
+[file.032]
+path = "apps/perps/src/components/paxeer/RadialAllocator.tsx"
+lines = 93
+verdict = "issues"
+note = "Read in full. RadialAllocator remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+produces = ["3.ts-perps-components-paxeer-radialallocator-default", "3.ts-perps-components-paxeer-radialallocator-radialallocator"]
+
+[file.033]
+path = "apps/perps/src/components/paxeer/ReactionRail.tsx"
+lines = 74
+verdict = "issues"
+note = "Read in full. ReactionRail remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+produces = ["3.ts-perps-components-paxeer-reactionrail-default", "3.ts-perps-components-paxeer-reactionrail-reactionrail"]
+
+[file.034]
+path = "apps/perps/src/components/paxeer/RecentTrades.tsx"
+lines = 76
+verdict = "issues"
+note = "Read in full. RecentTrades remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+produces = ["3.ts-perps-components-paxeer-recenttrades-default", "3.ts-perps-components-paxeer-recenttrades-recenttrades"]
+
+[file.035]
+path = "apps/perps/src/components/paxeer/RiskDial.tsx"
+lines = 59
+verdict = "issues"
+note = "Read in full. RiskDial remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+produces = ["3.ts-perps-components-paxeer-riskdial-default", "3.ts-perps-components-paxeer-riskdial-riskdial"]
+
+[file.036]
+path = "apps/perps/src/components/paxeer/ShardStatus.tsx"
+lines = 84
+verdict = "issues"
+note = "Read in full. ShardStatus remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+produces = ["3.ts-perps-components-paxeer-shardstatus-default", "3.ts-perps-components-paxeer-shardstatus-shardstatus"]
+
+[file.037]
+path = "apps/perps/src/components/paxeer/SmartButton.tsx"
+lines = 64
+verdict = "issues"
+note = "Read in full. SmartButton remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+produces = ["3.ts-perps-components-paxeer-smartbutton-default", "3.ts-perps-components-paxeer-smartbutton-smartbutton"]
+
+[file.038]
+path = "apps/perps/src/components/paxeer/TradePathSankey.tsx"
+lines = 85
+verdict = "issues"
+note = "Read in full. TradePathSankey remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+produces = ["3.ts-perps-components-paxeer-tradepathsankey-default", "3.ts-perps-components-paxeer-tradepathsankey-tradepathsankey"]
+
+[file.039]
+path = "apps/perps/src/components/paxeer/TraderCard.tsx"
+lines = 72
+verdict = "issues"
+note = "Read in full. TraderCard remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+produces = ["3.ts-perps-components-paxeer-tradercard-default", "3.ts-perps-components-paxeer-tradercard-tradercard"]
+
+[file.040]
+path = "apps/perps/src/components/paxeer/TradesTable.tsx"
+lines = 55
+verdict = "issues"
+note = "Read in full. TradesTable remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+produces = ["3.ts-perps-components-paxeer-tradestable-default", "3.ts-perps-components-paxeer-tradestable-tradestable"]
+
+[file.041]
+path = "apps/perps/src/components/paxeer/TransferModal.tsx"
+lines = 170
+verdict = "issues"
+note = "Read in full. TransferModal remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+produces = ["3.ts-perps-components-paxeer-transfermodal-default", "3.ts-perps-components-paxeer-transfermodal-transfermodal"]
+
+[file.042]
+path = "apps/perps/src/components/paxeer/TransfersHistory.tsx"
+lines = 67
+verdict = "issues"
+note = "Read in full. TransfersHistory remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+produces = ["3.ts-perps-components-paxeer-transfershistory-default", "3.ts-perps-components-paxeer-transfershistory-transfershistory"]
+
+[file.043]
+path = "apps/perps/src/components/paxeer/TxSimulator.tsx"
+lines = 85
+verdict = "issues"
+note = "Read in full. TxSimulator remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+produces = ["3.ts-perps-components-paxeer-txsimulator-default", "3.ts-perps-components-paxeer-txsimulator-txsimulator"]
+
+[file.044]
+path = "apps/perps/src/components/paxeer/_shared.tsx"
+lines = 88
+verdict = "issues"
+note = "Read in full. _shared remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+produces = ["3.ts-perps-components-paxeer-shared-cx", "3.ts-perps-components-paxeer-shared-fmt", "3.ts-perps-components-paxeer-shared-icon", "3.ts-perps-components-paxeer-shared-shortaddr", "3.ts-perps-components-paxeer-shared-token", "3.ts-perps-components-paxeer-shared-tokenbadge", "3.ts-perps-components-paxeer-shared-tokens", "3.ts-perps-components-paxeer-shared-useanimatednumber"]
+
+[file.045]
+path = "apps/perps/src/components/paxeer/index.ts"
+lines = 41
+verdict = "issues"
+note = "Read in full. index remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+
+[file.046]
+path = "apps/perps/src/pages/_app.tsx"
+lines = 112
+verdict = "clean"
+note = "Read in full. Next provider/document/route wiring and inputs agree with the application shell and runtime configuration."
+produces = ["3.ts-perps-pages-app-default"]
+consumes = ["3.ts-perps-app-modals-connectwalletmodal-connectwalletmodal", "3.ts-perps-app-providers-paxscanprovider-paxscanprovider", "3.ts-perps-app-shell-appshell-appshell", "3.ts-perps-app-shell-cookiebanner-cookiebanner", "3.ts-perps-core-wagmi-wagmiconfig", "3.ts-perps-core-wallet-embedded-paxeerprovider-paxeerprovider", "3.ts-perps-core-wallet-postmessageeip1193-installpostmessageeip1193provider", "3.ts-perps-ui-atoms-squicirclefilter-squicirclefilterstatic"]
+
+[file.047]
+path = "apps/perps/src/pages/_document.tsx"
+lines = 18
+verdict = "clean"
+note = "Read in full. Next provider/document/route wiring and inputs agree with the application shell and runtime configuration."
+produces = ["3.env-perps-next-public-vercel-git-commit-sha", "3.ts-perps-pages-document-default"]
+
+[file.048]
+path = "apps/perps/src/pages/analytics.tsx"
+lines = 1
+verdict = "clean"
+note = "Read in full. Next route delegates to @/page-modules/analytics; export identity and page props agree with the route consumer."
+produces = ["3.http-perps-get-analytics"]
+consumes = ["3.ts-perps-page-modules-analytics-index-default"]
+
+[file.049]
+path = "apps/perps/src/pages/api/build-id.ts"
+lines = 13
+verdict = "clean"
+note = "Read in full. Next provider/document/route wiring and inputs agree with the application shell and runtime configuration."
+produces = ["3.env-perps-railway-git-commit-sha", "3.env-perps-vercel-git-commit-sha", "3.http-perps-any-api-build-id"]
+
+[file.050]
+path = "apps/perps/src/pages/api/candle/[...path].ts"
+lines = 250
+verdict = "issues"
+note = "Read in full. clientIp trusts the first caller-controlled x-forwarded-for element; ipBuckets only removes expired entries after 5000 and admits unlimited fresh keys inside the current minute. GET and HEAD are allowed, but the HEAD fetch response is passed to upstreamRes.json whenever its content-type is JSON; HEAD has no body and decoding throws, returning 502 for a healthy upstream."
+produces = ["3.env-perps-market-proxy-host", "3.http-perps-get-head-api-candle-path", "3.ts-perps-pages-api-candle-path-parsemarketproxyorigin"]
+consumes = ["11.err-gas-timeout", "3.env-perps-market-proxy-origin", "8.cfg-ramp-reference-config-quotes", "8.cfg-ramp-toolkit-sourcesettlementconfig-quotes", "8.cfg-ramps-quotes"]
+
+[file.051]
+path = "apps/perps/src/pages/api/presence.ts"
+lines = 182
+verdict = "issues"
+note = "Read in full. computeSnapshot uses history.find for slots at least five minutes old; history is oldest first, so a full twelve-slot window compares against the oldest slot rather than the five-minute baseline. POST /api/presence accepts arbitrary caller-chosen sessionId values without rate limiting; a caller can fill MAX_SESSIONS, evict live visitors and fabricate market popularity."
+produces = ["3.http-perps-get-post-api-presence"]
+
+[file.052]
+path = "apps/perps/src/pages/auth/callback.tsx"
+lines = 99
+verdict = "issues"
+note = "Read in full. The void async callback awaits exchangeCodeForSession and getSession without catch; a thrown network or wallet error leaves the page permanently showing Finishing sign-in."
+produces = ["3.http-perps-get-auth-callback"]
+consumes = ["3.ts-perps-core-wallet-embedded-client-getpaxeerwallet"]
+
+[file.053]
+path = "apps/perps/src/pages/block/[height].tsx"
+lines = 1
+verdict = "clean"
+note = "Read in full. Next route delegates to @/page-modules/block-detail; export identity and page props agree with the route consumer."
+produces = ["3.http-perps-get-block-height"]
+consumes = ["3.ts-perps-page-modules-block-detail-index-default"]
+
+[file.054]
+path = "apps/perps/src/pages/competitions.tsx"
+lines = 1
+verdict = "clean"
+note = "Read in full. Next route delegates to @/page-modules/competitions; export identity and page props agree with the route consumer."
+produces = ["3.http-perps-get-competitions"]
+consumes = ["3.ts-perps-page-modules-competitions-index-default"]
+
+[file.055]
+path = "apps/perps/src/pages/cookies.tsx"
+lines = 1
+verdict = "clean"
+note = "Read in full. Next route delegates to @/page-modules/legal/CookiePolicy; export identity and page props agree with the route consumer."
+produces = ["3.http-perps-get-cookies"]
+consumes = ["3.ts-perps-page-modules-legal-cookiepolicy-default"]
+
+[file.056]
+path = "apps/perps/src/pages/explorer.tsx"
+lines = 1
+verdict = "clean"
+note = "Read in full. Next route delegates to @/page-modules/explorer; export identity and page props agree with the route consumer."
+produces = ["3.http-perps-get-explorer"]
+consumes = ["3.ts-perps-page-modules-explorer-index-default"]
+
+[file.057]
+path = "apps/perps/src/pages/index.tsx"
+lines = 1
+verdict = "clean"
+note = "Read in full. Next route delegates to @/page-modules/home; export identity and page props agree with the route consumer."
+produces = ["3.http-perps-get"]
+consumes = ["3.ts-perps-page-modules-home-index-default"]
+
+[file.058]
+path = "apps/perps/src/pages/leaderboard.tsx"
+lines = 1
+verdict = "clean"
+note = "Read in full. Next route delegates to @/page-modules/leaderboard; export identity and page props agree with the route consumer."
+produces = ["3.http-perps-get-leaderboard"]
+consumes = ["3.ts-perps-page-modules-leaderboard-index-default"]
+
+[file.059]
+path = "apps/perps/src/pages/markets.tsx"
+lines = 1
+verdict = "clean"
+note = "Read in full. Next route delegates to @/page-modules/markets; export identity and page props agree with the route consumer."
+produces = ["3.http-perps-get-markets"]
+consumes = ["3.ts-perps-page-modules-markets-index-default"]
+
+[file.060]
+path = "apps/perps/src/pages/perps.tsx"
+lines = 1
+verdict = "clean"
+note = "Read in full. Next route delegates to @/page-modules/perps; export identity and page props agree with the route consumer."
+produces = ["3.http-perps-get-perps"]
+consumes = ["3.ts-perps-page-modules-perps-index-default"]
+
+[file.061]
+path = "apps/perps/src/pages/portfolio.tsx"
+lines = 1
+verdict = "clean"
+note = "Read in full. Next route delegates to @/page-modules/portfolio; export identity and page props agree with the route consumer."
+produces = ["3.http-perps-get-portfolio"]
+consumes = ["3.ts-perps-page-modules-portfolio-index-default"]
+
+[file.062]
+path = "apps/perps/src/pages/privacy.tsx"
+lines = 1
+verdict = "clean"
+note = "Read in full. Next route delegates to @/page-modules/legal/PrivacyPolicy; export identity and page props agree with the route consumer."
+produces = ["3.http-perps-get-privacy"]
+consumes = ["3.ts-perps-page-modules-legal-privacypolicy-default"]
+
+[file.063]
+path = "apps/perps/src/pages/referrals.tsx"
+lines = 1
+verdict = "clean"
+note = "Read in full. Next route delegates to @/page-modules/referrals; export identity and page props agree with the route consumer."
+produces = ["3.http-perps-get-referrals"]
+consumes = ["3.ts-perps-page-modules-referrals-index-default"]
+
+[file.064]
+path = "apps/perps/src/pages/spot.tsx"
+lines = 71
+verdict = "clean"
+note = "Read in full. Next provider/document/route wiring and inputs agree with the application shell and runtime configuration."
+produces = ["3.http-perps-get-spot", "3.ts-perps-pages-spot-getserversideprops", "3.ts-perps-pages-spot-spotpage", "3.ts-perps-pages-spot-spotpageprops"]
+consumes = ["3.ts-perps-core-nav-isspotopen", "3.ts-perps-core-spot-config-default-spot-symbol", "3.ts-perps-core-spot-config-getspotmarket", "3.ts-perps-core-spot-config-spot-markets", "3.ts-perps-core-spot-config-spotmarket"]
+
+[file.065]
+path = "apps/perps/src/pages/terms.tsx"
+lines = 1
+verdict = "clean"
+note = "Read in full. Next route delegates to @/page-modules/legal/TermsOfService; export identity and page props agree with the route consumer."
+produces = ["3.http-perps-get-terms"]
+consumes = ["3.ts-perps-page-modules-legal-termsofservice-default"]
+
+[file.066]
+path = "apps/perps/src/pages/tx/[hash].tsx"
+lines = 1
+verdict = "clean"
+note = "Read in full. Next route delegates to @/page-modules/tx-detail; export identity and page props agree with the route consumer."
+produces = ["3.http-perps-get-tx-hash"]
+consumes = ["3.ts-perps-page-modules-tx-detail-index-default"]
+
+[file.067]
+path = "apps/perps/src/widgets/alerts/AlertsPanel.tsx"
+lines = 298
+verdict = "clean"
+note = "Read in full. Authenticated alert rows and mutations use the shared alert hook without a second principal or error vocabulary."
+produces = ["3.ts-perps-widgets-alerts-alertspanel-alertspanel"]
+consumes = ["3.ts-perps-core-errors-classify-classifyerror", "3.ts-perps-core-errors-report-reporterror", "3.ts-perps-core-perps-config-perps-markets", "3.ts-perps-hooks-perps-useperfdbalerts-alerttype", "3.ts-perps-hooks-perps-useperfdbalerts-perfdbalert", "3.ts-perps-hooks-perps-useperfdbalerts-useperfdbalerts", "3.ts-perps-hooks-perps-useperfdbauth-useperfdbauth", "3.ts-perps-ui-atoms-button-button", "3.ts-perps-ui-utils-cn-cn"]
+
+[file.068]
+path = "apps/perps/src/widgets/analytics/AnalyticsLiquidStat.tsx"
+lines = 198
+verdict = "issues"
+note = "Read in full. TVL is reconstructed from only 100 vault-balance events with an empty initial running map; a collateral token absent from that window contributes zero, and the earliest incomplete sum becomes the 24-hour baseline."
+produces = ["3.ts-perps-widgets-analytics-analyticsliquidstat-analyticsliquidstat", "3.ts-perps-widgets-analytics-analyticsliquidstat-default"]
+consumes = ["3.ts-perps-core-perps-config-collateral-tokens", "3.ts-perps-hooks-perps-useanalytics-usevaultbalancehistory", "3.ts-perps-hooks-perps-useenrichedstats-useenrichedglobalstats", "3.ts-perps-hooks-perps-userealtimeprices-userealtimeprices", "3.ts-perps-types-perps-vaultbalancerecord", "3.ts-perps-ui-tokens-liquidstat-liquidstat", "3.ts-perps-ui-tokens-liquidstat-liquidstatstate"]
+
+[file.069]
+path = "apps/perps/src/widgets/analytics/FundingHistoryChart.tsx"
+lines = 132
+verdict = "clean"
+note = "Read in full. Indexed funding settlements retain fixed-point units and the hourly funding label."
+produces = ["3.ts-perps-widgets-analytics-fundinghistorychart-fundinghistorychart"]
+consumes = ["3.ts-perps-core-perps-config-analytics-axis-formatters", "3.ts-perps-core-perps-config-analytics-chart-colors", "3.ts-perps-core-perps-config-track-b-strings", "3.ts-perps-core-perps-fundingrate-formatsignedfundingdecimalpct", "3.ts-perps-core-perps-fundingrate-fundingwaddecimal", "3.ts-perps-core-perps-fundingrate-parsefundingratewad", "3.ts-perps-hooks-perps-useanalytics-usemarketsnapshots", "3.ts-perps-ui-atoms-skeleton-skeleton"]
+
+[file.070]
+path = "apps/perps/src/widgets/analytics/MarkPriceChart.tsx"
+lines = 131
+verdict = "issues"
+note = "Read in full. The Recharts series declares name Mark Price, but its Tooltip formatter compares name against the data key markPrice; the first series therefore receives the second series label."
+produces = ["3.ts-perps-widgets-analytics-markpricechart-markpricechart"]
+consumes = ["3.ts-perps-core-perps-config-analytics-axis-formatters", "3.ts-perps-core-perps-config-analytics-chart-colors", "3.ts-perps-core-perps-config-track-b-strings", "3.ts-perps-hooks-perps-useanalytics-usemarkpricehistory", "3.ts-perps-ui-atoms-skeleton-skeleton"]
+
+[file.071]
+path = "apps/perps/src/widgets/analytics/MarketSnapshotTable.tsx"
+lines = 128
+verdict = "clean"
+note = "Read in full. Catalog symbols and indexed 24-hour on-chain funding remain distinct from external reference rates."
+produces = ["3.ts-perps-widgets-analytics-marketsnapshottable-funding-label-onchain-24h", "3.ts-perps-widgets-analytics-marketsnapshottable-marketsnapshottable"]
+consumes = ["3.ts-perps-core-perps-config-analytics-axis-formatters", "3.ts-perps-core-perps-config-perps-markets", "3.ts-perps-core-perps-config-track-b-strings", "3.ts-perps-core-perps-fundingrate-formatsignedfundingdecimalpct", "3.ts-perps-core-perps-fundingrate-fundingdecimalsign", "3.ts-perps-core-perps-fundingrate-fundingwaddecimal", "3.ts-perps-core-perps-fundingrate-parsefundingratewad", "3.ts-perps-hooks-perps-useanalytics-usemarketsnapshots", "3.ts-perps-ui-atoms-skeleton-skeleton"]
+
+[file.072]
+path = "apps/perps/src/widgets/analytics/OiChart.tsx"
+lines = 135
+verdict = "issues"
+note = "Read in full. The Recharts series declares name Long OI, but its Tooltip formatter compares name against the data key longOi; the first series therefore receives the second series label."
+produces = ["3.ts-perps-widgets-analytics-oichart-oichart"]
+consumes = ["3.ts-perps-core-perps-config-analytics-axis-formatters", "3.ts-perps-core-perps-config-analytics-chart-colors", "3.ts-perps-core-perps-config-track-b-strings", "3.ts-perps-hooks-perps-useanalytics-useoisnapshots", "3.ts-perps-ui-atoms-skeleton-skeleton"]
+
+[file.073]
+path = "apps/perps/src/widgets/analytics/ProtocolTvlChart.tsx"
+lines = 121
+verdict = "clean"
+note = "Read in full. Protocol snapshot tvlUsd is 18-decimal USD; loading and empty histories have explicit display states."
+produces = ["3.ts-perps-widgets-analytics-protocoltvlchart-protocoltvlchart"]
+consumes = ["3.ts-perps-core-perps-config-analytics-axis-formatters", "3.ts-perps-core-perps-config-analytics-chart-colors", "3.ts-perps-core-perps-config-track-b-strings", "3.ts-perps-hooks-perps-useanalytics-useprotocolsnapshots", "3.ts-perps-ui-atoms-skeleton-skeleton"]
+
+[file.074]
+path = "apps/perps/src/widgets/errors/ErrorPanel.tsx"
+lines = 127
+verdict = "clean"
+note = "Read in full. Classified errors retain their retry/report actions and shared user-facing error contract."
+produces = ["3.ts-perps-widgets-errors-errorpanel-errorpanel"]
+consumes = ["3.ts-perps-core-errors-types-userfacingerror", "3.ts-perps-ui-atoms-button-button", "3.ts-perps-ui-utils-cn-cn"]
+
+[file.075]
+path = "apps/perps/src/widgets/errors/ErrorToast.tsx"
+lines = 178
+verdict = "clean"
+note = "Read in full. Severity and actions use the existing toast bridge and shared error codes."
+produces = ["3.ts-perps-widgets-errors-errortoast-errorglyph", "3.ts-perps-widgets-errors-errortoast-showerrortoast", "3.ts-perps-widgets-errors-errortoast-showerrortoastoptions", "3.ts-perps-widgets-errors-errortoast-toasterror", "3.ts-perps-widgets-errors-errortoast-toasterroroptions"]
+consumes = ["3.ts-perps-core-errors-classify-classifyerror", "3.ts-perps-core-errors-classify-isuserfacingerror", "3.ts-perps-core-errors-report-reporterror", "3.ts-perps-core-errors-types-errorcontext", "3.ts-perps-core-errors-types-userfacingerror", "3.ts-perps-ui-atoms-use-toast-toast"]
+
+[file.076]
+path = "apps/perps/src/widgets/errors/ReportFeedbackModal.tsx"
+lines = 195
+verdict = "issues"
+note = "Read in full. handleSubmit marks feedback as submitted after reportError resolves, although reportError returns void when the error is unreportable or Sentry is unavailable and captureFeedback may be absent."
+produces = ["3.ts-perps-widgets-errors-reportfeedbackmodal-closereportmodal", "3.ts-perps-widgets-errors-reportfeedbackmodal-openreportmodal", "3.ts-perps-widgets-errors-reportfeedbackmodal-reportfeedbackmodalhost"]
+consumes = ["3.ts-perps-core-errors-report-reporterror", "3.ts-perps-core-errors-types-userfacingerror", "3.ts-perps-ui-atoms-button-button", "3.ts-perps-ui-atoms-dialog-dialog", "3.ts-perps-ui-atoms-dialog-dialogcontent", "3.ts-perps-ui-atoms-dialog-dialogdescription", "3.ts-perps-ui-atoms-dialog-dialogfooter", "3.ts-perps-ui-atoms-dialog-dialogheader", "3.ts-perps-ui-atoms-dialog-dialogtitle", "3.ts-perps-ui-atoms-input-input", "3.ts-perps-ui-utils-cn-cn"]
+
+[file.077]
+path = "apps/perps/src/widgets/errors/ToastActionBridge.tsx"
+lines = 45
+verdict = "clean"
+note = "Read in full. The shared Radix toast action and ref contract is preserved for existing consumers."
+produces = ["3.ts-perps-widgets-errors-toastactionbridge-toastaction", "3.ts-perps-widgets-errors-toastactionbridge-toastactionelement"]
+consumes = ["3.ts-perps-ui-utils-cn-cn"]
+
+[file.078]
+path = "apps/perps/src/widgets/errors/index.ts"
+lines = 14
+verdict = "clean"
+note = "Read in full. Named and default barrel exports resolve to the actual declarations; implementation findings are attached to their owning source files."
+
+[file.079]
+path = "apps/perps/src/widgets/explorer/BlockDetailPanel.tsx"
+lines = 239
+verdict = "clean"
+note = "Read in full. Committed block detail and transaction lists use the explorer API and preserve hash/height selection."
+produces = ["3.ts-perps-widgets-explorer-blockdetailpanel-blockdetailpanel"]
+consumes = ["3.ts-perps-core-perps-config-explorer-url", "3.ts-perps-hooks-paxscan-useblockscoutquery-useblockscoutquery", "3.ts-perps-types-paxscan-api-block-block", "3.ts-perps-ui-atoms-sheet-sheet", "3.ts-perps-ui-atoms-sheet-sheetcontent", "3.ts-perps-ui-atoms-sheet-sheetdescription", "3.ts-perps-ui-atoms-sheet-sheetheader", "3.ts-perps-ui-atoms-sheet-sheettitle", "3.ts-perps-ui-utils-cn-cn", "3.ts-perps-ui-utils-format-fmtdate"]
+
+[file.080]
+path = "apps/perps/src/widgets/explorer/BlockRow.tsx"
+lines = 119
+verdict = "issues"
+note = "Read in full. The Fills column displays block.transactions_count even though the Block producer counts all EVM transactions, including transfers and non-market calls."
+produces = ["3.ts-perps-widgets-explorer-blockrow-blockrow"]
+consumes = ["3.ts-perps-types-paxscan-api-block-block", "3.ts-perps-ui-utils-cn-cn"]
+
+[file.081]
+path = "apps/perps/src/widgets/explorer/LiveBlockStream.tsx"
+lines = 176
+verdict = "issues"
+note = "Read in full. The initial REST seed replaces the blocks array unconditionally; a live block arriving before the REST request resolves is discarded when the older seed arrives."
+produces = ["3.ts-perps-widgets-explorer-liveblockstream-liveblockstream"]
+consumes = ["3.ts-perps-hooks-chain-useevmblockstream-useevmblockstream", "3.ts-perps-hooks-paxscan-useblockscoutinfinitequery-useblockscoutinfinitequery", "3.ts-perps-types-paxscan-api-block-block", "3.ts-perps-ui-utils-cn-cn"]
+
+[file.082]
+path = "apps/perps/src/widgets/explorer/TxDetailPanel.tsx"
+lines = 270
+verdict = "issues"
+note = "Read in full. The live explorer labels ordinary Paxeer EVM transactions as Layer X Transaction, and its documentation claims every block is one batch-settlement transaction."
+produces = ["3.ts-perps-widgets-explorer-txdetailpanel-txdetailpanel"]
+consumes = ["3.ts-perps-core-perps-config-explorer-url", "3.ts-perps-hooks-paxscan-useblockscoutquery-useblockscoutquery", "3.ts-perps-types-paxscan-api-transaction-transaction", "3.ts-perps-ui-atoms-sheet-sheet", "3.ts-perps-ui-atoms-sheet-sheetcontent", "3.ts-perps-ui-atoms-sheet-sheetdescription", "3.ts-perps-ui-atoms-sheet-sheetheader", "3.ts-perps-ui-atoms-sheet-sheettitle", "3.ts-perps-ui-utils-cn-cn", "3.ts-perps-ui-utils-format-fmtdate"]
+
+[file.083]
+path = "apps/perps/src/widgets/explorer/explorer-utils.ts"
+lines = 125
+verdict = "clean"
+note = "Read in full. Block/hash query parsing, explorer links and quantity/time conversion agree with explorer fields."
+produces = ["3.ts-perps-widgets-explorer-explorer-utils-buildexplorerurl", "3.ts-perps-widgets-explorer-explorer-utils-explorerfocus", "3.ts-perps-widgets-explorer-explorer-utils-fmtgas", "3.ts-perps-widgets-explorer-explorer-utils-fmtgaspct", "3.ts-perps-widgets-explorer-explorer-utils-lookslikeblockheight", "3.ts-perps-widgets-explorer-explorer-utils-lookslikehash", "3.ts-perps-widgets-explorer-explorer-utils-parsefocus", "3.ts-perps-widgets-explorer-explorer-utils-torelativetime", "3.ts-perps-widgets-explorer-explorer-utils-truncatehash"]
+
+[file.084]
+path = "apps/perps/src/widgets/index.ts"
+lines = 3
+verdict = "clean"
+note = "Read in full. Named and default barrel exports resolve to the actual declarations; implementation findings are attached to their owning source files."
+
+[file.085]
+path = "apps/perps/src/widgets/markets/MarketsFilterBar.tsx"
+lines = 122
+verdict = "clean"
+note = "Read in full. Reviewed MarketsFilterBar props, displayed field units, loading/connection states and effect cleanup against @/ui/utils/cn, ./types. No additional interface disagreement or retired public endpoint found."
+produces = ["3.ts-perps-widgets-markets-marketsfilterbar-marketsfilterbar"]
+consumes = ["3.ts-perps-ui-utils-cn-cn"]
+
+[file.086]
+path = "apps/perps/src/widgets/markets/MarketsHeaderTabs.tsx"
+lines = 160
+verdict = "clean"
+note = "Read in full. Reviewed MarketsHeaderTabs props, displayed field units, loading/connection states and effect cleanup against @/ui/utils/cn, @/core/nav, @/hooks/perps/useMarketsStream. No additional interface disagreement or retired public endpoint found."
+produces = ["3.ts-perps-widgets-markets-marketsheadertabs-marketsheadertabs", "3.ts-perps-widgets-markets-marketsheadertabs-marketsmode", "3.ts-perps-widgets-markets-marketsheadertabs-marketsmodes", "3.ts-perps-widgets-markets-marketsheadertabs-marketstab"]
+consumes = ["3.ts-perps-core-nav-isspotopen", "3.ts-perps-hooks-perps-usemarketsstream-usemarketsstreamconnection", "3.ts-perps-ui-utils-cn-cn", "8.cfg-feeder-config-markets"]
+
+[file.087]
+path = "apps/perps/src/widgets/markets/MarketsHighlights.tsx"
+lines = 224
+verdict = "clean"
+note = "Read in full. Reviewed MarketsHighlights props, displayed field units, loading/connection states and effect cleanup against @/ui/utils/cn, @/core/perps/config, @/ui/utils/format, @/ui/atoms/PriceFlash, ./types, ./MarketsSkeletons. No additional interface disagreement or retired public endpoint found."
+produces = ["3.ts-perps-widgets-markets-marketshighlights-marketshighlights"]
+consumes = ["3.ts-perps-core-perps-config-coinlogourl", "3.ts-perps-ui-atoms-priceflash-priceflash", "3.ts-perps-ui-utils-cn-cn", "3.ts-perps-ui-utils-format-fmtchangepct", "3.ts-perps-ui-utils-format-fmtprice"]
+
+[file.088]
+path = "apps/perps/src/widgets/markets/MarketsOverviewStats.tsx"
+lines = 142
+verdict = "clean"
+note = "Read in full. Reviewed MarketsOverviewStats props, displayed field units, loading/connection states and effect cleanup against @/ui/utils/cn, @/ui/utils/format, @/ui/atoms/PriceFlash, @/hooks/perps/useMarketsStream, ./types, ./MarketsSkeletons. No additional interface disagreement or retired public endpoint found."
+produces = ["3.ts-perps-widgets-markets-marketsoverviewstats-marketsoverviewstats"]
+consumes = ["3.ts-perps-hooks-perps-usemarketsstream-marketstotals", "3.ts-perps-hooks-perps-usemarketsstream-usemarketstotals", "3.ts-perps-ui-atoms-priceflash-priceflash", "3.ts-perps-ui-utils-cn-cn", "3.ts-perps-ui-utils-format-fmtusdcompact"]
+
+[file.089]
+path = "apps/perps/src/widgets/markets/MarketsSkeletons.tsx"
+lines = 123
+verdict = "clean"
+note = "Read in full. Reviewed MarketsSkeletons props, displayed field units, loading/connection states and effect cleanup against @/ui/utils/cn. No additional interface disagreement or retired public endpoint found."
+produces = ["3.ts-perps-widgets-markets-marketsskeletons-highlightspanelskeleton", "3.ts-perps-widgets-markets-marketsskeletons-marketstableskeleton", "3.ts-perps-widgets-markets-marketsskeletons-overviewstatsskeleton"]
+consumes = ["3.ts-perps-ui-utils-cn-cn"]
+
+[file.090]
+path = "apps/perps/src/widgets/markets/MarketsTable.tsx"
+lines = 351
+verdict = "clean"
+note = "Read in full. Reviewed MarketsTable props, displayed field units, loading/connection states and effect cleanup against @/ui/utils/cn, @/ui/atoms/button, @/ui/utils/format, @/core/perps/fundingRate, @/core/perps/config, @/ui/atoms/PriceFlash, ./MarketsSkeletons, ./types. No additional interface disagreement or retired public endpoint found."
+produces = ["3.ts-perps-widgets-markets-marketstable-marketstable", "3.ts-perps-widgets-markets-marketstable-usesortedpagerows"]
+consumes = ["3.ts-perps-core-perps-config-coinlogourl", "3.ts-perps-core-perps-fundingrate-fundingwadfigure", "3.ts-perps-ui-atoms-button-button", "3.ts-perps-ui-atoms-priceflash-priceflash", "3.ts-perps-ui-utils-cn-cn", "3.ts-perps-ui-utils-format-fmtchangepct", "3.ts-perps-ui-utils-format-fmtprice", "3.ts-perps-ui-utils-format-fmtusdcompact"]
+
+[file.091]
+path = "apps/perps/src/widgets/markets/index.ts"
+lines = 19
+verdict = "clean"
+note = "Read in full. Named and default barrel exports resolve to the actual declarations; implementation findings are attached to their owning source files."
+
+[file.092]
+path = "apps/perps/src/widgets/markets/types.ts"
+lines = 55
+verdict = "clean"
+note = "Read in full. Shared widget and navigation types agree with the mounting presentation props and catalog identities; there is no separate transport or persistence boundary."
+produces = ["3.ts-perps-widgets-markets-types-marketrow", "3.ts-perps-widgets-markets-types-marketscategoryfilter", "3.ts-perps-widgets-markets-types-marketshighlight", "3.ts-perps-widgets-markets-types-sortdir", "3.ts-perps-widgets-markets-types-sortkey"]
+consumes = ["3.ts-perps-core-perps-config-perpsmarket", "3.ts-perps-hooks-perps-usemarketsstream-marketsnapshot", "3.ws-perps-data-topic-markets-all-j27"]
+
+[file.093]
+path = "apps/perps/src/widgets/markets/useMarketsRows.ts"
+lines = 143
+verdict = "clean"
+note = "Read in full. Reviewed useMarketsRows props, displayed field units, loading/connection states and effect cleanup against @/core/perps/config, @/core/perps/marketCatalog, @/hooks/perps/usePerpsMarkets, @/hooks/perps/useMarketsStream, ./types. No additional interface disagreement or retired public endpoint found."
+produces = ["3.ts-perps-widgets-markets-usemarketsrows-filterandsort", "3.ts-perps-widgets-markets-usemarketsrows-new-market-ids", "3.ts-perps-widgets-markets-usemarketsrows-usemarketsrows"]
+consumes = ["3.ts-perps-core-perps-config-getmarketcategory", "3.ts-perps-core-perps-config-market-categories", "3.ts-perps-core-perps-config-perps-markets", "3.ts-perps-hooks-perps-usemarketsstream-marketsnapshot", "3.ts-perps-hooks-perps-usemarketsstream-usemarketssnapshot"]
+
+[file.094]
+path = "apps/perps/src/widgets/mobile/MobileAccountView.tsx"
+lines = 169
+verdict = "clean"
+note = "Read in full. Reviewed MobileAccountView props, displayed field units, loading/connection states and effect cleanup against @/hooks/perps/usePerpsWallet, @/hooks/perps/usePortfolioStats, @/ui/utils/format. No additional interface disagreement or retired public endpoint found."
+produces = ["3.ts-perps-widgets-mobile-mobileaccountview-mobileaccountview"]
+consumes = ["3.ts-perps-hooks-perps-useperpswallet-useperpswallet", "3.ts-perps-hooks-perps-useportfoliostats-useportfoliostats"]
+
+[file.095]
+path = "apps/perps/src/widgets/mobile/MobileAppLayout.tsx"
+lines = 232
+verdict = "clean"
+note = "Read in full. Reviewed MobileAppLayout props, displayed field units, loading/connection states and effect cleanup against @/core/perps/config, @/hooks/perps/usePerpsMarkets, @/hooks/perps/useRealtimePrices, @/ui/utils/format, ./MobileHeader, ./MobileTickerBar, ./MobileMarketView, ./MobileTradeView, ./MobileAccountView, ./MobileBottomNav. No additional interface disagreement or retired public endpoint found."
+produces = ["3.ts-perps-widgets-mobile-mobileapplayout-mobileapplayout"]
+consumes = ["3.ts-perps-core-perps-config-coinlogourl", "3.ts-perps-core-perps-config-perps-markets", "3.ts-perps-core-perps-config-perpsmarket", "3.ts-perps-hooks-perps-userealtimeprices-userealtimeprices", "3.ts-perps-ui-utils-format-fmtprice", "3.ts-perps-ui-utils-format-fmtusdcompact", "8.cfg-feeder-config-markets"]
+
+[file.096]
+path = "apps/perps/src/widgets/mobile/MobileBalancePanel.tsx"
+lines = 170
+verdict = "clean"
+note = "Read in full. Reviewed MobileBalancePanel props, displayed field units, loading/connection states and effect cleanup against @/hooks/perps/usePerpsWallet, @/hooks/perps/usePortfolioStats. No additional interface disagreement or retired public endpoint found."
+produces = ["3.ts-perps-widgets-mobile-mobilebalancepanel-mobilebalancepanel"]
+consumes = ["3.ts-perps-hooks-perps-useperpswallet-useperpswallet", "3.ts-perps-hooks-perps-useportfoliostats-useportfoliostats"]
+
+[file.097]
+path = "apps/perps/src/widgets/mobile/MobileBottomNav.tsx"
+lines = 66
+verdict = "clean"
+note = "Read in full. Reviewed MobileBottomNav props, displayed field units, loading/connection states and effect cleanup against the mounting presentation consumer. No additional interface disagreement or retired public endpoint found."
+produces = ["3.ts-perps-widgets-mobile-mobilebottomnav-mobilebottomnav", "3.ts-perps-widgets-mobile-mobilebottomnav-mobileglobaltab"]
+consumes = ["8.cfg-feeder-config-markets"]
+
+[file.098]
+path = "apps/perps/src/widgets/mobile/MobileHeader.tsx"
+lines = 79
+verdict = "clean"
+note = "Read in full. Reviewed MobileHeader props, displayed field units, loading/connection states and effect cleanup against @/hooks/perps/usePerpsWallet, @/hooks/wallet/useWalletStore, @/app/shell/MobileNav, @/app/modals/SettingsModal, @/ui/atoms/HyperPaxWordmark, ./MobileLanguageToggle. No additional interface disagreement or retired public endpoint found."
+produces = ["3.ts-perps-widgets-mobile-mobileheader-mobileheader"]
+consumes = ["3.ts-perps-app-modals-settingsmodal-settingsmodal", "3.ts-perps-app-shell-mobilenav-mobilenavdrawer", "3.ts-perps-app-shell-mobilenav-mobilenavtrigger", "3.ts-perps-app-shell-mobilenav-usemobilenav", "3.ts-perps-hooks-perps-useperpswallet-useperpswallet", "3.ts-perps-hooks-wallet-usewalletstore-usewalletstore", "3.ts-perps-ui-atoms-hyperpaxwordmark-hyperpaxwordmark"]
+
+[file.099]
+path = "apps/perps/src/widgets/mobile/MobileLanguageToggle.tsx"
+lines = 67
+verdict = "issues"
+note = "Read in full. LanguageToggle only changes component-local selected state; selecting another language changes the highlight but neither translates text nor updates a shared locale or persistent preference."
+produces = ["3.ts-perps-widgets-mobile-mobilelanguagetoggle-languagetoggle"]
+
+[file.100]
+path = "apps/perps/src/widgets/mobile/MobileMarketView.tsx"
+lines = 195
+verdict = "clean"
+note = "Read in full. Reviewed MobileMarketView props, displayed field units, loading/connection states and effect cleanup against @/core/perps/config, @/hooks/perps/useSidPaxMarketStream, @/hooks/perps/useRealtimePrices, @/ui/atoms/skeleton-panel, ./MobileSecondaryTabs, ./MobilePanelToolbar, ./MobileSecondaryTabContent. No additional interface disagreement or retired public endpoint found."
+produces = ["3.ts-perps-widgets-mobile-mobilemarketview-mobilemarketview"]
+consumes = ["3.ts-perps-core-perps-config-perpsmarket", "3.ts-perps-hooks-perps-userealtimeprices-userealtimeprices", "3.ts-perps-hooks-perps-usesidpaxmarketstream-hasdedicatedmarketstream", "3.ts-perps-hooks-perps-usesidpaxmarketstream-usesidpaxtrades", "3.ts-perps-ui-atoms-skeleton-panel-chartskeleton", "3.ts-perps-ui-atoms-skeleton-panel-orderbookskeleton"]
+
+[file.101]
+path = "apps/perps/src/widgets/mobile/MobilePanelToolbar.tsx"
+lines = 58
+verdict = "clean"
+note = "Read in full. Optional sort and expand callbacks preserve the declared props; they do not claim to mutate an account or submit a transaction."
+produces = ["3.ts-perps-widgets-mobile-mobilepaneltoolbar-mobilepaneltoolbar"]
+
+[file.102]
+path = "apps/perps/src/widgets/mobile/MobileSecondaryTabContent.tsx"
+lines = 717
+verdict = "issues"
+note = "Read in full. OpenOrdersTab and TradeHistoryTab issue wallet-specific one-shot queries without abort or generation guards; catch clears rows and renders No open orders or No trade history, so failed reads appear empty and superseded wallet responses can overwrite current data."
+produces = ["3.ts-perps-widgets-mobile-mobilesecondarytabcontent-mobilesecondarytabcontent"]
+consumes = ["3.ts-perps-core-perps-config-coinlogourl", "3.ts-perps-core-perps-config-collateral-tokens", "3.ts-perps-core-perps-config-explorer-url", "3.ts-perps-core-perps-config-perps-markets", "3.ts-perps-core-perps-pnlhelpers-computepositionpnl", "3.ts-perps-core-perps-pnlhelpers-formatpnlpercent", "3.ts-perps-core-perps-pnlhelpers-formatwadfixed", "3.ts-perps-core-perps-pnlhelpers-markpricewad", "3.ts-perps-core-perps-pnlhelpers-parsepositionrow", "3.ts-perps-core-perps-pnlhelpers-wadtodecimal", "3.ts-perps-hooks-perps-useanalytics-usetradesettlements", "3.ts-perps-hooks-perps-usefundingpayments-usefundingpayments", "3.ts-perps-hooks-perps-useperfdbbalances-perfdbbalance", "3.ts-perps-hooks-perps-useperfdbbalances-useperfdbbalances", "3.ts-perps-hooks-perps-useperpswallet-useperpswallet", "3.ts-perps-hooks-perps-useportfoliostats-useportfoliostats", "3.ts-perps-hooks-perps-userealtimeprices-userealtimeprices", "3.ts-perps-hooks-perps-usesubgraph-orders-query", "3.ts-perps-hooks-perps-usesubgraph-subgraphquery", "3.ts-perps-hooks-perps-usesubgraph-trades-query", "3.ts-perps-types-perps-fundingpayment", "3.ts-perps-types-perps-tradesettlement", "3.ts-perps-ui-utils-format-fmtprice", "3.ts-perps-ui-utils-format-fmtusd", "3.ts-perps-ui-utils-format-fmtusdcompact", "3.ts-perps-ui-utils-format-parse18", "3.ts-perps-ui-utils-format-shortaddr", "3.ts-perps-ui-utils-format-weitonumber"]
+
+[file.103]
+path = "apps/perps/src/widgets/mobile/MobileSecondaryTabs.tsx"
+lines = 62
+verdict = "clean"
+note = "Read in full. Reviewed MobileSecondaryTabs props, displayed field units, loading/connection states and effect cleanup against the mounting presentation consumer. No additional interface disagreement or retired public endpoint found."
+produces = ["3.ts-perps-widgets-mobile-mobilesecondarytabs-mobilesecondarytabs"]
+
+[file.104]
+path = "apps/perps/src/widgets/mobile/MobileSpotAccountView.tsx"
+lines = 206
+verdict = "clean"
+note = "Read in full. Reviewed MobileSpotAccountView props, displayed field units, loading/connection states and effect cleanup against @/hooks/perps/usePerpsWallet, @/hooks/spot/useSpotPortfolio, @/core/spot/api, @/core/spot/config. No additional interface disagreement or retired public endpoint found."
+produces = ["3.ts-perps-widgets-mobile-mobilespotaccountview-mobilespotaccountview"]
+consumes = ["3.ts-perps-core-spot-api-dstrtotoken", "3.ts-perps-core-spot-api-dstrtousd", "3.ts-perps-core-spot-config-spot-stablecoins", "3.ts-perps-hooks-perps-useperpswallet-useperpswallet", "3.ts-perps-hooks-spot-usespotportfolio-usespotportfolio"]
+
+[file.105]
+path = "apps/perps/src/widgets/mobile/MobileSpotAppLayout.tsx"
+lines = 297
+verdict = "clean"
+note = "Read in full. Reviewed MobileSpotAppLayout props, displayed field units, loading/connection states and effect cleanup against @/core/spot/config, @/hooks/spot/useSpotMarketStream, @/hooks/ui/useFavoriteMarkets, ./MobileHeader, ./MobileSpotTickerBar, ./MobileSpotMarketView, ./MobileSpotTradeView, ./MobileSpotAccountView, ./MobileBottomNav. No additional interface disagreement or retired public endpoint found."
+produces = ["3.ts-perps-widgets-mobile-mobilespotapplayout-mobilespotapplayout"]
+consumes = ["3.ts-perps-core-spot-config-spot-markets", "3.ts-perps-core-spot-config-spotcoinlogourl", "3.ts-perps-core-spot-config-spotmarket", "3.ts-perps-hooks-spot-usespotmarketstream-usespotstats", "3.ts-perps-hooks-ui-usefavoritemarkets-usefavoritemarkets", "8.cfg-feeder-config-markets"]
+
+[file.106]
+path = "apps/perps/src/widgets/mobile/MobileSpotBalancePanel.tsx"
+lines = 184
+verdict = "issues"
+note = "Read in full. The production MobileSpotTradeView mounts MobileSpotBalancePanel, but tests/proof_widgets.test.ts deliberately excludes that child because its JSX requires an absent React binding under the declared tsx runner."
+produces = ["3.ts-perps-widgets-mobile-mobilespotbalancepanel-mobilespotbalancepanel"]
+consumes = ["3.ts-perps-core-spot-api-dstrtotoken", "3.ts-perps-core-spot-api-dstrtousd", "3.ts-perps-core-spot-config-spot-stablecoins", "3.ts-perps-hooks-perps-useperpswallet-useperpswallet", "3.ts-perps-hooks-spot-usespotportfolio-usespotportfolio"]
+
+[file.107]
+path = "apps/perps/src/widgets/mobile/MobileSpotMarketView.tsx"
+lines = 120
+verdict = "clean"
+note = "Read in full. Reviewed MobileSpotMarketView props, displayed field units, loading/connection states and effect cleanup against @/core/spot/config, @/ui/atoms/skeleton-panel. No additional interface disagreement or retired public endpoint found."
+produces = ["3.ts-perps-widgets-mobile-mobilespotmarketview-mobilespotmarketview"]
+consumes = ["3.ts-perps-core-spot-config-spotmarket", "3.ts-perps-ui-atoms-skeleton-panel-chartskeleton", "3.ts-perps-ui-atoms-skeleton-panel-orderbookskeleton", "3.ts-perps-ui-atoms-skeleton-panel-positionsskeleton"]
+
+[file.108]
+path = "apps/perps/src/widgets/mobile/MobileSpotTickerBar.tsx"
+lines = 177
+verdict = "clean"
+note = "Read in full. Reviewed MobileSpotTickerBar props, displayed field units, loading/connection states and effect cleanup against @/core/spot/config, @/hooks/spot/useSpotMarketStream. No additional interface disagreement or retired public endpoint found."
+produces = ["3.ts-perps-widgets-mobile-mobilespottickerbar-mobilespottickerbar"]
+consumes = ["3.ts-perps-core-spot-config-spotcoinlogourl", "3.ts-perps-core-spot-config-spotmarket", "3.ts-perps-hooks-spot-usespotmarketstream-usespotorderbook", "3.ts-perps-hooks-spot-usespotmarketstream-usespotstats", "3.ts-perps-hooks-spot-usespotmarketstream-usespottrades"]
+
+[file.109]
+path = "apps/perps/src/widgets/mobile/MobileSpotTradeView.tsx"
+lines = 99
+verdict = "clean"
+note = "Read in full. The real dynamic loaders pass SpotMarket identity to the form and mount the spot book/positions. Child proof gaps are separately recorded."
+produces = ["3.ts-perps-widgets-mobile-mobilespottradeview-mobilespottradeview"]
+consumes = ["3.ts-perps-core-spot-config-spotmarket", "3.ts-perps-ui-atoms-skeleton-panel-orderbookskeleton", "3.ts-perps-ui-atoms-skeleton-panel-orderformskeleton", "3.ts-perps-ui-atoms-skeleton-panel-positionsskeleton"]
+
+[file.110]
+path = "apps/perps/src/widgets/mobile/MobileTickerBar.tsx"
+lines = 178
+verdict = "clean"
+note = "Read in full. Reviewed MobileTickerBar props, displayed field units, loading/connection states and effect cleanup against @/ui/utils/cn, @/core/perps/config, @/hooks/perps/useRealtimePrices, @/hooks/perps/useEnrichedStats, @/hooks/perps/useSidPaxMarketStream. No additional interface disagreement or retired public endpoint found."
+produces = ["3.ts-perps-widgets-mobile-mobiletickerbar-mobiletickerbar"]
+consumes = ["3.ts-perps-core-perps-config-coinlogourl", "3.ts-perps-core-perps-config-perps-markets", "3.ts-perps-core-perps-config-perpsmarket", "3.ts-perps-hooks-perps-useenrichedstats-useenrichedmarketstats", "3.ts-perps-hooks-perps-userealtimeprices-userealtimeprices", "3.ts-perps-hooks-perps-usesidpaxmarketstream-usesidpaxorderbook", "3.ts-perps-hooks-perps-usesidpaxmarketstream-usesidpaxstats", "3.ts-perps-hooks-perps-usesidpaxmarketstream-usesidpaxtrades", "3.ts-perps-ui-utils-cn-cn"]
+
+[file.111]
+path = "apps/perps/src/widgets/mobile/MobileTradeView.tsx"
+lines = 228
+verdict = "clean"
+note = "Read in full. Reviewed MobileTradeView props, displayed field units, loading/connection states and effect cleanup against @/core/perps/config, @/hooks/perps/useSidPaxMarketStream, @/core/net/venueStream, @/hooks/perps/useRealtimePrices, ./MobileBalancePanel, ./MobileSecondaryTabs, ./MobilePanelToolbar, ./MobileSecondaryTabContent, @/ui/atoms/skeleton-panel. No additional interface disagreement or retired public endpoint found."
+produces = ["3.ts-perps-widgets-mobile-mobiletradeview-mobiletradeview"]
+consumes = ["3.ts-perps-core-net-venuestream-usevenuebook", "3.ts-perps-core-perps-config-perpsmarket", "3.ts-perps-hooks-perps-userealtimeprices-userealtimeprices", "3.ts-perps-hooks-perps-usesidpaxmarketstream-usesidpaxorderbook", "3.ts-perps-ui-atoms-skeleton-panel-orderformskeleton"]
+
+[file.112]
+path = "apps/perps/src/widgets/mobile/MobileVaultView.tsx"
+lines = 237
+verdict = "clean"
+note = "Read in full. Reviewed MobileVaultView props, displayed field units, loading/connection states and effect cleanup against @/hooks/perps/usePerpsWallet, @/hooks/perps/usePortfolioStats, @/hooks/perps/usePerfdbTraderStats. No additional interface disagreement or retired public endpoint found."
+produces = ["3.ts-perps-widgets-mobile-mobilevaultview-mobilevaultview"]
+consumes = ["3.ts-perps-hooks-perps-useperfdbtraderstats-useperfdbtraderstats", "3.ts-perps-hooks-perps-useperpswallet-useperpswallet", "3.ts-perps-hooks-perps-useportfoliostats-useportfoliostats"]
+
+[file.113]
+path = "apps/perps/src/widgets/network-pill/NetworkPill.tsx"
+lines = 314
+verdict = "issues"
+note = "Read in full. The public-health poll only replaces status on success; a later request failure leaves the previous block number and latency bars visible indefinitely, including after the details popover is reopened."
+produces = ["3.ts-perps-widgets-network-pill-networkpill-default", "3.ts-perps-widgets-network-pill-networkpill-networkpill", "3.ts-perps-widgets-network-pill-networkpill-networkpillprops"]
+consumes = ["3.ts-perps-core-chain-paxeerchain", "3.ts-perps-core-feeds-feed-origin", "3.ts-perps-core-net-fetch-fetchjsonwithpolicy", "3.ts-perps-core-net-realtime-activepoll"]
+
+[file.114]
+path = "apps/perps/src/widgets/network-pill/index.ts"
+lines = 2
+verdict = "clean"
+note = "Read in full. Named and default barrel exports resolve to the actual declarations; implementation findings are attached to their owning source files."
+
+[file.115]
+path = "apps/perps/src/widgets/paxscan-search/PaxscanSearch.tsx"
+lines = 506
+verdict = "clean"
+note = "Read in full. Typed search results route through the mounted explorer pages with cancellation of obsolete searches."
+produces = ["3.ts-perps-widgets-paxscan-search-paxscansearch-paxscansearch", "3.ts-perps-widgets-paxscan-search-paxscansearch-paxscansearchprops"]
+consumes = ["3.ts-perps-core-paxscan-urls-paxscanaddressurl", "3.ts-perps-core-paxscan-urls-paxscanblockurl", "3.ts-perps-core-paxscan-urls-paxscansearchurl", "3.ts-perps-core-paxscan-urls-paxscantokenurl", "3.ts-perps-core-paxscan-urls-paxscantxurl", "3.ts-perps-hooks-paxscan-useblockscoutinfinitequery-useblockscoutinfinitequery", "3.ts-perps-hooks-paxscan-useblockscoutquery-useblockscoutquery", "3.ts-perps-types-paxscan-api-search-searchredirectresult", "3.ts-perps-types-paxscan-api-search-searchresultitem", "3.ts-perps-ui-utils-cn-cn"]
+
+[file.116]
+path = "apps/perps/src/widgets/portfolio/FeesBreakdownCard.tsx"
+lines = 140
+verdict = "clean"
+note = "Read in full. Fee grouping uses feeUsd by fee type and does not mistake native feeTokens for USD."
+produces = ["3.ts-perps-widgets-portfolio-feesbreakdowncard-feesbreakdowncard", "3.ts-perps-widgets-portfolio-feesbreakdowncard-groupfees"]
+consumes = ["3.ts-perps-core-perps-config-analytics-chart-colors", "3.ts-perps-core-perps-config-fee-type-labels", "3.ts-perps-core-perps-config-track-b-strings", "3.ts-perps-hooks-perps-usefees-usefees", "3.ts-perps-ui-atoms-skeleton-skeleton", "3.ts-perps-ui-utils-format-fmtusdcompact", "3.ts-perps-ui-utils-format-weiorzero", "3.ts-perps-ui-utils-format-weipct", "3.ts-perps-ui-utils-format-weitonumber"]
+
+[file.117]
+path = "apps/perps/src/widgets/portfolio/MobilePortfolioOverview.tsx"
+lines = 410
+verdict = "issues"
+note = "Read in full. Vault events render fmtUsd(parse18(event.amount)) without token metadata; native six-decimal collateral amounts are divided by 1e18 and displayed as dollar values. This legacy export has no live caller at the audited revision; the currently mounted portfolio uses PortfolioOverviewPanel."
+produces = ["3.ts-perps-widgets-portfolio-mobileportfoliooverview-mobileportfoliooverview"]
+consumes = ["3.ts-perps-app-modals-settingsmodal-settingsmodal", "3.ts-perps-ui-atoms-button-button", "3.ts-perps-ui-utils-cn-cn", "3.ts-perps-ui-utils-format-fmtdate", "3.ts-perps-ui-utils-format-fmtusdcompact", "3.ts-perps-ui-utils-format-parse18", "3.ts-perps-ui-utils-format-shortaddr"]
+
+[file.118]
+path = "apps/perps/src/widgets/portfolio/OnChainHistoryPanel.tsx"
+lines = 723
+verdict = "clean"
+note = "Read in full. Address-scoped transaction and transfer pagination uses the actual explorer fields, token metadata and explorer navigation."
+produces = ["3.ts-perps-widgets-portfolio-onchainhistorypanel-onchainhistorypanel", "3.ts-perps-widgets-portfolio-onchainhistorypanel-onchainhistorypanelprops", "3.ts-perps-widgets-portfolio-onchainhistorypanel-onchainhistorysubtab", "3.ts-perps-widgets-portfolio-onchainhistorypanel-onchainhistoryvariant"]
+consumes = ["3.ts-perps-core-paxscan-urls-paxscanaddressurl", "3.ts-perps-core-paxscan-urls-paxscantokenurl", "3.ts-perps-core-paxscan-urls-paxscantxurl", "3.ts-perps-hooks-paxscan-useblockscoutinfinitequery-useblockscoutinfinitequery", "3.ts-perps-types-paxscan-api-tokentransfer-tokentransfer", "3.ts-perps-types-paxscan-api-transaction-transaction", "3.ts-perps-ui-utils-cn-cn", "3.ts-perps-ui-utils-format-fmtdate", "3.ts-perps-ui-utils-format-shortaddr"]
+
+[file.119]
+path = "apps/perps/src/widgets/portfolio/PerformanceCards.tsx"
+lines = 92
+verdict = "clean"
+note = "Read in full. sevenDayTotals sums DailyPnl wei exactly and converts to dollars only for presentation."
+produces = ["3.ts-perps-widgets-portfolio-performancecards-performancecards", "3.ts-perps-widgets-portfolio-performancecards-sevendaytotals"]
+consumes = ["3.ts-perps-hooks-perps-usedailypnl-dailypnl", "3.ts-perps-ui-tokens-performance-performance", "3.ts-perps-ui-utils-format-weiorzero", "3.ts-perps-ui-utils-format-weipct", "3.ts-perps-ui-utils-format-weitonumber"]
+
+[file.120]
+path = "apps/perps/src/widgets/portfolio/PnlChart.tsx"
+lines = 97
+verdict = "issues"
+note = "Read in full. PnlChart accumulates parseFloat(d.pnl) as dollars although useDailyPnl validates exact 18-decimal wei strings; a one-dollar row becomes 1e18 dollars. No live caller was found at this revision."
+produces = ["3.ts-perps-widgets-portfolio-pnlchart-pnlchart"]
+consumes = ["3.ts-perps-hooks-perps-usedailypnl-dailypnl", "3.ts-perps-ui-utils-format-fmtusdcompact"]
+
+[file.121]
+path = "apps/perps/src/widgets/portfolio/PortfolioAssetsChart.tsx"
+lines = 223
+verdict = "issues"
+note = "Read in full. The live Assets chart reconstructs balances from current vault value minus realized daily PnL, omitting deposits and withdrawals and clamping negatives to zero; its ALL selector also receives at most 90 GraphQL rows without a cap warning."
+produces = ["3.ts-perps-widgets-portfolio-portfolioassetschart-assetstimerange", "3.ts-perps-widgets-portfolio-portfolioassetschart-buildassetseries", "3.ts-perps-widgets-portfolio-portfolioassetschart-portfolioassetschart"]
+consumes = ["3.ts-perps-hooks-perps-usedailypnl-dailypnl", "3.ts-perps-ui-utils-cn-cn", "3.ts-perps-ui-utils-format-weiorzero", "3.ts-perps-ui-utils-format-weitonumber"]
+
+[file.122]
+path = "apps/perps/src/widgets/portfolio/PortfolioFeeTierPanel.tsx"
+lines = 67
+verdict = "clean"
+note = "Read in full. The actual account-specific fee tier is shown with strict loading/refusal behavior."
+produces = ["3.ts-perps-widgets-portfolio-portfoliofeetierpanel-portfoliofeetierpanel", "3.ts-perps-widgets-portfolio-portfoliofeetierpanel-portfoliofeetierpanelprops"]
+
+[file.123]
+path = "apps/perps/src/widgets/portfolio/PortfolioMobileNav.tsx"
+lines = 66
+verdict = "clean"
+note = "Read in full. Reviewed PortfolioMobileNav props, displayed field units, loading/connection states and effect cleanup against @/ui/utils/cn, ./PortfolioSideNav. No additional interface disagreement or retired public endpoint found."
+produces = ["3.ts-perps-widgets-portfolio-portfoliomobilenav-portfoliomobilenav", "3.ts-perps-widgets-portfolio-portfoliomobilenav-portfoliomobilenavprops"]
+consumes = ["3.ts-perps-ui-utils-cn-cn", "8.cfg-authority-registry-assets"]
+
+[file.124]
+path = "apps/perps/src/widgets/portfolio/PortfolioOverviewPanel.tsx"
+lines = 308
+verdict = "issues"
+note = "Read in full. The privacy toggle masks top totals but leaves token balances visible in the balance strip and reveals the unrealized PnL percentage."
+produces = ["3.ts-perps-widgets-portfolio-portfoliooverviewpanel-portfoliooverviewpanel"]
+consumes = ["3.ts-perps-core-perps-config-coinlogourl", "3.ts-perps-hooks-perps-usedailypnl-dailypnl", "3.ts-perps-ui-atoms-button-button", "3.ts-perps-ui-utils-format-fmtusdcompact"]
+
+[file.125]
+path = "apps/perps/src/widgets/portfolio/PortfolioPerformanceGrid.tsx"
+lines = 458
+verdict = "clean"
+note = "Read in full. Exact DailyPnl wei strings are summed as bigint; capped history and skipped days are exposed instead of an unbounded All-time claim."
+produces = ["3.ts-perps-widgets-portfolio-portfolioperformancegrid-buildseries", "3.ts-perps-widgets-portfolio-portfolioperformancegrid-performancerange", "3.ts-perps-widgets-portfolio-portfolioperformancegrid-portfolioperformancegrid", "3.ts-perps-widgets-portfolio-portfolioperformancegrid-slicebyrange", "3.ts-perps-widgets-portfolio-portfolioperformancegrid-windowstartkey", "3.ts-perps-widgets-portfolio-portfolioperformancegrid-windowtotals", "3.ts-perps-widgets-portfolio-portfolioperformancegrid-windowtotals-2"]
+consumes = ["3.ts-perps-hooks-perps-usedailypnl-dailypnl", "3.ts-perps-ui-utils-format-fmtusdcompact", "3.ts-perps-ui-utils-format-parsewei", "3.ts-perps-ui-utils-format-weitonumber"]
+
+[file.126]
+path = "apps/perps/src/widgets/portfolio/PortfolioPositionsPanel.tsx"
+lines = 254
+verdict = "issues"
+note = "Read in full. When a mark ticker is absent or invalid, rows set unrealizedPnl and pnlPct to zero even after margin tiers finish loading, presenting an unavailable valuation as a green zero result."
+produces = ["3.ts-perps-widgets-portfolio-portfoliopositionspanel-portfoliopositionspanel", "3.ts-perps-widgets-portfolio-portfoliopositionspanel-portfoliopositionspanelprops"]
+consumes = ["3.ts-perps-core-perps-config-coinlogourl", "3.ts-perps-core-perps-config-perps-markets", "3.ts-perps-core-perps-pnlhelpers-computepositionpnl", "3.ts-perps-core-perps-pnlhelpers-formatwadfixed", "3.ts-perps-core-perps-pnlhelpers-markpricewad", "3.ts-perps-core-perps-pnlhelpers-parsepositionrow", "3.ts-perps-core-perps-pnlhelpers-pctwad", "3.ts-perps-core-perps-pnlhelpers-wadtodecimal", "3.ts-perps-hooks-perps-userealtimeprices-userealtimeprices", "3.ts-perps-ui-utils-format-fmtusdcompact", "3.ts-perps-ui-utils-format-weitonumber"]
+
+[file.127]
+path = "apps/perps/src/widgets/portfolio/PortfolioPrimitives.tsx"
+lines = 106
+verdict = "clean"
+note = "Read in full. Layout, connection and empty-state components have explicit presentation props and do not claim transaction success."
+produces = ["3.ts-perps-widgets-portfolio-portfolioprimitives-connectgate", "3.ts-perps-widgets-portfolio-portfolioprimitives-connectgateprops", "3.ts-perps-widgets-portfolio-portfolioprimitives-emptystate", "3.ts-perps-widgets-portfolio-portfolioprimitives-emptystateprops", "3.ts-perps-widgets-portfolio-portfolioprimitives-placeholderpanel", "3.ts-perps-widgets-portfolio-portfolioprimitives-placeholderpanelprops", "3.ts-perps-widgets-portfolio-portfolioprimitives-sectioncard", "3.ts-perps-widgets-portfolio-portfolioprimitives-sectioncardprops"]
+consumes = ["3.ts-perps-ui-atoms-button-button"]
+
+[file.128]
+path = "apps/perps/src/widgets/portfolio/PortfolioSettingsPanel.tsx"
+lines = 39
+verdict = "clean"
+note = "Read in full. Reviewed PortfolioSettingsPanel props, displayed field units, loading/connection states and effect cleanup against @/ui/atoms/button, ./PortfolioPrimitives. No additional interface disagreement or retired public endpoint found."
+produces = ["3.ts-perps-widgets-portfolio-portfoliosettingspanel-portfoliosettingspanel", "3.ts-perps-widgets-portfolio-portfoliosettingspanel-portfoliosettingspanelprops"]
+consumes = ["3.ts-perps-ui-atoms-button-button"]
+
+[file.129]
+path = "apps/perps/src/widgets/portfolio/PortfolioSideNav.tsx"
+lines = 198
+verdict = "clean"
+note = "Read in full. Reviewed PortfolioSideNav props, displayed field units, loading/connection states and effect cleanup against @/ui/utils/cn. No additional interface disagreement or retired public endpoint found."
+produces = ["3.ts-perps-widgets-portfolio-portfoliosidenav-portfolio-nav-items", "3.ts-perps-widgets-portfolio-portfoliosidenav-portfolionavkey", "3.ts-perps-widgets-portfolio-portfoliosidenav-portfoliosidenav"]
+consumes = ["8.cfg-authority-registry-assets"]
+
+[file.130]
+path = "apps/perps/src/widgets/portfolio/PortfolioSpotSection.tsx"
+lines = 73
+verdict = "clean"
+note = "Read in full. Reviewed PortfolioSpotSection props, displayed field units, loading/connection states and effect cleanup against @/core/spot/config, @/hooks/spot/useSpotMarketStream, ./PortfolioPrimitives. No additional interface disagreement or retired public endpoint found."
+produces = ["3.ts-perps-widgets-portfolio-portfoliospotsection-portfoliospotsection"]
+consumes = ["3.ts-perps-core-spot-config-spot-markets", "3.ts-perps-core-spot-config-spotcoinlogourl", "3.ts-perps-hooks-spot-usespotmarketstream-usespotstats"]
+
+[file.131]
+path = "apps/perps/src/widgets/portfolio/PortfolioTopBar.tsx"
+lines = 91
+verdict = "clean"
+note = "Read in full. Reviewed PortfolioTopBar props, displayed field units, loading/connection states and effect cleanup against @/ui/atoms/button, ./PortfolioSideNav. No additional interface disagreement or retired public endpoint found."
+produces = ["3.ts-perps-widgets-portfolio-portfoliotopbar-portfoliotopbar", "3.ts-perps-widgets-portfolio-portfoliotopbar-portfoliotopbarprops"]
+consumes = ["3.ts-perps-ui-atoms-button-button", "8.cfg-authority-registry-assets"]
+
+[file.132]
+path = "apps/perps/src/widgets/portfolio/TradeSettlementHistory.tsx"
+lines = 273
+verdict = "issues"
+note = "Read in full. useTradeSettlements passes signed fundingPaidUsd from the TradeSettled decoder through GraphQL unchanged, but both the summary and row render -absUsd. Funding received (negative producer value) is therefore reported as a charge. The netPayoutTokens field is decoded as native token units, but the history divides every payout by 1e18 and formats it as USD. The producer's six-decimal USDL example 119000000 is displayed as approximately zero instead of 119 tokens."
+produces = ["3.ts-perps-widgets-portfolio-tradesettlementhistory-absusd", "3.ts-perps-widgets-portfolio-tradesettlementhistory-tradesettlementhistory"]
+consumes = ["3.ts-perps-core-perps-config-analytics-axis-formatters", "3.ts-perps-core-perps-config-analytics-chart-colors", "3.ts-perps-core-perps-config-perps-markets", "3.ts-perps-core-perps-config-track-b-strings", "3.ts-perps-core-perps-config-trade-type-labels", "3.ts-perps-hooks-perps-useanalytics-usetradesettlements", "3.ts-perps-hooks-ui-usemobile-useismobile", "3.ts-perps-ui-atoms-skeleton-skeleton", "3.ts-perps-ui-utils-format-fmtdate", "3.ts-perps-ui-utils-format-fmtusdcompact", "3.ts-perps-ui-utils-format-parse18", "3.ts-perps-ui-utils-format-weiorzero", "3.ts-perps-ui-utils-format-weitonumber"]
+
+[file.133]
+path = "apps/perps/src/widgets/portfolio/index.ts"
+lines = 32
+verdict = "clean"
+note = "Read in full. Named and default barrel exports resolve to the actual declarations; implementation findings are attached to their owning source files."
+
+[file.134]
+path = "apps/perps/src/widgets/portfolio/types.ts"
+lines = 17
+verdict = "clean"
+note = "Read in full. Shared widget and navigation types agree with the mounting presentation props and catalog identities; there is no separate transport or persistence boundary."
+produces = ["3.ts-perps-widgets-portfolio-types-tokenbalance"]
+
+[file.135]
+path = "apps/perps/src/widgets/spot/SpotMarketWatchlist.tsx"
+lines = 400
+verdict = "issues"
+note = "Read in full. Price, change and volume sort buttons update sortKey and arrows, but SortedRows only implements symbol sorting and returns catalog order for all numeric keys."
+produces = ["3.ts-perps-widgets-spot-spotmarketwatchlist-spotmarketwatchlist"]
+consumes = ["3.ts-perps-core-spot-config-spot-markets", "3.ts-perps-core-spot-config-spotcoinlogourl", "3.ts-perps-core-spot-config-spotmarket", "3.ts-perps-hooks-spot-usespotmarketstream-spotstats", "3.ts-perps-hooks-spot-usespotmarketstream-usespotstats", "3.ts-perps-hooks-ui-usefavoritemarkets-usefavoritemarkets", "8.cfg-feeder-config-markets"]
+
+[file.136]
+path = "apps/perps/src/widgets/spot/SpotOrderForm.tsx"
+lines = 1276
+verdict = "issues"
+note = "Read in full. baseHolding matches an ERC20 holding by its symbol alone, while quote balances correctly match token addresses; a different token sharing the symbol can enable a sell or supply the wrong decimals. Stop-limit orders expose IOC and FOK controls, but spotOrderRail always returns stop for stop-limit and execPlaceStopLimitBuy/Sell receives no time-in-force parameter. The form promises pooled stablecoin spending and validates against the sum of stable balances, but selectStableForBuy chooses one stablecoin that must cover the entire input."
+produces = ["3.ts-perps-widgets-spot-spotorderform-spotconversionprice", "3.ts-perps-widgets-spot-spotorderform-spotorderform", "3.ts-perps-widgets-spot-spotorderform-spotorderunits", "3.ts-perps-widgets-spot-spotorderform-spotsellexceedsbalance"]
+consumes = ["3.ts-perps-core-errors-classify-classifyerror", "3.ts-perps-core-errors-report-reporterror", "3.ts-perps-core-perps-config-erc20abi", "3.ts-perps-core-spot-api-dstrtotoken", "3.ts-perps-core-spot-calls-wei-per-uhpx", "3.ts-perps-core-spot-config-spot-stablecoins", "3.ts-perps-core-spot-config-spotmarket", "3.ts-perps-core-spot-slippage-limitminout", "3.ts-perps-core-spot-slippage-parseprice", "3.ts-perps-core-spot-slippage-parsetokenamount", "3.ts-perps-core-spot-slippage-quotedecimals", "3.ts-perps-core-spot-slippage-spotorderrail", "3.ts-perps-core-spot-slippage-spotordertype", "3.ts-perps-core-spot-slippage-spottimeinforce", "3.ts-perps-core-spot-stableselector-buildstableamountmap", "3.ts-perps-core-spot-stableselector-selectstableforbuy", "3.ts-perps-core-spot-stableselector-selectstableforsell", "3.ts-perps-hooks-perps-usecontract-readcontract", "3.ts-perps-hooks-perps-useperpswallet-useperpswallet", "3.ts-perps-hooks-spot-usespotmarketstream-spotorderbook", "3.ts-perps-hooks-spot-usespotmarketstream-usespotorderbook", "3.ts-perps-hooks-spot-usespotmarketstream-usespotstats", "3.ts-perps-hooks-spot-usespotorders-getpaxpointer", "3.ts-perps-hooks-spot-usespotorders-marketbuy", "3.ts-perps-hooks-spot-usespotorders-marketsell", "3.ts-perps-hooks-spot-usespotorders-placelimitbuy", "3.ts-perps-hooks-spot-usespotorders-placelimitsell", "3.ts-perps-hooks-spot-usespotorders-placestoplimitbuy", "3.ts-perps-hooks-spot-usespotorders-placestoplimitsell", "3.ts-perps-hooks-spot-usespotportfolio-usespotportfolio", "3.ts-perps-hooks-spot-usespotquoter-getallliquidityinfo", "3.ts-perps-hooks-spot-usespotquoter-quotemarketbuy", "3.ts-perps-hooks-spot-usespotquoter-quotemarketsell", "3.ts-perps-hooks-spot-usespotquoter-spotquoteresult", "3.ts-perps-ui-atoms-switch-switch", "3.ts-perps-ui-atoms-tooltip-tooltip", "3.ts-perps-ui-atoms-tooltip-tooltipcontent", "3.ts-perps-ui-atoms-tooltip-tooltipprovider", "3.ts-perps-ui-atoms-tooltip-tooltiptrigger", "3.ts-perps-ui-atoms-use-toast-toast", "3.ts-perps-ui-utils-format-toplaindecimal"]
+
+[file.137]
+path = "apps/perps/src/widgets/spot/SpotOrderbook.tsx"
+lines = 332
+verdict = "issues"
+note = "Read in full. The middle band labels its value Mid Price but displays book.bids[0].price instead of the average of the best bid and ask. tests/proof_widgets.test.ts explicitly expects the full SpotPage render to throw React is not defined from SpotOrderbook, then tests selected subtrees; MobileSpotBalancePanel is also excluded for its JSX runtime failure."
+produces = ["3.ts-perps-widgets-spot-spotorderbook-spotorderbook", "3.ts-perps-widgets-spot-spotorderbook-spotorderbooklevel"]
+consumes = ["3.ts-perps-core-net-venuestream-usespotvenuebook", "3.ts-perps-hooks-spot-usespotmarketstream-usespotorderbook"]
+
+[file.138]
+path = "apps/perps/src/widgets/spot/SpotPairHeader.tsx"
+lines = 216
+verdict = "clean"
+note = "Read in full. The selected spot catalog identity uses USDL labels and refuses unknown or mismatched selection."
+produces = ["3.ts-perps-widgets-spot-spotpairheader-spotpairheader"]
+consumes = ["3.ts-perps-core-spot-config-spot-markets", "3.ts-perps-core-spot-config-spotcoinlogourl", "3.ts-perps-hooks-spot-usespotmarketstream-usespotorderbook", "3.ts-perps-hooks-spot-usespotmarketstream-usespotstats", "3.ts-perps-hooks-spot-usespotmarketstream-usespottrades", "3.ts-perps-ui-atoms-priceflash-priceflash", "8.http-gateway-options-quote"]
+
+[file.139]
+path = "apps/perps/src/widgets/spot/SpotPositionsPanel.tsx"
+lines = 929
+verdict = "issues"
+note = "Read in full. ClosedLegsTab retains exhausted, error and hasFetched across address changes; loadMore has no abort or account-generation guard, so an old wallet page can append into the new wallet's history. Initial fetch errors are hidden by the empty return. TradeHistoryTab passes executionPrice, amountIn and amountOut through dStr and displays them as dollars and token quantities. The real SpotUsers query emits raw 18-decimal execution prices and native raw token amounts; only volumeUsd is scaled correctly."
+produces = ["3.ts-perps-widgets-spot-spotpositionspanel-spotpositionspanel"]
+consumes = ["3.ts-perps-core-chain-paxeerchain", "3.ts-perps-core-errors-classify-classifyerror", "3.ts-perps-core-errors-report-reporterror", "3.ts-perps-core-spot-api-dstr", "3.ts-perps-core-spot-api-dstrtotoken", "3.ts-perps-core-spot-api-dstrtousd", "3.ts-perps-core-spot-api-spotapi", "3.ts-perps-core-spot-api-spotclosedleg", "3.ts-perps-core-spot-api-spotorder", "3.ts-perps-core-spot-api-spotposition", "3.ts-perps-core-spot-api-spottrade", "3.ts-perps-core-spot-api-symbolorshort", "3.ts-perps-hooks-perps-useperpswallet-useperpswallet", "3.ts-perps-hooks-spot-usespotportfolio-usespotportfolio", "3.ws-perps-data-spotuser-streams-j27"]
+
+[file.140]
+path = "apps/perps/src/widgets/spot/SpotTradesTape.tsx"
+lines = 229
+verdict = "issues"
+note = "Read in full. useFlashIds stores every observed trade key forever. Each new frame cancels the previous 700ms cleanup, leaving earlier keys in flashSet when frames arrive faster than the timeout."
+produces = ["3.ts-perps-widgets-spot-spottradestape-spottradestape", "3.ts-perps-widgets-spot-spottradestape-spottradestapeprops"]
+consumes = ["3.ts-perps-core-net-venuestream-usespotvenuetrades", "3.ts-perps-hooks-spot-usespotmarketstream-spottrade", "3.ts-perps-hooks-spot-usespotmarketstream-usespottrades"]
+
+[file.141]
+path = "apps/perps/src/widgets/spot/index.ts"
+lines = 6
+verdict = "clean"
+note = "Read in full. Named and default barrel exports resolve to the actual declarations; implementation findings are attached to their owning source files."
+
+[file.142]
+path = "apps/perps/src/widgets/trading/Chart.tsx"
+lines = 858
+verdict = "issues"
+note = "Read in full. Entry, TP and SL drag callbacks round this.getPrice() to a cent, losing the precision supported by sub-cent market tick sizes before dispatching the price to the order-line store."
+produces = ["3.ts-perps-widgets-trading-chart-chart"]
+consumes = ["3.ts-perps-core-datafeed-perps-perpsdatafeed", "3.ts-perps-hooks-perps-useorderlinestore-useorderlinestore", "3.ts-perps-hooks-ui-usemobile-useismobile", "3.ts-perps-ui-atoms-paxspinner-paxspinner"]
+
+[file.143]
+path = "apps/perps/src/widgets/trading/MarketSelectorPanel.tsx"
+lines = 404
+verdict = "issues"
+note = "Read in full. The live watchlist defines RWA_MARKET_IDS=[5,6,7,8,9,10] and filters New with category==='new', rather than the catalog's listedAt-based isNew flag."
+produces = ["3.ts-perps-widgets-trading-marketselectorpanel-marketselectorpanel", "3.ts-perps-widgets-trading-marketselectorpanel-marketwatchlist"]
+consumes = ["3.ts-perps-core-perps-config-coinlogourl", "3.ts-perps-core-perps-config-perps-markets", "3.ts-perps-hooks-perps-userealtimeprices-userealtimeprices", "3.ts-perps-ui-atoms-custom-icon-icoclock", "3.ts-perps-ui-atoms-custom-icon-icosearch"]
+
+[file.144]
+path = "apps/perps/src/widgets/trading/MarketTradesTape.tsx"
+lines = 119
+verdict = "clean"
+note = "Read in full. Venue contracts, notional and reference-tape fields stay distinct through the shared hooks."
+produces = ["3.ts-perps-widgets-trading-markettradestape-markettradestape", "3.ts-perps-widgets-trading-markettradestape-markettradestapeprops"]
+consumes = ["3.ts-perps-hooks-perps-usesidpaxmarketstream-usesidpaxtrades"]
+
+[file.145]
+path = "apps/perps/src/widgets/trading/MobileTradingLayout.tsx"
+lines = 277
+verdict = "issues"
+note = "Read in full. FundingRateRow computes serverNextMs - (Date.now() % serverNextMs), treating next_funding_ms as a repeating interval; for the remaining-duration field it repeatedly resets rather than counting down to the producer's event."
+produces = ["3.ts-perps-widgets-trading-mobiletradinglayout-mobiletradinglayout"]
+consumes = ["3.ts-perps-core-perps-config-coinlogourl", "3.ts-perps-core-perps-config-perps-markets", "3.ts-perps-core-perps-config-perpsmarket", "3.ts-perps-core-perps-fundingrate-fundingrowfigure", "3.ts-perps-hooks-perps-userealtimeprices-userealtimeprices", "3.ts-perps-hooks-perps-usesidpaxmarketstream-hasdedicatedmarketstream", "3.ts-perps-hooks-perps-usesidpaxmarketstream-usesidpaxorderbook", "3.ts-perps-hooks-perps-usesidpaxmarketstream-usesidpaxstats", "3.ts-perps-hooks-perps-usesidpaxmarketstream-usesidpaxtrades"]
+
+[file.146]
+path = "apps/perps/src/widgets/trading/Orderbook.tsx"
+lines = 535
+verdict = "issues"
+note = "Read in full. The mid band displays bestBid.price while its caption says mid; spread is derived from both sides, so the value is systematically off by half the spread."
+produces = ["3.ts-perps-widgets-trading-orderbook-depthpanel", "3.ts-perps-widgets-trading-orderbook-orderbook", "3.ts-perps-widgets-trading-orderbook-orderbooklevel"]
+consumes = ["3.ts-perps-core-net-venuestream-isvenuesymbol", "3.ts-perps-core-net-venuestream-usevenuebook", "3.ts-perps-core-net-venuestream-usevenuefills", "3.ts-perps-hooks-perps-userealtimeprices-userealtimeprices", "3.ts-perps-hooks-perps-usesidpaxmarketstream-usesidpaxorderbook"]
+
+[file.147]
+path = "apps/perps/src/widgets/trading/PairHeader.tsx"
+lines = 298
+verdict = "issues"
+note = "Read in full. Both markPrice and indexPrice prefer livePrice from the reference book midpoint or last trade, overwriting distinct authoritative ticker.mark_price and ticker.index_price."
+produces = ["3.ts-perps-widgets-trading-pairheader-pairheader"]
+consumes = ["3.http-perps-data-rest-get-api-tickers-and-get-api-markets-tickers-j27", "3.ts-perps-core-perps-config-coinlogourl", "3.ts-perps-core-perps-config-perps-markets", "3.ts-perps-core-perps-fundingrate-formatsignedfundingdecimalpct", "3.ts-perps-core-perps-fundingrate-fundingdecimalsign", "3.ts-perps-core-perps-fundingrate-fundingfigures", "3.ts-perps-hooks-perps-useenrichedstats-useenrichedmarketstats", "3.ts-perps-hooks-perps-usemarketsstream-marketfundinghourly", "3.ts-perps-hooks-perps-userealtimeprices-userealtimeprices", "3.ts-perps-hooks-perps-usesidpaxmarketstream-usesidpaxorderbook", "3.ts-perps-hooks-perps-usesidpaxmarketstream-usesidpaxstats", "3.ts-perps-hooks-perps-usesidpaxmarketstream-usesidpaxtrades", "3.ts-perps-ui-atoms-priceflash-priceflash"]
+
+[file.148]
+path = "apps/perps/src/widgets/trading/PerpsOrderForm.tsx"
+lines = 2016
+verdict = "issues"
+note = "Read in full. The preview always prints Taker / Maker 0.06% / 0.03% although the application has an account-specific on-chain useFeeTier producer. acceptPending submits a stored market plan without checking its quote age; needsRequote is only checked before the confirmation dialog, which can remain open indefinitely. Dragging entry, TP or SL rounds in Chart to cents and then writes toFixed(2) in the form, regardless of marketConfig.tickSize. Sub-cent markets cannot select their supported prices through the chart."
+produces = ["3.ts-perps-widgets-trading-perpsorderform-perpsorderform"]
+consumes = ["3.ts-perps-core-errors-classify-classifyerror", "3.ts-perps-core-errors-report-reporterror", "3.ts-perps-core-errors-types-userfacingerror", "3.ts-perps-core-perps-amounts-deriveimpliedcollateral", "3.ts-perps-core-perps-amounts-getcollateraldecimals", "3.ts-perps-core-perps-amounts-safeparseunits", "3.ts-perps-core-perps-config-collateral-options", "3.ts-perps-core-perps-config-perpsmarket", "3.ts-perps-core-perps-orderplan-buildconfirmation", "3.ts-perps-core-perps-orderplan-buildorderplan", "3.ts-perps-core-perps-orderplan-needsconfirmation", "3.ts-perps-core-perps-orderplan-needsrequote", "3.ts-perps-core-perps-orderplan-orderconfirmation", "3.ts-perps-core-perps-orderplan-orderoptions", "3.ts-perps-core-perps-orderplan-orderplan", "3.ts-perps-core-perps-orderplan-selectorderoption", "3.ts-perps-core-perps-orderplan-successreset-2", "3.ts-perps-hooks-perps-useorderlinestore-useorderlinestore", "3.ts-perps-hooks-perps-useperpsorders-useperpsorders", "3.ts-perps-hooks-perps-useperpswallet-useperpswallet", "3.ts-perps-hooks-perps-useportfoliostats-useportfoliostats", "3.ts-perps-hooks-perps-usequoter-openpositionquote", "3.ts-perps-hooks-perps-usequoter-usequoter", "3.ts-perps-ui-atoms-custom-icon-icoalert", "3.ts-perps-ui-atoms-custom-icon-icoexclamation", "3.ts-perps-ui-atoms-popover-popover", "3.ts-perps-ui-atoms-popover-popovercontent", "3.ts-perps-ui-atoms-popover-popovertrigger", "3.ts-perps-ui-atoms-slider-slider", "3.ts-perps-ui-atoms-switch-switch", "3.ts-perps-ui-atoms-tooltip-tooltip", "3.ts-perps-ui-atoms-tooltip-tooltipcontent", "3.ts-perps-ui-atoms-tooltip-tooltipprovider", "3.ts-perps-ui-atoms-tooltip-tooltiptrigger", "8.http-gateway-options-quote"]
+
+[file.149]
+path = "apps/perps/src/widgets/trading/PerpsPositionsPanel.tsx"
+lines = 1744
+verdict = "issues"
+note = "Read in full. MobilePositionCard renders an enabled TP / SL button with onClick={() => {}}; desktop correctly opens SetTpSlModal with the position context. fetchData and fetchHistoryData neither clear wallet-scoped state nor cancel superseded requests. Promise.allSettled failures retain prior arrays silently; late results from wallet A can overwrite wallet B's orders and TP/SL."
+produces = ["3.ts-perps-widgets-trading-perpspositionspanel-perpspositionspanel"]
+consumes = ["3.http-perps-data-graphql-subscription-orderchanged-j27", "3.ts-perps-core-graphql-client-subscribestream", "3.ts-perps-core-net-realtime-onstreamresync", "3.ts-perps-core-perps-config-coinlogourl", "3.ts-perps-core-perps-config-collateral-tokens", "3.ts-perps-core-perps-config-explorer-url", "3.ts-perps-core-perps-config-indexer-graphql", "3.ts-perps-core-perps-config-order-type-colors", "3.ts-perps-core-perps-config-order-type-labels", "3.ts-perps-core-perps-config-perps-markets", "3.ts-perps-core-perps-config-position-action-copy", "3.ts-perps-core-perps-pnlhelpers-computepositionpnl", "3.ts-perps-core-perps-pnlhelpers-formatwadfixed", "3.ts-perps-core-perps-pnlhelpers-markpricewad", "3.ts-perps-core-perps-pnlhelpers-parsepositionrow", "3.ts-perps-core-perps-pnlhelpers-wad", "3.ts-perps-core-perps-pnlhelpers-wadtodecimal", "3.ts-perps-core-perps-positionactions-partial-close-bps", "3.ts-perps-core-perps-positionactions-partialcloseaction-2", "3.ts-perps-core-perps-positionactions-unitsfromindexed", "3.ts-perps-hooks-perps-usecontract-waitfortx", "3.ts-perps-hooks-perps-usecontract-writecontract", "3.ts-perps-hooks-perps-useperpsorders-useperpsorders", "3.ts-perps-hooks-perps-useperpswallet-useperpswallet", "3.ts-perps-hooks-perps-useportfoliostats-markpositionlocallyclosed", "3.ts-perps-hooks-perps-useportfoliostats-refreshpositions", "3.ts-perps-hooks-perps-useportfoliostats-unmarkpositionlocallyclosed", "3.ts-perps-hooks-perps-useportfoliostats-useportfoliostats", "3.ts-perps-hooks-perps-useposition-useposition", "3.ts-perps-hooks-perps-usequoter-usequoter", "3.ts-perps-hooks-perps-userealtimeprices-userealtimeprices", "3.ts-perps-hooks-perps-usesubgraph-all-orders-v2-query", "3.ts-perps-hooks-perps-usesubgraph-closed-positions-query", "3.ts-perps-hooks-perps-usesubgraph-liquidations-query", "3.ts-perps-hooks-perps-usesubgraph-orders-query", "3.ts-perps-hooks-perps-usesubgraph-subgraphquery", "3.ts-perps-hooks-perps-usesubgraph-tpsl-orders-query", "3.ts-perps-hooks-perps-usesubgraph-trades-query", "3.ts-perps-hooks-ui-usemobile-useismobile", "3.ts-perps-ui-atoms-custom-icon-icoexclamation", "3.ts-perps-ui-atoms-custom-icon-icoshare", "3.ts-perps-ui-atoms-dropdown-menu-dropdownmenu", "3.ts-perps-ui-atoms-dropdown-menu-dropdownmenucontent", "3.ts-perps-ui-atoms-dropdown-menu-dropdownmenuitem", "3.ts-perps-ui-atoms-dropdown-menu-dropdownmenutrigger", "3.ts-perps-ui-atoms-priceflash-priceflash", "3.ts-perps-ui-atoms-tabs-tabs", "3.ts-perps-ui-atoms-tabs-tabscontent", "3.ts-perps-ui-utils-format-fmtdate", "3.ts-perps-ui-utils-format-fmtprice", "3.ts-perps-ui-utils-format-fmtusdcompact", "3.ts-perps-ui-utils-format-parse18", "3.ts-perps-ui-utils-format-weitonumber"]
+
+[file.150]
+path = "apps/perps/src/widgets/trading/PnlShareCard.tsx"
+lines = 268
+verdict = "clean"
+note = "Read in full. Typed PositionPnl bigint values remain consistent with the risk calculation; sharing and object URL cleanup are local UI operations."
+produces = ["3.ts-perps-widgets-trading-pnlsharecard-pnlcarddata", "3.ts-perps-widgets-trading-pnlsharecard-pnlsharecard"]
+consumes = ["3.ts-perps-core-net-fetch-fetchwithpolicy", "3.ts-perps-core-perps-config-coinlogourl", "3.ts-perps-core-perps-pnlhelpers-formatpnlpercent", "3.ts-perps-core-perps-pnlhelpers-formatwadfixed", "3.ts-perps-core-perps-pnlhelpers-positionpnl", "3.ts-perps-core-perps-pnlhelpers-wadtodecimal", "3.ts-perps-ui-atoms-button-button", "3.ts-perps-ui-utils-format-fmtdate", "3.ts-perps-ui-utils-format-fmtprice", "3.ts-perps-ui-utils-format-fmtusd", "3.ts-perps-ui-utils-format-weitonumber"]
+
+[file.151]
+path = "apps/perps/src/widgets/trading/chartTheme.ts"
+lines = 45
+verdict = "clean"
+note = "Read in full. Pure pair-state and theme-transition helpers preserve pair snapshots and recreate custom chart styles under requirement 181058.1."
+
+[file.152]
+path = "apps/perps/src/widgets/trading/modals/AdjustCollateralModal.tsx"
+lines = 178
+verdict = "issues"
+note = "Read in full. The remove-collateral preview enforces currentSize * 0.01 as maintenance, independent of market risk tiers, deductions, funding and PnL."
+produces = ["3.ts-perps-widgets-trading-modals-adjustcollateralmodal-adjustcollateralmodal"]
+consumes = ["3.ts-perps-core-perps-collateralinputs-tocollateralunits", "3.ts-perps-core-perps-config-position-action-copy", "3.ts-perps-hooks-perps-useposition-useposition", "3.ts-perps-ui-atoms-button-button", "3.ts-perps-ui-atoms-dialog-dialog", "3.ts-perps-ui-atoms-dialog-dialogcontent", "3.ts-perps-ui-atoms-dialog-dialogdescription", "3.ts-perps-ui-atoms-dialog-dialogfooter", "3.ts-perps-ui-atoms-dialog-dialogheader", "3.ts-perps-ui-atoms-dialog-dialogtitle", "3.ts-perps-ui-atoms-input-input", "3.ts-perps-ui-atoms-use-toast-toast"]
+
+[file.153]
+path = "apps/perps/src/widgets/trading/modals/SetTpSlModal.tsx"
+lines = 167
+verdict = "clean"
+note = "Read in full. Market tick validation and safeParseUnits precede the actual TP/SL builder. Invalid or over-precision amounts return zero rather than throwing."
+produces = ["3.ts-perps-widgets-trading-modals-settpslmodal-settpslmodal"]
+consumes = ["3.ts-perps-core-perps-config-tp-sl-copy", "3.ts-perps-core-perps-positionactions-settpslaction", "3.ts-perps-hooks-perps-usecontract-waitfortx", "3.ts-perps-hooks-perps-usecontract-writecontract", "3.ts-perps-ui-atoms-button-button", "3.ts-perps-ui-atoms-dialog-dialog", "3.ts-perps-ui-atoms-dialog-dialogcontent", "3.ts-perps-ui-atoms-dialog-dialogdescription", "3.ts-perps-ui-atoms-dialog-dialogfooter", "3.ts-perps-ui-atoms-dialog-dialogheader", "3.ts-perps-ui-atoms-dialog-dialogtitle", "3.ts-perps-ui-atoms-input-input", "3.ts-perps-ui-atoms-use-toast-toast"]
+
+[file.154]
+path = "apps/perps/src/widgets/trading/modals/TopUpPositionModal.tsx"
+lines = 87
+verdict = "clean"
+note = "Read in full. Native collateral decimals and safeParseUnits agree with the real top-up transaction hook; invalid decimal input returns zero."
+produces = ["3.ts-perps-widgets-trading-modals-topuppositionmodal-topuppositionmodal"]
+consumes = ["3.ts-perps-core-perps-collateralinputs-tocollateralunits", "3.ts-perps-core-perps-config-position-action-copy", "3.ts-perps-hooks-perps-usemarginmode-usetopupposition", "3.ts-perps-ui-atoms-button-button", "3.ts-perps-ui-atoms-dialog-dialog", "3.ts-perps-ui-atoms-dialog-dialogcontent", "3.ts-perps-ui-atoms-dialog-dialogdescription", "3.ts-perps-ui-atoms-dialog-dialogfooter", "3.ts-perps-ui-atoms-dialog-dialogheader", "3.ts-perps-ui-atoms-dialog-dialogtitle", "3.ts-perps-ui-atoms-input-input", "3.ts-perps-ui-atoms-use-toast-toast"]
+
+[file.155]
+path = "apps/perps/src/widgets/trading/tradingViewLoader.ts"
+lines = 65
+verdict = "issues"
+note = "Read in full. A failed script download clears inflight but leaves the failed script element in the DOM; the next loadTradingView call attaches listeners to that completed failed element, so its promise never settles."
+produces = ["3.ts-perps-widgets-trading-tradingviewloader-loadtradingview"]
+
+[finding.f001]
+file = "apps/perps/sentry.client.config.ts"
+line = 48
+class = "security"
+severity = "medium"
+observed = "beforeSend only redacts event.message and exception values; redactSecrets does not match 0x-prefixed private keys or wallet addresses, and request, breadcrumbs and extra data pass through unchanged."
+expected = "Error reporting must not send wallet identifiers, secret keys or seed phrases to third parties; sendDefaultPii false does not sanitize explicit event data."
+proposal = "Apply the shared structured redactor to the entire Sentry event in apps/perps/sentry.client.config.ts and verify prefixed keys, addresses and nested request and breadcrumb fields are removed."
+owner_domain = 3
+
+[finding.f002]
+file = "apps/perps/sentry.edge.config.ts"
+line = 16
+class = "security"
+severity = "medium"
+observed = "The edge Sentry initialization enables reporting without the beforeSend sanitization used by the client configuration."
+expected = "Every enabled reporting runtime must redact secret and wallet data before exporting exception and request context."
+proposal = "Use one structured event sanitizer across the client and edge configurations in apps/perps and exercise nested secret-bearing events through that sanitizer."
+owner_domain = 3
+
+[finding.f003]
+file = "apps/perps/src/pages/api/candle/[...path].ts"
+line = 114
+class = "security"
+severity = "medium"
+observed = "clientIp trusts the first caller-controlled x-forwarded-for element; ipBuckets only removes expired entries after 5000 and admits unlimited fresh keys inside the current minute."
+expected = "The public candle proxy must bound admission memory and identify clients through a trusted deployment proxy before enforcing its advertised request limit."
+proposal = "In the candle route and its deployment proxy, use a verified client IP header, cap active buckets and reject excess keys; prove spoofed headers cannot bypass the request budget."
+owner_domain = 3
+interface = "3.env-perps-market-proxy-host"
+
+[finding.f004]
+file = "apps/perps/src/pages/api/candle/[...path].ts"
+line = 232
+class = "interface-mismatch"
+severity = "high"
+observed = "GET and HEAD are allowed, but the HEAD fetch response is passed to upstreamRes.json whenever its content-type is JSON; HEAD has no body and decoding throws, returning 502 for a healthy upstream."
+expected = "The declared GET|HEAD /api/candle interface must return upstream status and headers for HEAD without attempting a body decode."
+proposal = "Handle HEAD immediately after upstream fetch in the candle route and cover a real upstream HEAD response with JSON content type and an empty body."
+owner_domain = 3
+interface = "3.http-perps-get-head-api-candle-path"
+
+[finding.f005]
+file = "apps/perps/src/pages/api/presence.ts"
+line = 91
+class = "runtime-risk"
+severity = "medium"
+observed = "computeSnapshot uses history.find for slots at least five minutes old; history is oldest first, so a full twelve-slot window compares against the oldest slot rather than the five-minute baseline."
+expected = "Fields delta5m and rising percentages must compare current participation with the closest available five-minute historical sample."
+proposal = "Select the newest slot at or before now minus five minutes in apps/perps/src/pages/api/presence.ts and cover a full history window with changing counts."
+owner_domain = 3
+interface = "3.http-perps-get-post-api-presence"
+
+[finding.f006]
+file = "apps/perps/src/pages/api/presence.ts"
+line = 133
+class = "security"
+severity = "medium"
+observed = "POST /api/presence accepts arbitrary caller-chosen sessionId values without rate limiting; a caller can fill MAX_SESSIONS, evict live visitors and fabricate market popularity."
+expected = "Presence-derived popularity must resist one caller registering thousands of identities and displacing real active sessions."
+proposal = "Bound presence registration per trusted client and use server-issued expiring session identities in apps/perps/src/pages/api/presence.ts before presenting counts as market popularity."
+owner_domain = 3
+interface = "3.http-perps-get-post-api-presence"
+
+[finding.f007]
+file = "apps/perps/src/pages/auth/callback.tsx"
+line = 43
+class = "runtime-risk"
+severity = "medium"
+observed = "The void async callback awaits exchangeCodeForSession and getSession without catch; a thrown network or wallet error leaves the page permanently showing Finishing sign-in."
+expected = "A failed sign-in exchange must leave a recoverable error state rather than an unhandled rejection and an indefinite spinner."
+proposal = "Catch exchange and session errors in apps/perps/src/pages/auth/callback.tsx, preserve cancellation checks and offer a retry using the normal sign-in flow."
+owner_domain = 3
+interface = "3.http-perps-get-auth-callback"
+
+[finding.f008]
+file = "apps/perps/src/widgets/analytics/AnalyticsLiquidStat.tsx"
+line = 106
+class = "runtime-risk"
+severity = "medium"
+observed = "TVL is reconstructed from only 100 vault-balance events with an empty initial running map; a collateral token absent from that window contributes zero, and the earliest incomplete sum becomes the 24-hour baseline."
+expected = "Protocol TVL and its daily change require balances for every supported vault token at both endpoints, regardless of which tokens changed in the recent event window."
+proposal = "Seed apps/perps/src/widgets/analytics/AnalyticsLiquidStat.tsx from complete current and baseline vault balances or an authoritative aggregate snapshot, and label unavailable history without inventing a percentage."
+owner_domain = 3
+interface = "3.ts-perps-widgets-analytics-analyticsliquidstat-analyticsliquidstat"
+
+[finding.f009]
+file = "apps/perps/src/widgets/analytics/MarkPriceChart.tsx"
+line = 106
+class = "runtime-risk"
+severity = "medium"
+observed = "The Recharts series declares name Mark Price, but its Tooltip formatter compares name against the data key markPrice; the first series therefore receives the second series label."
+expected = "Tooltip labels must identify the same price or open-interest side as the plotted series and legend."
+proposal = "In apps/perps/src/widgets/analytics/MarkPriceChart.tsx, use the series dataKey or preserve its declared name in the Tooltip formatter and verify both series labels."
+owner_domain = 3
+interface = "3.ts-perps-widgets-analytics-markpricechart-markpricechart"
+
+[finding.f010]
+file = "apps/perps/src/widgets/analytics/OiChart.tsx"
+line = 106
+class = "runtime-risk"
+severity = "medium"
+observed = "The Recharts series declares name Long OI, but its Tooltip formatter compares name against the data key longOi; the first series therefore receives the second series label."
+expected = "Tooltip labels must identify the same price or open-interest side as the plotted series and legend."
+proposal = "In apps/perps/src/widgets/analytics/OiChart.tsx, use the series dataKey or preserve its declared name in the Tooltip formatter and verify both series labels."
+owner_domain = 3
+interface = "3.ts-perps-widgets-analytics-oichart-oichart"
+
+[finding.f011]
+file = "apps/perps/src/widgets/explorer/BlockRow.tsx"
+line = 77
+class = "runtime-risk"
+severity = "medium"
+observed = "The Fills column displays block.transactions_count even though the Block producer counts all EVM transactions, including transfers and non-market calls."
+expected = "A committed block's transaction count must not be presented as a count of market fills."
+proposal = "Rename the column to Transactions in apps/perps/src/widgets/explorer/BlockRow.tsx, or source an independently indexed fill count if fills are the intended product measure."
+owner_domain = 3
+interface = "3.ts-perps-widgets-explorer-blockrow-blockrow"
+
+[finding.f012]
+file = "apps/perps/src/widgets/explorer/LiveBlockStream.tsx"
+line = 60
+class = "restart-recovery"
+severity = "medium"
+observed = "The initial REST seed replaces the blocks array unconditionally; a live block arriving before the REST request resolves is discarded when the older seed arrives."
+expected = "Initial history and live updates must merge without losing blocks that arrive while the history request is outstanding."
+proposal = "Merge the REST seed with already received hashes and heights, sort by height and apply maxBlocks in apps/perps/src/widgets/explorer/LiveBlockStream.tsx."
+owner_domain = 3
+interface = "3.ts-perps-widgets-explorer-liveblockstream-liveblockstream"
+
+[finding.f013]
+file = "apps/perps/src/widgets/explorer/TxDetailPanel.tsx"
+line = 67
+class = "retired-reference"
+severity = "medium"
+observed = "The live explorer labels ordinary Paxeer EVM transactions as Layer X Transaction, and its documentation claims every block is one batch-settlement transaction."
+expected = "The merged network has one chain and arbitrary committed transactions; it has no separate LayerX transaction interface or universal batch-settlement block model."
+proposal = "Use Paxeer transaction terminology and remove the obsolete batch model comments in apps/perps/src/widgets/explorer/TxDetailPanel.tsx."
+owner_domain = 3
+interface = "3.ts-perps-widgets-explorer-txdetailpanel-txdetailpanel"
+
+[finding.f014]
+file = "apps/perps/src/widgets/spot/SpotOrderForm.tsx"
+line = 475
+class = "runtime-risk"
+severity = "medium"
+observed = "baseHolding matches an ERC20 holding by its symbol alone, while quote balances correctly match token addresses; a different token sharing the symbol can enable a sell or supply the wrong decimals."
+expected = "The balance used for a spot sell must belong to market.baseAddress and use that token's native precision."
+proposal = "Match the holding by canonical token address in apps/perps/src/widgets/spot/SpotOrderForm.tsx and verify a same-symbol foreign token cannot satisfy the balance check."
+owner_domain = 3
+interface = "3.ts-perps-widgets-spot-spotorderform-spotconversionprice"
+
+[finding.f015]
+file = "apps/perps/src/widgets/spot/SpotOrderForm.tsx"
+line = 1115
+class = "wiring-gap"
+severity = "medium"
+observed = "Stop-limit orders expose IOC and FOK controls, but spotOrderRail always returns stop for stop-limit and execPlaceStopLimitBuy/Sell receives no time-in-force parameter."
+expected = "A user-selected order lifetime must be enforced by the execution rail, or the UI must refuse unsupported combinations."
+proposal = "Restrict stop-limit to its supported lifetime in apps/perps/src/widgets/spot/SpotOrderForm.tsx, or extend the stop-order producer and ABI to carry and enforce the selected time in force."
+owner_domain = 3
+interface = "3.ts-perps-widgets-spot-spotorderform-spotconversionprice"
+
+[finding.f016]
+file = "apps/perps/src/widgets/spot/SpotOrderForm.tsx"
+line = 1171
+class = "doc-drift"
+severity = "medium"
+observed = "The form promises pooled stablecoin spending and validates against the sum of stable balances, but selectStableForBuy chooses one stablecoin that must cover the entire input."
+expected = "The displayed buying power and funding description must agree with the single-stablecoin order pipeline."
+proposal = "Show the spendable balance of the selected stablecoin and explain single-token settlement in apps/perps/src/widgets/spot/SpotOrderForm.tsx, or implement explicit user-approved multi-token routing."
+owner_domain = 3
+interface = "3.ts-perps-widgets-spot-spotorderform-spotconversionprice"
+
+[finding.f017]
+file = "apps/perps/src/widgets/trading/modals/AdjustCollateralModal.tsx"
+line = 76
+class = "runtime-risk"
+severity = "medium"
+observed = "The remove-collateral preview enforces currentSize * 0.01 as maintenance, independent of market risk tiers, deductions, funding and PnL."
+expected = "Requirement 3531.1 and the chain risk model require tiered maintenance; the form must not promise a safe margin using a fixed one-percent rule."
+proposal = "Use the market's authoritative tiered maintenance and current account risk in apps/perps/src/widgets/trading/modals/AdjustCollateralModal.tsx before offering a removal amount."
+owner_domain = 3
+interface = "3.ts-perps-widgets-trading-modals-adjustcollateralmodal-adjustcollateralmodal"
+
+[finding.f018]
+file = "apps/perps/src/widgets/trading/tradingViewLoader.ts"
+line = 43
+class = "restart-recovery"
+severity = "medium"
+observed = "A failed script download clears inflight but leaves the failed script element in the DOM; the next loadTradingView call attaches listeners to that completed failed element, so its promise never settles."
+expected = "The chart loader must recover from a transient download error on a later retry without requiring a full page reload."
+proposal = "Remove the failed script element and clear its listeners before resetting inflight in apps/perps/src/widgets/trading/tradingViewLoader.ts; also reset a missing-global rejection."
+owner_domain = 3
+interface = "3.ts-perps-widgets-trading-tradingviewloader-loadtradingview"
+
+[finding.f019]
+file = "apps/perps/src/widgets/portfolio/PnlChart.tsx"
+line = 37
+class = "runtime-risk"
+severity = "medium"
+observed = "PnlChart accumulates parseFloat(d.pnl) as dollars although useDailyPnl validates exact 18-decimal wei strings; a one-dollar row becomes 1e18 dollars. No live caller was found at this revision."
+expected = "A reusable portfolio chart must convert DailyPnl's wei amounts to display dollars consistently with PerformanceCards and PortfolioPerformanceGrid."
+proposal = "Convert exact summed wei through weiToNumber in apps/perps/src/widgets/portfolio/PnlChart.tsx, or retire this unused export and direct callers to the maintained performance grid."
+owner_domain = 3
+interface = "3.ts-perps-widgets-portfolio-pnlchart-pnlchart"
+
+[finding.f020]
+file = "apps/perps/src/widgets/portfolio/PortfolioAssetsChart.tsx"
+line = 211
+class = "runtime-risk"
+severity = "medium"
+observed = "The live Assets chart reconstructs balances from current vault value minus realized daily PnL, omitting deposits and withdrawals and clamping negatives to zero; its ALL selector also receives at most 90 GraphQL rows without a cap warning."
+expected = "An Assets history must reflect actual balance changes, and a capped history must expose its available period under requirement 18694.1."
+proposal = "In PortfolioAssetsChart.tsx use indexed balance snapshots including cash flows; until available label the curve as a PnL-only estimate and pass historyCapped and skippedDays from PortfolioOverviewPanel."
+owner_domain = 3
+interface = "3.ts-perps-widgets-portfolio-portfolioassetschart-assetstimerange"
+
+[finding.f021]
+file = "apps/perps/src/widgets/portfolio/PortfolioOverviewPanel.tsx"
+line = 230
+class = "runtime-risk"
+severity = "medium"
+observed = "The privacy toggle masks top totals but leaves token balances visible in the balance strip and reveals the unrealized PnL percentage."
+expected = "The Hide balances action should conceal the account amounts presented within this overview card."
+proposal = "Apply the privacy mask to token holdings and derived PnL percentages in PortfolioOverviewPanel.tsx and use an accessible hidden-state label."
+owner_domain = 3
+interface = "3.ts-perps-widgets-portfolio-portfoliooverviewpanel-portfoliooverviewpanel"
+
+[finding.f022]
+file = "apps/perps/src/widgets/portfolio/MobilePortfolioOverview.tsx"
+line = 398
+class = "runtime-risk"
+severity = "medium"
+observed = "Vault events render fmtUsd(parse18(event.amount)) without token metadata; native six-decimal collateral amounts are divided by 1e18 and displayed as dollar values. This legacy export has no live caller at the audited revision; the currently mounted portfolio uses PortfolioOverviewPanel."
+expected = "Deposits and withdrawals must identify their token and decode amounts using its native decimals before presenting a dollar valuation."
+proposal = "Resolve each event's token against collateral metadata in MobilePortfolioOverview.tsx and display native units, with a separate priced USD amount only when a quote exists."
+owner_domain = 3
+interface = "3.ts-perps-widgets-portfolio-mobileportfoliooverview-mobileportfoliooverview"
+
+[finding.f023]
+file = "apps/perps/src/widgets/spot/SpotMarketWatchlist.tsx"
+line = 367
+class = "wiring-gap"
+severity = "medium"
+observed = "Price, change and volume sort buttons update sortKey and arrows, but SortedRows only implements symbol sorting and returns catalog order for all numeric keys."
+expected = "Every offered market sorting option must order rows by the visible live metric."
+proposal = "Lift live SpotStats into a shared row model in SpotMarketWatchlist.tsx and sort that model for price, change and volume in both directions."
+owner_domain = 3
+interface = "3.ts-perps-widgets-spot-spotmarketwatchlist-spotmarketwatchlist"
+
+[finding.f024]
+file = "apps/perps/src/widgets/spot/SpotOrderbook.tsx"
+line = 285
+class = "runtime-risk"
+severity = "medium"
+observed = "The middle band labels its value Mid Price but displays book.bids[0].price instead of the average of the best bid and ask."
+expected = "A mid-price label must show the arithmetic midpoint when both sides exist and unavailable otherwise."
+proposal = "Compute and display the best-bid/best-ask midpoint in SpotOrderbook.tsx; keep a separate best-bid label if desired."
+owner_domain = 3
+interface = "3.ts-perps-widgets-spot-spotorderbook-spotorderbook"
+
+[finding.f025]
+file = "apps/perps/src/widgets/trading/Orderbook.tsx"
+line = 310
+class = "runtime-risk"
+severity = "medium"
+observed = "The mid band displays bestBid.price while its caption says mid; spread is derived from both sides, so the value is systematically off by half the spread."
+expected = "The perps depth midpoint must agree with the best bid and ask shown in the same book."
+proposal = "Use the two-sided midpoint in widgets/trading/Orderbook.tsx and expose one-sided books without labeling a bid as the mid."
+owner_domain = 3
+interface = "3.ts-perps-widgets-trading-orderbook-depthpanel"
+
+[finding.f026]
+file = "apps/perps/src/widgets/spot/SpotTradesTape.tsx"
+line = 53
+class = "runtime-risk"
+severity = "medium"
+observed = "useFlashIds stores every observed trade key forever. Each new frame cancels the previous 700ms cleanup, leaving earlier keys in flashSet when frames arrive faster than the timeout."
+expected = "A continuously mounted trade tape must have bounded highlight memory and expire each highlight independently of subsequent trades."
+proposal = "Prune seenRef to a bounded recent-key window and expire highlights using timestamps or independent cleanup in SpotTradesTape.tsx."
+owner_domain = 3
+interface = "3.ts-perps-widgets-spot-spottradestape-spottradestape"
+
+[finding.f027]
+file = "apps/perps/src/widgets/spot/SpotPositionsPanel.tsx"
+line = 719
+class = "restart-recovery"
+severity = "medium"
+observed = "ClosedLegsTab retains exhausted, error and hasFetched across address changes; loadMore has no abort or account-generation guard, so an old wallet page can append into the new wallet's history. Initial fetch errors are hidden by the empty return."
+expected = "History and pagination must reset on wallet changes, reject superseded pages and distinguish failed reads from empty history."
+proposal = "Key ClosedLegsTab by wallet or reset all state on address change in SpotPositionsPanel.tsx, abort every page request and show a retryable initial error."
+owner_domain = 3
+interface = "3.ts-perps-widgets-spot-spotpositionspanel-spotpositionspanel"
+
+[finding.f028]
+file = "apps/perps/src/widgets/trading/MarketSelectorPanel.tsx"
+line = 21
+class = "config-drift"
+severity = "medium"
+observed = "The live watchlist defines RWA_MARKET_IDS=[5,6,7,8,9,10] and filters New with category==='new', rather than the catalog's listedAt-based isNew flag."
+expected = "Requirements 3521.1 and 3530.1 require catalog-driven membership and a fourteen-day new-listing window rather than static IDs or a category alias."
+proposal = "Use catalog metadata and isNew in MarketSelectorPanel.tsx for RWA and New filters and badges, including newly listed markets outside the historic ID set."
+owner_domain = 3
+interface = "3.ts-perps-widgets-trading-marketselectorpanel-marketselectorpanel"
+
+[finding.f029]
+file = "apps/perps/src/widgets/trading/PairHeader.tsx"
+line = 114
+class = "runtime-risk"
+severity = "medium"
+observed = "Both markPrice and indexPrice prefer livePrice from the reference book midpoint or last trade, overwriting distinct authoritative ticker.mark_price and ticker.index_price."
+expected = "Mark, index and last-trade prices represent different product measures and must retain their producer's identities."
+proposal = "In PairHeader.tsx prefer their authoritative price fields, show last-trade or reference mid under its own label and mark unavailable fields explicitly."
+owner_domain = 3
+interface = "3.ts-perps-widgets-trading-pairheader-pairheader"
+
+[finding.f030]
+file = "apps/perps/src/widgets/trading/MobileTradingLayout.tsx"
+line = 48
+class = "runtime-risk"
+severity = "medium"
+observed = "FundingRateRow computes serverNextMs - (Date.now() % serverNextMs), treating next_funding_ms as a repeating interval; for the remaining-duration field it repeatedly resets rather than counting down to the producer's event."
+expected = "The funding countdown must honor the producer's documented time semantics and reach zero without manufacturing another interval."
+proposal = "Normalize next_funding_ms to a captured target time in MobileTradingLayout.tsx using the gateway contract and derive a live countdown; retire this legacy layout if it has no caller."
+owner_domain = 3
+interface = "3.ts-perps-widgets-trading-mobiletradinglayout-mobiletradinglayout"
+
+[finding.f031]
+file = "apps/perps/src/widgets/trading/PerpsOrderForm.tsx"
+line = 1850
+class = "config-drift"
+severity = "medium"
+observed = "The preview always prints Taker / Maker 0.06% / 0.03% although the application has an account-specific on-chain useFeeTier producer."
+expected = "The displayed fees must reflect the connected account's actual tier as required by 3526.1, or clearly indicate unavailable pricing."
+proposal = "Read useFeeTier in PerpsOrderForm.tsx and display the account's maker and taker rates alongside the quote's trading fee."
+owner_domain = 3
+interface = "3.ts-perps-widgets-trading-perpsorderform-perpsorderform"
+
+[finding.f032]
+file = "apps/perps/src/widgets/trading/PerpsOrderForm.tsx"
+line = 825
+class = "runtime-risk"
+severity = "medium"
+observed = "acceptPending submits a stored market plan without checking its quote age; needsRequote is only checked before the confirmation dialog, which can remain open indefinitely."
+expected = "A confirmation must bind a current quote through the actual signing step and refresh user consent if its price changes."
+proposal = "Store quote identity and timestamp with PendingOrder in PerpsOrderForm.tsx; revalidate on confirmation, requote when expired and present the updated plan before signing."
+owner_domain = 3
+interface = "3.ts-perps-widgets-trading-perpsorderform-perpsorderform"
+
+[finding.f033]
+file = "apps/perps/src/widgets/trading/PerpsOrderForm.tsx"
+line = 397
+class = "runtime-risk"
+severity = "medium"
+observed = "Dragging entry, TP or SL rounds in Chart to cents and then writes toFixed(2) in the form, regardless of marketConfig.tickSize. Sub-cent markets cannot select their supported prices through the chart."
+expected = "Requirement 3519.1 requires prices aligned with each chain market's tick size rather than a universal cent grid."
+proposal = "Carry the active tick size into Chart's drag handlers and retain exact decimal strings in PerpsOrderForm.tsx so drag and typed paths use the same validation."
+owner_domain = 3
+interface = "3.ts-perps-widgets-trading-perpsorderform-perpsorderform"
+
+[finding.f034]
+file = "apps/perps/src/widgets/trading/PerpsPositionsPanel.tsx"
+line = 394
+class = "wiring-gap"
+severity = "medium"
+observed = "MobilePositionCard renders an enabled TP / SL button with onClick={() => {}}; desktop correctly opens SetTpSlModal with the position context."
+expected = "The mobile position action must open the same real take-profit/stop-loss workflow as the desktop action."
+proposal = "Pass a typed TP/SL callback into MobilePositionCard from PerpsPositionsPanel.tsx and open the existing modal with the selected position."
+owner_domain = 3
+interface = "3.ts-perps-widgets-trading-perpspositionspanel-perpspositionspanel"
+
+[finding.f035]
+file = "apps/perps/src/widgets/trading/PerpsPositionsPanel.tsx"
+line = 1043
+class = "restart-recovery"
+severity = "medium"
+observed = "fetchData and fetchHistoryData neither clear wallet-scoped state nor cancel superseded requests. Promise.allSettled failures retain prior arrays silently; late results from wallet A can overwrite wallet B's orders and TP/SL."
+expected = "Account-specific rows must belong to the current wallet, and a failed refresh must be visibly stale or unavailable."
+proposal = "Reset all wallet-scoped arrays and optimism on address change in PerpsPositionsPanel.tsx; use abort/generation guards for every fetch and expose per-panel failures."
+owner_domain = 3
+interface = "3.ts-perps-widgets-trading-perpspositionspanel-perpspositionspanel"
+
+[finding.f036]
+file = "apps/perps/src/widgets/portfolio/TradeSettlementHistory.tsx"
+line = 68
+class = "interface-mismatch"
+severity = "high"
+observed = "useTradeSettlements passes signed fundingPaidUsd from the TradeSettled decoder through GraphQL unchanged, but both the summary and row render -absUsd. Funding received (negative producer value) is therefore reported as a charge."
+expected = "The TradeSettlement fundingPaidUsd field is signed 18-decimal USD: positive means paid and negative means received, as decoded by services/platform/perps-data/internal/decode/perps.go and used by core/perps/pnlHelpers.ts."
+proposal = "Preserve the funding sign in TradeSettlementHistory.tsx, negate it once to show its cash-flow effect and prove positive payments, negative credits and zero through the real settlement query and rendered rows."
+owner_domain = 3
+interface = "3.ts-perps-types-perps-tradesettlement"
+
+[finding.f037]
+file = "apps/perps/src/widgets/portfolio/TradeSettlementHistory.tsx"
+line = 69
+class = "interface-mismatch"
+severity = "high"
+observed = "The netPayoutTokens field is decoded as native token units, but the history divides every payout by 1e18 and formats it as USD. The producer's six-decimal USDL example 119000000 is displayed as approximately zero instead of 119 tokens."
+expected = "A settlement payout must preserve token identity, native decimals and any separate USD valuation through the indexer, GraphQL transport and portfolio consumer."
+proposal = "Resolve settlement collateral metadata from its position, expose token identity in the query contract if necessary, and decode netPayoutTokens in TradeSettlementHistory.tsx using native decimals; cover the producer's 119000000 USDL case."
+owner_domain = 3
+interface = "3.ts-perps-types-perps-tradesettlement"
+
+[finding.f038]
+file = "apps/perps/src/widgets/spot/SpotPositionsPanel.tsx"
+line = 631
+class = "interface-mismatch"
+severity = "high"
+observed = "TradeHistoryTab passes executionPrice, amountIn and amountOut through dStr and displays them as dollars and token quantities. The real SpotUsers query emits raw 18-decimal execution prices and native raw token amounts; only volumeUsd is scaled correctly."
+expected = "SpotTrade raw integer strings must be decoded using price scale 1e18 and token metadata before being displayed, retaining the same quantities emitted by the gateway."
+proposal = "Use the canonical fixed-point price decoder and dStrToToken with each token's decimals in SpotPositionsPanel.tsx; prove actual SpotUsers REST rows render one unit as one token and the correct execution price."
+owner_domain = 3
+interface = "3.ts-perps-core-spot-api-spottrade"
+
+[finding.f039]
+file = "apps/perps/src/widgets/spot/SpotOrderbook.tsx"
+line = 1
+class = "test-gap"
+severity = "medium"
+observed = "tests/proof_widgets.test.ts explicitly expects the full SpotPage render to throw React is not defined from SpotOrderbook, then tests selected subtrees; MobileSpotBalancePanel is also excluded for its JSX runtime failure."
+expected = "Requirement 21153.1 requires the real producer, widget and mounted consumer path to render successfully; an expected render exception cannot establish that complete path."
+proposal = "Align JSX imports or the declared tsx runtime in SpotOrderbook.tsx and MobileSpotBalancePanel.tsx, then replace expected-crash assertions in tests/proof_widgets.test.ts with successful complete desktop and mobile renders."
+owner_domain = 3
+interface = "3.ts-perps-widgets-spot-spotorderbook-spotorderbook"
+
+[finding.f040]
+file = "apps/perps/src/widgets/portfolio/PortfolioPositionsPanel.tsx"
+line = 83
+class = "runtime-risk"
+severity = "medium"
+observed = "When a mark ticker is absent or invalid, rows set unrealizedPnl and pnlPct to zero even after margin tiers finish loading, presenting an unavailable valuation as a green zero result."
+expected = "A missing price must make position valuation unavailable without inventing a zero PnL or implying that the position is flat."
+proposal = "Carry valuation availability through PortfolioPositionsPanel.tsx and render a loading or stale-price state until a valid mark and tiers are available."
+owner_domain = 3
+interface = "3.ts-perps-widgets-portfolio-portfoliopositionspanel-portfoliopositionspanel"
+
+[finding.f041]
+file = "apps/perps/src/widgets/mobile/MobileLanguageToggle.tsx"
+line = 53
+class = "wiring-gap"
+severity = "low"
+observed = "LanguageToggle only changes component-local selected state; selecting another language changes the highlight but neither translates text nor updates a shared locale or persistent preference."
+expected = "An enabled language selector must change the application language or clearly expose unsupported locales without implying a completed setting change."
+proposal = "Wire MobileLanguageToggle.tsx into the application's supported locale settings and persistence, or remove unavailable choices until translations are shipped."
+owner_domain = 3
+interface = "3.ts-perps-widgets-mobile-mobilelanguagetoggle-languagetoggle"
+
+[finding.f042]
+file = "apps/perps/src/widgets/errors/ReportFeedbackModal.tsx"
+line = 79
+class = "wiring-gap"
+severity = "medium"
+observed = "handleSubmit marks feedback as submitted after reportError resolves, although reportError returns void when the error is unreportable or Sentry is unavailable and captureFeedback may be absent."
+expected = "A feedback submission success must mean the reporting path accepted the user's feedback, with unavailable reporting presented as a recoverable state."
+proposal = "Return an explicit capture outcome from core/errors/report.ts and use it in ReportFeedbackModal.tsx to retain comments and show an unavailable or retry state instead of claiming receipt."
+owner_domain = 3
+interface = "3.ts-perps-widgets-errors-reportfeedbackmodal-closereportmodal"
+
+[finding.f043]
+file = "apps/perps/src/widgets/network-pill/NetworkPill.tsx"
+line = 36
+class = "runtime-risk"
+severity = "medium"
+observed = "The public-health poll only replaces status on success; a later request failure leaves the previous block number and latency bars visible indefinitely, including after the details popover is reopened."
+expected = "Live network status must distinguish current measurements from expired observations after a failed refresh or disconnected chain."
+proposal = "Catch polling failures and timestamp observations in widgets/network-pill/NetworkPill.tsx, expire old latency bars and mark the last block stale until a successful health response arrives."
+owner_domain = 3
+interface = "3.ts-perps-widgets-network-pill-networkpill-default"
+
+[finding.f044]
+file = "apps/perps/data_api.md"
+line = 132
+class = "doc-drift"
+severity = "medium"
+observed = "The /perp_stats and perp_stats topic examples still advertise est_funding_rate, volume_24h and open_interest as the funding and notional contract. The current client expects exact funding_rate strings and volume_24h_usd, and records.PerpStats exposes last_funding_rate_hourly instead."
+expected = "The frontend integration guide must describe the actual served on-chain funding fields, their units and nullability separately from optional external reference estimates."
+proposal = "Rewrite apps/perps/data_api.md lines 132-149 and 388-411 from services/platform/perps-data/internal/records/records.go and the active symbol adapter, explicitly distinguishing on-chain hourly rates from reference estimates."
+owner_domain = 3
+
+[finding.f045]
+file = "apps/perps/src/widgets/trading/Chart.tsx"
+line = 558
+class = "runtime-risk"
+severity = "medium"
+observed = "Entry, TP and SL drag callbacks round this.getPrice() to a cent, losing the precision supported by sub-cent market tick sizes before dispatching the price to the order-line store."
+expected = "Requirement 3519.1 requires chart-selected prices to honor the same per-market tick grid as typed orders."
+proposal = "Pass active market tick metadata into Chart.tsx and snap all three drag handlers to that grid with exact decimal arithmetic; qualify sub-cent and coarse-tick markets."
+owner_domain = 3
+interface = "3.ts-perps-widgets-trading-chart-chart"
+
+[finding.f046]
+file = "apps/perps/src/widgets/mobile/MobileSecondaryTabContent.tsx"
+line = 474
+class = "restart-recovery"
+severity = "medium"
+observed = "OpenOrdersTab and TradeHistoryTab issue wallet-specific one-shot queries without abort or generation guards; catch clears rows and renders No open orders or No trade history, so failed reads appear empty and superseded wallet responses can overwrite current data."
+expected = "Wallet history must stay scoped to the current account and expose failed reads independently of a successfully empty result."
+proposal = "Add account-generation guards and cancellation to both fetch paths in MobileSecondaryTabContent.tsx, reset wallet-scoped state on address changes and expose retryable error states."
+owner_domain = 3
+interface = "3.ts-perps-widgets-mobile-mobilesecondarytabcontent-mobilesecondarytabcontent"
+
+[finding.f047]
+file = "apps/perps/src/widgets/mobile/MobileSpotBalancePanel.tsx"
+line = 1
+class = "test-gap"
+severity = "medium"
+observed = "The production MobileSpotTradeView mounts MobileSpotBalancePanel, but tests/proof_widgets.test.ts deliberately excludes that child because its JSX requires an absent React binding under the declared tsx runner."
+expected = "The complete mobile spot consumer must successfully render with the real balance producer under requirement 21153.1."
+proposal = "Align MobileSpotBalancePanel.tsx with the declared JSX runtime and assert a successful full MobileSpotTradeView render in tests/proof_widgets.test.ts without excluding the balance child."
+owner_domain = 3
+interface = "3.ts-perps-widgets-mobile-mobilespotbalancepanel-mobilespotbalancepanel"
+
+[finding.f048]
+file = "README.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 44-47 and 181 describe separate execution domains, LayerX evidence and checkpoint settlement. Rewrite the architecture overview for the kernel within paxd, committed-block finality and root node RPC."
+expected = "The page must describe the finished network: one Paxeer BFT chain, kernel inside paxd, finality at block commit, root node RPC and separately declared hosted gateway methods; component examples must match actual exported props."
+proposal = "Rewrite README.md at the cited lines from spec/layerx-merge/programme/audit/BRIEF.kvx and the owning current implementation; replace retired operational paths and unsupported integration claims with concrete supported user journeys."
+owner_domain = 17
+
+[finding.f049]
+file = "docs/site/docs/overview/unified-network.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-19, 52-84 and 118-171 describe separate LayerX execution, checkpoint finality, a router and /rpc/schema. Rewrite as one BFT chain with kernel execution in paxd and gateway-owned px methods."
+expected = "The page must describe the finished network: one Paxeer BFT chain, kernel inside paxd, finality at block commit, root node RPC and separately declared hosted gateway methods; component examples must match actual exported props."
+proposal = "Rewrite docs/site/docs/overview/unified-network.md at the cited lines from spec/layerx-merge/programme/audit/BRIEF.kvx and the owning current implementation; replace retired operational paths and unsupported integration claims with concrete supported user journeys."
+owner_domain = 17
+
+[finding.f050]
+file = "docs/site/docs/overview/quickstart.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 20, 167-168, 214-217 and 302 advertise public /rpc and /rpc/ws. Replace public client examples with root node RPC and the declared hosted gateway contract; distinguish disposable 402 fixtures from chain 125."
+expected = "The page must describe the finished network: one Paxeer BFT chain, kernel inside paxd, finality at block commit, root node RPC and separately declared hosted gateway methods; component examples must match actual exported props."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md at the cited lines from spec/layerx-merge/programme/audit/BRIEF.kvx and the owning current implementation; replace retired operational paths and unsupported integration claims with concrete supported user journeys."
+owner_domain = 16
+
+[finding.f051]
+file = "docs/site/docs/operators/beta-control.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "Line 5 directs public custody credit to a router. Replace that public direction with the merged network's supported funding path while keeping disposable private reset and funding procedures explicitly scoped."
+expected = "The page must describe the finished network: one Paxeer BFT chain, kernel inside paxd, finality at block commit, root node RPC and separately declared hosted gateway methods; component examples must match actual exported props."
+proposal = "Rewrite docs/site/docs/operators/beta-control.md at the cited lines from spec/layerx-merge/programme/audit/BRIEF.kvx and the owning current implementation; replace retired operational paths and unsupported integration claims with concrete supported user journeys."
+owner_domain = 16
+
+[finding.f052]
+file = "docs/site/docs/reference/index.md"
+line = 22
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 22-34 present protocol/platform/beta as the active specifications and omit layerx-merge. Add the current merged-network specification and clearly distinguish historical reference material."
+expected = "The page must describe the finished network: one Paxeer BFT chain, kernel inside paxd, finality at block commit, root node RPC and separately declared hosted gateway methods; component examples must match actual exported props."
+proposal = "Rewrite docs/site/docs/reference/index.md at the cited lines from spec/layerx-merge/programme/audit/BRIEF.kvx and the owning current implementation; replace retired operational paths and unsupported integration claims with concrete supported user journeys."
+owner_domain = 17
+
+[finding.f053]
+file = "docs/site/docs/platform/faucet.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "Line 5 directs public custody credit to a router. Replace the public funding instructions with the merged chain/gateway contract and keep the disposable private faucet limits separately documented."
+expected = "The page must describe the finished network: one Paxeer BFT chain, kernel inside paxd, finality at block commit, root node RPC and separately declared hosted gateway methods; component examples must match actual exported props."
+proposal = "Rewrite docs/site/docs/platform/faucet.md at the cited lines from spec/layerx-merge/programme/audit/BRIEF.kvx and the owning current implementation; replace retired operational paths and unsupported integration claims with concrete supported user journeys."
+owner_domain = 8
+
+[finding.f054]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 8, 131, 278 and 298 require /rpc, while lines 125-150 contradict the preceding implemented flags. Rewrite one supported CLI contract using root public RPC and label historical emulator-only commands."
+expected = "The page must describe the finished network: one Paxeer BFT chain, kernel inside paxd, finality at block commit, root node RPC and separately declared hosted gateway methods; component examples must match actual exported props."
+proposal = "Rewrite docs/site/docs/platform/cli.md at the cited lines from spec/layerx-merge/programme/audit/BRIEF.kvx and the owning current implementation; replace retired operational paths and unsupported integration claims with concrete supported user journeys."
+owner_domain = 16
+
+[finding.f055]
+file = "docs/site/docs/platform/hosted-node.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-12 prescribe an in-cluster sequencer and layerxd --serve; lines 241-370 and 492 onward continue its keys, supervisors and listeners. Replace public deployment guidance with the kernel inside paxd and committed-block recovery."
+expected = "The page must describe the finished network: one Paxeer BFT chain, kernel inside paxd, finality at block commit, root node RPC and separately declared hosted gateway methods; component examples must match actual exported props."
+proposal = "Rewrite docs/site/docs/platform/hosted-node.md at the cited lines from spec/layerx-merge/programme/audit/BRIEF.kvx and the owning current implementation; replace retired operational paths and unsupported integration claims with concrete supported user journeys."
+owner_domain = 5
+
+[finding.f056]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 38
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 38-50, 202-204 and 605-606 advertise a unified router and /rpc surfaces. Describe hosted px methods separately from the root node namespaces and remove the sixteen-node/separate-EVM-domain claim."
+expected = "The page must describe the finished network: one Paxeer BFT chain, kernel inside paxd, finality at block commit, root node RPC and separately declared hosted gateway methods; component examples must match actual exported props."
+proposal = "Rewrite docs/site/docs/platform/hosted-gateway.md at the cited lines from spec/layerx-merge/programme/audit/BRIEF.kvx and the owning current implementation; replace retired operational paths and unsupported integration claims with concrete supported user journeys."
+owner_domain = 7
+
+[finding.f057]
+file = "docs/site/docs/platform/webhooks.md"
+line = 255
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 45-54 require role-specific ingress mTLS; lines 255-260 instead say inbound TLS has no client authentication. Lines 77-78 also depend on a router service variable. Consolidate current role contracts and merged network identity."
+expected = "The page must describe the finished network: one Paxeer BFT chain, kernel inside paxd, finality at block commit, root node RPC and separately declared hosted gateway methods; component examples must match actual exported props."
+proposal = "Rewrite docs/site/docs/platform/webhooks.md at the cited lines from spec/layerx-merge/programme/audit/BRIEF.kvx and the owning current implementation; replace retired operational paths and unsupported integration claims with concrete supported user journeys."
+owner_domain = 8
+
+[finding.f058]
+file = "apps/perps/src/components/paxeer/README.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Line 3 calls unmounted demonstrations production-ready; lines 139-143 promise address, onClick, value, chainId and onConfirm props absent from the implementations. Retire the drop-in claims and point integrators at wired widgets."
+expected = "The page must describe the finished network: one Paxeer BFT chain, kernel inside paxd, finality at block commit, root node RPC and separately declared hosted gateway methods; component examples must match actual exported props."
+proposal = "Rewrite apps/perps/src/components/paxeer/README.md at the cited lines from spec/layerx-merge/programme/audit/BRIEF.kvx and the owning current implementation; replace retired operational paths and unsupported integration claims with concrete supported user journeys."
+owner_domain = 3
+
+[finding.f059]
+file = "apps/perps/src/components/paxeer/ActiveOrders.tsx"
+line = 4
+class = "dead-code"
+severity = "low"
+observed = "ActiveOrders remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+expected = "Requirement 3530.1 calls for retirement of static design exports; the application should expose maintained live widgets rather than a second unused demonstration surface."
+proposal = "Retire apps/perps/src/components/paxeer/ActiveOrders.tsx and its entry in apps/perps/src/components/paxeer/index.ts after checking external consumers; point the README at maintained widgets and keep wanted demonstrations outside the production export surface."
+owner_domain = 3
+interface = "3.ts-perps-components-paxeer-activeorders-activeorders"
+
+[finding.f060]
+file = "apps/perps/src/components/paxeer/AddressChip.tsx"
+line = 7
+class = "dead-code"
+severity = "low"
+observed = "AddressChip remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+expected = "Requirement 3530.1 calls for retirement of static design exports; the application should expose maintained live widgets rather than a second unused demonstration surface."
+proposal = "Retire apps/perps/src/components/paxeer/AddressChip.tsx and its entry in apps/perps/src/components/paxeer/index.ts after checking external consumers; point the README at maintained widgets and keep wanted demonstrations outside the production export surface."
+owner_domain = 3
+interface = "3.ts-perps-components-paxeer-addresschip-addresschip"
+
+[finding.f061]
+file = "apps/perps/src/components/paxeer/ClosedPositions.tsx"
+line = 5
+class = "dead-code"
+severity = "low"
+observed = "ClosedPositions remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+expected = "Requirement 3530.1 calls for retirement of static design exports; the application should expose maintained live widgets rather than a second unused demonstration surface."
+proposal = "Retire apps/perps/src/components/paxeer/ClosedPositions.tsx and its entry in apps/perps/src/components/paxeer/index.ts after checking external consumers; point the README at maintained widgets and keep wanted demonstrations outside the production export surface."
+owner_domain = 3
+interface = "3.ts-perps-components-paxeer-closedpositions-closedpositions"
+
+[finding.f062]
+file = "apps/perps/src/components/paxeer/CommandPalette.tsx"
+line = 4
+class = "dead-code"
+severity = "low"
+observed = "CommandPalette remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+expected = "Requirement 3530.1 calls for retirement of static design exports; the application should expose maintained live widgets rather than a second unused demonstration surface."
+proposal = "Retire apps/perps/src/components/paxeer/CommandPalette.tsx and its entry in apps/perps/src/components/paxeer/index.ts after checking external consumers; point the README at maintained widgets and keep wanted demonstrations outside the production export surface."
+owner_domain = 3
+interface = "3.ts-perps-components-paxeer-commandpalette-commandpalette"
+
+[finding.f063]
+file = "apps/perps/src/components/paxeer/ConfirmSlider.tsx"
+line = 6
+class = "dead-code"
+severity = "low"
+observed = "ConfirmSlider remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+expected = "Requirement 3530.1 calls for retirement of static design exports; the application should expose maintained live widgets rather than a second unused demonstration surface."
+proposal = "Retire apps/perps/src/components/paxeer/ConfirmSlider.tsx and its entry in apps/perps/src/components/paxeer/index.ts after checking external consumers; point the README at maintained widgets and keep wanted demonstrations outside the production export surface."
+owner_domain = 3
+interface = "3.ts-perps-components-paxeer-confirmslider-confirmslider"
+
+[finding.f064]
+file = "apps/perps/src/components/paxeer/CumulativePnL.tsx"
+line = 4
+class = "dead-code"
+severity = "low"
+observed = "CumulativePnL remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+expected = "Requirement 3530.1 calls for retirement of static design exports; the application should expose maintained live widgets rather than a second unused demonstration surface."
+proposal = "Retire apps/perps/src/components/paxeer/CumulativePnL.tsx and its entry in apps/perps/src/components/paxeer/index.ts after checking external consumers; point the README at maintained widgets and keep wanted demonstrations outside the production export surface."
+owner_domain = 3
+interface = "3.ts-perps-components-paxeer-cumulativepnl-cumulativepnl"
+
+[finding.f065]
+file = "apps/perps/src/components/paxeer/DataInput.tsx"
+line = 7
+class = "dead-code"
+severity = "low"
+observed = "DataInput remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+expected = "Requirement 3530.1 calls for retirement of static design exports; the application should expose maintained live widgets rather than a second unused demonstration surface."
+proposal = "Retire apps/perps/src/components/paxeer/DataInput.tsx and its entry in apps/perps/src/components/paxeer/index.ts after checking external consumers; point the README at maintained widgets and keep wanted demonstrations outside the production export surface."
+owner_domain = 3
+interface = "3.ts-perps-components-paxeer-datainput-datainput"
+
+[finding.f066]
+file = "apps/perps/src/components/paxeer/DepthChart.tsx"
+line = 5
+class = "dead-code"
+severity = "low"
+observed = "DepthChart remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+expected = "Requirement 3530.1 calls for retirement of static design exports; the application should expose maintained live widgets rather than a second unused demonstration surface."
+proposal = "Retire apps/perps/src/components/paxeer/DepthChart.tsx and its entry in apps/perps/src/components/paxeer/index.ts after checking external consumers; point the README at maintained widgets and keep wanted demonstrations outside the production export surface."
+owner_domain = 3
+interface = "3.ts-perps-components-paxeer-depthchart-default"
+
+[finding.f067]
+file = "apps/perps/src/components/paxeer/EpochCountdown.tsx"
+line = 5
+class = "dead-code"
+severity = "low"
+observed = "EpochCountdown remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+expected = "Requirement 3530.1 calls for retirement of static design exports; the application should expose maintained live widgets rather than a second unused demonstration surface."
+proposal = "Retire apps/perps/src/components/paxeer/EpochCountdown.tsx and its entry in apps/perps/src/components/paxeer/index.ts after checking external consumers; point the README at maintained widgets and keep wanted demonstrations outside the production export surface."
+owner_domain = 3
+interface = "3.ts-perps-components-paxeer-epochcountdown-default"
+
+[finding.f068]
+file = "apps/perps/src/components/paxeer/FeesBreakdown.tsx"
+line = 4
+class = "dead-code"
+severity = "low"
+observed = "FeesBreakdown remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+expected = "Requirement 3530.1 calls for retirement of static design exports; the application should expose maintained live widgets rather than a second unused demonstration surface."
+proposal = "Retire apps/perps/src/components/paxeer/FeesBreakdown.tsx and its entry in apps/perps/src/components/paxeer/index.ts after checking external consumers; point the README at maintained widgets and keep wanted demonstrations outside the production export surface."
+owner_domain = 3
+interface = "3.ts-perps-components-paxeer-feesbreakdown-default"
+
+[finding.f069]
+file = "apps/perps/src/components/paxeer/GasWeather.tsx"
+line = 4
+class = "dead-code"
+severity = "low"
+observed = "GasWeather remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+expected = "Requirement 3530.1 calls for retirement of static design exports; the application should expose maintained live widgets rather than a second unused demonstration surface."
+proposal = "Retire apps/perps/src/components/paxeer/GasWeather.tsx and its entry in apps/perps/src/components/paxeer/index.ts after checking external consumers; point the README at maintained widgets and keep wanted demonstrations outside the production export surface."
+owner_domain = 3
+interface = "3.ts-perps-components-paxeer-gasweather-default"
+
+[finding.f070]
+file = "apps/perps/src/components/paxeer/GestureUnlock.tsx"
+line = 4
+class = "dead-code"
+severity = "low"
+observed = "GestureUnlock remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+expected = "Requirement 3530.1 calls for retirement of static design exports; the application should expose maintained live widgets rather than a second unused demonstration surface."
+proposal = "Retire apps/perps/src/components/paxeer/GestureUnlock.tsx and its entry in apps/perps/src/components/paxeer/index.ts after checking external consumers; point the README at maintained widgets and keep wanted demonstrations outside the production export surface."
+owner_domain = 3
+interface = "3.ts-perps-components-paxeer-gestureunlock-default"
+
+[finding.f071]
+file = "apps/perps/src/components/paxeer/GhostHold.tsx"
+line = 4
+class = "dead-code"
+severity = "low"
+observed = "GhostHold remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+expected = "Requirement 3530.1 calls for retirement of static design exports; the application should expose maintained live widgets rather than a second unused demonstration surface."
+proposal = "Retire apps/perps/src/components/paxeer/GhostHold.tsx and its entry in apps/perps/src/components/paxeer/index.ts after checking external consumers; point the README at maintained widgets and keep wanted demonstrations outside the production export surface."
+owner_domain = 3
+interface = "3.ts-perps-components-paxeer-ghosthold-default"
+
+[finding.f072]
+file = "apps/perps/src/components/paxeer/Leaderboard.tsx"
+line = 4
+class = "dead-code"
+severity = "low"
+observed = "Leaderboard remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+expected = "Requirement 3530.1 calls for retirement of static design exports; the application should expose maintained live widgets rather than a second unused demonstration surface."
+proposal = "Retire apps/perps/src/components/paxeer/Leaderboard.tsx and its entry in apps/perps/src/components/paxeer/index.ts after checking external consumers; point the README at maintained widgets and keep wanted demonstrations outside the production export surface."
+owner_domain = 3
+interface = "3.ts-perps-components-paxeer-leaderboard-default"
+
+[finding.f073]
+file = "apps/perps/src/components/paxeer/LeaderboardStats.tsx"
+line = 4
+class = "dead-code"
+severity = "low"
+observed = "LeaderboardStats remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+expected = "Requirement 3530.1 calls for retirement of static design exports; the application should expose maintained live widgets rather than a second unused demonstration surface."
+proposal = "Retire apps/perps/src/components/paxeer/LeaderboardStats.tsx and its entry in apps/perps/src/components/paxeer/index.ts after checking external consumers; point the README at maintained widgets and keep wanted demonstrations outside the production export surface."
+owner_domain = 3
+interface = "3.ts-perps-components-paxeer-leaderboardstats-default"
+
+[finding.f074]
+file = "apps/perps/src/components/paxeer/LeverageDial.tsx"
+line = 4
+class = "dead-code"
+severity = "low"
+observed = "LeverageDial remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+expected = "Requirement 3530.1 calls for retirement of static design exports; the application should expose maintained live widgets rather than a second unused demonstration surface."
+proposal = "Retire apps/perps/src/components/paxeer/LeverageDial.tsx and its entry in apps/perps/src/components/paxeer/index.ts after checking external consumers; point the README at maintained widgets and keep wanted demonstrations outside the production export surface."
+owner_domain = 3
+interface = "3.ts-perps-components-paxeer-leveragedial-default"
+
+[finding.f075]
+file = "apps/perps/src/components/paxeer/LiquidStat.tsx"
+line = 7
+class = "dead-code"
+severity = "low"
+observed = "LiquidStat remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+expected = "Requirement 3530.1 calls for retirement of static design exports; the application should expose maintained live widgets rather than a second unused demonstration surface."
+proposal = "Retire apps/perps/src/components/paxeer/LiquidStat.tsx and its entry in apps/perps/src/components/paxeer/index.ts after checking external consumers; point the README at maintained widgets and keep wanted demonstrations outside the production export surface."
+owner_domain = 3
+interface = "3.ts-perps-components-paxeer-liquidstat-default"
+
+[finding.f076]
+file = "apps/perps/src/components/paxeer/MagneticSwap.tsx"
+line = 8
+class = "dead-code"
+severity = "low"
+observed = "MagneticSwap remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+expected = "Requirement 3530.1 calls for retirement of static design exports; the application should expose maintained live widgets rather than a second unused demonstration surface."
+proposal = "Retire apps/perps/src/components/paxeer/MagneticSwap.tsx and its entry in apps/perps/src/components/paxeer/index.ts after checking external consumers; point the README at maintained widgets and keep wanted demonstrations outside the production export surface."
+owner_domain = 3
+interface = "3.ts-perps-components-paxeer-magneticswap-default"
+
+[finding.f077]
+file = "apps/perps/src/components/paxeer/NetworkPill.tsx"
+line = 7
+class = "dead-code"
+severity = "low"
+observed = "NetworkPill remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+expected = "Requirement 3530.1 calls for retirement of static design exports; the application should expose maintained live widgets rather than a second unused demonstration surface."
+proposal = "Retire apps/perps/src/components/paxeer/NetworkPill.tsx and its entry in apps/perps/src/components/paxeer/index.ts after checking external consumers; point the README at maintained widgets and keep wanted demonstrations outside the production export surface."
+owner_domain = 3
+interface = "3.ts-perps-components-paxeer-networkpill-default"
+
+[finding.f078]
+file = "apps/perps/src/components/paxeer/OrbitalSelector.tsx"
+line = 7
+class = "dead-code"
+severity = "low"
+observed = "OrbitalSelector remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+expected = "Requirement 3530.1 calls for retirement of static design exports; the application should expose maintained live widgets rather than a second unused demonstration surface."
+proposal = "Retire apps/perps/src/components/paxeer/OrbitalSelector.tsx and its entry in apps/perps/src/components/paxeer/index.ts after checking external consumers; point the README at maintained widgets and keep wanted demonstrations outside the production export surface."
+owner_domain = 3
+interface = "3.ts-perps-components-paxeer-orbitalselector-default"
+
+[finding.f079]
+file = "apps/perps/src/components/paxeer/OrderBook.tsx"
+line = 7
+class = "dead-code"
+severity = "low"
+observed = "OrderBook remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+expected = "Requirement 3530.1 calls for retirement of static design exports; the application should expose maintained live widgets rather than a second unused demonstration surface."
+proposal = "Retire apps/perps/src/components/paxeer/OrderBook.tsx and its entry in apps/perps/src/components/paxeer/index.ts after checking external consumers; point the README at maintained widgets and keep wanted demonstrations outside the production export surface."
+owner_domain = 3
+interface = "3.ts-perps-components-paxeer-orderbook-default"
+
+[finding.f080]
+file = "apps/perps/src/components/paxeer/OrderEntry.tsx"
+line = 7
+class = "dead-code"
+severity = "low"
+observed = "OrderEntry remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+expected = "Requirement 3530.1 calls for retirement of static design exports; the application should expose maintained live widgets rather than a second unused demonstration surface."
+proposal = "Retire apps/perps/src/components/paxeer/OrderEntry.tsx and its entry in apps/perps/src/components/paxeer/index.ts after checking external consumers; point the README at maintained widgets and keep wanted demonstrations outside the production export surface."
+owner_domain = 3
+interface = "3.ts-perps-components-paxeer-orderentry-default"
+
+[finding.f081]
+file = "apps/perps/src/components/paxeer/OrderbookTopo.tsx"
+line = 4
+class = "dead-code"
+severity = "low"
+observed = "OrderbookTopo remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+expected = "Requirement 3530.1 calls for retirement of static design exports; the application should expose maintained live widgets rather than a second unused demonstration surface."
+proposal = "Retire apps/perps/src/components/paxeer/OrderbookTopo.tsx and its entry in apps/perps/src/components/paxeer/index.ts after checking external consumers; point the README at maintained widgets and keep wanted demonstrations outside the production export surface."
+owner_domain = 3
+interface = "3.ts-perps-components-paxeer-orderbooktopo-default"
+
+[finding.f082]
+file = "apps/perps/src/components/paxeer/Overview.tsx"
+line = 5
+class = "dead-code"
+severity = "low"
+observed = "Overview remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+expected = "Requirement 3530.1 calls for retirement of static design exports; the application should expose maintained live widgets rather than a second unused demonstration surface."
+proposal = "Retire apps/perps/src/components/paxeer/Overview.tsx and its entry in apps/perps/src/components/paxeer/index.ts after checking external consumers; point the README at maintained widgets and keep wanted demonstrations outside the production export surface."
+owner_domain = 3
+interface = "3.ts-perps-components-paxeer-overview-default"
+
+[finding.f083]
+file = "apps/perps/src/components/paxeer/Performance.tsx"
+line = 4
+class = "dead-code"
+severity = "low"
+observed = "Performance remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+expected = "Requirement 3530.1 calls for retirement of static design exports; the application should expose maintained live widgets rather than a second unused demonstration surface."
+proposal = "Retire apps/perps/src/components/paxeer/Performance.tsx and its entry in apps/perps/src/components/paxeer/index.ts after checking external consumers; point the README at maintained widgets and keep wanted demonstrations outside the production export surface."
+owner_domain = 3
+interface = "3.ts-perps-components-paxeer-performance-default"
+
+[finding.f084]
+file = "apps/perps/src/components/paxeer/PositionCard.tsx"
+line = 6
+class = "dead-code"
+severity = "low"
+observed = "PositionCard remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+expected = "Requirement 3530.1 calls for retirement of static design exports; the application should expose maintained live widgets rather than a second unused demonstration surface."
+proposal = "Retire apps/perps/src/components/paxeer/PositionCard.tsx and its entry in apps/perps/src/components/paxeer/index.ts after checking external consumers; point the README at maintained widgets and keep wanted demonstrations outside the production export surface."
+owner_domain = 3
+interface = "3.ts-perps-components-paxeer-positioncard-default"
+
+[finding.f085]
+file = "apps/perps/src/components/paxeer/PulseFeed.tsx"
+line = 7
+class = "dead-code"
+severity = "low"
+observed = "PulseFeed remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+expected = "Requirement 3530.1 calls for retirement of static design exports; the application should expose maintained live widgets rather than a second unused demonstration surface."
+proposal = "Retire apps/perps/src/components/paxeer/PulseFeed.tsx and its entry in apps/perps/src/components/paxeer/index.ts after checking external consumers; point the README at maintained widgets and keep wanted demonstrations outside the production export surface."
+owner_domain = 3
+interface = "3.ts-perps-components-paxeer-pulsefeed-default"
+
+[finding.f086]
+file = "apps/perps/src/components/paxeer/RadialAllocator.tsx"
+line = 7
+class = "dead-code"
+severity = "low"
+observed = "RadialAllocator remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+expected = "Requirement 3530.1 calls for retirement of static design exports; the application should expose maintained live widgets rather than a second unused demonstration surface."
+proposal = "Retire apps/perps/src/components/paxeer/RadialAllocator.tsx and its entry in apps/perps/src/components/paxeer/index.ts after checking external consumers; point the README at maintained widgets and keep wanted demonstrations outside the production export surface."
+owner_domain = 3
+interface = "3.ts-perps-components-paxeer-radialallocator-default"
+
+[finding.f087]
+file = "apps/perps/src/components/paxeer/ReactionRail.tsx"
+line = 4
+class = "dead-code"
+severity = "low"
+observed = "ReactionRail remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+expected = "Requirement 3530.1 calls for retirement of static design exports; the application should expose maintained live widgets rather than a second unused demonstration surface."
+proposal = "Retire apps/perps/src/components/paxeer/ReactionRail.tsx and its entry in apps/perps/src/components/paxeer/index.ts after checking external consumers; point the README at maintained widgets and keep wanted demonstrations outside the production export surface."
+owner_domain = 3
+interface = "3.ts-perps-components-paxeer-reactionrail-default"
+
+[finding.f088]
+file = "apps/perps/src/components/paxeer/RecentTrades.tsx"
+line = 7
+class = "dead-code"
+severity = "low"
+observed = "RecentTrades remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+expected = "Requirement 3530.1 calls for retirement of static design exports; the application should expose maintained live widgets rather than a second unused demonstration surface."
+proposal = "Retire apps/perps/src/components/paxeer/RecentTrades.tsx and its entry in apps/perps/src/components/paxeer/index.ts after checking external consumers; point the README at maintained widgets and keep wanted demonstrations outside the production export surface."
+owner_domain = 3
+interface = "3.ts-perps-components-paxeer-recenttrades-default"
+
+[finding.f089]
+file = "apps/perps/src/components/paxeer/RiskDial.tsx"
+line = 4
+class = "dead-code"
+severity = "low"
+observed = "RiskDial remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+expected = "Requirement 3530.1 calls for retirement of static design exports; the application should expose maintained live widgets rather than a second unused demonstration surface."
+proposal = "Retire apps/perps/src/components/paxeer/RiskDial.tsx and its entry in apps/perps/src/components/paxeer/index.ts after checking external consumers; point the README at maintained widgets and keep wanted demonstrations outside the production export surface."
+owner_domain = 3
+interface = "3.ts-perps-components-paxeer-riskdial-default"
+
+[finding.f090]
+file = "apps/perps/src/components/paxeer/ShardStatus.tsx"
+line = 6
+class = "dead-code"
+severity = "low"
+observed = "ShardStatus remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+expected = "Requirement 3530.1 calls for retirement of static design exports; the application should expose maintained live widgets rather than a second unused demonstration surface."
+proposal = "Retire apps/perps/src/components/paxeer/ShardStatus.tsx and its entry in apps/perps/src/components/paxeer/index.ts after checking external consumers; point the README at maintained widgets and keep wanted demonstrations outside the production export surface."
+owner_domain = 3
+interface = "3.ts-perps-components-paxeer-shardstatus-default"
+
+[finding.f091]
+file = "apps/perps/src/components/paxeer/SmartButton.tsx"
+line = 7
+class = "dead-code"
+severity = "low"
+observed = "SmartButton remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+expected = "Requirement 3530.1 calls for retirement of static design exports; the application should expose maintained live widgets rather than a second unused demonstration surface."
+proposal = "Retire apps/perps/src/components/paxeer/SmartButton.tsx and its entry in apps/perps/src/components/paxeer/index.ts after checking external consumers; point the README at maintained widgets and keep wanted demonstrations outside the production export surface."
+owner_domain = 3
+interface = "3.ts-perps-components-paxeer-smartbutton-default"
+
+[finding.f092]
+file = "apps/perps/src/components/paxeer/TradePathSankey.tsx"
+line = 4
+class = "dead-code"
+severity = "low"
+observed = "TradePathSankey remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+expected = "Requirement 3530.1 calls for retirement of static design exports; the application should expose maintained live widgets rather than a second unused demonstration surface."
+proposal = "Retire apps/perps/src/components/paxeer/TradePathSankey.tsx and its entry in apps/perps/src/components/paxeer/index.ts after checking external consumers; point the README at maintained widgets and keep wanted demonstrations outside the production export surface."
+owner_domain = 3
+interface = "3.ts-perps-components-paxeer-tradepathsankey-default"
+
+[finding.f093]
+file = "apps/perps/src/components/paxeer/TraderCard.tsx"
+line = 4
+class = "dead-code"
+severity = "low"
+observed = "TraderCard remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+expected = "Requirement 3530.1 calls for retirement of static design exports; the application should expose maintained live widgets rather than a second unused demonstration surface."
+proposal = "Retire apps/perps/src/components/paxeer/TraderCard.tsx and its entry in apps/perps/src/components/paxeer/index.ts after checking external consumers; point the README at maintained widgets and keep wanted demonstrations outside the production export surface."
+owner_domain = 3
+interface = "3.ts-perps-components-paxeer-tradercard-default"
+
+[finding.f094]
+file = "apps/perps/src/components/paxeer/TradesTable.tsx"
+line = 4
+class = "dead-code"
+severity = "low"
+observed = "TradesTable remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+expected = "Requirement 3530.1 calls for retirement of static design exports; the application should expose maintained live widgets rather than a second unused demonstration surface."
+proposal = "Retire apps/perps/src/components/paxeer/TradesTable.tsx and its entry in apps/perps/src/components/paxeer/index.ts after checking external consumers; point the README at maintained widgets and keep wanted demonstrations outside the production export surface."
+owner_domain = 3
+interface = "3.ts-perps-components-paxeer-tradestable-default"
+
+[finding.f095]
+file = "apps/perps/src/components/paxeer/TransferModal.tsx"
+line = 7
+class = "dead-code"
+severity = "low"
+observed = "TransferModal remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+expected = "Requirement 3530.1 calls for retirement of static design exports; the application should expose maintained live widgets rather than a second unused demonstration surface."
+proposal = "Retire apps/perps/src/components/paxeer/TransferModal.tsx and its entry in apps/perps/src/components/paxeer/index.ts after checking external consumers; point the README at maintained widgets and keep wanted demonstrations outside the production export surface."
+owner_domain = 3
+interface = "3.ts-perps-components-paxeer-transfermodal-default"
+
+[finding.f096]
+file = "apps/perps/src/components/paxeer/TransfersHistory.tsx"
+line = 5
+class = "dead-code"
+severity = "low"
+observed = "TransfersHistory remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+expected = "Requirement 3530.1 calls for retirement of static design exports; the application should expose maintained live widgets rather than a second unused demonstration surface."
+proposal = "Retire apps/perps/src/components/paxeer/TransfersHistory.tsx and its entry in apps/perps/src/components/paxeer/index.ts after checking external consumers; point the README at maintained widgets and keep wanted demonstrations outside the production export surface."
+owner_domain = 3
+interface = "3.ts-perps-components-paxeer-transfershistory-default"
+
+[finding.f097]
+file = "apps/perps/src/components/paxeer/TxSimulator.tsx"
+line = 4
+class = "dead-code"
+severity = "low"
+observed = "TxSimulator remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+expected = "Requirement 3530.1 calls for retirement of static design exports; the application should expose maintained live widgets rather than a second unused demonstration surface."
+proposal = "Retire apps/perps/src/components/paxeer/TxSimulator.tsx and its entry in apps/perps/src/components/paxeer/index.ts after checking external consumers; point the README at maintained widgets and keep wanted demonstrations outside the production export surface."
+owner_domain = 3
+interface = "3.ts-perps-components-paxeer-txsimulator-default"
+
+[finding.f098]
+file = "apps/perps/src/components/paxeer/_shared.tsx"
+line = 4
+class = "dead-code"
+severity = "low"
+observed = "_shared remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+expected = "Requirement 3530.1 calls for retirement of static design exports; the application should expose maintained live widgets rather than a second unused demonstration surface."
+proposal = "Retire apps/perps/src/components/paxeer/_shared.tsx and its entry in apps/perps/src/components/paxeer/index.ts after checking external consumers; point the README at maintained widgets and keep wanted demonstrations outside the production export surface."
+owner_domain = 3
+interface = "3.ts-perps-components-paxeer-shared-cx"
+
+[finding.f099]
+file = "apps/perps/src/components/paxeer/index.ts"
+line = 1
+class = "dead-code"
+severity = "low"
+observed = "index remains in the exported static design package under components/paxeer. Its wiring ends at the demonstration barrel and documentation; the running app uses widgets and has no live importer of this export."
+expected = "Requirement 3530.1 calls for retirement of static design exports; the application should expose maintained live widgets rather than a second unused demonstration surface."
+proposal = "Retire apps/perps/src/components/paxeer/index.ts and its entry in apps/perps/src/components/paxeer/index.ts after checking external consumers; point the README at maintained widgets and keep wanted demonstrations outside the production export surface."
+owner_domain = 3
+
+[doc.001]
+path = "README.md"
+status = "stale"
+notes = "Lines 44-47 and 181 describe separate execution domains, LayerX evidence and checkpoint settlement. Rewrite the architecture overview for the kernel within paxd, committed-block finality and root node RPC."
+
+[doc.002]
+path = "docs/site/README.md"
+status = "accurate"
+notes = "The 57-line page accurately describes MkDocs source layout, local preview and publishing instructions; it does not prescribe a retired execution or RPC surface."
+
+[doc.003]
+path = "docs/site/docs/overview/unified-network.md"
+status = "stale"
+notes = "Lines 3-19, 52-84 and 118-171 describe separate LayerX execution, checkpoint finality, a router and /rpc/schema. Rewrite as one BFT chain with kernel execution in paxd and gateway-owned px methods."
+
+[doc.004]
+path = "docs/site/docs/overview/quickstart.md"
+status = "stale"
+notes = "Lines 20, 167-168, 214-217 and 302 advertise public /rpc and /rpc/ws. Replace public client examples with root node RPC and the declared hosted gateway contract; distinguish disposable 402 fixtures from chain 125."
+
+[doc.005]
+path = "docs/site/docs/operators/beta-control.md"
+status = "stale"
+notes = "Line 5 directs public custody credit to a router. Replace that public direction with the merged network's supported funding path while keeping disposable private reset and funding procedures explicitly scoped."
+
+[doc.006]
+path = "docs/site/docs/reference/index.md"
+status = "stale"
+notes = "Lines 22-34 present protocol/platform/beta as the active specifications and omit layerx-merge. Add the current merged-network specification and clearly distinguish historical reference material."
+
+[doc.007]
+path = "docs/site/docs/platform/faucet.md"
+status = "stale"
+notes = "Line 5 directs public custody credit to a router. Replace the public funding instructions with the merged chain/gateway contract and keep the disposable private faucet limits separately documented."
+
+[doc.008]
+path = "docs/site/docs/platform/cli.md"
+status = "misleading"
+notes = "Lines 8, 131, 278 and 298 require /rpc, while lines 125-150 contradict the preceding implemented flags. Rewrite one supported CLI contract using root public RPC and label historical emulator-only commands."
+
+[doc.009]
+path = "docs/site/docs/platform/hosted-node.md"
+status = "stale"
+notes = "Lines 3-12 prescribe an in-cluster sequencer and layerxd --serve; lines 241-370 and 492 onward continue its keys, supervisors and listeners. Replace public deployment guidance with the kernel inside paxd and committed-block recovery."
+
+[doc.010]
+path = "docs/site/docs/platform/identity.md"
+status = "accurate"
+notes = "Read all 420 lines: service-token introspection, session shape, durable store and typed refusals are explicitly scoped to hosted identity. Legacy identifier prefixes and private fixture names alone do not create a separate chain interface."
+
+[doc.011]
+path = "docs/site/docs/platform/hosted-gateway.md"
+status = "misleading"
+notes = "Lines 38-50, 202-204 and 605-606 advertise a unified router and /rpc surfaces. Describe hosted px methods separately from the root node namespaces and remove the sixteen-node/separate-EVM-domain claim."
+
+[doc.012]
+path = "docs/site/docs/platform/webhooks.md"
+status = "misleading"
+notes = "Lines 45-54 require role-specific ingress mTLS; lines 255-260 instead say inbound TLS has no client authentication. Lines 77-78 also depend on a router service variable. Consolidate current role contracts and merged network identity."
+
+[doc.013]
+path = "apps/perps/data_api.md"
+status = "stale"
+notes = "Lines 132-149 and 388-411 document obsolete funding names and numeric estimates. Rewrite active funding fields, exact string units and nullability from the current record producer and symbol adapter."
+
+[doc.014]
+path = "apps/perps/src/components/paxeer/README.md"
+status = "misleading"
+notes = "Line 3 calls unmounted demonstrations production-ready; lines 139-143 promise address, onClick, value, chainId and onConfirm props absent from the implementations. Retire the drop-in claims and point integrators at wired widgets."
+
+[doc.015]
+path = "spec/layerx-merge/contracts/perps-client.md"
+status = "accurate"
+notes = "Reviewed the slice's component, page and widget tables and linked acceptance context. This generated contract explicitly freezes revision 2a1033aa2; historical line anchors are not evidence of a current runtime failure."
+
+[doc.016]
+path = "spec/layerx-merge/contracts/perps-data.md"
+status = "accurate"
+notes = "Reviewed referenced gateway, explorer, stream and configuration context for this slice. The page explicitly freezes revision 2a1033aa2; current emitted fields were checked in the producer source rather than inferred from frozen anchors."
+

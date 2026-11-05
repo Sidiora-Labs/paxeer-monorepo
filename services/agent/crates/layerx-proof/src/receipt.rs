@@ -6,6 +6,7 @@ use layerx_types::{guest_abi, programs_module_abi, rung::Rung};
 use layerx_wire::hash::receipt_digest;
 use layerx_wire::limits::protocol_version_uses_occupancy;
 use layerx_wire::receipt::{decode, encode, encode_unsigned, Receipt};
+use sha2::{Digest as _, Sha256};
 
 use crate::evidence::Evidence;
 use crate::level::achieved;
@@ -194,7 +195,7 @@ pub enum ReceiptCheck {
     PreviousStateRoot,
     /// The resulting state root did not match the supplied chain successor.
     ResultingStateRoot,
-    /// The debit balance did not decrease by exactly the amount.
+    /// The debit balance did not decrease by the amount and any fee in the same asset.
     DebitBalance,
     /// The credit balance did not increase by exactly the amount.
     CreditBalance,
@@ -381,9 +382,26 @@ pub fn verify_outcome(
         return Err(VerificationFailure::at(ReceiptCheck::ResultingStateRoot));
     }
     if protocol.result_code() == 0 {
+        let fee_in_receipt_asset = protocol
+            .effects()
+            .first()
+            .and_then(|effect| {
+                let body = effect.body();
+                let denomination_len = usize::from(*body.get(108)?);
+                body.get(109..109 + denomination_len)
+            })
+            .is_some_and(|denomination| {
+                <[u8; 32]>::from(Sha256::digest(denomination)) == protocol.asset()
+            });
+        let debit_fee = if fee_in_receipt_asset {
+            protocol.fee_charged()
+        } else {
+            0
+        };
         if protocol
             .debit_balance_before()
             .checked_sub(protocol.amount())
+            .and_then(|balance| balance.checked_sub(debit_fee))
             != Some(protocol.debit_balance_after())
         {
             return Err(VerificationFailure::at(ReceiptCheck::DebitBalance));

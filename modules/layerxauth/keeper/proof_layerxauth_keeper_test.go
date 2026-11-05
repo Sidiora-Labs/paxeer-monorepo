@@ -141,10 +141,12 @@ func TestProofLayerxauthKeeperSession(t *testing.T) {
 }
 
 func TestProofLayerxauthKeeperCapability(t *testing.T) {
+	t.Run("executable capability receipt endpoint", TestRepairM_1421_AuthProofEndpoint)
+
 	f := newAuthViewFixture(t)
 	actor := authExecuteActor(t, f)
 	az, azKey := capabilityAuthz(t, f)
-	payload, grantID := authExecutePayload(t, f, "capability")
+	payload, grantID := executableCapabilityPayload(t, f)
 	body := bytes.Clone(payload[8:])
 	private := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{74}, ed25519.SeedSize))
 	grantee := sdk.AccAddress(bindCapabilityKey(t, f, private).Bytes())
@@ -167,14 +169,14 @@ func TestProofLayerxauthKeeperCapability(t *testing.T) {
 		scope, err := f.Keeper().CapabilityScope(*f.Context(), grantID)
 		require.NoError(t, err)
 		require.Equal(t, body[114:294], scope)
-		require.Equal(t, uint64(1<<9), binary.BigEndian.Uint64(scope[:8]))
+		require.Equal(t, uint64(1<<1), binary.BigEndian.Uint64(scope[:8]))
 		require.Equal(t, f.Asset()[:], scope[16:48])
 		stored, expiration := az.GetCleanAuthorization(*f.Context(), grantee, granter, keeper.CapabilityAuthorizationTypeURL)
 		require.IsType(t, &types.LayerXScopeAuthorization{}, stored)
 		authorization := stored.(*types.LayerXScopeAuthorization)
 		require.NoError(t, authorization.ValidateBasic())
 		require.Equal(t, &types.LayerXScopeAuthorization{
-			ModuleMask: 1 << 9, OrdinalMin: 4, OrdinalMax: 5,
+			ModuleMask: 1 << 1, OrdinalMin: 4, OrdinalMax: 5,
 			AssetId: f.Asset()[:], MaxPerActivity: "10", MaxTotal: "20", SpentTotal: "0",
 			RevocationEpoch: 41, GrantId: grantID[:], MsgTypeUrl: keeper.CapabilityAuthorizationTypeURL,
 			Kind: 3, PeriodLength: 1000, MaxPerPeriod: "15", PurposeHash: f.Purpose()[:],
@@ -185,7 +187,7 @@ func TestProofLayerxauthKeeperCapability(t *testing.T) {
 			amount int64
 			reason string
 		}{{5, ""}, {11, "LXP_AUTH_SCOPE"}} {
-			reason, err := f.Keeper().CheckActivity(*f.Context(), grantID, 0x00090004, *f.Asset(), sdk.NewInt(check.amount))
+			reason, err := f.Keeper().CheckActivity(*f.Context(), grantID, 0x00010004, *f.Asset(), sdk.NewInt(check.amount))
 			require.NoError(t, err)
 			require.Equal(t, check.reason, reason)
 		}
@@ -208,9 +210,9 @@ func TestProofLayerxauthKeeperCapability(t *testing.T) {
 	require.Equal(t, grantID[:], stored.(*types.LayerXScopeAuthorization).GrantId)
 	message := banktypes.NewMsgSend(granter, grantee, sdk.NewCoins(sdk.NewInt64Coin("upax", 1)))
 	authorization := *stored.(*types.LayerXScopeAuthorization)
-	authorization.MsgTypeUrl = sdk.MsgTypeURL(message)
+	require.Equal(t, sdk.MsgTypeURL(message), authorization.MsgTypeUrl)
 	expiration := time.UnixMilli(int64(authorization.NotAfter)).UTC()
-	require.NoError(t, az.SaveGrant(*f.Context(), grantee, granter, &authorization, expiration))
+	require.Equal(t, time.UnixMilli(int64(f.Timestamp()+1000)).UTC(), expiration)
 	accepted, err := authorization.Accept(types.WithGrantorRevocation(*f.Context(), granter, authorization.RevocationEpoch), message)
 	require.NoError(t, err)
 	require.True(t, accepted.Accept)
@@ -224,7 +226,7 @@ func TestProofLayerxauthKeeperCapability(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, sequence, revocation)
 	for read := 0; read < 2; read++ {
-		reason, err := f.Keeper().CheckActivity(*f.Context(), grantID, 0x00090004, *f.Asset(), sdk.NewInt(5))
+		reason, err := f.Keeper().CheckActivity(*f.Context(), grantID, 0x00010004, *f.Asset(), sdk.NewInt(5))
 		require.NoError(t, err)
 		require.Equal(t, "LXP_AUTH_REVOKED", reason)
 		stored, _ := az.GetCleanAuthorization(*f.Context(), grantee, granter, keeper.CapabilityAuthorizationTypeURL)

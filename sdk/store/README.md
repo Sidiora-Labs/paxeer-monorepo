@@ -7,6 +7,13 @@ state stores in [`storage/`](../../storage/README.md). The wrappers below
 (`cachekv`, `cachemulti`, `gaskv`, `prefix`, `tracekv`) sit on top of it
 during block execution.
 
+The normative [SDK contract](../../contracts/cosmos-fork.md#go-api) covers
+[store ranges and bulk keys](../../contracts/cosmos-fork.md#store-ranges-and-bulk-keys),
+[historical state and recovery](../../contracts/cosmos-fork.md#historical-stores-and-recovery),
+[genesis streams](../../contracts/cosmos-fork.md#genesis-streams),
+[CLI configuration](../../contracts/cosmos-fork.md#cli) and
+[error transport](../../contracts/cosmos-fork.md#errors).
+
 ## CacheKV
 
 `cachekv.Store` is a wrapper `KVStore` which provides buffered writing / cached reading functionalities over the underlying `KVStore`.

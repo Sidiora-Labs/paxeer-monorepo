@@ -7,7 +7,6 @@ import json
 import os
 from pathlib import Path
 import re
-import select
 import signal
 import socket
 import subprocess
@@ -39,6 +38,7 @@ def module(name, path):
 OWNERS = module(
     "served_write_owner_helpers", Path(__file__).with_name("mcp_daemon_revocation.py")
 )
+FRAMING = module("served_write_framing", Path(__file__).with_name("fixtures") / "bounded_mcp_line.py")
 HTTP = OWNERS.HTTP
 require = OWNERS.require
 private_write = OWNERS.private_write
@@ -97,6 +97,7 @@ class Client:
 
     def start(self):
         self.starts += 1
+        self.response_pending = bytearray()
         self.log = (
             self.directory / (self.label + "-" + str(self.starts) + ".log")
         ).open("xb")
@@ -135,6 +136,7 @@ class Client:
         self.message("initialize", {})
 
     def message(self, method, params):
+        deadline = time.monotonic() + FRAMING.RESPONSE_TIMEOUT
         self.sequence += 1
         request = {
             "jsonrpc": "2.0",
@@ -144,16 +146,11 @@ class Client:
         }
         self.input.write(json.dumps(request, separators=(",", ":")).encode() + b"\n")
         self.input.flush()
-        if self.transport == "stdio":
-            require(
-                bool(select.select([self.output], [], [], 30)[0]),
-                "actual stdio response deadline",
-            )
-        raw = self.output.readline(1_048_577)
-        require(
-            raw.endswith(b"\n") and len(raw) <= 1_048_576,
-            "bounded real MCP JSON line required",
-        )
+        try:
+            raw = FRAMING.read_line(self.output, self.response_pending, deadline)
+        except (OSError, ValueError):
+            self.stop()
+            raise
         response = json.loads(raw)
         require(
             response.get("jsonrpc") == "2.0" and response.get("id") == self.sequence,

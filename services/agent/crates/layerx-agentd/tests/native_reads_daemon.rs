@@ -57,4 +57,16 @@ fn native_rpc_availability_refusals() {
         route.read("/v1/reads/history/account?limit=2&cursor=bad"),
         Err(NativeReadError::CursorMismatch)
     ));
+    for path in [
+        "/v1/reads/availability/01",
+        "/v1/reads/checkpoint/-1",
+        "/v1/reads/receipt/not-a-digest",
+        "/v1/reads/proof/not-a-digest",
+        "/v1/reads/history/account?limit=0",
+    ] {
+        assert!(
+            matches!(route.read(path), Err(NativeReadError::InvalidRequest)),
+            "malformed native read selector must be refused: {path}"
+        );
+    }
 }

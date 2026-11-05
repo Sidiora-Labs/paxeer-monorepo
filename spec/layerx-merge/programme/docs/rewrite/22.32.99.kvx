@@ -1,0 +1,37 @@
+[manifest]
+task = "22.32.99"
+domain = 11
+owner_role = "fm-interop"
+pages = 3
+
+[page.1]
+path = "docs/site/docs/interop/ucp.md"
+status = "stale"
+bytes = 1607
+source_1 = "record 22.30.112 [doc.10] (stale): Read the complete page. Drift at line 18: The UCP page directs payment verification through layerx_proof::receipt::verify and AuthorizedBatch. The adapter now consumes receipt keys and SequencerEvidence and verifies signed native payment logs."
+
+[page.2]
+path = "docs/site/docs/interop/visa-tap.md"
+status = "stale"
+bytes = 1614
+source_1 = "record 22.30.112 [doc.11] (stale): Read the complete page. Drift at line 21: The Visa TAP guide says settlement uses receipt::verify and AuthorizedBatch, whereas the current adapter verifies sequencer payment evidence and trusted agent/intent bindings."
+
+[page.3]
+path = "docs/site/docs/interop/x402.md"
+status = "misleading"
+bytes = 37565
+source_1 = "record 22.30.1 [doc.6] (stale): Lines 90-109 require POST /rpc, lx_* submissions and guarantor finalised evidence; 138-148 require layerx:* offers despite the current eip155:125 network rule. Repoint the payment flow to native transactions and committed receipts."
+source_2 = "record 22.30.108 [doc.03] (misleading): Lines 26-27, 83-103, 132-165 and the legacy settlement sections around 375-412 contradict the later SequencerEvidence flow: retired /rpc, commitments, grants and batch proofs remain."
+source_3 = "record 22.30.110 [doc.004] (misleading): Full page reviewed; lines 26, 84-111, 175-190 and 248 onward prescribe retired activity transport, commitment rungs and lxp digest identities."
+source_4 = "record 22.30.111 [doc.4] (misleading): Lines 90-108, 132-154, 247-253 and 410 describe retired transport/rungs/evidence; align examples, errors and claims to actual native adapters."
+source_5 = "record 22.30.118 [doc.011] (misleading): Lines 26-28 and 95-112 use gateway POST /rpc, lx_sendActivity/lx_getReceipt and executed/batched/finalised backed by guarantor certificates."
+source_6 = "record 22.30.125 [doc.x402_site] (misleading): Read full page. Site lines 94-110 (wiki 95-111) require retired /rpc and lx methods plus sequencer, batch-header and guarantor evidence. Amount precision, recipient/purpose binding and same-payment retry remain useful; transport and finality need replacement. See x402_site_finality."
+source_7 = "record 22.30.138 [doc.06] (stale): Read in full. Current-deployment transport/topology or finality drift is anchored in x402-site-transport. Rewrite for one paxd chain, root node RPC and committed-block finality."
+source_8 = "record 22.30.27 [doc.008] (misleading): Misleading public transport at lines 90-104 and activity recovery around lines 175-176; replace retired RPC and guarantor finality with native committed payments."
+source_9 = "record 22.30.4 [doc.010] (misleading): Lines 83-105 and the later metered examples use retired payer-grant/RECEIVE encodings, POST /rpc and guarantor finality; exact settlement/recovery principles must be carried to native payment paths. Findings: 037."
+source_10 = "record 22.30.69 [doc.06] (stale): Full page read, including site/wiki shared text and link differences. Site lines 90-104 (wiki +1) prescribe /rpc, lx activity recovery and guarantor checkpoint finality instead of merged EVM submission and BFT commitment."
+source_11 = "record 22.30.73 [doc.10] (stale): Lines 25-29, 79-105 and 147-176 prescribe retired payer grants, Activity RPC and checkpoint finality; 232-235 and vectors use layerx networks instead of eip155:125."
+source_12 = "record 22.30.79 [doc.003] (misleading): Lines 90-103 prescribe POST /rpc, lx_sendActivity and kernel authorization/checkpoint proof. Rewrite payment submission and acceptance around root node EIP-1559, pax_sequencerReceipt and height-pinned ReceiptKeys, naming the hosted px_ gateway separately."
+source_13 = "record 22.30.84 [doc.01] (stale): Read the complete payment, retry, receipt and verification guide. Lines 90-109 and 175 prescribe retired /rpc, lx_ activity methods and checkpoint finality; see x402-retired-transport."
+source_14 = "record 22.30.9 [doc.11] (stale): Lines 90-104 prescribe /rpc, lx_ daemon reads and guarantor finality; the native grant flow also conflicts with current ledger refusal behavior."
+source_15 = "record 22.30.93 [doc.07] (misleading): Read the full page and compared the mirror. Site lines 90-105 (wiki plus one) retain /rpc, lx_sendActivity and guarantor-certificate finality. Preserve the reviewed encoding, payment identity and deduplication rules while rewriting the chain integration."

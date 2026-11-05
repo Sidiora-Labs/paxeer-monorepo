@@ -1,0 +1,147 @@
+[reconcile.r12-82]
+revision = "0b17e0748b8a5c1506383faf11209f4f35235885"
+rows = 18
+
+[row.r12-82.1]
+interface = "interface.12.http-gw-post-v1-wallet-lx-approve"
+verdict = "served"
+path = "services/wallet/gateway/src/routes/sign.ts"
+line = 1203
+symbol = "/v1/wallet/lx/approve"
+evidence = "app.post('/v1/wallet/lx/approve', { preHandler: requireAuth, bodyLimit: 2_400_000 }, ...) remains served. Its strict body requires review_id, activity, signing_preimage, disclosure, expires_at and decision='approve'; it compares the retained review and persists approval. The current artifact kind is lx_send_authorization only; the planned EVM repointing has not replaced this native approval route."
+
+[row.r12-82.2]
+interface = "interface.12.err-gw-explicit-lx-approval-required"
+verdict = "served"
+path = "services/wallet/gateway/src/routes/sign.ts"
+line = 1207
+symbol = "explicit_lx_approval_required"
+evidence = "reply.code(400).send({ error: 'explicit_lx_approval_required' }) retains the registered error body when approveSchema rejects the explicit retained-review approval body. The same code is also returned with HTTP 403 at line 1266 when signing lacks an approved row; it has not been replaced with an EVM approval error."
+
+[row.r12-82.3]
+interface = "interface.12.http-gw-get-v1-wallet-lx-approvals-id"
+verdict = "served"
+path = "services/wallet/gateway/src/routes/sign.ts"
+line = 1243
+symbol = "/v1/wallet/lx/approvals/:id"
+evidence = "app.get('/v1/wallet/lx/approvals/:id', { preHandler: requireAuth }, ...) keeps the registered method and authentication. It validates a UUID and returns the principal-owned retained lx_send_authorization artifact, state, approval and signing evidence after original-wallet identity checks; the current response remains native rather than an EVM transaction review."
+
+[row.r12-82.4]
+interface = "interface.12.err-gw-invalid-lx-approval-id"
+verdict = "served"
+path = "services/wallet/gateway/src/routes/sign.ts"
+line = 1245
+symbol = "invalid_lx_approval_id"
+evidence = "reply.code(400).send({ error: 'invalid_lx_approval_id' }) retains the registered error body. The GET approvals route still emits it when idSchema, declared as z.string().uuid(), rejects the path id; only its registered source location has drifted."
+
+[row.r12-82.5]
+interface = "interface.12.http-gw-post-v1-wallet-lx-sign"
+verdict = "served"
+path = "services/wallet/gateway/src/routes/sign.ts"
+line = 1254
+symbol = "/v1/wallet/lx/sign"
+evidence = "app.post('/v1/wallet/lx/sign', { preHandler: requireAuth }, ...) keeps the registered route. Its strict request is { approval_id: UUID }; signing uses the retained lx_send_authorization artifact, disclosure and approval, persists signing_unknown before contacting attestors, then verifies and retains the signature. It still returns native approval evidence rather than an EVM send receipt."
+
+[row.r12-82.6]
+interface = "interface.12.err-gw-retained-lx-approval-required"
+verdict = "served"
+path = "services/wallet/gateway/src/routes/sign.ts"
+line = 1256
+symbol = "retained_lx_approval_required"
+evidence = "reply.code(400).send({ error: 'retained_lx_approval_required' }) retains the registered error body. signSchema is now located at line 1025 and strictly accepts only approval_id validated as a UUID, so arbitrary signing payloads are refused before retained approval lookup."
+
+[row.r12-82.7]
+interface = "interface.12.http-gw-post-v1-wallet-provision"
+verdict = "served"
+path = "services/wallet/gateway/src/routes/wallet.ts"
+line = 108
+symbol = "/v1/wallet/provision"
+evidence = "app.post('/v1/wallet/provision', { preHandler: requireAuth }, ...) remains served and now returns identityBinding with wallet and provisioning state/awaiting when attestors are configured. The provisionAccount path binds through ADDR_PRECOMPILE 0x1004 and reads pax_sequencerReceipt via provision/bind.ts:284 rather than the registry's old anchor 0x1014 and eth_getTransactionReceipt description."
+
+[row.r12-82.8]
+interface = "interface.12.http-gw-post-v1-wallet-sponsored-status"
+verdict = "served"
+path = "services/wallet/gateway/src/routes/wallet.ts"
+line = 504
+symbol = "/v1/wallet/sponsored/status"
+evidence = "app.post('/v1/wallet/sponsored/status', { preHandler: requireAuth }, ...) now sends { ...statusBody(report), did, budget: budget.data }. The budget signature is { key, gasLimit, usedGas, remainingGas, dayEnds }, with key equal to the caller DID and usedGas + remainingGas equal to gasLimit; it does not use the registry notes' proposed daily_wei/used_wei/remaining_wei field names."
+
+[row.r12-82.9]
+interface = "interface.12.http-gw-post-v1-wallet-sponsored-submit-receipt-j49"
+verdict = "served"
+path = "services/wallet/gateway/src/routes/wallet.ts"
+line = 529
+symbol = "/v1/wallet/sponsored/submit"
+evidence = "app.post('/v1/wallet/sponsored/submit', { preHandler: requireAuth }, ...) extends the registered tx_hash/status/station answer with did, receipt and rung at lines 647, 658 and 663. sequencerReceipt() at line 327 reads pax_sequencerReceipt through RpcPool; receipt may be null with rung='submitted', while receipted/committed results carry the receipt view and its receipt bytes."
+
+[row.r12-82.10]
+interface = "interface.12.ts-gw-rpc-pool"
+verdict = "served"
+path = "services/wallet/gateway/src/rpc/pool.ts"
+line = 182
+symbol = "RpcPool"
+evidence = "export class RpcPool remains the exported class. RpcPoolOptions now includes sequencerUrl?: string; write methods select that endpoint, and sequencerReceipt(hash: Hex): Promise<SequencerReceiptResult | null> supplies receipt lookup separately. The send methods still return hash or hash/member rather than embedding the signed receipt in their return types."
+
+[row.r12-82.11]
+interface = "interface.12.ts-gw-rpc-pool-send-raw-transaction"
+verdict = "served"
+path = "services/wallet/gateway/src/rpc/pool.ts"
+line = 399
+symbol = "sendRawTransaction"
+evidence = "async sendRawTransaction(signed: Hex): Promise<Hex> keeps its registered signature and returns (await this.sendRawTransactionVia(signed)).hash. Writes now go to the configured sequencer instead of the read pool; the return remains only a hash, with receipt retrieval exposed separately by sequencerReceipt()."
+
+[row.r12-82.12]
+interface = "interface.12.ts-gw-rpc-pool-send-raw-transaction-via"
+verdict = "served"
+path = "services/wallet/gateway/src/rpc/pool.ts"
+line = 421
+symbol = "sendRawTransactionVia"
+evidence = "async sendRawTransactionVia(signed: Hex): Promise<{ hash: Hex; member: string | null }> keeps the registered return signature. member is now this.sequencerEndpoint(), and eth_sendRawTransaction is posted once there; nonce classification may read other members but does not rebroadcast through the read pool. Signed receipt data is obtained separately."
+
+[row.r12-82.13]
+interface = "interface.12.ts-gw-rpc-pool-from-config"
+verdict = "served"
+path = "services/wallet/gateway/src/rpc/pool.ts"
+line = 521
+symbol = "rpcPoolFromConfig"
+evidence = "export function rpcPoolFromConfig(cfg: { ... }): RpcPool now accepts SEQUENCER_RPC_URL?: string alongside RPC_URLS, HYPERPAXEER_CHAIN_ID and the existing RPC timing/lag settings. It passes cfg.SEQUENCER_RPC_URL as sequencerUrl to new RpcPool, separating the write endpoint from the read URLs as requested in the registry notes."
+
+[row.r12-82.14]
+interface = "interface.12.fmt-sch-attestor-api-v1"
+verdict = "served"
+path = "services/wallet/schema/attestor-api/v1.kvx"
+line = 9
+symbol = "[meta]"
+evidence = "[meta] still declares name='attestor-api', version='1', mutual TLS 1.3, JSON bodies and the same categorized error_shape. The schema now includes op.keys.public_wallet, op.authority, op.sign.native, op.lx.review and op.evm.review sections, but still has no peer-route sections. op.sign kinds at line 171 omit both retired lx_activity and unsupported custody."
+
+[row.r12-82.15]
+interface = "interface.12.fmt-sch-op-keys-generate"
+verdict = "served"
+path = "services/wallet/schema/attestor-api/v1.kvx"
+line = 38
+symbol = "[op.keys.generate]"
+evidence = "[op.keys.generate] still specifies POST /v1/keys/generate, but auth at line 41 is now 'gateway certificate', correcting the registry's operator-certificate mismatch. The served route in attestor/internal/server/server.go is wrapped by gatewayOnly('keys.generate', ...), matching the current schema authorization."
+
+[row.r12-82.16]
+interface = "interface.12.fmt-sch-op-sign"
+verdict = "served"
+path = "services/wallet/schema/attestor-api/v1.kvx"
+line = 165
+symbol = "[op.sign]"
+evidence = "[op.sign] retains POST /v1/sign and now lists kinds ['evm_tx', 'eip712', 'personal_message', 'eth_sign_digest', 'lx_bind', 'lx_grant', 'lx_send_authorization'] at line 171. lx_activity has been removed and custody remains unsupported; these seven kinds match SignKinds() in attestor/internal/server/sign.go."
+
+[row.r12-82.17]
+interface = "interface.12.fmt-sch-op-sign-request"
+verdict = "served"
+path = "services/wallet/schema/attestor-api/v1.kvx"
+line = 175
+symbol = "[op.sign.request]"
+evidence = "[op.sign.request] now explicitly marks custody unsupported, constrains eth_sign_digest with a required recomputable construction, and describes activity as an unsigned asset-send envelope for lx_send_authorization. disclosure and approval are required for that kind and refused on others, replacing the registry's lx_activity field description; lx_grant has its own grant object."
+
+[row.r12-82.18]
+interface = "interface.12.fmt-sch-op-sign-kind"
+verdict = "served"
+path = "services/wallet/schema/attestor-api/v1.kvx"
+line = 190
+symbol = "[op.sign.kind]"
+evidence = "[op.sign.kind] no longer defines lx_activity. It now defines lx_grant as signing the grant preimage and lx_send_authorization as signing the 32-byte asset-send owner authorization digest under send policy and authority rules without counting a spend; eth_sign_digest is restricted to reconstructed EIP-7702 authorization or sponsored-batch digests."

@@ -18,9 +18,10 @@ type SlashInfo struct {
 	minSignedPerWindow int64
 }
 
-// This performs similar logic to the above HandleValidatorSignature, but only performs READs such that it can be performed in parallel for all validators.
-// Instead of updating appropriate validator bit arrays / signing infos, this will return the pending values to be written in a consistent order
-func (k Keeper) HandleValidatorSignatureConcurrent(ctx sdk.Context, addr cryptotypes.Address, power int64, signed bool) (consAddr sdk.ConsAddress, missedInfo types.ValidatorMissedBlockArray, signInfo types.ValidatorSigningInfo, shouldSlash bool, slashInfo SlashInfo) {
+// HandleValidatorSignatureConcurrent reads state and returns pending values and
+// liveness events for BeginBlocker to apply in vote order. It does not write
+// keeper state or emit events, so validators can be calculated in parallel.
+func (k Keeper) HandleValidatorSignatureConcurrent(ctx sdk.Context, addr cryptotypes.Address, power int64, signed bool) (consAddr sdk.ConsAddress, missedInfo types.ValidatorMissedBlockArray, signInfo types.ValidatorSigningInfo, shouldSlash bool, slashInfo SlashInfo, events sdk.Events) {
 
 	height := ctx.BlockHeight()
 
@@ -72,7 +73,7 @@ func (k Keeper) HandleValidatorSignatureConcurrent(ctx sdk.Context, addr cryptot
 
 	minSignedPerWindow := k.MinSignedPerWindow(ctx)
 	if missed {
-		ctx.EventManager().EmitEvent(
+		events = append(events,
 			sdk.NewEvent(
 				types.EventTypeLiveness,
 				sdk.NewAttribute(types.AttributeKeyAddress, consAddr.String()),
@@ -163,10 +164,9 @@ func (k Keeper) ResizeMissedBlockArray(missedInfo types.ValidatorMissedBlockArra
 		boolArray := k.ParseBitGroupsToBoolArray(missedInfo.MissedBlocks, missedInfo.WindowSize)
 		newArray := make([]bool, window)
 		copy(newArray[0:index], boolArray[0:index])
-		if index+1 < missedInfo.WindowSize {
-			// insert `0`s corresponding to the difference between the new window size and old window size
-			copy(newArray[index+(window-missedInfo.WindowSize):], boolArray[index:])
-		}
+		// Insert empty slots at the next write index. Retain the entire suffix,
+		// including the last old slot, so expansion preserves the miss counter.
+		copy(newArray[index+(window-missedInfo.WindowSize):], boolArray[index:])
 		missedInfo.MissedBlocks = k.ParseBoolArrayToBitGroups(newArray)
 		missedInfo.WindowSize = window
 	case missedInfo.WindowSize > window:

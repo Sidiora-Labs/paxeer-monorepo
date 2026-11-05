@@ -1,6 +1,7 @@
 import importlib.util
 import json
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import textwrap
@@ -30,6 +31,103 @@ def run_checker(root, manifests):
         text=True,
         check=False,
     )
+
+
+def test_explorer_tools_locks_meet_floors():
+    root = SCRIPT.parents[2]
+    floors = SCRIPT.parent / "floors/explorer-tools.json"
+    manifests = json.loads(floors.read_text())["manifests"]
+    expected_locks = {
+        "apps/explorer/toolkit/package/yarn.lock",
+        "apps/explorer/deploy/tools/essential-dapps-chains-config-generator/yarn.lock",
+        "apps/explorer/deploy/tools/affected-tests/yarn.lock",
+        "apps/explorer/deploy/tools/favicon-generator/yarn.lock",
+        "apps/explorer/deploy/tools/multichain-config-generator/yarn.lock",
+        "apps/explorer/deploy/tools/llms-txt-generator/yarn.lock",
+        "apps/explorer/deploy/tools/envs-validator/yarn.lock",
+        "apps/explorer/deploy/tools/feature-reporter/yarn.lock",
+        "apps/explorer/deploy/tools/sitemap-generator/yarn.lock",
+    }
+    assert set(manifests) == expected_locks
+    locks = [root / name for name in sorted(expected_locks)]
+    for lock in locks:
+        assert lock.is_file(), f"Missing explorer tool lockfile: {lock}"
+    original_contents = {lock: lock.read_bytes() for lock in locks}
+
+    checked = subprocess.run(
+        [sys.executable, str(SCRIPT), str(floors)],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert (checked.returncode, checked.stdout, checked.stderr) == (0, "", "")
+
+    for lock in locks:
+        installed = subprocess.run(
+            [
+                "yarn",
+                "--cwd",
+                str(lock.parent),
+                "install",
+                "--frozen-lockfile",
+                "--ignore-scripts",
+            ],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert installed.returncode == 0, (
+            f"Frozen install failed in {lock.parent}:\n"
+            f"{installed.stdout}\n{installed.stderr}"
+        )
+        assert lock.read_bytes() == original_contents[lock], (
+            f"Frozen install changed {lock}"
+        )
+    for lock in locks:
+        assert lock.read_bytes() == original_contents[lock], (
+            f"Explorer tool installs changed {lock}"
+        )
+
+
+def test_dashboard_floor_uses_shared_install_lock(tmp_path):
+    root = SCRIPT.parents[2]
+    manifests = json.loads(
+        (SCRIPT.parent / "floors/platform-node.json").read_text()
+    )["manifests"]
+    shared_lock_name = "apps/web/package-lock.json"
+    dashboard = Path("services/platform/hosted/dashboard/web")
+    assert str(dashboard / "package.json") not in manifests
+    assert manifests[shared_lock_name] == {"next": "16.4.1"}
+    assert not (root / dashboard / "package-lock.json").exists()
+
+    shared_lock = json.loads((root / shared_lock_name).read_text())
+    dashboard_manifest = json.loads((root / dashboard / "package.json").read_text())
+    assert dashboard_manifest["dependencies"]["next"] == (
+        shared_lock["packages"]["node_modules/next"]["version"]
+    )
+    assert shared_lock["packages"]["node_modules/next"]["version"] == "16.4.1"
+
+    shared_copy = tmp_path / shared_lock_name
+    shared_copy.parent.mkdir(parents=True)
+    shutil.copyfile(root / shared_lock_name, shared_copy)
+    dashboard_copy = tmp_path / dashboard / "package-lock.json"
+    dashboard_copy.parent.mkdir(parents=True)
+    shutil.copyfile(root / shared_lock_name, dashboard_copy)
+    configured_entry = {shared_lock_name: manifests[shared_lock_name]}
+    passed = run_checker(tmp_path, configured_entry)
+    assert (passed.returncode, passed.stdout, passed.stderr) == (0, "", "")
+
+    shared_lock["packages"]["node_modules/next"]["version"] = "16.3.5"
+    shared_copy.write_text(json.dumps(shared_lock))
+    assert json.loads(dashboard_copy.read_text())["packages"]["node_modules/next"][
+        "version"
+    ] == "16.4.1"
+    failed = run_checker(tmp_path, configured_entry)
+    assert failed.returncode == 1
+    assert failed.stdout == "apps/web/package-lock.json\tnext\t16.3.5\t16.4.1\n"
+    assert failed.stderr == ""
 
 
 @pytest.mark.parametrize(

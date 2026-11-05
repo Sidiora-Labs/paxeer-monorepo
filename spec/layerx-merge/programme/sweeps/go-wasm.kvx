@@ -1,9 +1,9 @@
 [sweep.go-wasm]
-revision = "03e2d849d7f3e9ca51cada79f6d3cfe90938a0fb"
+revision = "ace3608260f2ec826292dab08cd058031efe2f46"
 command = "CGO_ENABLED=1 go vet ./TARGET/ && CGO_ENABLED=1 go test -count=1 ./TARGET/"
 targets_total = 20
-targets_passed = 18
-targets_failed = 2
+targets_passed = 20
+targets_failed = 0
 targets_not_run = 0
 
 [target.go-wasm.1]
@@ -38,10 +38,8 @@ exit_code = 0
 
 [target.go-wasm.7]
 target = "wasm/x/wasm/artifacts/v152/api"
-result = "failed"
-exit_code = 1
-observed = "wasm/x/wasm/artifacts/v152/api/lib_test.go:58: TestInitCacheErrorsForBrokenDir failed because an error was expected but got nil."
-assumption = "The environmental cause is execution as root, which permits creating /foo:bar although the test expects Unix directory creation to fail for lack of permission."
+result = "passed"
+exit_code = 0
 
 [target.go-wasm.8]
 target = "wasm/x/wasm/artifacts/v152/api/testdb"
@@ -55,10 +53,8 @@ exit_code = 0
 
 [target.go-wasm.10]
 target = "wasm/x/wasm/artifacts/v155/api"
-result = "failed"
-exit_code = 1
-observed = "wasm/x/wasm/artifacts/v155/api/lib_test.go:58: TestInitCacheErrorsForBrokenDir failed because an error was expected but got nil."
-assumption = "The environmental cause is execution as root, which permits creating /foo:bar although the test expects Unix directory creation to fail for lack of permission."
+result = "passed"
+exit_code = 0
 
 [target.go-wasm.11]
 target = "wasm/x/wasm/artifacts/v155/api/testdb"

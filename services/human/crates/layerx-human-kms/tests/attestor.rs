@@ -1,7 +1,7 @@
 #[path = "support/attestor_cluster.rs"]
 mod attestor_cluster;
 
-use layerx_client::lni::framing::{read_frame, write_frame};
+use layerx_client::frame::framing::{read_frame, write_frame};
 use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, ServerName};
 use rustls::{ClientConfig, ClientConnection, RootCertStore, StreamOwned};

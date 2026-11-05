@@ -1,0 +1,17 @@
+[repair.22.31.116]
+finding = "singleton-cohort-roundtrip"
+tests = ["TestRepair_116_NewCohortSingletonRoundTrip", "TestRepair_116_NextCohortSingletonRoundTrip", "TestRepair_116_InvalidRanges", "TestRepair_116_InclusiveBoundaryRanges", "TestRepair_116_NextCohortOverflow", "TestRepair_116_SingletonTrackerRestart"]
+change = "Use shared inclusive-range validation for creation and decoding; prevent range/count/index overflow and preserve exhaustion at the maximum key index."
+baseline = "Not run: the ordered gate instructions prohibit verification before implementation and require hf-build before hf-done. No baseline test failures are claimed."
+wiring_requests = []
+qualification = "The hf-done receipt records the verified candidate revision, command, exit code and private evidence location; see the final task response."
+
+[gotcha.inclusive_range]
+symptom = "A producer-emitted singleton cohort could not be decoded after restart."
+cause = "Decoding treated inclusive endpoints as an exclusive range; cursor/count arithmetic also needs overflow checks at uint64 limits."
+do = "Validate inclusive ranges consistently and prove persisted singleton lifecycles at zero, ordinary and maximum indices."
+
+[gotcha.test_pool_size]
+symptom = "A tracker fixture with equal random pool and value sizes would pass zero to Intn."
+cause = "The data generator chooses a starting offset from pool size minus value size."
+do = "Use the existing tracker test configuration with a random pool larger than each value."

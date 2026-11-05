@@ -68,8 +68,7 @@ use crate::notify::{
 };
 use crate::onboarding::OnboardingJourney;
 use crate::security::{
-    AuthenticatorMethod, AuthenticatorProvider, AuthenticatorStatus, KeyExportCeremony,
-    RecoveryEvidenceProvider, SecurityError,
+    AuthenticatorMethod, AuthenticatorProvider, AuthenticatorStatus, RecoveryEvidenceProvider,
 };
 use crate::store::{
     PrincipalStore, RetentionPeriod, RetentionPolicy, RowKey, Table, TenancyDigest,
@@ -219,9 +218,13 @@ impl AccountBalance {
         let mut material = Vec::with_capacity(
             5 + 1 + balance.canonical_bytes.len() + balance.proof_material.len(),
         );
-        material.extend_from_slice(b"LXHB1");
-        if let Some(rung) = self.rung {
-            material.push(rung.wire_rank());
+        material.extend_from_slice(b"LXHB2");
+        match self.rung {
+            None => material.push(0),
+            Some(rung) => {
+                material.push(1);
+                material.push(rung.wire_rank());
+            }
         }
         material.extend_from_slice(
             &u32::try_from(balance.observed_at.len())
@@ -293,7 +296,6 @@ impl AccountBalance {
         scope: &mut crate::store::PrincipalScope<'_>,
         now: u64,
         freshness_seconds: u64,
-        _settlement_domain: layerx_proof::checkpoint::SettlementDomain,
     ) -> Result<serde_json::Value, ApiFailure> {
         Self::read_native_home_summary(agent, scope, now, freshness_seconds)
     }
@@ -412,6 +414,15 @@ impl ProductionComponentsConfig {
     /// # Errors
     /// Refuses incomplete, invalid, or unsupported production dependency configuration.
     pub fn from_environment() -> Result<Self, String> {
+        let protocol_value = env::var("LAYERX_HUMAN_PROTOCOL_VERSION")
+            .map(Some)
+            .or_else(|error| match error {
+                env::VarError::NotPresent => Ok(None),
+                env::VarError::NotUnicode(_) => {
+                    Err("LAYERX_HUMAN_PROTOCOL_VERSION is invalid".to_owned())
+                }
+            })?;
+        let protocol_version = selected_custody_protocol(protocol_value.as_deref(), false)?;
         let attestor = AttestorCustodyConfig::from_environment()?;
         let attestor_configured = attestor.is_some();
         Ok(Self {
@@ -446,7 +457,7 @@ impl ProductionComponentsConfig {
             },
             attestor,
             network_id: number("LAYERX_HUMAN_NETWORK_ID")?,
-            protocol_version: selected_custody_protocol(None, attestor_configured)?,
+            protocol_version,
             signing_limits: SigningLimits::new(
                 number("LAYERX_HUMAN_SIGNING_RATE_MAXIMUM")?,
                 number("LAYERX_HUMAN_SIGNING_RATE_WINDOW_SECONDS")?,
@@ -673,8 +684,13 @@ impl ProductionComponents {
         require_attestor_custody_protocol(config.attestor.is_some(), config.protocol_version)?;
         let provider = match (config.attestor.take(), config.kms.take()) {
             (Some(attestor), _) => ProductionKms::Attestor(
-                AttestorKms::connect(attestor)
-                    .map_err(|_| "attestor quorum refused startup".to_owned())?,
+                AttestorKms::connect_durable(
+                    attestor,
+                    config.custody_root.join("send-replay"),
+                    config.auth_index_key,
+                    Arc::clone(&clock),
+                )
+                .map_err(|_| "attestor quorum refused startup".to_owned())?,
             ),
             (None, Some(kms)) => {
                 ProductionKms::Remote(production_kms_provider(&kms, Arc::clone(&clock))?)
@@ -733,15 +749,7 @@ impl ProductionComponents {
             custody,
             attestor,
             security: Mutex::new(security),
-            stream: super::stream_journal::StreamJournal::new(
-                config.stream_cursor_key,
-                layerx_proof::checkpoint::SettlementDomain::new(
-                    layerx_agentd::node_rpc::NodeRpcConfig::from_environment()
-                        .map_err(|error| error.to_string())?
-                        .chain_id,
-                    precompile(0x1013),
-                ),
-            ),
+            stream: super::stream_journal::StreamJournal::new(config.stream_cursor_key),
             feed: Feed::new(config.activity_freshness_seconds)
                 .map_err(|_| "activity freshness bound is invalid".to_owned())?,
             activity_export_maximum_bytes: config.activity_export_maximum_bytes,
@@ -1511,7 +1519,7 @@ fn response(value: impl serde::Serialize) -> Result<BackendResponse, ApiFailure>
     })
 }
 
-fn activity_filters(body: &serde_json::Value) -> Result<AppliedFilters, ApiFailure> {
+pub fn activity_filters(body: &serde_json::Value) -> Result<AppliedFilters, ApiFailure> {
     let Some(filter) = body.get("filter") else {
         return Feed::apply_filters(FilterDraft::new())
             .map_err(|error| activity_feed_failure(&error));
@@ -1540,10 +1548,144 @@ fn activity_filters(body: &serde_json::Value) -> Result<AppliedFilters, ApiFailu
     if let Some(agent) = object.get("agent_id").and_then(serde_json::Value::as_str) {
         draft = draft.with_agent(agent);
     }
-    let from = object.get("from").and_then(serde_json::Value::as_u64);
-    let through = object.get("to").and_then(serde_json::Value::as_u64);
+    let bound = |name| -> Result<Option<u64>, ApiFailure> {
+        object
+            .get(name)
+            .map(|value| {
+                value
+                    .as_str()
+                    .and_then(crate::time::seconds_from_rfc3339)
+                    .ok_or_else(|| ApiFailure::invalid_request(Some(name)))
+            })
+            .transpose()
+    };
+    let from = bound("from")?;
+    let through = bound("to")?;
     draft = draft.with_dates(from, through);
     Feed::apply_filters(draft).map_err(|error| activity_feed_failure(&error))
+}
+
+pub fn cache_activity_export(
+    scope: &mut crate::store::PrincipalScope<'_>,
+    bytes: Vec<u8>,
+    evidence_bundle: bool,
+    evidence: Vec<serde_json::Value>,
+    now: u64,
+) -> Result<serde_json::Value, ApiFailure> {
+    let created_at = super::projection::unix_time(now)?;
+    let digest: [u8; 32] = Sha256::digest(&bytes).into();
+    let id = hex_bytes(&digest);
+    let (prefix, kind, content_type) = if evidence_bundle {
+        (
+            "activity-evidence",
+            "evidence-bundle",
+            "application/vnd.layerx.evidence-bundle",
+        )
+    } else {
+        ("activity-export", "statement", "text/csv; charset=utf-8")
+    };
+    scope
+        .put(
+            Table::Cache,
+            RowKey::new(format!("{prefix}-{id}")).map_err(|_| ApiFailure::unavailable())?,
+            now,
+            bytes,
+        )
+        .map_err(|_| ApiFailure::unavailable())?;
+    Ok(
+        json!({"export_id":format!("exp_{id}"),"kind":kind,"download_path":format!("/v1/evidence/evd_{id}"),
+        "content_type":content_type,"created_at":created_at,"evidence":evidence}),
+    )
+}
+
+pub fn activity_page_json(
+    page: &crate::activity::FeedPage,
+    native_currency: &str,
+) -> Result<serde_json::Value, ApiFailure> {
+    let mut groups =
+        std::collections::BTreeMap::<u64, (u128, u128, String, Vec<serde_json::Value>)>::new();
+    for entry in page.entries() {
+        let mut amount = 0u128;
+        let mut currency = None;
+        for receipt in entry.receipts() {
+            let bytes = receipt
+                .canonical()
+                .ok_or_else(ApiFailure::upstream_degraded)?;
+            let actual = crate::activity::detail::ReceiptActual::from_verified_journey_bytes(
+                bytes,
+                receipt.reference(),
+            )
+            .map_err(|_| ApiFailure::upstream_degraded())?;
+            amount = amount
+                .checked_add(actual.amount())
+                .ok_or_else(ApiFailure::upstream_degraded)?;
+            let asset = hex_bytes(&actual.asset());
+            if currency.as_ref().is_some_and(|value| value != &asset) {
+                return Err(ApiFailure::upstream_degraded());
+            }
+            currency = Some(asset);
+        }
+        let bucket = entry.occurred_at() / 2_629_800;
+        let group = groups.entry(bucket).or_insert((
+            0,
+            0,
+            currency
+                .clone()
+                .unwrap_or_else(|| native_currency.to_owned()),
+            Vec::new(),
+        ));
+        if let Some(currency) = currency {
+            if !group.2.is_empty() && group.2 != currency {
+                return Err(ApiFailure::upstream_degraded());
+            }
+            group.2 = currency;
+        }
+        match entry.kind() {
+            crate::activity::ActivityKind::Deposit => {
+                group.0 = group
+                    .0
+                    .checked_add(amount)
+                    .ok_or_else(ApiFailure::upstream_degraded)?;
+            }
+            crate::activity::ActivityKind::Withdrawal => {
+                group.1 = group
+                    .1
+                    .checked_add(amount)
+                    .ok_or_else(ApiFailure::upstream_degraded)?;
+            }
+            _ => {
+                if amount != 0 {
+                    return Err(ApiFailure::upstream_degraded());
+                }
+            }
+        }
+        group.3.push(json!({"entry_id":entry.entry_id().as_str(),"kind":activity_kind_label(entry.kind()),"state":activity_status_label(entry.status()),"state_copy_key":format!("activity.state.{}",activity_status_label(entry.status())),"summary_copy_key":format!("activity.summary.{}",activity_kind_label(entry.kind())),"occurred_at":super::projection::unix_time(entry.occurred_at())?}));
+    }
+    let groups=groups.into_iter().rev().map(|(month,(incoming,outgoing,currency,entries))|json!({"month":format!("unix-month-{month}"),"subtotal_in":{"amount":incoming.to_string(),"currency":currency},"subtotal_out":{"amount":outgoing.to_string(),"currency":currency},"entries":entries})).collect::<Vec<_>>();
+    Ok(
+        json!({"groups":groups,"next_cursor":page.next().map_or("cur_end", FeedCursor::as_str),"filter":activity_filter_json(page.applied_filters())?}),
+    )
+}
+
+pub fn activity_filter_json(filters: &AppliedFilters) -> Result<serde_json::Value, ApiFailure> {
+    let mut result = json!({});
+    if !filters.kinds().is_empty() {
+        result["kinds"] = json!(filters
+            .kinds()
+            .iter()
+            .map(|kind| activity_kind_label(*kind))
+            .collect::<Vec<_>>());
+    }
+    if let Some(agent) = filters.agent() {
+        result["agent_id"] = json!(agent);
+    }
+    if let Some(from) = filters.from() {
+        result["from"] = json!(super::projection::unix_time(from)?);
+    }
+    if let Some(to) = filters.through() {
+        result["to"] = json!(super::projection::unix_time(to)?);
+    }
+    Ok(result)
 }
 
 fn activity_feed_failure(error: &crate::activity::FeedError) -> ApiFailure {
@@ -2033,16 +2175,19 @@ fn required_idempotency<'a>(request: &'a ScopedRequest<'_>) -> Result<&'a str, A
 
 fn support_failure(error: &crate::support::SupportError) -> ApiFailure {
     use crate::support::SupportError::{
-        Conflict, ConversationFull, ConversationResolved, ConversationUnknown, Corrupt,
-        InvalidBody, InvalidIdempotencyKey, MessageUnknown, Store,
+        Conflict, ConversationExpired, ConversationFull, ConversationLimit, ConversationResolved,
+        ConversationUnknown, Corrupt, InvalidBody, InvalidIdempotencyKey, MessageUnknown, Store,
     };
     match error {
-        ConversationUnknown | MessageUnknown => ApiFailure::not_found(),
+        ConversationUnknown | ConversationExpired | MessageUnknown => ApiFailure::not_found(),
         Store(_) => ApiFailure::unavailable(),
         InvalidBody => ApiFailure::invalid_request(Some("body")),
-        InvalidIdempotencyKey | Conflict | ConversationFull | ConversationResolved | Corrupt => {
-            ApiFailure::invalid_request(None)
-        }
+        InvalidIdempotencyKey
+        | Conflict
+        | ConversationFull
+        | ConversationLimit
+        | ConversationResolved
+        | Corrupt => ApiFailure::invalid_request(None),
     }
 }
 
@@ -2201,7 +2346,10 @@ fn creation_material(
         .try_into()
         .map_err(|_| ApiFailure::upstream_degraded())?;
     let disclosure = bind_call(&call, sender).map_err(|_| ApiFailure::upstream_degraded())?;
-    if disclosure.idempotency_key != action_key
+    let protocol_key =
+        crate::agents::ProtocolEvidence::creation_idempotency_key(&disclosure, action_key)
+            .map_err(agent_failure_from_creation_contract)?;
+    if disclosure.idempotency_key != protocol_key
         || call.chain_id != u64::from(journey.projection().network_id)
     {
         return Err(ApiFailure::upstream_degraded());
@@ -2212,7 +2360,7 @@ fn creation_material(
     }
     let material = match crate::journeys::AgentBoundary::receipt_by_idempotency_key(
         agent,
-        action_key,
+        protocol_key,
         activity_id,
     )
     .map_err(agent_failure)?
@@ -2223,15 +2371,15 @@ fn creation_material(
             return Err(ApiFailure::upstream_degraded())
         }
     };
-    let evidence = ProductionAgentCreation::protocol_evidence(
+    let evidence = ProductionAgentCreation::protocol_evidence_for_action(
         signed.bytes().to_vec(),
         authority,
+        action_key,
         agent.registry(),
         material,
     )
     .map_err(|_| ApiFailure::upstream_degraded())?;
-    evidence
-        .verify_outcome(disclosure.activity_type)
+    super::agent_creation::verify_evm_outcome(&evidence, disclosure.activity_type)
         .map_err(agent_failure_from_creation_contract)?;
     if <[u8; 32]>::from(Sha256::digest(evidence.receipt_bytes.as_slice())) != expected
         || (source_stage != CreationStage::SessionProvision
@@ -2490,38 +2638,25 @@ fn parse_preferences(body: &serde_json::Value) -> Result<Preferences, ApiFailure
     Ok(preferences)
 }
 
-fn authenticator_method_json(method: &AuthenticatorMethod) -> serde_json::Value {
-    let mut value = json!({"authenticator_id": method.id, "label": method.label, "enabled_at": method.enabled_at});
-    if let Some(last_used_at) = method.last_used_at {
-        value["last_used_at"] = json!(last_used_at);
-    }
-    value
+fn authenticator_method_json(
+    method: &AuthenticatorMethod,
+) -> Result<serde_json::Value, ApiFailure> {
+    super::identity::IdentityProjector::authenticator_method(method)
 }
 
-fn authenticator_status_json(status: &AuthenticatorStatus) -> serde_json::Value {
-    json!({"methods": status.methods.iter().map(authenticator_method_json).collect::<Vec<_>>(),
-        "backup_codes_remaining": status.backup_codes_remaining})
+fn authenticator_status_json(
+    status: &AuthenticatorStatus,
+) -> Result<serde_json::Value, ApiFailure> {
+    Ok(
+        json!({"methods": status.methods.iter().map(authenticator_method_json).collect::<Result<Vec<_>, _>>()?,
+        "backup_codes_remaining": status.backup_codes_remaining}),
+    )
 }
 
-const KEY_EXPORT_WINDOW_SECONDS: u64 = 300;
-
-fn key_export_failure(error: &SecurityError) -> ApiFailure {
-    match error {
-        SecurityError::KeyExported | SecurityError::Custody(CustodyError::SelfCustodied) => {
-            ApiFailure::forbidden()
-        }
-        SecurityError::StepUpMismatch | SecurityError::StepUpExpired => ApiFailure::forbidden(),
-        SecurityError::InvalidTarget => ApiFailure::invalid_request(None),
-        SecurityError::SessionExpired => ApiFailure::session_expired(),
-        SecurityError::Auth(error) => auth_api_failure(error),
-        SecurityError::Boundary(_) | SecurityError::Custody(_) | SecurityError::Audit(_) => {
-            ApiFailure::upstream_degraded()
-        }
-    }
-}
-
-fn timed_secret_json(secret: &crate::security::TimedSecret) -> serde_json::Value {
-    json!({"value": secret.expose(), "remask_at": secret.remask_at(), "copyable": secret.copyable()})
+fn timed_secret_json(
+    secret: &crate::security::TimedSecret,
+) -> Result<serde_json::Value, ApiFailure> {
+    super::identity::IdentityProjector::timed_secret(secret)
 }
 
 fn auth_failure(error: &super::production_auth::ProductionAuthError) -> ApiFailure {
@@ -3128,16 +3263,15 @@ fn hex_bytes(bytes: &[u8]) -> String {
 }
 
 fn selected_protocol(value: Option<&str>) -> Result<u16, String> {
-    let protocol = value.map_or(Ok(layerx_intents::canonical::PROTOCOL_VERSION), |value| {
-        value
-            .parse::<u16>()
-            .map_err(|_| "LAYERX_HUMAN_PROTOCOL_VERSION is invalid".to_owned())
-    })?;
-    if !matches!(
-        protocol,
-        layerx_intents::canonical::PROTOCOL_VERSION
-            | layerx_intents::canonical::STATE_COMMITMENT_PROTOCOL_VERSION
-    ) {
+    let protocol = value.map_or(
+        Ok(layerx_intents::canonical::STATE_COMMITMENT_PROTOCOL_VERSION),
+        |value| {
+            value
+                .parse::<u16>()
+                .map_err(|_| "LAYERX_HUMAN_PROTOCOL_VERSION is invalid".to_owned())
+        },
+    )?;
+    if protocol != layerx_intents::canonical::STATE_COMMITMENT_PROTOCOL_VERSION {
         return Err("LAYERX_HUMAN_PROTOCOL_VERSION is unsupported".to_owned());
     }
     Ok(protocol)
@@ -3148,8 +3282,8 @@ mod protocol_tests {
     use super::selected_protocol;
     #[test]
     fn explicit_beta_protocol_preserves_legacy_default_and_refuses_unknown_versions() {
-        assert_eq!(selected_protocol(None), Ok(2));
-        assert_eq!(selected_protocol(Some("2")), Ok(2));
+        assert_eq!(selected_protocol(None), Ok(3));
+        assert!(selected_protocol(Some("2")).is_err());
         assert_eq!(selected_protocol(Some("3")), Ok(3));
         for invalid in ["", "0", "1", "4", "65536", "three"] {
             assert!(selected_protocol(Some(invalid)).is_err());
@@ -3216,7 +3350,7 @@ mod attestor_custody_protocol {
 
     #[test]
     fn attestor_custody_protocol_keeps_the_existing_behaviour_without_attestors() {
-        assert_eq!(selected_custody_protocol(None, false), Ok(2));
+        assert_eq!(selected_custody_protocol(None, false), Ok(3));
         assert_eq!(selected_custody_protocol(Some("2"), false), Ok(2));
         assert_eq!(selected_custody_protocol(Some("3"), false), Ok(3));
         for invalid in ["", "0", "1", "4", "65536", "three"] {
@@ -3772,7 +3906,7 @@ impl ProductionComponents {
         )
         .map_err(|error| identity_failure(&error))?;
         Ok(BackendResponse {
-            result: json!({"confirms": format!("opd_{}", URL_SAFE_NO_PAD.encode(digest.bytes()))}),
+            result: json!({"confirms": digest.to_schema()}),
             session: None,
         })
     }
@@ -3783,26 +3917,18 @@ impl ProductionComponents {
         scope: &mut crate::store::PrincipalScope<'_>,
         principal: &crate::store::PrincipalId,
     ) -> Result<BackendResponse, ApiFailure> {
-        let encoded = text_field(&request.body, "confirms")?
-            .strip_prefix("opd_")
-            .ok_or_else(|| ApiFailure::invalid_request(Some("confirms")))?;
-        let bytes = URL_SAFE_NO_PAD
-            .decode(encoded)
-            .map_err(|_| ApiFailure::invalid_request(Some("confirms")))?;
-        let digest = crate::auth::OperationDigest::new(
-            bytes
-                .try_into()
-                .map_err(|_| ApiFailure::invalid_request(Some("confirms")))?,
-        );
-        let challenge = self
-            .passkeys
-            .begin_step_up_authorized(scope, digest, self.now()?)
-            .map_err(|error| auth_api_failure(&error))?;
+        let challenge =
+            super::key_export::step_up_begin(&self.passkeys, scope, &request.body, self.now()?)?;
         self.auth_index
-            .bind_step_up(&challenge.challenge_id, principal, challenge.expires_at)
+            .bind_step_up_at(
+                &challenge.challenge_id,
+                principal,
+                challenge.expires_at,
+                self.now()?,
+            )
             .map_err(|error| auth_failure(&error))?;
         Ok(BackendResponse {
-            result: identity_dispatch::step_up_challenge(&challenge),
+            result: super::identity::IdentityProjector::checked_step_up_challenge(&challenge)?,
             session: None,
         })
     }
@@ -3822,7 +3948,7 @@ impl ProductionComponents {
             )
             .map_err(|error| auth_api_failure(&error))?;
         Ok(BackendResponse {
-            result: identity_dispatch::step_up_evidence(&evidence),
+            result: super::identity::IdentityProjector::checked_step_up(&evidence)?,
             session: None,
         })
     }
@@ -3855,7 +3981,7 @@ impl ProductionComponents {
             .map_err(|_| ApiFailure::upstream_degraded())?
             .ok_or_else(ApiFailure::not_found)?;
         Ok(BackendResponse {
-            result: identity_dispatch::onboarding_status(&journey.status()),
+            result: super::identity::IdentityProjector::onboarding(&scope, &journey.status())?,
             session: None,
         })
     }
@@ -3866,8 +3992,12 @@ impl ProductionComponents {
         principal: &crate::store::PrincipalId,
     ) -> Result<BackendResponse, ApiFailure> {
         let status = self.advance_native_onboarding(principal, &request.trace, self.now()?)?;
+        let mut store = self.store.lock().map_err(|_| ApiFailure::unavailable())?;
+        let scope = store
+            .principal(principal)
+            .map_err(|_| ApiFailure::unavailable())?;
         Ok(BackendResponse {
-            result: identity_dispatch::onboarding_status(&status),
+            result: super::identity::IdentityProjector::onboarding(&scope, &status)?,
             session: None,
         })
     }
@@ -3956,13 +4086,7 @@ impl ProductionComponents {
             }
         }
 
-        if intent.source() == &crate::journeys::Endpoint::PaxeerWallet
-            || intent.destination() == &crate::journeys::Endpoint::PaxeerWallet
-        {
-            return Err(submit_failure(
-                crate::journeys::SubmitRefusal::UnsupportedPlan,
-            ));
-        }
+        supported_intent_endpoints(intent).map_err(submit_failure)?;
         let observed = crate::journeys::ObservedState::new(
             layerx_types::intent::TimestampSeconds::from_u64(observed_at),
             account.clone(),
@@ -4566,7 +4690,7 @@ impl ProductionComponents {
             .asset(&denom)
             .ok_or_else(ApiFailure::forbidden)?
             .amount
-            < amount
+            < amount.into()
         {
             return Err(ApiFailure::forbidden());
         }
@@ -4785,7 +4909,7 @@ impl ProductionComponents {
         let passkeys =
             Passkeys::list_passkeys_authorized(scope).map_err(|error| auth_api_failure(&error))?;
         Ok(BackendResponse {
-            result: json!({"passkeys": passkeys}),
+            result: super::identity::IdentityProjector::checked_passkeys(&passkeys)?,
             session: None,
         })
     }
@@ -4811,11 +4935,15 @@ impl ProductionComponents {
             )
             .map_err(|error| auth_api_failure(&error))?;
         self.auth_index
-            .bind_registration(&challenge.registration_id, principal, challenge.expires_at)
+            .bind_registration_at(
+                &challenge.registration_id,
+                principal,
+                challenge.expires_at,
+                self.now()?,
+            )
             .map_err(|error| auth_failure(&error))?;
         Ok(BackendResponse {
-            result: json!({"registration_id": challenge.registration_id,
-                    "ceremony": challenge.ceremony, "expires_at": challenge.expires_at}),
+            result: super::identity::IdentityProjector::checked_registration_challenge(&challenge)?,
             session: None,
         })
     }
@@ -4844,7 +4972,9 @@ impl ProductionComponents {
                 self.now()?,
             )
             .map_err(|error| auth_api_failure(&error))?;
-        response(passkey)
+        response(super::identity::IdentityProjector::checked_passkey(
+            &passkey,
+        )?)
     }
 
     fn execute_security_passkey_revoke(
@@ -4854,7 +4984,7 @@ impl ProductionComponents {
         let passkeys = Passkeys::revoke_passkey_authorized(scope, path(request, "passkey_id")?)
             .map_err(|error| auth_api_failure(&error))?;
         Ok(BackendResponse {
-            result: json!({"passkeys": passkeys}),
+            result: super::identity::IdentityProjector::checked_passkeys(&passkeys)?,
             session: None,
         })
     }
@@ -4865,6 +4995,24 @@ impl ProductionComponents {
         scope: &mut crate::store::PrincipalScope<'_>,
         principal: &crate::store::PrincipalId,
     ) -> Result<BackendResponse, ApiFailure> {
+        Self::refresh_browser_session(
+            &self.passkeys,
+            &self.auth_index,
+            request,
+            scope,
+            principal,
+            self.now()?,
+        )
+    }
+
+    pub fn refresh_browser_session(
+        passkeys: &Passkeys,
+        auth_index: &AuthDiscoveryIndex,
+        request: &ScopedRequest<'_>,
+        scope: &mut crate::store::PrincipalScope<'_>,
+        principal: &crate::store::PrincipalId,
+        now: u64,
+    ) -> Result<BackendResponse, ApiFailure> {
         let context = request
             .principal
             .as_ref()
@@ -4872,31 +5020,28 @@ impl ProductionComponents {
         let (refresh, csrf) = context
             .refresh_credentials()
             .ok_or_else(ApiFailure::unauthenticated)?;
-        let grant = self
-            .passkeys
-            .refresh_authorized(scope, refresh, csrf, self.now()?)
+        let grant = passkeys
+            .refresh_authorized(scope, refresh, csrf, now)
             .map_err(|error| auth_api_failure(&error))?;
-        self.auth_index
+        auth_index
             .bind_session(&grant, principal)
             .map_err(|error| auth_failure(&error))?;
-        crate::event_producer::enroll_session(scope, &grant, self.now()?)
+        crate::event_producer::enroll_session(scope, &grant, now)
             .map_err(|_| ApiFailure::unavailable())?;
         let current = Passkeys::list_sessions_authorized(scope, grant.session_id())
             .map_err(|error| auth_api_failure(&error))?
             .into_iter()
             .find(|value| value.current)
             .ok_or_else(ApiFailure::unavailable)?;
-        let result = json!({"session_id": grant.session_id(), "device": {"device_id": current.device.device_id(),
-                    "label": current.device.label(), "platform": current.device.platform()}, "opened_at": current.opened_at,
-                    "last_active_at": current.last_active_at, "current": true});
+        let result = super::identity::IdentityProjector::checked_session(&current)?;
         Ok(BackendResponse {
             result,
             session: Some(SessionSecrets {
                 access_token: grant.access_token().expose().to_owned(),
                 refresh_token: grant.refresh_token().expose().to_owned(),
                 csrf_token: grant.csrf_token().expose().to_owned(),
-                access_max_age_seconds: grant.access_expires_at().saturating_sub(self.now()?),
-                refresh_max_age_seconds: grant.refresh_expires_at().saturating_sub(self.now()?),
+                access_max_age_seconds: grant.access_expires_at().saturating_sub(now),
+                refresh_max_age_seconds: grant.refresh_expires_at().saturating_sub(now),
             }),
         })
     }
@@ -4913,7 +5058,7 @@ impl ProductionComponents {
             .status(principal)
             .map_err(|_| ApiFailure::upstream_degraded())?;
         Ok(BackendResponse {
-            result: authenticator_status_json(&status),
+            result: authenticator_status_json(&status)?,
             session: None,
         })
     }
@@ -4931,9 +5076,7 @@ impl ProductionComponents {
             .begin_setup(principal, text_field(&request.body, "label")?, self.now()?)
             .map_err(|_| ApiFailure::upstream_degraded())?;
         Ok(BackendResponse {
-            result: json!({"setup_id": challenge.setup_id,
-                    "secret": timed_secret_json(&challenge.secret), "otpauth_uri": timed_secret_json(&challenge.otpauth_uri),
-                    "expires_at": challenge.expires_at}),
+            result: super::identity::IdentityProjector::authenticator_setup(&challenge)?,
             session: None,
         })
     }
@@ -4956,9 +5099,8 @@ impl ProductionComponents {
             )
             .map_err(|_| ApiFailure::upstream_degraded())?;
         Ok(BackendResponse {
-            result: json!({"method": authenticator_method_json(&result.method),
-                    "backup_codes": {"codes": result.backup_codes.expose(), "remask_at": result.backup_codes.remask_at(),
-                        "copyable": true}}),
+            result: json!({"method": authenticator_method_json(&result.method)?,
+                    "backup_codes": super::identity::IdentityProjector::backup_codes(&result.backup_codes)?}),
             session: None,
         })
     }
@@ -4976,7 +5118,7 @@ impl ProductionComponents {
             .disable(principal, path(request, "authenticator_id")?, self.now()?)
             .map_err(|_| ApiFailure::upstream_degraded())?;
         Ok(BackendResponse {
-            result: authenticator_status_json(&status),
+            result: authenticator_status_json(&status)?,
             session: None,
         })
     }
@@ -4993,8 +5135,7 @@ impl ProductionComponents {
             .rotate_backup_codes(principal, self.now()?)
             .map_err(|_| ApiFailure::upstream_degraded())?;
         Ok(BackendResponse {
-            result: json!({"codes": codes.expose(), "remask_at": codes.remask_at(),
-                    "copyable": true}),
+            result: super::identity::IdentityProjector::backup_codes(&codes)?,
             session: None,
         })
     }
@@ -5016,30 +5157,23 @@ impl ProductionComponents {
             )
             .map_err(|_| ApiFailure::upstream_degraded())?;
         Ok(BackendResponse {
-            result: timed_secret_json(&secret),
+            result: timed_secret_json(&secret)?,
             session: None,
         })
-    }
-
-    fn key_export_ceremony() -> Result<KeyExportCeremony, ApiFailure> {
-        let key = KeyId::new("human-primary").map_err(|_| ApiFailure::upstream_degraded())?;
-        KeyExportCeremony::new(key, KEY_EXPORT_WINDOW_SECONDS)
-            .map_err(|_| ApiFailure::upstream_degraded())
     }
 
     fn execute_key_export_begin(
         &self,
-        principal: &crate::store::PrincipalId,
+        request: &ScopedRequest<'_>,
+        scope: &mut crate::store::PrincipalScope<'_>,
     ) -> Result<BackendResponse, ApiFailure> {
-        let challenge = Self::key_export_ceremony()?
-            .begin(self.custody.creation_keystore(), principal, self.now()?)
-            .map_err(|error| key_export_failure(&error))?;
-        Ok(BackendResponse {
-            result: json!({"export_id": challenge.export_id,
-                    "confirms": format!("opd_{}", URL_SAFE_NO_PAD.encode(challenge.confirms.bytes())),
-                    "expires_at": challenge.expires_at}),
-            session: None,
-        })
+        super::key_export::begin(
+            self.custody.creation_keystore(),
+            &self.passkeys,
+            scope,
+            &request.body,
+            self.now()?,
+        )
     }
 
     fn execute_key_export_finish(
@@ -5047,35 +5181,14 @@ impl ProductionComponents {
         request: &ScopedRequest<'_>,
         scope: &mut crate::store::PrincipalScope<'_>,
     ) -> Result<BackendResponse, ApiFailure> {
-        let export_id = text_field(&request.body, "export_id")?.to_owned();
-        let challenge = request
-            .body
-            .get("step_up")
-            .and_then(|value| value.get("challenge_id"))
-            .and_then(serde_json::Value::as_str)
-            .ok_or_else(ApiFailure::forbidden)?;
-        let evidence = self
-            .passkeys
-            .load_step_up_evidence(scope, challenge, self.now()?)
-            .map_err(|error| auth_api_failure(&error))?;
-        let trace =
-            TraceId::parse(&request.trace).map_err(|_| ApiFailure::invalid_request(None))?;
-        let exported = Self::key_export_ceremony()?
-            .finish(
-                self.custody.creation_keystore(),
-                scope,
-                &export_id,
-                &evidence,
-                &trace,
-                self.now()?,
-            )
-            .map_err(|error| key_export_failure(&error))?;
-        Ok(BackendResponse {
-            result: json!({"public_key": exported.public_key,
-                    "secret": timed_secret_json(&exported.secret),
-                    "self_custodied_at": exported.self_custodied_at}),
-            session: None,
-        })
+        super::key_export::finish(
+            &self.passkeys,
+            self.custody.creation_keystore(),
+            scope,
+            &request.body,
+            &request.trace,
+            self.now()?,
+        )
     }
 
     fn execute_session_list(
@@ -5084,13 +5197,10 @@ impl ProductionComponents {
     ) -> Result<BackendResponse, ApiFailure> {
         let sessions = Passkeys::list_sessions_authorized(scope, session_id)
             .map_err(|error| auth_api_failure(&error))?;
-        let sessions = sessions.into_iter().map(|session| json!({
-                    "session_id": session.session_id,
-                    "device": {"device_id": session.device.device_id(), "label": session.device.label(),
-                        "platform": session.device.platform()},
-                    "opened_at": crate::time::rfc3339(session.opened_at), "last_active_at": crate::time::rfc3339(session.last_active_at),
-                    "current": session.current
-                })).collect::<Vec<_>>();
+        let sessions = sessions
+            .iter()
+            .map(super::identity::IdentityProjector::checked_session)
+            .collect::<Result<Vec<_>, _>>()?;
         Ok(BackendResponse {
             result: json!({"sessions": sessions}),
             session: None,
@@ -5109,8 +5219,7 @@ impl ProductionComponents {
         let revoked = Passkeys::revoke_session_authorized(scope, target, self.now()?)
             .map_err(|error| auth_api_failure(&error))?;
         Ok(BackendResponse {
-            result: json!({"revoked_session_ids": revoked.revoked_session_ids,
-                    "revoked_at": revoked.revoked_at}),
+            result: super::identity::IdentityProjector::checked_revocation(&revoked)?,
             session: None,
         })
     }
@@ -5126,8 +5235,7 @@ impl ProductionComponents {
         let revoked = Passkeys::revoke_all_sessions_authorized(scope, self.now()?)
             .map_err(|error| auth_api_failure(&error))?;
         Ok(BackendResponse {
-            result: json!({"revoked_session_ids": revoked.revoked_session_ids,
-                    "revoked_at": revoked.revoked_at}),
+            result: super::identity::IdentityProjector::checked_revocation(&revoked)?,
             session: None,
         })
     }
@@ -5253,7 +5361,7 @@ impl ProductionComponents {
         .map_err(|_| ApiFailure::upstream_degraded())?;
         Ok(BackendResponse {
             result: json!({"approval_id":encoded,"held_digest":super::projection::hex(&held_digest),
-            "decision":decision,"confirms":format!("opd_{}", URL_SAFE_NO_PAD.encode(digest.bytes())),
+            "decision":decision,"confirms":digest.to_schema(),
             "evidence":projected.material["evidence"]}),
             session: None,
         })
@@ -5922,19 +6030,14 @@ impl ProductionComponents {
             .map_err(activity_export_failure)?
             .statement(scope, &filters, self.now()?, head.chain_sequence)
             .map_err(activity_export_failure)?;
-        let digest: [u8; 32] = sha2::Sha256::digest(statement.content()).into();
-        let digest_text = hex_bytes(&digest);
-        scope
-            .put(
-                Table::Cache,
-                RowKey::new(format!("activity-export-{digest_text}"))
-                    .map_err(|_| ApiFailure::upstream_degraded())?,
-                self.now()?,
-                statement.content().to_vec(),
-            )
-            .map_err(|_| ApiFailure::unavailable())?;
         Ok(BackendResponse {
-            result: json!({"export_id":format!("exp_{digest_text}"),"kind":"statement","download_path":format!("/v1/evidence/evd_{digest_text}"),"content_type":"text/csv; charset=utf-8","created_at":self.now()?.to_string(),"evidence":[]}),
+            result: cache_activity_export(
+                scope,
+                statement.content().to_vec(),
+                false,
+                Vec::new(),
+                self.now()?,
+            )?,
             session: None,
         })
     }
@@ -6008,21 +6111,13 @@ impl ProductionComponents {
             .map_err(activity_export_failure)?;
         let bytes = bundle.encode().map_err(activity_export_failure)?;
         let digest: [u8; 32] = sha2::Sha256::digest(&bytes).into();
-        let text = hex_bytes(&digest);
         let verification = super::production_reads::verification_label(&verification_status(
             bundle.verify(digest, scope.principal(), &receipt_keys),
         ))?;
-        scope
-            .put(
-                Table::Cache,
-                RowKey::new(format!("activity-evidence-{text}"))
-                    .map_err(|_| ApiFailure::upstream_degraded())?,
-                self.now()?,
-                bytes,
-            )
-            .map_err(|_| ApiFailure::unavailable())?;
+        let evidence = bundle.entries().iter().flat_map(|entry|entry.receipt_references().iter())
+            .map(|reference|json!({"evidence_id":format!("evd_{reference}"),"class":"layerx-receipt","verification":verification})).collect();
         Ok(BackendResponse {
-            result: json!({"export_id":format!("exp_{text}"),"kind":"evidence-bundle","download_path":format!("/v1/evidence/evd_{text}"),"content_type":"application/vnd.layerx.evidence-bundle","created_at":self.now()?.to_string(),"evidence":bundle.entries().iter().flat_map(|entry|entry.receipt_references().iter()).map(|reference|json!({"evidence_id":format!("evd_{reference}"),"class":"layerx-receipt","verification":verification})).collect::<Vec<_>>() }),
+            result: cache_activity_export(scope, bytes, true, evidence, self.now()?)?,
             session: None,
         })
     }
@@ -6065,66 +6160,13 @@ impl ProductionComponents {
             .feed
             .page(scope, page_request, self.now()?, head.chain_sequence)
             .map_err(|error| activity_feed_failure(&error))?;
-        let mut groups =
-            std::collections::BTreeMap::<u64, (u128, u128, String, Vec<serde_json::Value>)>::new();
-        for entry in page.entries() {
-            let mut amount = 0u128;
-            let mut currency = None;
-            for receipt in entry.receipts() {
-                let bytes = receipt
-                    .canonical()
-                    .ok_or_else(ApiFailure::upstream_degraded)?;
-                let actual = crate::activity::detail::ReceiptActual::from_verified_journey_bytes(
-                    bytes,
-                    receipt.reference(),
-                )
-                .map_err(|_| ApiFailure::upstream_degraded())?;
-                amount = amount
-                    .checked_add(actual.amount())
-                    .ok_or_else(ApiFailure::upstream_degraded)?;
-                let asset = hex_bytes(&actual.asset());
-                if currency.as_ref().is_some_and(|value| value != &asset) {
-                    return Err(ApiFailure::upstream_degraded());
-                }
-                currency = Some(asset);
-            }
-            let bucket = entry.occurred_at() / 2_629_800;
-            let group = groups.entry(bucket).or_insert((
-                0,
-                0,
-                currency.clone().unwrap_or_default(),
-                Vec::new(),
-            ));
-            if let Some(currency) = currency {
-                if !group.2.is_empty() && group.2 != currency {
-                    return Err(ApiFailure::upstream_degraded());
-                }
-                group.2 = currency;
-            }
-            match entry.kind() {
-                crate::activity::ActivityKind::Deposit => {
-                    group.0 = group
-                        .0
-                        .checked_add(amount)
-                        .ok_or_else(ApiFailure::upstream_degraded)?;
-                }
-                crate::activity::ActivityKind::Withdrawal => {
-                    group.1 = group
-                        .1
-                        .checked_add(amount)
-                        .ok_or_else(ApiFailure::upstream_degraded)?;
-                }
-                _ => {
-                    if amount != 0 {
-                        return Err(ApiFailure::upstream_degraded());
-                    }
-                }
-            }
-            group.3.push(json!({"entry_id":entry.entry_id().as_str(),"kind":activity_kind_label(entry.kind()),"state":activity_status_label(entry.status()),"state_copy_key":format!("activity.state.{}",activity_status_label(entry.status())),"summary_copy_key":format!("activity.summary.{}",activity_kind_label(entry.kind())),"occurred_at":entry.occurred_at()}));
-        }
-        let groups=groups.into_iter().rev().map(|(month,(incoming,outgoing,currency,entries))|json!({"month":format!("unix-month-{month}"),"subtotal_in":{"amount":incoming.to_string(),"currency":currency},"subtotal_out":{"amount":outgoing.to_string(),"currency":currency},"entries":entries})).collect::<Vec<_>>();
+        let currency = self
+            .principal_agent(scope)?
+            .native_fee_policy()
+            .map_err(agent_failure)?
+            .currency;
         Ok(BackendResponse {
-            result: json!({"groups":groups,"next_cursor":page.next().map_or("", FeedCursor::as_str),"filter":{"kinds":page.applied_filters().kinds().iter().map(|value|activity_kind_label(*value)).collect::<Vec<_>>(),"agent_id":page.applied_filters().agent(),"from":page.applied_filters().from(),"to":page.applied_filters().through()}}),
+            result: activity_page_json(&page, &currency)?,
             session: None,
         })
     }
@@ -6479,7 +6521,7 @@ impl ProductionComponents {
             )
             .map_err(|error| identity_failure(&error))?;
             let result = json!({"account_id": provisioned.principal.as_str(),
-                        "onboarding": identity_dispatch::onboarding_status(&journey.status())});
+                        "onboarding": super::identity::IdentityProjector::onboarding(&scope, &journey.status())?});
             (provisioned.principal, result, None)
         };
         Ok(BackendResponse { result, session })
@@ -6508,10 +6550,15 @@ impl ProductionComponents {
                 .begin_registration(&mut scope, &account, "Primary passkey", now)
                 .map_err(|error| auth_api_failure(&error))?;
             self.auth_index
-                .bind_registration(&challenge.registration_id, &principal, challenge.expires_at)
+                .bind_registration_at(
+                    &challenge.registration_id,
+                    &principal,
+                    challenge.expires_at,
+                    now,
+                )
                 .map_err(|error| auth_failure(&error))?;
-            let result = json!({"registration_id": challenge.registration_id,
-                        "ceremony": challenge.ceremony, "expires_at": challenge.expires_at});
+            let result =
+                super::identity::IdentityProjector::checked_registration_challenge(&challenge)?;
             (principal, result, None)
         };
         Ok(BackendResponse { result, session })
@@ -6541,8 +6588,7 @@ impl ProductionComponents {
                     now,
                 )
                 .map_err(|error| auth_api_failure(&error))?;
-            let result =
-                serde_json::to_value(passkey).map_err(|_| ApiFailure::upstream_degraded())?;
+            let result = super::identity::IdentityProjector::checked_passkey(&passkey)?;
             (principal, result, None)
         };
         Ok(BackendResponse { result, session })
@@ -6568,10 +6614,15 @@ impl ProductionComponents {
                 .begin_assertion(&mut scope, now)
                 .map_err(|error| auth_api_failure(&error))?;
             self.auth_index
-                .bind_assertion(&challenge.assertion_id, &principal, challenge.expires_at)
+                .bind_assertion_at(
+                    &challenge.assertion_id,
+                    &principal,
+                    challenge.expires_at,
+                    now,
+                )
                 .map_err(|error| auth_failure(&error))?;
-            let result = json!({"assertion_id": challenge.assertion_id,
-                        "ceremony": challenge.ceremony, "expires_at": challenge.expires_at});
+            let result =
+                super::identity::IdentityProjector::checked_assertion_challenge(&challenge)?;
             (principal, result, None)
         };
         Ok(BackendResponse { result, session })
@@ -6601,8 +6652,7 @@ impl ProductionComponents {
                     now,
                 )
                 .map_err(|error| auth_api_failure(&error))?;
-            let result = json!({"assertion_id": proof.assertion_id, "passkey_id": proof.passkey_id,
-                        "completed_at": now, "expires_at": proof.expires_at});
+            let result = super::identity::IdentityProjector::checked_assertion(&proof)?;
             (principal, result, None)
         };
         Ok(BackendResponse { result, session })
@@ -6706,9 +6756,7 @@ impl ProductionComponents {
             crate::event_producer::enroll_session(&mut scope, &grant, now)
                 .map_err(|_| ApiFailure::unavailable())?;
             let session_view = grant.session();
-            let result = json!({"session_id": grant.session_id(), "device": {"device_id": session_view.device.device_id(),
-                        "label": session_view.device.label(), "platform": session_view.device.platform()}, "opened_at": session_view.opened_at,
-                        "last_active_at": session_view.last_active_at, "current": true});
+            let result = super::identity::IdentityProjector::checked_session(&session_view)?;
             let session = session_secrets(&grant, now);
             (principal, result, Some(session))
         };
@@ -6767,7 +6815,7 @@ impl ProductionComponents {
             "authenticator.disable" => self.execute_authenticator_disable(request, principal),
             "authenticator.backup.rotate" => self.execute_authenticator_backup_rotate(principal),
             "security.recovery.reveal" => self.execute_security_recovery_reveal(request, principal),
-            "security.key-export.begin" => self.execute_key_export_begin(principal),
+            "security.key-export.begin" => self.execute_key_export_begin(request, scope),
             "security.key-export.finish" => self.execute_key_export_finish(request, scope),
             "session.list" => Self::execute_session_list(scope, session_id),
             "session.revoke" | "security.session.revoke" => {
@@ -7167,32 +7215,27 @@ struct AttestorKmsState {
     creation: Mutex<()>,
     enrolment: Mutex<Option<(String, String)>>,
     assertions: Mutex<std::collections::BTreeMap<String, zeroize::Zeroizing<String>>>,
-    sends: Mutex<std::collections::BTreeMap<[u8; 32], AttestorSignedSend>>,
+    sends: Mutex<Option<super::attestor_send_journal::AttestorSendJournal>>,
+    clock: Mutex<Option<Arc<dyn Clock>>>,
     last_refusal: Mutex<Option<String>>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, serde::Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
-struct AttestorSendDisclosure {
+pub(super) struct AttestorSendDisclosure {
     recipient: [u8; 20],
     denom: String,
     amount: [u8; 32],
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, serde::Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
-struct AttestorSendAuthorization {
-    authorization: crate::custody::EvmPlanAuthorization,
+pub(super) struct AttestorSendAuthorization {
+    pub(super) authorization: crate::custody::EvmPlanAuthorization,
     disclosure: AttestorSendDisclosure,
 }
 
-struct AttestorSignedSend {
-    request: AttestorSendAuthorization,
-    raw_transaction: Vec<u8>,
-}
-
 const ATTESTOR_SEND_OPERATION: u8 = 11;
-const ATTESTOR_SEND_CACHE_LIMIT: usize = 4_096;
 
 #[derive(Clone)]
 pub struct AttestorKms {
@@ -7309,11 +7352,32 @@ impl AttestorKms {
                 creation: Mutex::new(()),
                 enrolment: Mutex::new(None),
                 assertions: Mutex::new(std::collections::BTreeMap::new()),
-                sends: Mutex::new(std::collections::BTreeMap::new()),
+                sends: Mutex::new(None),
+                clock: Mutex::new(None),
                 last_refusal: Mutex::new(None),
             }),
         };
         crate::custody::KmsProvider::probe(&kms).map_err(CustodyError::Kms)?;
+        Ok(kms)
+    }
+
+    pub fn connect_durable(
+        config: AttestorCustodyConfig,
+        root: impl AsRef<std::path::Path>,
+        key: [u8; 32],
+        clock: Arc<dyn Clock>,
+    ) -> Result<Self, CustodyError> {
+        let journal = super::attestor_send_journal::AttestorSendJournal::open(root, key)
+            .map_err(CustodyError::Kms)?;
+        let kms = Self::connect(config)?;
+        *kms.inner
+            .sends
+            .lock()
+            .map_err(|_| CustodyError::Kms(KmsError::Unavailable))? = Some(journal);
+        *kms.inner
+            .clock
+            .lock()
+            .map_err(|_| CustodyError::Kms(KmsError::Unavailable))? = Some(clock);
         Ok(kms)
     }
 
@@ -7446,8 +7510,13 @@ impl AttestorKms {
             serde_json::from_slice(payload).map_err(|_| KmsError::Refused)?;
         let authorization = &request.authorization;
         let transaction = &authorization.transaction;
-        let now = layerx_client::runtime_clock::RuntimeClock::from_environment()
+        let now = self
+            .inner
+            .clock
+            .lock()
             .map_err(|_| KmsError::Unavailable)?
+            .as_ref()
+            .ok_or(KmsError::InvalidConfiguration)?
             .sample(Duration::from_secs(1))
             .map_err(|_| KmsError::Unavailable)?
             .unix_seconds();
@@ -7504,23 +7573,9 @@ impl AttestorKms {
             _ => return Err(KmsError::Refused),
         }
         let mut sends = self.inner.sends.lock().map_err(|_| KmsError::Unavailable)?;
-        if let Some(previous) = sends.get(&authorization.action_key) {
-            return if previous.request == request {
-                Ok(previous.raw_transaction.clone())
-            } else {
-                Err(KmsError::Conflict)
-            };
-        }
-        if sends.len() >= ATTESTOR_SEND_CACHE_LIMIT {
-            return Err(KmsError::Unavailable);
-        }
-        if sends.values().any(|previous| {
-            let prior = &previous.request.authorization;
-            prior.wallet == authorization.wallet
-                && prior.transaction.chain_id == transaction.chain_id
-                && prior.transaction.nonce >= transaction.nonce
-        }) {
-            return Err(KmsError::Conflict);
+        let journal = sends.as_mut().ok_or(KmsError::InvalidConfiguration)?;
+        if let Some(raw) = journal.replay(payload, now)? {
+            return Ok(raw);
         }
         let assertion = self
             .inner
@@ -7542,6 +7597,9 @@ impl AttestorKms {
         if signer.evm_address() != authorization.wallet {
             return Err(KmsError::Refused);
         }
+        if let Some(raw) = journal.reserve(payload, now)? {
+            return Ok(raw);
+        }
         let transaction_signer = DisclosedAttestorSigner(signer);
         let signature = super::executor::poll_once_ready(sign_disclosed_call(
             &transaction_signer,
@@ -7558,14 +7616,7 @@ impl AttestorKms {
             return Err(KmsError::Integrity);
         }
         let raw_transaction = layerx_crypto::evm_transaction::assemble(&call, &signature);
-        sends.insert(
-            authorization.action_key,
-            AttestorSignedSend {
-                request,
-                raw_transaction: raw_transaction.clone(),
-            },
-        );
-        Ok(raw_transaction)
+        journal.complete(payload, raw_transaction)
     }
 
     fn sign_now(
@@ -8224,6 +8275,17 @@ fn intent_money_json(amount: u128, currency: &str) -> serde_json::Value {
     json!({"amount": amount.to_string(), "currency": currency})
 }
 
+fn supported_intent_endpoints(
+    intent: &crate::journeys::UnifiedIntent,
+) -> Result<(), crate::journeys::SubmitRefusal> {
+    if intent.source() == &crate::journeys::Endpoint::PaxeerWallet
+        || intent.destination() == &crate::journeys::Endpoint::PaxeerWallet
+    {
+        return Err(crate::journeys::SubmitRefusal::UnsupportedPlan);
+    }
+    Ok(())
+}
+
 fn intent_plan_json(
     plan: &crate::journeys::UnifiedPlan,
     currency: &str,
@@ -8420,7 +8482,7 @@ impl ProductionComponents {
         let digest = super::native_send::access_operation(scope, &access)
             .map_err(agent_failure_from_creation_contract)?;
         Ok(BackendResponse {
-            result: json!({"access_id":text_field(&request.body,"access_id")?,"confirms":format!("opd_{}",URL_SAFE_NO_PAD.encode(digest.bytes()))}),
+            result: json!({"access_id":text_field(&request.body,"access_id")?,"confirms":digest.to_schema()}),
             session: None,
         })
     }
@@ -8733,13 +8795,6 @@ impl ProductionComponents {
             return Err(ApiFailure::forbidden());
         }
         let hash = transaction_hash(&raw);
-        if node
-            .send_raw_transaction(&raw)
-            .map_err(|_| ApiFailure::upstream_degraded())?
-            != hash
-        {
-            return Err(ApiFailure::upstream_degraded());
-        }
         let material = match agent
             .receipt_by_idempotency_key([0; 32], hash)
             .map_err(agent_failure)?
@@ -8747,7 +8802,26 @@ impl ProductionComponents {
             crate::journeys::ReceiptLookup::Found(material) => material,
             crate::journeys::ReceiptLookup::Absent
             | crate::journeys::ReceiptLookup::Submitted { .. } => {
-                return Err(ApiFailure::upstream_degraded())
+                match node.send_raw_transaction(&raw) {
+                    Ok(accepted) if accepted == hash => {}
+                    Err(layerx_agentd::node_rpc::NodeRpcError::Sequencer(
+                        layerx_client::sequencer::SequencerError::Rpc(refusal),
+                    )) if refusal.code == -32000
+                        && refusal
+                            .message
+                            .starts_with("same nonce already receipted or held:") => {}
+                    _ => return Err(ApiFailure::upstream_degraded()),
+                }
+                match agent
+                    .receipt_by_idempotency_key([0; 32], hash)
+                    .map_err(agent_failure)?
+                {
+                    crate::journeys::ReceiptLookup::Found(material) => material,
+                    crate::journeys::ReceiptLookup::Absent
+                    | crate::journeys::ReceiptLookup::Submitted { .. } => {
+                        return Err(ApiFailure::upstream_degraded())
+                    }
+                }
             }
         };
         let mut owner = [0; 32];
@@ -8756,6 +8830,14 @@ impl ProductionComponents {
         ProductionAgentCreation::protocol_evidence(raw, owner, agent.registry(), material)
             .map_err(|_| ApiFailure::upstream_degraded())
     }
+}
+
+fn verify_move_evm_outcome(
+    evidence: &crate::agents::ProtocolEvidence,
+    expected: layerx_types::payload::ActivityType,
+) -> Result<layerx_wire::receipt::Receipt, ApiFailure> {
+    super::agent_creation::verify_evm_outcome(evidence, expected)
+        .map_err(|_| ApiFailure::upstream_degraded())
 }
 
 impl ProductionComponents {
@@ -8781,10 +8863,12 @@ impl ProductionComponents {
         let mut agent = self.principal_agent(scope)?;
         let mut complete = true;
         let mut refused = false;
-        for leg in record["legs"]
-            .as_array_mut()
+        let leg_count = record["legs"]
+            .as_array()
             .ok_or_else(ApiFailure::unavailable)?
-        {
+            .len();
+        for index in 0..leg_count {
+            let leg = &mut record["legs"][index];
             if leg["verified"] == true {
                 continue;
             }
@@ -8792,30 +8876,63 @@ impl ProductionComponents {
                 .map_err(|_| ApiFailure::unavailable())?;
             let hash = transaction_hash(&raw);
             if leg["submitted"] != true {
-                if node
-                    .send_raw_transaction(&raw)
-                    .map_err(|_| ApiFailure::upstream_degraded())?
-                    != hash
-                {
-                    return Err(ApiFailure::upstream_degraded());
+                let retained_hash = leg["tx_hash"] == format!("0x{}", hex_bytes(&hash));
+                match node.send_raw_transaction(&raw) {
+                    Ok(accepted) if accepted == hash => {}
+                    Err(layerx_agentd::node_rpc::NodeRpcError::Sequencer(
+                        layerx_client::sequencer::SequencerError::Rpc(refusal),
+                    )) if retained_hash
+                        && refusal.code == -32000
+                        && refusal
+                            .message
+                            .starts_with("same nonce already receipted or held:") => {}
+                    _ => return Err(ApiFailure::upstream_degraded()),
                 }
+                let nonce = match leg.get("nonce") {
+                    Some(nonce) => nonce.as_u64().ok_or_else(ApiFailure::unavailable)?,
+                    None => {
+                        decode_signed(&raw)
+                            .map_err(|_| ApiFailure::unavailable())?
+                            .0
+                            .nonce
+                    }
+                };
                 leg["submitted"] = json!(true);
+                leg["tx_hash"] = json!(format!("0x{}", hex_bytes(&hash)));
+                leg["nonce"] = json!(nonce);
+                record["state"] = json!("still-checking");
+                record["state_copy_key"] = json!("journey.state.still-checking");
+                record["updated_at"] = json!(crate::time::rfc3339(now));
+                scope
+                    .put(
+                        Table::Journeys,
+                        key.clone(),
+                        now,
+                        serde_json::to_vec(&record).map_err(|_| ApiFailure::unavailable())?,
+                    )
+                    .map_err(|_| ApiFailure::unavailable())?;
             }
+            let leg = &mut record["legs"][index];
             let (call, signature) = layerx_crypto::evm_transaction::decode_signed(&raw)
                 .map_err(|_| ApiFailure::unavailable())?;
+            if leg
+                .get("nonce")
+                .is_some_and(|nonce| nonce.as_u64() != Some(call.nonce))
+            {
+                return Err(ApiFailure::upstream_degraded());
+            }
+            leg["nonce"] = json!(call.nonce);
             let wallet = layerx_crypto::evm_transaction::recover_sender(&call, &signature)
                 .map_err(|_| ApiFailure::unavailable())?;
             let disclosure = bind_call(&call, wallet).map_err(|_| ApiFailure::unavailable())?;
-            let material = match agent
-                .receipt_by_idempotency_key(disclosure.idempotency_key, hash)
-                .map_err(agent_failure)?
+            let material = match agent.receipt_by_idempotency_key(disclosure.idempotency_key, hash)
             {
-                crate::journeys::ReceiptLookup::Found(material)
+                Ok(crate::journeys::ReceiptLookup::Found(material))
                     if material.rung == Rung::Committed =>
                 {
                     material
                 }
-                crate::journeys::ReceiptLookup::Submitted { tx_hash, nonce } => {
+                Ok(crate::journeys::ReceiptLookup::Submitted { tx_hash, nonce }) => {
                     if tx_hash != hash || nonce != call.nonce {
                         return Err(ApiFailure::upstream_degraded());
                     }
@@ -8823,9 +8940,13 @@ impl ProductionComponents {
                     complete = false;
                     break;
                 }
-                _ => {
+                Ok(_) | Err(crate::journeys::AgentBoundaryError::Unavailable) => {
                     complete = false;
                     break;
+                }
+                Err(error) => {
+                    eprintln!("intent EVM receipt lookup failed: {error:?}");
+                    return Err(agent_failure(error));
                 }
             };
             let mut owner = [0; 32];
@@ -8833,9 +8954,7 @@ impl ProductionComponents {
             let evidence =
                 ProductionAgentCreation::protocol_evidence(raw, owner, agent.registry(), material)
                     .map_err(|_| ApiFailure::upstream_degraded())?;
-            let receipt = evidence
-                .verify_outcome(disclosure.activity_type)
-                .map_err(|_| ApiFailure::upstream_degraded())?;
+            let receipt = verify_move_evm_outcome(&evidence, disclosure.activity_type)?;
             if receipt
                 .protocol()
                 .ok_or_else(ApiFailure::upstream_degraded)?
@@ -8871,6 +8990,222 @@ impl ProductionComponents {
             )
             .map_err(|_| ApiFailure::unavailable())?;
         Ok(complete || refused)
+    }
+}
+
+#[cfg(test)]
+mod intent_bank_golden_tests {
+    use super::*;
+    use crate::journeys::{
+        BalanceEntry, Endpoint, FeeSchedule, LegMechanism, Mechanism, ObservedState,
+    };
+    use layerx_crypto::evm_transaction::decode_unsigned;
+    use serde_json::Value;
+
+    macro_rules! golden {
+        ($name:literal) => {
+            serde_json::from_str::<Value>(include_str!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../schema/human-api/golden/",
+                $name
+            )))
+            .expect("golden JSON")
+        };
+    }
+
+    #[test]
+    fn intent_bank_golden_request_produces_exact_eip1559_response() {
+        let request = golden!("intent.plan.request.json");
+        let expected = golden!("intent.plan.response.json");
+        let context = golden!("producer/intent.plan.context.json");
+        let body: Value = serde_json::from_slice(
+            &serde_json::to_vec(&request["body"]).expect("request transport"),
+        )
+        .expect("request consumer");
+        let asset = intent_asset(&body).expect("asset");
+        let intent = ProductionComponents::intent_from_request(&body, asset).expect("intent");
+        supported_intent_endpoints(&intent).expect("supported bank endpoints");
+        let owner = AccountId::parse(context["owner_account"].as_str().expect("owner"))
+            .expect("owner account");
+        let transaction: crate::custody::EvmTransaction =
+            serde_json::from_value(context["transaction"].clone()).expect("transaction");
+        let observed = ObservedState::new(
+            TimestampSeconds::from_u64(
+                crate::time::seconds_from_rfc3339(
+                    context["observed_at"].as_str().expect("observation time"),
+                )
+                .expect("observation timestamp"),
+            ),
+            owner.clone(),
+            None,
+            vec![BalanceEntry::new(
+                Endpoint::human(owner).expect("home endpoint"),
+                asset,
+                ProtocolAmount::from_u128(
+                    context["balance"]["amount"]
+                        .as_str()
+                        .expect("balance")
+                        .parse()
+                        .expect("amount"),
+                ),
+            )],
+            Vec::new(),
+            Vec::new(),
+            FeeSchedule::new(vec![(
+                LegMechanism::Protocol(Mechanism::Send),
+                u128::from(transaction.gas_limit) * u128::from(transaction.max_fee_per_gas),
+            )])
+            .expect("fee schedule"),
+        )
+        .expect("observed bank balance");
+        let plan = crate::journeys::plan(&intent, &observed).expect("production plan");
+        assert_eq!(plan.legs().len(), 1);
+        let sender =
+            decode_hex_20(context["sender"].as_str().expect("sender")).expect("sender address");
+        let recipient = decode_hex_20(context["recipient"].as_str().expect("recipient"))
+            .expect("recipient address");
+        assert_eq!(transaction.chain_id, 125);
+        assert_eq!(transaction.to, precompile(0x1001));
+        assert_eq!(transaction.value, [0; 32]);
+        assert_eq!(
+            transaction.calldata,
+            bank_send_calldata(
+                sender,
+                recipient,
+                context["denom"].as_str().expect("denom"),
+                plan.legs()[0].amount().value()
+            )
+        );
+        assert_eq!(
+            context["nonce_observation"]["params"],
+            json!([context["sender"], "pending"])
+        );
+        assert_eq!(
+            transaction.nonce,
+            u64::from_str_radix(
+                context["nonce_observation"]["result"]
+                    .as_str()
+                    .expect("pending nonce")
+                    .strip_prefix("0x")
+                    .expect("hex nonce"),
+                16
+            )
+            .expect("nonce")
+        );
+        let call = evm_call(&transaction);
+        let decoded = decode_unsigned(&call.encode_unsigned()).expect("EIP-1559 consumer");
+        assert_eq!(decoded, call);
+        bind_call(&decoded, sender).expect("bank signing disclosure");
+        let actual = intent_plan_json(&plan, "LXP", &[transaction]);
+        let transported: Value =
+            serde_json::from_slice(&serde_json::to_vec(&actual).expect("response transport"))
+                .expect("response consumer");
+        assert_eq!(transported, expected["body"]["result"]);
+        assert_eq!(
+            actual["signing_requirements"]
+                .as_array()
+                .expect("signatures")
+                .len(),
+            1
+        );
+    }
+
+    #[test]
+    fn intent_bank_golden_retired_wallet_is_unsupported_in_both_directions() {
+        let request = golden!("negative/intent.plan.paxeer-wallet.request.json");
+        let expected = golden!("negative/intent.plan.paxeer-wallet.response.json");
+        let mut body = request["body"].clone();
+        for reverse in [false, true] {
+            if reverse {
+                let source = body["source"].clone();
+                body["source"] = body["destination"].clone();
+                body["destination"] = source;
+            }
+            let intent = ProductionComponents::intent_from_request(
+                &body,
+                intent_asset(&body).expect("historical asset"),
+            )
+            .expect("historical request decoding");
+            let refusal = supported_intent_endpoints(&intent).expect_err("retired endpoint");
+            assert_eq!(refusal, crate::journeys::SubmitRefusal::UnsupportedPlan);
+            let error = submit_failure(refusal);
+            assert_eq!(json!(error.status), expected["status"]);
+            assert_eq!(
+                json!({"code": error.code, "copy_key": error.copy_key,
+                "retry": error.retry}),
+                expected["body"]["error"]
+            );
+            assert_eq!(error.field, None);
+            assert_eq!(error.retry_after_ms, None);
+        }
+    }
+
+    #[test]
+    fn intent_bank_golden_journey_uses_the_route_projection() {
+        let record = golden!("producer/journey.get.record.json");
+        let expected = golden!("journey.get.response.json");
+        let stored: Value =
+            serde_json::from_slice(&serde_json::to_vec(&record).expect("stored projection input"))
+                .expect("stored record consumer");
+        let actual = super::super::production_reads::intent_journey_json(&stored)
+            .expect("production journey route projection");
+        assert_eq!(actual, expected["body"]["result"]);
+        for (verified, refused, class, verification) in [
+            (false, false, "submission-record", "unverified"),
+            (true, false, "layerx-receipt", "receipt-verified"),
+            (false, true, "layerx-receipt", "receipt-verified"),
+        ] {
+            let mut input = stored.clone();
+            input["legs"][0]["verified"] = json!(verified);
+            input["legs"][0]["refused"] = json!(refused);
+            let projected = super::super::production_reads::intent_journey_json(&input)
+                .expect("current evidence projection");
+            assert_eq!(projected["evidence"][0]["class"], class);
+            assert_eq!(projected["evidence"][0]["verification"], verification);
+            let wire = serde_json::to_string(&projected).expect("journey transport");
+            for retired in ["paxeer-finality", "paxeer-finalised", "settlement-anchored"] {
+                assert!(!wire.contains(retired));
+            }
+            assert!(projected.get("raw_transaction").is_none());
+        }
+        for invalid in [
+            Value::Null,
+            json!("0x12"),
+            json!(format!("0x{}", "gg".repeat(32))),
+        ] {
+            let mut input = stored.clone();
+            input["legs"][0]["receipt_hash"] = invalid;
+            assert_eq!(
+                super::super::production_reads::intent_journey_json(&input),
+                Err(ApiFailure::upstream_degraded())
+            );
+        }
+    }
+
+    #[test]
+    fn intent_bank_golden_historical_payloads_still_decode_separately() {
+        let plan = golden!("historical/intent.plan.response.json");
+        let journey = golden!("historical/journey.get.response.json");
+        for payload in [&plan, &journey] {
+            let decoded: Value =
+                serde_json::from_slice(&serde_json::to_vec(payload).expect("historical wire"))
+                    .expect("historical JSON decoding");
+            assert_eq!(&decoded, payload);
+            assert_eq!(
+                decoded["body"]["result"]["kind"]
+                    .as_str()
+                    .or_else(|| decoded["body"]["result"]["journey_kind"].as_str()),
+                Some("deposit")
+            );
+        }
+        assert_eq!(
+            plan["body"]["result"]["legs"][0]["mechanism"],
+            "paxeer-custody-deposit"
+        );
+        assert_eq!(
+            journey["body"]["result"]["stages"][1]["evidence"][0]["verification"],
+            "paxeer-finalised"
+        );
     }
 }
 
@@ -8911,7 +9246,7 @@ mod send_leg_denom_tests {
                 height: 16,
                 balances: vec![AssetBalance {
                     denom: "ulxp".to_owned(),
-                    amount: 100,
+                    amount: 100.into(),
                 }],
                 evidence: Evidence::GatewayReported,
             },

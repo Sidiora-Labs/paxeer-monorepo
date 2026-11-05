@@ -5,7 +5,8 @@ import {
   type SavedReportReceipt,
   type SupportReportRequest,
 } from "./report-schema.ts";
-import { csrfTokenFromCookie } from "../auth/session.ts";
+import { csrfTokenFromCookie, type VerifiedSessionIdentity } from "../auth/session.ts";
+import { redactSupportReportRoute } from "./report-routes.ts";
 
 export interface ErrorReportDraft {
   readonly consented: boolean;
@@ -24,8 +25,42 @@ export interface ErrorReporter {
   submit(draft: ErrorReportDraft): Promise<ErrorReportReceipt>;
 }
 
-const PENDING_REPORTS_KEY = "layerx.human.pending-support-reports.v1";
+export interface SupportReportAttempt {
+  readonly principalScope: string;
+  readonly report: SupportReportRequest;
+}
+
+const LEGACY_PENDING_REPORTS_KEY = "layerx.human.pending-support-reports.v1";
+const PENDING_REPORTS_PREFIX = "layerx.human.pending-support-reports.v2.";
 const MAX_PENDING_REPORTS = 50;
+export const SUPPORT_REPORT_PRINCIPAL_HEADER = "x-layerx-report-principal";
+
+export class SupportReportPrincipalError extends Error {
+  constructor() {
+    super("Support report requires its originating verified principal and session");
+  }
+}
+
+export function requireSupportReportPrincipal(
+  request: Request,
+  session: VerifiedSessionIdentity | undefined,
+): void {
+  if (session === undefined || request.headers.get(SUPPORT_REPORT_PRINCIPAL_HEADER) !== session.principalScope) {
+    throw new SupportReportPrincipalError();
+  }
+}
+
+let privateReportEpoch = 0;
+
+export function clearPrivateSupportReports(storage: Storage): void {
+  privateReportEpoch += 1;
+  const keys = Array.from({ length: storage.length }, (_, index) => storage.key(index));
+  for (const key of keys) {
+    if (key !== null && (key === LEGACY_PENDING_REPORTS_KEY || key.startsWith(PENDING_REPORTS_PREFIX))) {
+      storage.removeItem(key);
+    }
+  }
+}
 
 class ReportServerError extends Error {
   readonly status: number;
@@ -43,133 +78,169 @@ export function redactErrorReport(draft: ErrorReportDraft): SupportReportRequest
   return parseSupportReportRequest({
     traceId: draft.traceId,
     machineCode: draft.machineCode,
-    route: draft.route,
+    route: redactSupportReportRoute(draft.route),
     shell: draft.shell,
   });
 }
 
-function pendingReports(storage: Storage): SupportReportRequest[] {
-  const stored = storage.getItem(PENDING_REPORTS_KEY);
-  if (stored === null) {
-    return [];
+function pendingReports(storage: Storage, principalScope: string): SupportReportAttempt[] {
+  const stored = storage.getItem(PENDING_REPORTS_PREFIX + principalScope);
+  if (stored === null) return [];
+  const parsed: unknown = JSON.parse(stored);
+  if (!Array.isArray(parsed) || parsed.length > MAX_PENDING_REPORTS) {
+    throw new Error("Invalid private report outbox");
   }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(stored);
-  } catch {
-    storage.removeItem(PENDING_REPORTS_KEY);
-    return [];
-  }
-  if (!Array.isArray(parsed)) {
-    storage.removeItem(PENDING_REPORTS_KEY);
-    return [];
-  }
-  const valid: SupportReportRequest[] = [];
-  for (const entry of parsed) {
-    try {
-      valid.push(parseSupportReportRequest(entry));
-    } catch {
-      continue;
+  return parsed.map((entry: unknown) => {
+    if (typeof entry !== "object" || entry === null || !("principalScope" in entry)
+      || entry.principalScope !== principalScope || !("report" in entry)
+      || Object.keys(entry).length !== 2) {
+      throw new SupportReportPrincipalError();
     }
-  }
-  if (valid.length !== parsed.length) {
-    if (valid.length === 0) {
-      storage.removeItem(PENDING_REPORTS_KEY);
-    } else {
-      storage.setItem(PENDING_REPORTS_KEY, JSON.stringify(valid));
-    }
-  }
-  return valid;
+    return Object.freeze({ principalScope, report: parseSupportReportRequest(entry.report) });
+  });
 }
 
 function sameReport(left: SupportReportRequest, right: SupportReportRequest): boolean {
   return left.traceId === right.traceId && left.machineCode === right.machineCode;
 }
 
-async function postReport(report: SupportReportRequest): Promise<SavedReportReceipt> {
-  const csrf = csrfTokenFromCookie(document.cookie);
-  if (csrf === undefined) throw new ReportServerError(403);
-  const response = await fetch("/api/support/reports", {
-    method: "POST",
-    credentials: "same-origin",
-    headers: { "content-type": "application/json", "x-layerx-csrf": csrf },
-    body: JSON.stringify(report),
-  });
-  if (!response.ok) {
-    throw new ReportServerError(response.status);
-  }
-  try {
-    return parseSavedReportReceipt(await response.json());
-  } catch {
-    throw new ReportServerError(502);
-  }
-}
-
 export class BrowserSupportReportOutbox implements ErrorReporter {
+  readonly #principalScope: string | undefined;
+  readonly #csrf: string | undefined;
+  readonly #epoch = privateReportEpoch;
+  #closed = false;
   #activeFlush: Promise<void> | undefined;
 
-  async submit(draft: ErrorReportDraft): Promise<ErrorReportReceipt> {
-    if (typeof window === "undefined") {
-      throw new Error("Support reporting is available in the browser");
+  constructor(session?: VerifiedSessionIdentity) {
+    if (session !== undefined) {
+      if (!/^[A-Za-z0-9_-]{16,128}$/u.test(session.principalScope)
+        || session.accountId.length === 0 || session.sessionId.length === 0) {
+        throw new SupportReportPrincipalError();
+      }
+      this.#principalScope = session.principalScope;
+      this.#csrf = typeof document === "undefined" ? undefined : csrfTokenFromCookie(document.cookie);
+      if (typeof window !== "undefined") {
+        // Unowned v1 reports cannot safely be attributed to any signed-in account.
+        window.localStorage.removeItem(LEGACY_PENDING_REPORTS_KEY);
+      }
     }
-    const report = redactErrorReport(draft);
+  }
+
+  connect(): () => void {
+    if (this.#epoch !== privateReportEpoch) throw new SupportReportPrincipalError();
+    this.#closed = false;
+    return () => { this.close(); };
+  }
+
+  close(): void {
+    this.#closed = true;
+  }
+
+  logout(): void {
+    this.close();
+    if (typeof window !== "undefined") clearPrivateSupportReports(window.localStorage);
+  }
+
+  prepare(draft: ErrorReportDraft): SupportReportAttempt {
+    const principalScope = this.#requirePrincipal();
+    return Object.freeze({ principalScope, report: redactErrorReport(draft) });
+  }
+
+  async submit(draft: ErrorReportDraft): Promise<ErrorReportReceipt> {
+    return this.submitAttempt(this.prepare(draft));
+  }
+
+  async submitAttempt(attempt: SupportReportAttempt): Promise<ErrorReportReceipt> {
+    const principalScope = this.#requirePrincipal();
+    if (attempt.principalScope !== principalScope) throw new SupportReportPrincipalError();
+    const report = parseSupportReportRequest(attempt.report);
     try {
-      const receipt = await postReport(report);
+      const receipt = await this.#postReport(report);
       try {
         this.#removePending(report);
-      } catch {
-        return receipt;
+      } catch (error) {
+        if (error instanceof SupportReportPrincipalError) throw error;
+        // Delivery succeeded; retained entries remain safe to retry idempotently.
       }
       return receipt;
     } catch (error) {
-      if (error instanceof ReportServerError) {
-        throw error;
-      }
+      if (error instanceof ReportServerError || error instanceof SupportReportPrincipalError) throw error;
+      this.#requirePrincipal();
       this.#queuePending(report);
       return Object.freeze({ traceId: report.traceId, status: "pending" as const });
     }
   }
 
   flushPending(): Promise<void> {
-    if (typeof window === "undefined" || !navigator.onLine) {
-      return Promise.resolve();
-    }
-    if (this.#activeFlush !== undefined) {
-      return this.#activeFlush;
-    }
-    const flush: Promise<void> = this.#drainPending().finally(() => {
-      if (this.#activeFlush === flush) {
-        this.#activeFlush = undefined;
-      }
+    if (typeof window === "undefined") return Promise.resolve();
+    this.#requirePrincipal();
+    if (!navigator.onLine) return Promise.resolve();
+    if (this.#activeFlush !== undefined) return this.#activeFlush;
+    const flush = this.#drainPending().finally(() => {
+      if (this.#activeFlush === flush) this.#activeFlush = undefined;
     });
     this.#activeFlush = flush;
     return flush;
   }
 
+  #requirePrincipal(): string {
+    if (typeof window === "undefined" || this.#closed || this.#epoch !== privateReportEpoch || this.#principalScope === undefined
+      || this.#csrf === undefined || csrfTokenFromCookie(document.cookie) !== this.#csrf) {
+      throw new SupportReportPrincipalError();
+    }
+    return this.#principalScope;
+  }
+
+  async #postReport(report: SupportReportRequest): Promise<SavedReportReceipt> {
+    const principalScope = this.#requirePrincipal();
+    const response = await fetch("/api/support/reports", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "content-type": "application/json",
+        "x-layerx-csrf": this.#csrf!,
+        [SUPPORT_REPORT_PRINCIPAL_HEADER]: principalScope,
+      },
+      body: JSON.stringify(report),
+    });
+    this.#requirePrincipal();
+    if (!response.ok) throw new ReportServerError(response.status);
+    try {
+      const receipt = parseSavedReportReceipt(await response.json());
+      if (receipt.traceId !== report.traceId) throw new Error("Support report receipt trace mismatch");
+      return receipt;
+    } catch {
+      throw new ReportServerError(502);
+    }
+  }
+
+  #writePending(attempts: readonly SupportReportAttempt[]): void {
+    const key = PENDING_REPORTS_PREFIX + this.#requirePrincipal();
+    if (attempts.length === 0) window.localStorage.removeItem(key);
+    else window.localStorage.setItem(key, JSON.stringify(attempts));
+  }
+
   #queuePending(report: SupportReportRequest): void {
-    const reports = pendingReports(window.localStorage);
-    if (reports.some((candidate) => sameReport(candidate, report))) {
+    const principalScope = this.#requirePrincipal();
+    const reports = pendingReports(window.localStorage, principalScope);
+    const existing = reports.find((candidate) => sameReport(candidate.report, report));
+    if (existing !== undefined) {
+      if (JSON.stringify(existing.report) !== JSON.stringify(report)) throw new Error("Support report attempt conflict");
       return;
     }
-    window.localStorage.setItem(
-      PENDING_REPORTS_KEY,
-      JSON.stringify([...reports, report].slice(-MAX_PENDING_REPORTS)),
-    );
+    if (reports.length === MAX_PENDING_REPORTS) throw new Error("Private report outbox is full");
+    this.#writePending([...reports, Object.freeze({ principalScope, report })]);
   }
 
   #removePending(report: SupportReportRequest): void {
-    const reports = pendingReports(window.localStorage).filter((candidate) => !sameReport(candidate, report));
-    if (reports.length === 0) {
-      window.localStorage.removeItem(PENDING_REPORTS_KEY);
-    } else {
-      window.localStorage.setItem(PENDING_REPORTS_KEY, JSON.stringify(reports));
-    }
+    this.#writePending(pendingReports(window.localStorage, this.#requirePrincipal())
+      .filter((candidate) => !sameReport(candidate.report, report)));
   }
 
   async #drainPending(): Promise<void> {
-    for (const report of pendingReports(window.localStorage)) {
-      await postReport(report);
-      this.#removePending(report);
+    for (const attempt of pendingReports(window.localStorage, this.#requirePrincipal())) {
+      await this.#postReport(attempt.report);
+      this.#removePending(attempt.report);
     }
   }
 }

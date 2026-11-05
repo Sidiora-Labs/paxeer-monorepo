@@ -68,3 +68,30 @@ def test_inbound_pages_describe_sequencer_receipt_verification() -> None:
         )
         for retired in retired_descriptions:
             assert retired not in document, f"{name}: retired reference {retired}"
+
+
+def test_custody_credit_docs_are_retired() -> None:
+    pages = (
+        "docs/wiki/Bridge.md",
+        "docs/wiki/Programs.md",
+        "docs/site/docs/programs/index.md",
+        "docs/wiki/Custody.md",
+        "docs/site/docs/human/custody.md",
+    )
+    retired_references = (
+        "lxp_bridge_credit",
+        "lxp_bridge_light",
+        "lxp_ctx_bridge_credit",
+        "LXP_BRIDGE_CREDIT",
+        "custody-credit-profile/v1",
+        "custody-issued:",
+    )
+    for name in pages:
+        document = " ".join((ROOT / name).read_text(encoding="utf-8").split())
+        assert (
+            "kernel custody credit activity and its light client are retired" in document
+        ), (
+            f"{name}: missing kernel custody credit and light client retirement notice"
+        )
+        for retired in retired_references:
+            assert retired not in document, f"{name}: retired reference {retired}"

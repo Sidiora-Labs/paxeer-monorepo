@@ -20,7 +20,7 @@ vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper'))
 import LayoutDefault from './Layout';
 import { render, routerState } from './testWrapper';
 
-const SHELL_MARKERS = '[data-label="utility-bar"], [data-label="brand-row"], [data-label="content"], [data-label="footer-top"]';
+const SHELL_MARKERS = '[data-label="desktop-header"], [data-label="content"], [data-label="footer-top"]';
 
 describe('LayoutDefault', () => {
   beforeEach(() => {
@@ -30,11 +30,11 @@ describe('LayoutDefault', () => {
     fetchMock.mockResponse(JSON.stringify({}), { headers: { 'Content-Type': 'application/json' } });
   });
 
-  it('stacks the utility bar, the brand row, the page and the footer in that order', () => {
+  it('stacks the single header, the page and the footer in that order', () => {
     const { container } = render(<LayoutDefault><div>page body</div></LayoutDefault>);
 
     expect(Array.from(container.querySelectorAll(SHELL_MARKERS)).map((item) => item.getAttribute('data-label')))
-      .toEqual([ 'utility-bar', 'brand-row', 'content', 'footer-top' ]);
+      .toEqual([ 'desktop-header', 'content', 'footer-top' ]);
   });
 
   it('puts the page inside the centred content container', () => {
@@ -45,10 +45,10 @@ describe('LayoutDefault', () => {
     expect(within(content).getByText('page body')).toBeTruthy();
   });
 
-  it('carries one search box only, the one in the utility bar', () => {
+  it('carries the compact search box inside the single header', () => {
     const { container } = render(<LayoutDefault><div>page body</div></LayoutDefault>);
 
-    expect(container.querySelector('[data-label="utility-bar-search"]')).toBeTruthy();
+    expect(container.querySelector('[data-label="header-search"]')).toBeTruthy();
     expect(container.querySelector('[data-label="content-search"]')).toBeNull();
   });
 });

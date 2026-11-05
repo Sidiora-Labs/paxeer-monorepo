@@ -1,0 +1,11 @@
+[repair]
+task = "22.33.15"
+finding = "offline-example-import"
+implementation = "The shipped offline example delegates to verify_sequencer_receipt with raw signed EVM transaction bytes and caller-pinned ReceiptKey ranges; verifier.py documents the same trust contract."
+proving_tests = ["test_offline_example_installed_receipt_round_trip", "test_offline_example_inclusive_key_ranges", "test_offline_example_preserves_verifier_refusals"]
+producer = "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json, recorded by rpc/sequencer_receipt_vectors_test.go; the loopback peer serves unchanged producer receipts and signed transactions."
+installation = "The production Python build backend creates the wheel in-process; tests install its pure Python modules and data into a temporary prefix and import the shipped example against the installed SDK."
+baseline = "No earlier gate runs exist in the inherited ledger. The removed verify_receipt import is present at base 2a8418f3ce46275830d68ea57514c30466a3493f; no baseline test was run because the explicit ordered gates prohibit verification before implementation. No test is claimed to have failed before the change."
+wiring_requests = []
+qualification = "hf-build then hf-done record the exact candidate revision, command, exit and private log in the runner ledger; publication and spec updates belong to the runner."
+gotcha = "The generated task asks for an unchanged-tree baseline but the explicit task order forbids it; only the authorized post-implementation gates run. The runner-prepared .cgignore and spec status changes remain untouched."

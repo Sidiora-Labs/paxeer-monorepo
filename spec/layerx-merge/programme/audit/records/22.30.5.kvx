@@ -1,0 +1,1140 @@
+[audit.22.30.5]
+task = "22.30.5"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 103
+findings = 42
+docs_reviewed = 13
+upgrade_ready = false
+blocking = ["22.30.5.1", "22.30.5.2", "22.30.5.4", "22.30.5.5", "22.30.5.6", "22.30.5.13", "22.30.5.14"]
+produced_interfaces_reviewed = 39
+listed_consumed_interfaces_reviewed = 400
+interface_scope = "The explicit package lists name 39 produced and 400 consumed rows; consumes_total=707 is the summary count, while the actual list ends at lxp_governance_onboarding_prepared. Review covers those explicit lists. Registry contract paths resolve under spec/layerx-merge/contracts/."
+review_basis = "Every member read in full against listed requirements, registry types/callers, current transport producers/consumers and the finished-network brief. Historical codecs and weak absence guards are distinguished from active retired flows."
+
+[file.001]
+path = "src/codec/lxp_codec.c"
+lines = 344
+verdict = "issues"
+note = "Read in full: Fixed-width big-endian bounds, versions, sorted keys and finish agree with callers; text normalization has a separate finding."
+
+[file.002]
+path = "src/ledger/lx_account_id.c"
+lines = 293
+verdict = "issues"
+note = "Read in full: Canonical name/id derivation and atomic retired-issuance migration reviewed; retired custody admission is recorded below."
+
+[file.003]
+path = "src/ledger/lx_account_read.c"
+lines = 76
+verdict = "clean"
+note = "Read in full: Owner-DID extraction and deterministic bounded DID enumeration agree with canonical account names and caller output types."
+
+[file.004]
+path = "src/ledger/lx_account_registry.c"
+lines = 788
+verdict = "issues"
+note = "Read in full: Registry allocation/index growth, borrow/copy/snapshot, creation logging and staged registration reviewed; retired system admission remains."
+
+[file.005]
+path = "src/ledger/lxp_apply.c"
+lines = 416
+verdict = "issues"
+note = "Read in full: Per-source authorities, allowances, sequence exhaustion and sole-writer balance restoration reviewed; obsolete system privilege kinds remain."
+
+[file.006]
+path = "src/ledger/lxp_journal.c"
+lines = 276
+verdict = "clean"
+note = "Read in full: Journal rollback, 256-bit per-asset conservation, supply modes, source authorities and transfer-root ordering agree with transfer consumers."
+
+[file.007]
+path = "src/ledger/lxp_ledger_internal.h"
+lines = 15
+verdict = "clean"
+note = "Read in full: Internal restore/sequence-terminal/allowance declarations match definitions and journal/apply consumers without exposing a module balance writer."
+
+[file.008]
+path = "src/ledger/lxp_receipt.c"
+lines = 88
+verdict = "clean"
+note = "Read in full: Ledger receipt projection, issuance and writer guard match canonical transfer facts and receipt consumer fields."
+
+[file.009]
+path = "src/ledger/lxp_send.c"
+lines = 359
+verdict = "clean"
+note = "Read in full: SEND encode/sign/decode/validate/execute binds controller, asset, sequence, context and expiry; host binding skips only signature verification."
+
+[file.010]
+path = "src/ledger/lxp_send_store.c"
+lines = 195
+verdict = "clean"
+note = "Read in full: Hot-window admission and metered sorted history preserve totals and idempotent receipt projections; this is not a separate network idempotency service."
+
+[file.011]
+path = "src/modules/asset/committed.h"
+lines = 40
+verdict = "clean"
+note = "Read in full: Committed asset/account helpers read context state and propagate missing/asset-mismatch results using the declared lookup types."
+
+[file.012]
+path = "src/modules/asset/lx_asset_custody.c"
+lines = 389
+verdict = "issues"
+note = "Read in full: Checkpoint deposit proof, reserve credit, withdrawal persistence/nullifiers and settlement reviewed; retired execution is recorded below."
+
+[file.013]
+path = "src/modules/asset/lx_asset_decode.c"
+lines = 119
+verdict = "clean"
+note = "Read in full: Register/account-open/supply/revoke lengths, issuer/reference bounds and numeric decode agree with consumers; retained revoke decoder registers no retired grant activity."
+
+[file.014]
+path = "src/modules/asset/lx_asset_execution.h"
+lines = 260
+verdict = "clean"
+note = "Read in full: Typed register/mint/burn/account-open execution uses staged state and host binding while retaining payload-hash and actor checks."
+
+[file.015]
+path = "src/modules/asset/lx_asset_internal.h"
+lines = 14
+verdict = "issues"
+note = "Read in full: Private checkpoint registry layout agrees with C consumers but retains retired custody authority state."
+
+[file.016]
+path = "src/modules/asset/lx_asset_registry.c"
+lines = 905
+verdict = "issues"
+note = "Read in full: All dispatch/binding/signature, serialization, committed iteration and v2 migration reviewed; decimals codec and checkpoint withdrawal remain findings."
+
+[file.017]
+path = "src/modules/asset/lx_asset_reserve.c"
+lines = 161
+verdict = "issues"
+note = "Read in full: Reserve buckets, backing reconciliation, disclosure and fatal supply checks retain the retired custody attestation model."
+
+[file.018]
+path = "src/modules/asset/lx_asset_state.c"
+lines = 203
+verdict = "clean"
+note = "Read in full: Account open, wide supply summation and sorted state-root hashing agree with interfaces; duplicate keys are refused."
+
+[file.019]
+path = "src/modules/asset/lx_asset_transfer.c"
+lines = 59
+verdict = "clean"
+note = "Read in full: Self-send, asset/account-kind and issuance restrictions feed centralized transfers with matching request/result shapes."
+
+[file.020]
+path = "src/modules/budget/lx_budget_close.c"
+lines = 141
+verdict = "issues"
+note = "Read in full: Budget authority, defund arithmetic and close/revoke refund reviewed; returned zero-limit records conflict with persistence validation."
+
+[file.021]
+path = "src/modules/budget/lx_budget_codec.c"
+lines = 340
+verdict = "issues"
+note = "Read in full: All v1/v2 budget record and payload layouts, lengths and source sequence fields reviewed; delegate canonicality differs between encode and decode."
+
+[file.022]
+path = "src/modules/budget/lx_budget_create.c"
+lines = 129
+verdict = "issues"
+note = "Read in full: Record validation, insertion and create/fund reviewed; delegate validation does not enforce the persistent decoder invariant."
+
+[file.023]
+path = "src/modules/budget/lx_budget_delegate.c"
+lines = 124
+verdict = "clean"
+note = "Read in full: Sorted binary-search delegate insertion/removal and bounded spending authorization match actual budget consumers."
+
+[file.024]
+path = "src/modules/budget/lx_budget_module.c"
+lines = 959
+verdict = "issues"
+note = "Read in full: Native-source create/fund/refund, binding, delegate caps/savepoints, ten ordinals and event bytes reviewed; zero allowance cannot persist after unused revoke/full defund."
+
+[file.025]
+path = "src/modules/budget/lx_budget_period.c"
+lines = 134
+verdict = "clean"
+note = "Read in full: Elapsed periods, capped/no rollover, expiry and deterministic committed-record maintenance share the budget codec and registered maintenance hook."
+
+[file.026]
+path = "src/modules/budget/lx_budget_spend.c"
+lines = 127
+verdict = "clean"
+note = "Read in full: Remaining/rollover preparation and allowance debit bind budget, asset, period, expiry and owner/delegate authority to transfers."
+
+[file.027]
+path = "src/modules/governance/lxp_emergency.c"
+lines = 184
+verdict = "issues"
+note = "Read in full: Ordered halt/resume/module control and scope checks reviewed; NULL market, lifetime capacity and obsolete running flags are findings."
+
+[file.028]
+path = "src/modules/governance/lxp_fee_params.c"
+lines = 156
+verdict = "clean"
+note = "Read in full: Versioned parameter-derived and committed fee schedules agree on asset/module prices, encoding and explicit refusal behavior."
+
+[file.029]
+path = "src/modules/governance/lxp_gov_param.c"
+lines = 263
+verdict = "issues"
+note = "Read in full: Proposal staging, activation rollback, cohort selection and parameter roots reviewed; public proposal admission lacks the cohort bound."
+
+[file.030]
+path = "src/modules/governance/lxp_governance.c"
+lines = 672
+verdict = "clean"
+note = "Read in full: Governance dispatch, genesis authority, durable session/successor fee state and grant scope reviewed; compatibility constructor executes no handover activity."
+
+[file.031]
+path = "src/modules/governance/lxp_governance_onboarding.c"
+lines = 184
+verdict = "clean"
+note = "Read in full: Onboarding consent signatures, epochs, sequences and prepared identity updates bind current governance authority to durable state."
+
+[file.032]
+path = "src/modules/governance/lxp_governance_rotation.c"
+lines = 290
+verdict = "clean"
+note = "Read in full: Rotation consent, selected accounts and prepared refresh preserve key/DID/sequence ownership across identity changes."
+
+[file.033]
+path = "src/modules/governance/lxp_params.c"
+lines = 231
+verdict = "clean"
+note = "Read in full: Canonical parameter ordering, histories, bounds, versions and seal epochs agree across admission/query; capacity refusals are explicit."
+
+[file.034]
+path = "src/modules/service/lx_service_acceptance.c"
+lines = 201
+verdict = "clean"
+note = "Read in full: Buyer accept/reject and deterministic default maintenance enforce agreement windows; corrected-delivery incompatibility is assigned to its producer."
+
+[file.035]
+path = "src/modules/service/lx_service_agreement.c"
+lines = 97
+verdict = "clean"
+note = "Read in full: Propose/provider-accept bind parties and terms, reject unavailable offers and check window arithmetic overflow before storing agreement/offer."
+
+[file.036]
+path = "src/modules/service/lx_service_attest.c"
+lines = 175
+verdict = "clean"
+note = "Read in full: Execution codecs and signed attestation bind grant principal/key/module to stored commitment and canonical bytes."
+
+[file.037]
+path = "src/modules/service/lx_service_commit.c"
+lines = 152
+verdict = "issues"
+note = "Read in full: Commit, abandon and monotonic progress reviewed; cached success bypasses provider/payload checks."
+
+[file.038]
+path = "src/modules/service/lx_service_deliver.c"
+lines = 108
+verdict = "issues"
+note = "Read in full: Deliverable hash/reference/size refusals satisfy req.1008; admitted REJECTED corrections remain unacceptable to outcome consumers."
+
+[file.039]
+path = "src/modules/service/lx_service_dispatch.h"
+lines = 138
+verdict = "clean"
+note = "Read in full: Every service payload structure, prefix and endian/hash declaration agrees with implementation, Go transport offsets and dispatch callers."
+
+[file.040]
+path = "src/modules/service/lx_service_dispute.c"
+lines = 151
+verdict = "clean"
+note = "Read in full: Disputes read linked escrow and bind holder/beneficiary/asset/arbiter; resolution is arbiter-only with retained state/window/sequence refusals."
+
+[file.041]
+path = "src/modules/service/lx_service_module.c"
+lines = 504
+verdict = "clean"
+note = "Read in full: All service ordinals, typed payloads, escrow runtime callback, effect audit, maintenance and fixed event projection reviewed; handler findings are on owning files."
+
+[file.042]
+path = "src/modules/service/lx_service_offer.c"
+lines = 77
+verdict = "clean"
+note = "Read in full: Offer creation/withdrawal bind principal, terms, price and expiry; stored/returned offer shape agrees with the codec."
+
+[file.043]
+path = "src/modules/service/lx_service_payload.c"
+lines = 333
+verdict = "clean"
+note = "Read in full: All service versions, lengths, widths, hash rules, deliverable/dispute limits agree with modules/layerxpay/types/payload_service.go and actual dispatch."
+
+[file.044]
+path = "src/modules/service/lx_service_state.c"
+lines = 1055
+verdict = "clean"
+note = "Read in full: Offer/agreement/commitment/delivery/progress/dispute prefixes, codecs, canonical flags/hashes, latest lookup and event bytes agree with consumers."
+
+[file.045]
+path = "src/modules/stream/lx_stream_accrue.c"
+lines = 86
+verdict = "clean"
+note = "Read in full: Integer time accrual, remainder, cap and monotonic clock checks match the stored stream model; no external clock enters committed accrual."
+
+[file.046]
+path = "src/modules/stream/lx_stream_execution.h"
+lines = 450
+verdict = "clean"
+note = "Read in full: Eight stream operation dispatchers and all event bodies agree with payload/record consumers and explicit principal/source-account roles."
+
+[file.047]
+path = "src/modules/stream/lx_stream_lifecycle.c"
+lines = 184
+verdict = "clean"
+note = "Read in full: Pause/resume/close bind payer/custody/refund parties, preserve accrued settlement and roll back failed transfers before state publication."
+
+[file.048]
+path = "src/modules/stream/lx_stream_meter.c"
+lines = 123
+verdict = "clean"
+note = "Read in full: Meter preimage and registered-key verification bind stream, cumulative reading and timestamp; readings are monotonic and capped."
+
+[file.049]
+path = "src/modules/stream/lx_stream_open.c"
+lines = 331
+verdict = "clean"
+note = "Read in full: Eight type registrations, decode, lifetime windows, funding and top-up reviewed through actual transfer/save; keeper explicitly funds from the main account."
+
+[file.050]
+path = "src/modules/stream/lx_stream_payload.c"
+lines = 311
+verdict = "issues"
+note = "Read in full: Every stream payload encoder/decoder reviewed; successful producers admit malformed struct values their paired readers refuse."
+
+[file.051]
+path = "src/modules/stream/lx_stream_read.c"
+lines = 27
+verdict = "clean"
+note = "Read in full: Read-only accrued query works on a loaded copy, subtracts settled totals and propagates missing-state/time refusals without saving."
+
+[file.052]
+path = "src/modules/stream/lx_stream_record.c"
+lines = 174
+verdict = "clean"
+note = "Read in full: Fixed record offsets, canonical flags, sorted meter authorities and transfer-source authority agree between state producer and reader."
+
+[file.053]
+path = "src/modules/stream/lx_stream_settle.c"
+lines = 244
+verdict = "clean"
+note = "Read in full: Settlement/rate changes bind payer/custody, preserve cap/remainder and persist cached economic results; rollback prevents duplicate transfers."
+
+[file.054]
+path = "src/modules/stream/lx_stream_state.c"
+lines = 168
+verdict = "clean"
+note = "Read in full: Stream/result key layouts, iteration, durable result bytes and cached receipt projection match lifecycle writers and replay readers."
+
+[file.055]
+path = "tests/arith/compile_fail_double.c"
+lines = 7
+verdict = "clean"
+note = "Read in full: Deliberate double-to-lxp_u128 compiler refusal input; Makefile requires this compilation to fail rather than treating it as a runnable program."
+
+[file.056]
+path = "tests/arith/compile_fail_plus.c"
+lines = 9
+verdict = "clean"
+note = "Read in full: Deliberate bare-struct addition compiler refusal input; Makefile fails the no-float gate if it compiles."
+
+[file.057]
+path = "tests/arith/lxp_arith_reference.c"
+lines = 204
+verdict = "clean"
+note = "Read in full: Independent decimal sign/magnitude arithmetic reference checks bounds and canonical zero without using the production operations it compares."
+
+[file.058]
+path = "tests/arith/lxp_arith_reference.h"
+lines = 21
+verdict = "clean"
+note = "Read in full: Reference operation enum and bounded decimal-output prototype agree with implementation and seeded property callers."
+
+[file.059]
+path = "tests/arith/lxp_test_arith_property.c"
+lines = 196
+verdict = "clean"
+note = "Read in full: Decimal reference comparisons, carry/overflow boundaries and seeded real arithmetic comparisons match u128/i128 outputs."
+
+[file.060]
+path = "tests/arith/lxp_test_arith_property.h"
+lines = 11
+verdict = "clean"
+note = "Read in full: Arithmetic property/fuzz declarations agree with actual test definitions and argument/return shapes."
+
+[file.061]
+path = "tests/arith/lxp_test_conservation.c"
+lines = 188
+verdict = "clean"
+note = "Read in full: Real conservation cases cover independent assets, supply-only modes, 256-leg wide accumulation, invalid mode and leg limit with refusal invariants."
+
+[file.062]
+path = "tests/arith/lxp_test_fee_arith.c"
+lines = 60
+verdict = "clean"
+note = "Read in full: Real fee computation tests assert component/byte/storage overflow with untouched fee output, matching req.1024."
+
+[file.063]
+path = "tests/arith/lxp_test_i128_bounds.c"
+lines = 83
+verdict = "clean"
+note = "Read in full: Real signed subtraction tests assert overflow refusal, untouched output and seeded canonical zero, matching req.1042."
+
+[file.064]
+path = "tests/arith/lxp_test_nofloat.c"
+lines = 18
+verdict = "clean"
+note = "Read in full: Arithmetic smoke check complements Makefile compiler-refusal fixtures and object no-float scan; the function name alone is not the compile gate."
+
+[file.065]
+path = "tests/arith/lxp_test_rounding.c"
+lines = 68
+verdict = "clean"
+note = "Read in full: Floor/ceiling, carry, signed arithmetic and negative-zero assertions match exact magnitude/sign and rounding contracts."
+
+[file.066]
+path = "tests/arith/lxp_test_u128.c"
+lines = 49
+verdict = "clean"
+note = "Read in full: u128 boundary arithmetic, conversion/comparison and untouched-output overflow assertions match integer limb semantics."
+
+[file.067]
+path = "tests/arith/lxp_test_u256.c"
+lines = 71
+verdict = "clean"
+note = "Read in full: u256 add/division assert exact quotient/remainder identities and boundary limbs without floating-point expectations."
+
+[file.068]
+path = "tests/fuzz/fuzz_activity.c"
+lines = 189
+verdict = "clean"
+note = "Read in full: Activity decode/re-encode, corpus table/header and bounded seed extraction reviewed; synthetic execution evidence is assigned to the corpus producer."
+
+[file.069]
+path = "tests/fuzz/fuzz_batch_header.c"
+lines = 11
+verdict = "clean"
+note = "Read in full: Raw batch-header fuzz target uses the real bounded decoder for crash/refusal inputs and does not claim post-merge batch finality."
+
+[file.070]
+path = "tests/fuzz/fuzz_gateway_json.c"
+lines = 17
+verdict = "clean"
+note = "Read in full: Gateway JSON fuzz target drives the real translator with a bounded arena and handles decoder refusals."
+
+[file.071]
+path = "tests/fuzz/fuzz_lxp_send.c"
+lines = 11
+verdict = "clean"
+note = "Read in full: Raw SEND fuzz target drives the actual decoder; semantic/signature assertions live in the ledger/property suites."
+
+[file.072]
+path = "tests/fuzz/fuzz_meter.c"
+lines = 68
+verdict = "clean"
+note = "Read in full: Meter helper checks real overflow atomicity, exhaustion and result set; tests/test_metering.c consumes its return code."
+
+[file.073]
+path = "tests/fuzz/fuzz_signature.c"
+lines = 108
+verdict = "clean"
+note = "Read in full: Signature mutations drive real activity verification across key/signature corruption, malformed lengths and canonical bytes."
+
+[file.074]
+path = "tests/fuzz/fuzz_transfer_set.c"
+lines = 143
+verdict = "clean"
+note = "Read in full: Transfer-set fuzzing asserts real conservation, failure atomicity and balances with retained liquidity/funding/insurance roles and bounded legs."
+
+[file.075]
+path = "tests/fuzz/lxp_fuzz_activity.c"
+lines = 30
+verdict = "clean"
+note = "Read in full: Activity wrapper calls the actual canonical decoder property and propagates failures to its ordinary test caller."
+
+[file.076]
+path = "tests/fuzz/lxp_fuzz_arith.c"
+lines = 26
+verdict = "clean"
+note = "Read in full: Deterministic limb fuzz wrapper calls real arithmetic/reference comparisons and returns their result."
+
+[file.077]
+path = "tests/fuzz/lxp_fuzz_codec.c"
+lines = 64
+verdict = "clean"
+note = "Read in full: Codec seeded round trips and fuzz/refusal paths exercise real bounded reader/writer, strict finish and sorted collections."
+
+[file.078]
+path = "tests/fuzz/lxp_fuzz_signature.c"
+lines = 18
+verdict = "clean"
+note = "Read in full: Signature wrapper drives real mutation assertions and propagates the result through the declared test API."
+
+[file.079]
+path = "tests/fuzz/lxp_prop_account_record.c"
+lines = 181
+verdict = "clean"
+note = "Read in full: Seeded account records, name/length refusals, extensions and accepted mutations assert canonical bytes through actual snapshot codecs."
+
+[file.080]
+path = "tests/fuzz/lxp_prop_escrow_codec.c"
+lines = 294
+verdict = "clean"
+note = "Read in full: Seeded escrow record/result codecs include legacy unbound results, canonical flags/states, byte mutations and strict extension refusal."
+
+[file.081]
+path = "tests/fuzz/lxp_prop_fee_params.c"
+lines = 187
+verdict = "clean"
+note = "Read in full: 2000 seeded fee schedules across versions and byte mutations assert exact canonical re-encoding, matching req.1022."
+
+[file.082]
+path = "tests/fuzz/lxp_prop_kernel_integrated.c"
+lines = 551
+verdict = "clean"
+note = "Read in full: Two real kernels compare 64-activity receipts/roots under permuted module-kv loading and writer-thread handoff, including actual stream/asset execution."
+
+[file.083]
+path = "tests/fuzz/lxp_prop_payer_grant.c"
+lines = 182
+verdict = "clean"
+note = "Read in full: Retained payer-grant byte codecs round-trip 2000 seeded values and mutations without registering retired kernel grant execution or stores."
+
+[file.084]
+path = "tests/fuzz/lxp_prop_prepare_workers.c"
+lines = 497
+verdict = "clean"
+note = "Read in full: Real one/four-worker preparation compares receipts, roots and retry prefixes on equivalent inputs with actual thread ownership."
+
+[file.085]
+path = "tests/fuzz/lxp_prop_reexecution.c"
+lines = 194
+verdict = "clean"
+note = "Read in full: Fresh real-kernel reexecution compares receipts/roots; weak retired determinism symbols are absence assertions rather than runtime dependencies."
+
+[file.086]
+path = "tests/fuzz/lxp_prop_service_codec.c"
+lines = 381
+verdict = "clean"
+note = "Read in full: Six service record families use real codecs with legal seeds, single-byte mutation, accepted-byte re-encoding and strict extension refusal."
+
+[file.087]
+path = "tests/fuzz/lxp_prop_snapshot_load.c"
+lines = 313
+verdict = "clean"
+note = "Read in full: Real snapshot loader sees mutated/truncated/reordered inputs, must return registered results and leave refused targets empty; accepted inputs re-encode canonically."
+
+[file.088]
+path = "tests/fuzz/lxp_prop_stream_codec.c"
+lines = 381
+verdict = "clean"
+note = "Read in full: Stream record/five payload families use legal seeded round trips and mutations/truncations/extensions; malformed struct-encoder acceptance is the payload finding."
+
+[file.089]
+path = "tests/ledger/lxp_check_sole_writer.sh"
+lines = 22
+verdict = "clean"
+note = "Read in full: Source guard restricts direct balance writes to lxp_apply.c and rejects internal ledger writers in module/context declarations."
+
+[file.090]
+path = "tests/ledger/test_account_id.c"
+lines = 176
+verdict = "issues"
+note = "Read in full: Namespace hashes, opening and atomic issuance migration reviewed; positive reserve/withdrawal vectors need explicit history/admission separation."
+
+[file.091]
+path = "tests/ledger/test_apply_transfer.c"
+lines = 328
+verdict = "clean"
+note = "Read in full: Exact balances, sequence exhaustion, per-source allowances and failure atomicity exercise real centralized transfer application."
+
+[file.092]
+path = "tests/ledger/test_receipt.c"
+lines = 189
+verdict = "clean"
+note = "Read in full: Receipt fields, payload/event/root projection, canonical bytes and corruption/refusal cases match real producer/verification functions."
+
+[file.093]
+path = "tests/ledger/test_receive.c"
+lines = 211
+verdict = "clean"
+note = "Read in full: Retained filename now tests signed SEND/payment plus allowance/spill history; no retired lxp_receive activity executes."
+
+[file.094]
+path = "tests/ledger/test_send.c"
+lines = 304
+verdict = "clean"
+note = "Read in full: Signed SEND wire/auth/replay/expiry/conditions/conservation and decode-fuzz assertions agree with actual ledger behavior."
+
+[file.095]
+path = "tests/ledger/test_send_allowance.c"
+lines = 296
+verdict = "clean"
+note = "Read in full: Delegated send/payment tests enforce scope and activity/period/total limits with real grants and atomic account-sequence handling."
+
+[file.096]
+path = "tests/ledger/test_transfer_set.c"
+lines = 258
+verdict = "issues"
+note = "Read in full: Multi-leg conservation/rollback, supply modes, terminal sequences and allowances reviewed; active reserve fixture is a retirement finding."
+
+[file.097]
+path = "tests/ledger/test_values.h"
+lines = 26
+verdict = "clean"
+note = "Read in full: Fixed amount/asset constants support exact ledger expectations using declared integer representation and no retired service."
+
+[file.098]
+path = "tests/qualification/lxp_qual_arith.c"
+lines = 433
+verdict = "clean"
+note = "Read in full: Deterministic arithmetic qualification and conditional CBMC harnesses assert real arithmetic/rounding invariants with explicit bounds/assumptions."
+
+[file.099]
+path = "tests/qualification/lxp_qual_replay.c"
+lines = 801
+verdict = "issues"
+note = "Read in full: All corpus/header/digest/root-ledger generation and replay comparisons reviewed; final-tail mismatch and synthetic evidence are separate findings."
+
+[file.100]
+path = "tests/qualification/lxp_wallet_caps_discovery.c"
+lines = 928
+verdict = "issues"
+note = "Read in full: All LNI framing, proof modes, mutations and budget commands reviewed; retired daemon/replica/grant flows and unchecked source-sequence configuration remain."
+
+[file.101]
+path = "tests/qualification/paxeer_x_airdrop_entitlements.py"
+lines = 111
+verdict = "issues"
+note = "Read in full: Required airdrop cases, no-skip checks, discovery and private logs reviewed; timestamp/package checks do not bind artifacts to the claimed revision."
+
+[file.102]
+path = "tests/qualification/paxeer_x_launchpad_governance.py"
+lines = 108
+verdict = "issues"
+note = "Read in full: Required governance cases, no-skip checks and private logs reviewed; binary/source revision binding is incomplete."
+
+[file.103]
+path = "tests/qualification/test_mcp_binding_receipt_keys.py"
+lines = 112
+verdict = "clean"
+note = "Read in full: Receipt-key fixture matches gateway chain_reads.rs and listener: keys object, camelCase fields, numeric heights and 0x key; malformed/bare/extra/missing cases match req.8369."
+
+[finding.22.30.5.1]
+file = "src/modules/asset/lx_asset_registry.c"
+line = 703
+severity = "high"
+observed = "lx_asset_record_encode accepts an otherwise canonical issuer_kind=1 record with decimals=39 and writes version 3 bytes; lx_asset_record_decode rejects those bytes at lines 775-778. Registration separately enforces decimals <= 38, so this is an exported codec defect, not evidence that ordinary registration admits the value."
+expected = "The encoder and decoder declared by 1.c-lx-asset-record-encode and 1.c-lx-asset-record-decode must agree on successful version 3 records; successful encoding must produce readable persisted asset facts."
+proposal = "Share complete record validation in src/modules/asset/lx_asset_registry.c between registration, encoding and decoding, refusing decimals above 38 before writing; add accepted-record round trips and unchanged-output refusals at the actual save/restore boundary."
+owner_domain = 1
+class = "interface-mismatch"
+interface = "1.c-lx-asset-record-encode"
+
+[finding.22.30.5.2]
+file = "src/modules/budget/lx_budget_codec.c"
+line = 37
+severity = "high"
+observed = "lx_budget_record_encode validates the record then copies delegates unchanged. Two delegates with first bytes 0x02 then 0x01 and all remaining bytes zero pass validation and encoding, but lx_budget_record_decode refuses them at lines 119-121 because delegates must strictly ascend. Duplicate delegates have the same asymmetry."
+expected = "The budget record producer and persistent reader must use one canonical delegate representation, so every successful encoding is readable after a reload."
+proposal = "Enforce strict delegate ordering and uniqueness in the shared validator used by src/modules/budget/lx_budget_codec.c, retaining decoder refusals; prove valid and out-of-order inputs through encode, store, reopen and decode."
+owner_domain = 1
+class = "interface-mismatch"
+interface = "1.c-lx-budget-record-encode"
+
+[finding.22.30.5.3]
+file = "src/modules/budget/lx_budget_create.c"
+line = 24
+severity = "medium"
+observed = "lx_budget_record_validate bounds delegate_count but never checks delegate contents, ordering or uniqueness. lx_budget_state_put inserts a B,A delegate record as valid even though its later persistent decoding fails."
+expected = "The public validator and in-memory state insertion must enforce the same delegate invariant as lx_budget_record_decode; successful insertion must not admit state that cannot be restored."
+proposal = "In src/modules/budget/lx_budget_create.c validate nonzero, strictly ordered, unique delegates before state insertion mutates the store; test this entry point through serialization and reopened storage rather than only sorted fixtures."
+owner_domain = 1
+class = "interface-mismatch"
+interface = "1.c-lx-budget-record-validate"
+
+[finding.22.30.5.4]
+file = "src/modules/budget/lx_budget_module.c"
+line = 789
+severity = "high"
+observed = "budget_execute_revoke sets per_period_limit = spent_this_period before budget_save. An unused budget has spent_this_period=0, so encoding fails the validator's positive-limit rule. Full defund likewise receives a zero limit from lx_budget_defund_limit and saves it at lines 754-755. modules/layerxpay/keeper/execute.go discards refused writes, leaving revoke or full refund unapplied."
+expected = "A valid owner must be able to revoke an unused budget or remove its remaining funds; the resulting state must survive encoding and reload without retaining spend authority."
+proposal = "Align terminal and exhausted-allowance validation in src/modules/budget/lx_budget_create.c with transitions in lx_budget_module.c, retaining positive creation limits; prove create, zero-spend revoke/full-defund, balances, receipt and reopened state through modules/layerxpay/keeper/budget_close.go."
+owner_domain = 1
+class = "interface-mismatch"
+interface = "1.c-lx-budget-record-encode"
+
+[finding.22.30.5.5]
+file = "src/modules/budget/lx_budget_close.c"
+line = 125
+severity = "high"
+observed = "drain returns LXP_OK after close or revoke sets per_period_limit to spent_this_period. For a valid unused budget this is zero, which the budget record encoder and decoder refuse. lx_budget_defund_execute can likewise return a zero-limit record after a full refund."
+expected = "The exported close/revoke/defund helpers must return state admitted by the persistent record interface, including the ordinary zero-spend case."
+proposal = "Reconcile transitions in src/modules/budget/lx_budget_close.c with the shared record validator and prove helper-to-codec round trips plus reopen, retaining zero remaining spend authority and exact refund amounts."
+owner_domain = 1
+class = "interface-mismatch"
+interface = "1.c-lx-budget-revoke-execute"
+
+[finding.22.30.5.6]
+file = "src/modules/service/lx_service_deliver.c"
+line = 101
+severity = "high"
+observed = "lx_service_deliver_execute accepts a new delivery from REJECTED, persists it and returns success, but sets DELIVERED only from COMMITTED. lx_service_accept_execute requires DELIVERED, and default maintenance also skips REJECTED; the successfully stored correction cannot be accepted."
+expected = "An admitted corrected delivery before the delivery deadline must produce an agreement state that buyer acceptance and default-outcome consumers can process, including after reload."
+proposal = "In src/modules/service/lx_service_deliver.c move an admitted correction to DELIVERED and clear current rejection/outcome flags while retaining history; prove reject, corrected delivery, reopen, accept and default-outcome paths through the real layerxpay keeper."
+owner_domain = 1
+class = "interface-mismatch"
+interface = "1.c-lx-service-deliver-execute"
+
+[finding.22.30.5.7]
+file = "src/modules/service/lx_service_commit.c"
+line = 36
+severity = "medium"
+observed = "lx_service_commit_task_execute returns an existing commitment before comparing the caller with its provider or binding the submitted agreement/task. The already-abandoned branch also returns before provider authorization. lx_service_module.c emits successful TASK_COMMITTED or COMMIT_ABANDONED events for these requests."
+expected = "Idempotent success must authenticate the original provider and operation, so an unrelated caller or conflicting payload cannot obtain successful service mutation events merely by reusing a public commitment id."
+proposal = "Authenticate against the stored provider and compare immutable commitment fields before returning cached success in src/modules/service/lx_service_commit.c; test another caller and conflicting task/agreement through the real dispatcher and emitted events."
+owner_domain = 1
+class = "security"
+interface = "1.c-lx-service-commit-task-execute"
+
+[finding.22.30.5.8]
+file = "src/modules/governance/lxp_emergency.c"
+line = 122
+severity = "medium"
+observed = "lxp_gov_emergency_resume accepts market scope with market_id=NULL. With a matching active market pause, same_scope dereferences it in memcmp at line 26. Halt already rejects this input via zero_id, but resume does not."
+expected = "Emergency control must refuse malformed market identifiers before dereferencing them and leave both the active pause and ordered sequence unchanged."
+proposal = "Apply matching scope, module and nonzero-market validation to resume in src/modules/governance/lxp_emergency.c before ordered/same_scope; cover NULL with an existing matching pause and unchanged-state assertions."
+owner_domain = 1
+class = "runtime-risk"
+interface = "1.c-lxp-gov-emergency-resume"
+
+[finding.22.30.5.9]
+file = "src/modules/governance/lxp_emergency.c"
+line = 90
+severity = "medium"
+observed = "Halt appends a pause forever, resume only clears active, and every operation appends to a fixed 128-event array. After 64 halt/resume cycles the exported state has exhausted its pause/event slots and cannot halt, resume or change module enablement."
+expected = "Emergency control for a long-lived network must remain usable after resolved incidents; bounded working state must not turn the safety control into a lifetime-use quota."
+proposal = "Reuse inactive slots in src/modules/governance/lxp_emergency.c and retain immutable history in committed event storage with a bounded working set; prove more than 64 cycles and persisted reopen without losing active pauses or audit history."
+owner_domain = 1
+class = "runtime-risk"
+interface = "1.c-lxp-gov-emergency-halt"
+
+[finding.22.30.5.10]
+file = "src/modules/governance/lxp_emergency.c"
+line = 64
+severity = "low"
+observed = "lxp_gov_emergency_state_init marks sealing_running, distribution_running and checkpointing_running true. The emergency model thus still represents independent batch sealing/distribution/checkpoint services that the merged network retires."
+expected = "Emergency status should describe the single paxd network and its actual commit lifecycle, without asserting health of retired checkpoint and distribution processes."
+proposal = "Replace obsolete running flags in src/modules/governance/lxp_emergency.c and include/layerx/lxp_governance.h with current committed-chain control facts, updating emergency consumers and their status assertions."
+owner_domain = 1
+class = "retired-reference"
+interface = "1.c-lxp-gov-emergency-state"
+
+[finding.22.30.5.11]
+file = "src/modules/governance/lxp_gov_param.c"
+line = 97
+severity = "medium"
+observed = "lxp_gov_param_propose iterates proposal->cohort_count over the fixed 32-element array without checking LXP_MAX_GOV_COHORT_MEMBERS. The staging helper checks it, but the public propose entry point accepts a directly supplied proposal and reads beyond the array for an oversized count with a sorted prefix."
+expected = "Every public proposal admission boundary must validate array bounds before comparisons or copying, independently of an optional staging helper."
+proposal = "Check cohort_count, parameter key length and cohort element invariants at entry in src/modules/governance/lxp_gov_param.c; prove a declared count of 33 is refused atomically before reading past the fixed array."
+owner_domain = 1
+class = "security"
+interface = "1.c-lxp-gov-param-propose"
+
+[finding.22.30.5.12]
+file = "src/codec/lxp_codec.c"
+line = 234
+severity = "medium"
+observed = "utf8_nfc_is_canonical rejects every U+0300..U+036F code point but performs no NFC check elsewhere. A standalone U+0301 is already NFC and is refused, while decomposed Hangul U+1100 U+1161 is accepted although its NFC form is U+AC00."
+expected = "Canonical text validation must use the Unicode normalization invariant consistently, rather than a combining-block exclusion that rejects canonical text and admits noncanonical text."
+proposal = "Replace the approximation in src/codec/lxp_codec.c with deterministic pinned Unicode NFC checking, or explicitly specify and version a narrower permitted alphabet; add canonical combining-mark and decomposed Hangul boundary vectors."
+owner_domain = 1
+class = "runtime-risk"
+interface = "1.c-lxp-codec-write-text"
+
+[finding.22.30.5.13]
+file = "src/modules/stream/lx_stream_payload.c"
+line = 285
+severity = "high"
+observed = "lx_stream_id_encode returns LXP_OK for a zero stream_id while lx_stream_id_decode refuses its bytes. Amount, keyed, meter and open encoders also omit checks their paired decoders enforce: zero ids/amounts/signatures, invalid modes and unsorted meter authorities."
+expected = "The stream payload interfaces covered by req.1032 must agree on admitted producer values: successful encoding must produce bytes accepted by its paired decoder."
+proposal = "Share decoder-equivalent payload validation across encoders in src/modules/stream/lx_stream_payload.c; retain all decoder refusals and add successful-encode-implies-decode properties for each payload with malformed struct inputs."
+owner_domain = 1
+class = "interface-mismatch"
+interface = "1.c-lx-stream-id-encode"
+
+[finding.22.30.5.14]
+file = "tests/qualification/lxp_qual_replay.c"
+line = 633
+severity = "high"
+observed = "lxp_qual_corpus_generate marks a boundary at sequence % batch_size == 0 OR sequence == activity_count (lines 461-475), but compare_record accepts only the modulo case. Valid inputs activity_count=53,batch_size=10 produce a final boundary that the replay reader rejects."
+expected = "lxp_qual_corpus_generate and lxp_qual_replay_matrix must round-trip every admitted corpus, including the final partial batch and its root-ledger accounting."
+proposal = "Pass the terminal activity count to compare_record in tests/qualification/lxp_qual_replay.c and validate the same final-tail rule as generation; exercise 53/10 and an exact multiple through real corpus/root-ledger files."
+owner_domain = 1
+class = "interface-mismatch"
+interface = "1.c-lxp-qual-corpus-generate"
+
+[finding.22.30.5.15]
+file = "tests/qualification/lxp_qual_replay.c"
+line = 222
+severity = "medium"
+observed = "The qualification generator uses generic 12-byte payloads, a one-byte actor/authority and signatures made from two hashes. compute_record constructs roots and 106-byte receipts by hashing only; replay calls that same helper without kernel execution or signature verification. Its private batch header is 72 bytes."
+expected = "Kernel replay evidence must compare receipts and state from real registered module execution and recovery per req.1003/1021 and brief check_7; two matching synthetic hashing procedures do not establish that behavior."
+proposal = "Replace execution evidence in tests/qualification/lxp_qual_replay.c with authenticated inputs driven through fresh real kernels, using the kept integrated/reexecution execution path with a reopen; retain separate corpus integrity/corruption checks."
+owner_domain = 1
+class = "test-gap"
+interface = "1.c-lxp-qual-replay-matrix"
+
+[finding.22.30.5.16]
+file = "tests/qualification/lxp_wallet_caps_discovery.c"
+line = 607
+severity = "medium"
+observed = "Wallet qualification exchanges versioned LNI frames over AF_UNIX and imports lxp_daemon.h; verify_replica validates an old signed-batch proof using fixture sequencer keys. caps_asset_mutation also constructs the retired kernel payer-grant activity. These are positive flows, not absence guards."
+expected = "Wallet capabilities must be qualified through native transactions, current precompile views and committed-height evidence; daemon/LNI/replica qualification is retired by the finished-network brief."
+proposal = "Port tests/qualification/lxp_wallet_caps_discovery.c and its invoking workflow to native EVM submission and precompile/grpc reads at committed height, preserving mutation, denial and restart assertions with governed key and commit verification."
+owner_domain = 1
+class = "retired-reference"
+interface = "1.c-lxp-daemon-process"
+
+[finding.22.30.5.17]
+file = "tests/qualification/lxp_wallet_caps_discovery.c"
+line = 906
+severity = "medium"
+observed = "The create command passes getenv(\"BUDGET_SOURCE_SEQUENCE\") directly to strtoull without checking presence or an end pointer. Omitted configuration dereferences NULL; malformed text silently becomes a value such as zero."
+expected = "Qualification commands must require an explicit valid source sequence and report a configuration refusal before submitting, rather than crash or guess a value."
+proposal = "Validate the required environment variable, errno, full decimal consumption and terminal-sequence bound before payload construction in tests/qualification/lxp_wallet_caps_discovery.c; cover missing and malformed configuration refusals."
+owner_domain = 1
+class = "config-drift"
+
+[finding.22.30.5.18]
+file = "tests/qualification/paxeer_x_airdrop_entitlements.py"
+line = 73
+severity = "medium"
+observed = "The airdrop gate reports HEAD but binds prebuilt binaries only by mtime and a go version -m package-path substring. A binary from another revision with a later timestamp passes these checks, so successful tests can be attributed to source never executed."
+expected = "Acceptance 22998.1 requires evidence naming the actually verified revision; artifact identity must bind source revision/tree and content, not just a plausible time and package."
+proposal = "Require a build-produced revision/tree/binary-hash manifest in tests/qualification/paxeer_x_airdrop_entitlements.py and verify each artifact before executing; retain every required-case and no-skip assertion and private result log."
+owner_domain = 16
+class = "test-gap"
+
+[finding.22.30.5.19]
+file = "tests/qualification/paxeer_x_launchpad_governance.py"
+line = 69
+severity = "medium"
+observed = "The launchpad governance gate checks prebuilt executable age and Go package identity, but never checks the executable against the reported revision. A newer artifact from another checkout can therefore generate evidence under this HEAD."
+expected = "Governance evidence must identify the source revision that produced its keeper, precompile and node test binaries, as acceptance 22998.1 requires."
+proposal = "Bind tests/qualification/paxeer_x_launchpad_governance.py to a build-produced source revision/tree/content-hash manifest and verify all binaries before execution, preserving its required cases, no-skip assertions and private logs."
+owner_domain = 16
+class = "test-gap"
+
+[finding.22.30.5.20]
+file = "src/ledger/lx_account_id.c"
+line = 149
+severity = "medium"
+observed = "lx_account_name_parse admits system:paxeer-reserve and its four asset suffixes, plus system:paxeer-withdrawals, as ordinary canonical namespaces. That parser feeds live account opening/registration; retained historical names are not separated from current admission."
+expected = "The merged network has native bank balances and no active custody reserve/checkpoint withdrawal account. Historical identifier decoding must not authorize creating new retired custody accounts."
+proposal = "Separate historical name decoding from live registration in src/ledger/lx_account_id.c and lx_account_registry.c; refuse new reserve/withdrawal accounts while preserving explicitly migrated historical identifiers and balances."
+owner_domain = 1
+class = "retired-reference"
+interface = "1.c-lx-account-name-parse"
+
+[finding.22.30.5.21]
+file = "src/ledger/lx_account_registry.c"
+line = 21
+severity = "low"
+observed = "system_kind includes PAXEER_RESERVE and PAXEER_WITHDRAWALS as protocol system accounts, and live account-open accepts parsed instances. The retired custody privilege category remains part of the admission model."
+expected = "Current system account admission must represent the merged bank-backed ledger; compatibility classification of historical custody records needs a migration-only boundary."
+proposal = "Remove retired kinds from new-account admission in src/ledger/lx_account_registry.c after specifying retained-state migration; prove restored historical accounts stay readable while current account-open cannot create them."
+owner_domain = 1
+class = "retired-reference"
+interface = "1.c-lx-account-open"
+
+[finding.22.30.5.22]
+file = "src/ledger/lxp_apply.c"
+line = 28
+severity = "low"
+observed = "privileged_system retains LX_ACCOUNT_SYSTEM_PAXEER_RESERVE and LX_ACCOUNT_SYSTEM_PAXEER_WITHDRAWALS in active protocol-system debit rules, although the bridge-credit entry point has correctly been removed."
+expected = "Protocol debit privileges should attach to live merged-network roles; historical custody data should not preserve an unnecessary active reserve privilege."
+proposal = "Narrow the privilege classification in src/ledger/lxp_apply.c with custody-account migration; retain exact native system fee/liquidity transfer tests and refusal of new historical-reserve debits."
+owner_domain = 1
+class = "retired-reference"
+interface = "1.c-lxp-apply-transfer"
+
+[finding.22.30.5.23]
+file = "src/modules/asset/lx_asset_custody.c"
+line = 120
+severity = "medium"
+observed = "lx_bridge_verify_deposit, lx_asset_deposit_credit and lx_asset_withdraw_settle retain finalized-checkpoint proof, reserve-to-user credit and withdrawal-to-reserve settlement. The file also allocates checkpoint authority state and persists withdrawals, retaining the old two-domain custody model."
+expected = "Kernel balances are native bank balances of derived accounts; cross-domain custody credit, deposit-root publication and checkpoint withdrawal settlement are retired. Req.1070 preserves nullifier values rather than the old funding flow."
+proposal = "Retire custody execution helpers and registrations in src/modules/asset/lx_asset_custody.c, keeping required historical nullifier/record decoding explicitly separate; fund by native bank send and use 0x1016 for outward transfers."
+owner_domain = 1
+class = "retired-reference"
+interface = "1.c-lx-bridge-verify-deposit"
+
+[finding.22.30.5.24]
+file = "src/modules/asset/lx_asset_internal.h"
+line = 6
+severity = "low"
+observed = "lx_checkpoint_registry stores finalized checkpoint objects and a paxeer_checkpoint_authority. Allocation and deposit-verification consumers keep a separate registry for retired anchor/custody finality."
+expected = "Merged-network asset funding and finality use committed native chain state, without a separate custody checkpoint authority or in-memory registry."
+proposal = "Remove the active registry model from src/modules/asset/lx_asset_internal.h with its retired consumers, keeping versioned historical decoding only where migration needs it."
+owner_domain = 1
+class = "retired-reference"
+interface = "1.c-lx-checkpoint-registry"
+
+[finding.22.30.5.25]
+file = "src/modules/asset/lx_asset_registry.c"
+line = 13
+severity = "medium"
+observed = "The asset type list retains LX_ASSET_WITHDRAW with withdrawal_context, execute_withdrawal and its 108-byte checkpoint/recipient payload. Execution stages a transfer to system:paxeer-withdrawals and emits the old record. Public admission may refuse the ordinal; this retained implementation alone does not establish public reachability."
+expected = "The asset module must not retain checkpoint withdrawal execution in the finished network; native bank/layerxledger moves and bridgeOut at 0x1016 replace it."
+proposal = "Remove withdrawal registration and execution branches from src/modules/asset/lx_asset_registry.c with current unknown/disabled-activity coverage; preserve historical withdrawal records only through an explicit compatibility reader."
+owner_domain = 1
+class = "retired-reference"
+interface = "1.c-lx-asset-module-iface"
+
+[finding.22.30.5.26]
+file = "src/modules/asset/lx_asset_reserve.c"
+line = 34
+severity = "medium"
+observed = "lx_asset_reserve_report/reconcile require a finalized custody attestation, bucket reserve/withdrawal balances and compare effective supply with backing. lx_asset_supply_check still invokes that model as a fatal invariant."
+expected = "Native conservation must agree with bank and registered asset supply; a separate custody attestation/reserve backing is no longer a running merged-network invariant."
+proposal = "Replace the backing model and callers of src/modules/asset/lx_asset_reserve.c with native bank/supply reconciliation, retaining per-asset conservation/overflow assertions and explicitly versioned historical reports."
+owner_domain = 1
+class = "retired-reference"
+interface = "1.c-lx-asset-reserve-reconcile"
+
+[finding.22.30.5.27]
+file = "tests/ledger/test_account_id.c"
+line = 28
+severity = "medium"
+observed = "The canonical vector table positively accepts system:paxeer-reserve and system:paxeer-withdrawals alongside live namespaces. Unlike retired_issuance_migration later in the file, these cases have no history-only admission boundary."
+expected = "Live account-admission tests should not endorse creating retired custody accounts; retained historical hash vectors must be identified as history and separated from current creation."
+proposal = "Retain historical vectors under a compatibility case in tests/ledger/test_account_id.c and add live lx_account_open refusals for retired namespaces after the admission repair; preserve all atomic issuance migration assertions."
+owner_domain = 1
+class = "retired-reference"
+interface = "1.c-lx-account-name-parse"
+
+[finding.22.30.5.28]
+file = "tests/ledger/test_transfer_set.c"
+line = 158
+severity = "medium"
+observed = "The transfer-set fixture opens system:paxeer-reserve as an ordinary active system account. It therefore positively exercises retired reserve topology rather than a restored historical record."
+expected = "Conservation and rollback coverage for the running merged ledger should use retained system roles; legacy reserve balances belong to explicit migration coverage."
+proposal = "Use a retained, semantically appropriate system account in tests/ledger/test_transfer_set.c without removing conservation/allowance/rollback assertions; keep required reserve history in separate restore/migration coverage."
+owner_domain = 1
+class = "retired-reference"
+interface = "1.c-lxp-apply-transfer-set"
+
+[finding.22.30.5.29]
+file = "README.md"
+line = 44
+severity = "medium"
+observed = "README.md lines 44-47 describe separate layerxd and checkpoint anchoring; lines 79/181 describe the merge as draft/future work, and line 145 tells readers to build the retired daemon."
+expected = "The finished network is one paxd BFT chain, chain id 125, final at committed block height, with root-path node RPC and native precompile operations. Documentation must agree with that lifecycle and the retirement inventory."
+proposal = "Rewrite README.md architecture/build/run guidance for paxd, root api1..api14 and api-mainnet-beta endpoints and commit finality; remove layerxd operation and link current native funding/proofs."
+owner_domain = 17
+class = "doc-drift"
+
+[finding.22.30.5.30]
+file = "docs/site/docs/overview/unified-network.md"
+line = 11
+severity = "medium"
+observed = "The unified-network page presents a C consensus daemon and live verify/custody/anchor services at 11-88, guarantor bonds/claims at 106-124 and router /rpc paths, sixteen nodes and lx namespace routing at 128-171."
+expected = "The finished network is one paxd BFT chain, chain id 125, final at committed block height, with root-path node RPC and native precompile operations. Documentation must agree with that lifecycle and the retirement inventory."
+proposal = "Rewrite docs/site/docs/overview/unified-network.md for one paxd chain, fourteen node hosts and aggregate root endpoint, actual node namespaces and hosted-only px methods; replace custody/claims with native funding and commit proofs."
+owner_domain = 17
+class = "doc-drift"
+
+[finding.22.30.5.31]
+file = "docs/site/docs/programs/index.md"
+line = 119
+severity = "medium"
+observed = "The Programs page routes deploy/CALL/simulation through LNI/REST at 119-138 and lx_sendActivity at 248-249; protocol/occupancy sections 323-340 and 405-437 use daemon batches and replica finalizers as current settlement, despite an accurate later custody-retirement notice."
+expected = "The finished network is one paxd BFT chain, chain id 125, final at committed block height, with root-path node RPC and native precompile operations. Documentation must agree with that lifecycle and the retirement inventory."
+proposal = "Update docs/site/docs/programs/index.md for native layerxprograms 0x101D transaction/simulation/query paths, committed-block settlement and current host/guest ABI admission; remove active LNI/REST and replica-batch instructions."
+owner_domain = 13
+class = "doc-drift"
+
+[finding.22.30.5.32]
+file = "docs/site/docs/programs/workspace.md"
+line = 15
+severity = "medium"
+observed = "The workspace page lists the retired protocol adapter at line 15 and in the unsafe allowlist near 88; qualification near 151/156 relies on replay-golden and cmd/layerxd batch-WAL integration."
+expected = "The finished network is one paxd BFT chain, chain id 125, final at committed block height, with root-path node RPC and native precompile operations. Documentation must agree with that lifecycle and the retirement inventory."
+proposal = "Rewrite docs/site/docs/programs/workspace.md for retained crates, native gRPC/ICS23 state readers and host determinism/reopen evidence; replace retired daemon-WAL and golden-replay targets."
+owner_domain = 13
+class = "doc-drift"
+
+[finding.22.30.5.33]
+file = "docs/site/docs/protocol/modules.md"
+line = 20
+severity = "medium"
+observed = "The site module catalog describes live bridge/reserve/withdrawal/checkpoint behavior at 20,25,47,73,87-90 and daemon runtime bindings near 115, obscuring the native bank-backed asset lifecycle."
+expected = "The finished network is one paxd BFT chain, chain id 125, final at committed block height, with root-path node RPC and native precompile operations. Documentation must agree with that lifecycle and the retirement inventory."
+proposal = "Rewrite docs/site/docs/protocol/modules.md module wiring/funding for lxphost and native bank state; label retired custody/checkpoint paths unavailable and describe current keeper/precompile registration."
+owner_domain = 17
+class = "doc-drift"
+
+[finding.22.30.5.34]
+file = "docs/site/docs/protocol/modules.md"
+line = 54
+severity = "medium"
+observed = "The module page calls per-asset accounts LX_ACCOUNT_AGENT_MAIN at line 54 and assigns LX_ASSET_CUSTODY_PAXEER=1 near line 73. The headers declare LX_ACCOUNT_AGENT_ASSET=14, native custody=1 and Paxeer custody=2."
+expected = "Account kinds and custody discriminator values must agree with include/layerx/lxp_ledger.h and lx_asset.h so clients interpret the producer's stored shape correctly."
+proposal = "Correct names/values in docs/site/docs/protocol/modules.md from live headers, distinguish main and per-asset accounts and explicitly label retained legacy custody values."
+owner_domain = 17
+class = "doc-drift"
+
+[finding.22.30.5.35]
+file = "docs/site/docs/protocol/xweb.md"
+line = 45
+severity = "medium"
+observed = "xweb payment guidance uses LAYERX-PAYER-DID, lx_sendActivity/lx_getReceipt and sequencer settlement at 45-57. Its kernel path at 179-195 folds observations into a batch web root and cites retired kernel web sources, despite correctly disabling web_read."
+expected = "The finished network is one paxd BFT chain, chain id 125, final at committed block height, with root-path node RPC and native precompile operations. Documentation must agree with that lifecycle and the retirement inventory."
+proposal = "Rewrite docs/site/docs/protocol/xweb.md for bound EVM payers, native transactions/receipts and xweb 0x1019 keeper state; remove kernel batch-root/adapter instructions while preserving the web_read refusal notice."
+owner_domain = 11
+class = "doc-drift"
+
+[finding.22.30.5.36]
+file = "docs/wiki/Programs.md"
+line = 118
+severity = "medium"
+observed = "The wiki Programs page retains LNI simulation/REST activity ingress at 118-140 and 250-251, and replica batch/occupancy finalization around 446-478. Its added ABI host-function table does not make those transport/finality claims current."
+expected = "The finished network is one paxd BFT chain, chain id 125, final at committed block height, with root-path node RPC and native precompile operations. Documentation must agree with that lifecycle and the retirement inventory."
+proposal = "Update docs/wiki/Programs.md with native 0x101D submission, committed-height reads, current ABI admission and settlement; synchronize host signatures and remove active LNI/daemon/replica batch instructions."
+owner_domain = 13
+class = "doc-drift"
+
+[finding.22.30.5.37]
+file = "docs/wiki/Modules.md"
+line = 20
+severity = "medium"
+observed = "The wiki module catalog presents active custody bridge/reserve/withdrawal at 20,26,48,74,88-93 and daemon runtime binding near 118, rather than the native merged ledger."
+expected = "The finished network is one paxd BFT chain, chain id 125, final at committed block height, with root-path node RPC and native precompile operations. Documentation must agree with that lifecycle and the retirement inventory."
+proposal = "Rewrite docs/wiki/Modules.md together with the site catalog for current host/keeper registration, native funding and committed-height proofs; mark custody/checkpoint flows retired."
+owner_domain = 17
+class = "doc-drift"
+
+[finding.22.30.5.38]
+file = "docs/wiki/Modules.md"
+line = 55
+severity = "medium"
+observed = "docs/wiki/Modules.md line 55 calls per-asset accounts LX_ACCOUNT_AGENT_MAIN; line 74 assigns LX_ASSET_CUSTODY_PAXEER value 1. Headers use LX_ACCOUNT_AGENT_ASSET=14 and native=1/Paxeer=2."
+expected = "The wiki must use the same account kinds and custody values as the real ledger/asset producer and persistent consumer, avoiding a third wire interpretation."
+proposal = "Correct enum names/values in docs/wiki/Modules.md from lxp_ledger.h/lx_asset.h alongside the site page and explicitly distinguish current native account shapes."
+owner_domain = 17
+class = "doc-drift"
+
+[finding.22.30.5.39]
+file = "docs/wiki/Home.md"
+line = 7
+severity = "medium"
+observed = "Wiki Home describes kernel batches/periodic checkpoints at 7-10 and 20-22, with replicas, guarantors and custody claims still part of the active overview."
+expected = "The finished network is one paxd BFT chain, chain id 125, final at committed block height, with root-path node RPC and native precompile operations. Documentation must agree with that lifecycle and the retirement inventory."
+proposal = "Rewrite docs/wiki/Home.md for one paxd network, block commit finality, root-path RPC and native precompile operations; point onboarding to current funding/proof paths."
+owner_domain = 17
+class = "doc-drift"
+
+[finding.22.30.5.40]
+file = "docs/wiki/ProgramsWorkspace.md"
+line = 15
+severity = "medium"
+observed = "Wiki workspace lists the retired protocol adapter near 15/88 and describes replay-golden and layerxd batch-WAL qualification near 151-156."
+expected = "The finished network is one paxd BFT chain, chain id 125, final at committed block height, with root-path node RPC and native precompile operations. Documentation must agree with that lifecycle and the retirement inventory."
+proposal = "Synchronize docs/wiki/ProgramsWorkspace.md with the repaired site workspace using retained crates, native state-proof readers and real host determinism/reopen targets."
+owner_domain = 13
+class = "doc-drift"
+
+[finding.22.30.5.41]
+file = "docs/system/precompiles.md"
+line = 1181
+severity = "medium"
+observed = "The generated ABI inventory lists layerxanchor, layerxcustody, layerxverify and old layerxexchange methods with ordinary fixed addresses and no post-upgrade retirement/refusal status; layerxexchange and perps both appear at 0x1015 without active selector ownership."
+expected = "The finished network is one paxd BFT chain, chain id 125, final at committed block height, with root-path node RPC and native precompile operations. Documentation must agree with that lifecycle and the retirement inventory."
+proposal = "Update tools/docs/gen-system-docs.sh and source metadata to distinguish retained ABI definitions from activated endpoints and print retired-method refusals, then regenerate docs/system/precompiles.md while keeping historical ABI decoding data."
+owner_domain = 17
+class = "doc-drift"
+
+[finding.22.30.5.42]
+file = "docs/site/docs/index.md"
+line = 11
+severity = "medium"
+observed = "The site index describes periodic custody checkpoints at 11-14/24-26 and advertises replicas, guarantors and claims near 45-46 as the active onboarding model."
+expected = "The finished network is one paxd BFT chain, chain id 125, final at committed block height, with root-path node RPC and native precompile operations. Documentation must agree with that lifecycle and the retirement inventory."
+proposal = "Rewrite docs/site/docs/index.md for a single committed paxd chain, native funding, current precompile views and root-path public RPC; replace checkpoint/replica/claim onboarding links."
+owner_domain = 17
+class = "doc-drift"
+
+[doc.01]
+path = "README.md"
+status = "stale"
+notes = "Read all 202 lines. Lines 44-47,79,145,181 retain separate layerxd/checkpoints and future-merge guidance."
+
+[doc.02]
+path = "docs/site/docs/overview/unified-network.md"
+status = "misleading"
+notes = "Read all 229 lines. Lines 11-88 and106-171 retain custody/checkpoints, guarantors, router /rpc, sixteen-node and namespace claims."
+
+[doc.03]
+path = "docs/site/docs/programs/index.md"
+status = "stale"
+notes = "Read all 583 lines. Lines 48,119-138,248-249,323-340,405-437 retain fee governance, retired ingress and replica/batch settlement; custody-retirement notice is accurate."
+
+[doc.04]
+path = "docs/site/docs/programs/workspace.md"
+status = "stale"
+notes = "Read all 197 lines. Lines 15,88,151-156 retain protocol-adapter and daemon/golden-replay qualification."
+
+[doc.05]
+path = "docs/site/docs/protocol/modules.md"
+status = "misleading"
+notes = "Read all 126 lines. Lines 20,25,47,73,87-90,115 retain retired funding/runtime;54/73 misstate account kind/custody enum."
+
+[doc.06]
+path = "docs/site/docs/protocol/xweb.md"
+status = "stale"
+notes = "Read all 292 lines. Lines 45-57 and179-195 retain DID/activity settlement and kernel batch web roots; web_read retirement notice is accurate."
+
+[doc.07]
+path = "docs/wiki/Programs.md"
+status = "stale"
+notes = "Read all 634 lines. Full site-common text and every wiki difference reviewed;118-140,250-251,446-478 retain old ingress and batch finality, while added host ABI table needs synchronization."
+
+[doc.08]
+path = "docs/wiki/Modules.md"
+status = "misleading"
+notes = "Read all 131 lines. Lines 20,26,48,74,88-93,118 retain custody/daemon;55/74 misstate account and custody kinds."
+
+[doc.09]
+path = "docs/wiki/Home.md"
+status = "stale"
+notes = "Read all 141 lines. Lines 7-10,20-22 and later overview retain checkpoints, replicas, guarantors and claims."
+
+[doc.10]
+path = "docs/wiki/ProgramsWorkspace.md"
+status = "stale"
+notes = "Read all 197 lines. Full site-common text and all three wiki link differences reviewed;15,88,151-156 retain adapter/daemon/golden-replay qualification."
+
+[doc.11]
+path = "docs/system/precompiles.md"
+status = "stale"
+notes = "Read all 2543 lines. Full generated functions/events/errors and Solidity inventory reviewed; summary33-42 and retired verify/anchor/custody/exchange sections lack activation/refusal status. Historical ABI presence is not live registration."
+
+[doc.12]
+path = "docs/site/docs/index.md"
+status = "stale"
+notes = "Read all 107 lines. Lines 11-14,24-26,45-46 retain periodic checkpoints, replicas, guarantors and claims in onboarding."
+
+[doc.13]
+path = "spec/layerx-merge/contracts/kernel.md"
+status = "accurate"
+notes = "Consulted introduction and cited binding-authority, kernel-codec, asset/budget/service/governance/qualification and service-delivery sections. This document explicitly freezes revision 2a1033aa2; planned/UNRUN data is historical contract metadata, not current gate evidence."

@@ -2,6 +2,7 @@ package tasks
 
 import (
 	"context"
+	tmtypes "github.com/sei-protocol/sei-chain/sei-tendermint/types"
 	"os"
 	"path/filepath"
 	"testing"
@@ -19,7 +20,7 @@ func TestArtifactUploader_UploadsGentxAndIdentity(t *testing.T) {
 	}
 
 	configDir := filepath.Join(homeDir, "config")
-	if err := os.WriteFile(filepath.Join(configDir, "node_key.json"), []byte(`{"priv_key":{"value":"base64key"}}`), 0o644); err != nil {
+	if _, err := tmtypes.LoadOrGenNodeKey(filepath.Join(configDir, "node_key.json")); err != nil {
 		t.Fatal(err)
 	}
 
@@ -52,7 +53,7 @@ func TestArtifactUploader_Idempotent(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(gentxDir, "gentx-abc.json"), []byte(`{}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(homeDir, "config", "node_key.json"), []byte(`{}`), 0o644); err != nil {
+	if _, err := tmtypes.LoadOrGenNodeKey(filepath.Join(homeDir, "config", "node_key.json")); err != nil {
 		t.Fatal(err)
 	}
 
@@ -100,7 +101,7 @@ func TestArtifactUploader_NoGentxFile(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(homeDir, "config", "gentx"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(homeDir, "config", "node_key.json"), []byte(`{}`), 0o644); err != nil {
+	if _, err := tmtypes.LoadOrGenNodeKey(filepath.Join(homeDir, "config", "node_key.json")); err != nil {
 		t.Fatal(err)
 	}
 

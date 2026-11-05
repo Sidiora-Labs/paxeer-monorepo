@@ -6,6 +6,7 @@ import (
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxauth/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles"
+	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxauth"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/utils"
 	"github.com/ethereum/go-ethereum/common"
@@ -107,10 +108,22 @@ func TestAuthWriteRefusals(t *testing.T) {
 				for _, value := range []*big.Int{nil, big.NewInt(0)} {
 					evm, db := h.evm()
 					before := hostSnapshot(t, db.Ctx(), h.hostKey)
+					actor, err := h.keeper.Actor(db.Ctx(), h.caller)
+					require.NoError(t, err)
+					require.True(t, actor.Authority.Bound)
 					data, err := h.precompile.Run(evm, h.caller, h.unbound, input, value, false, false, nil)
 					require.ErrorIs(t, err, vm.ErrExecutionReverted)
-					assertLxpRevert(t, data, "LXP_PRECOMPILE_UNKNOWN_METHOD: layerxauth method "+method+" is unavailable")
+					assertLxpRevert(t, data, "LXP_UNKNOWN_FIELD")
+					unknown := a.Methods[method]
+					unknown.Name += "Unavailable"
+					for _, caller := range []common.Address{h.caller, h.unbound} {
+						_, err = h.precompile.GetExecutor().Execute(db.Ctx(), &unknown, caller, h.unbound, args, value, false, evm, nil)
+						require.EqualError(t, err, "LXP_PRECOMPILE_UNKNOWN_METHOD: layerxauth method "+unknown.Name+" is unavailable")
+						assertLxpRevert(t, pcommon.LXPReason(err), "LXP_PRECOMPILE_UNKNOWN_METHOD: layerxauth method "+unknown.Name+" is unavailable")
+					}
 					require.Equal(t, before, hostSnapshot(t, db.Ctx(), h.hostKey))
+					require.Empty(t, db.GetAllLogs())
+					require.Empty(t, db.Ctx().EventManager().Events())
 				}
 			})
 		})

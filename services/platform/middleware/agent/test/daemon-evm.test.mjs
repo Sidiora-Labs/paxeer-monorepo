@@ -1,9 +1,13 @@
+import "./production-sources.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { secp256k1 } from "@noble/curves/secp256k1.js";
 import { keccak_256 } from "@noble/hashes/sha3.js";
 import { decodeRawEip1559, eip1559SigningHash, recoverEip1559Sender, PlatformSdkError } from "@sidiora/layerx-sdk";
-import { decodeDaemonPrepared, signedActivityId, decodeDaemonSubmission } from "../dist/index.js";
+import { daemonFixture, loopback, envelopeClient, BudgetStore, temporaryDirectory, receiptsForDaemon } from "./repair-support.mjs";
+import { join } from "node:path";
+const { AgentMiddleware, decodeDaemonPrepared, signedActivityId, decodeDaemonSubmission,
+  decodeDaemonSubmitResult, resolveDaemonReceipt, verifyAgentPayment } = await import("../src/index.ts");
 
 const hex = (value) => Buffer.from(value).toString("hex");
 const bytes = (value) => Buffer.from(value, "hex");
@@ -116,73 +120,125 @@ function signedTransactionHashRecoversPreparedSender() {
   }
 }
 
-const recordedSubmission = `{
-  "tx_hash": "a52f2455a87ccb3b84a90ae4e3c9153e7122b66cd69cb080ae9ecd9732619277",
-  "submission": {
-    "submission_ref": "submission-7",
-    "state": "Executed",
-    "verification_level": "Receipted",
-    "evidence": [],
-    "transitions": [],
-    "receipt_ref": "receipt-7"
-  },
-  "receipt": {
-    "signed_receipt": "00025201000200000020a52f2455a87ccb3b84a90ae4e3c9153e7122b66cd69cb080ae9ecd9732619277000000000000000100000020000000000000000000000000000000000000000000000000000000000000000000000020a48065818165fb64611dff9b6de4056284bde354442b57d953ecf798a046330d00000020e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8550000000000000001000c000000000100000000200000000000000000000000000000000000000000000000000000000000000000000000710000000000005208000000000000520800000000773594000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b85500000000000000000475687078000000000000000000002632e314a0000000002000000000000000000000000000000000000000000000000000000000000003e8000c000000010000000002000000200e237584332fc3e1f1672d80a167a8d027597a64b34f4be18951e60babdd4f7300000000000000000de0b6b3a764000000000020000000000000000000000000fe3b557e8fb62b89f4916b721be55ceb828dbd7300000000000000056bc75e2d6310000000000000000000055de68146d89760000000000000000000000000200000000000000000000000008ba1f109551bd432803012645ac136ddd64dba720000000000000000000000000000000000000000000000000de0b6b3a7640000000000200000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000206b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b000001977426f6800100000040bfff5ed541997e8ce3eb29f7492d71d29689b76f85b41b422184810697d08244dcb3c8db9cfdbabd7b8fd3fd22e707f834fac3ebcb52d09be6435487f7cd190c",
-    "raw_transaction": "02f8727d80843b9aca0084b2d05e00825208948ba1f109551bd432803012645ac136ddd64dba72880de0b6b3a764000080c080a0c10d1d3ded8a2ac5bf5652235628abf4963e5618e1f0b374794de957bc2401cfa079c223a5baf08e5d5b17ab51b244e2d1d528df9d692adc690653eaa3ddfb0981",
-    "receipt_key": {
-      "key_id": "6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
-      "public_key": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
-      "first_height": "1000",
-      "last_height": "1999"
-    },
-    "verification_level": "Receipted"
-  }
-}`;
-
-function decodeDaemonSubmissionAcceptsOnlyRungLevels() {
-  const observation = JSON.parse(recordedSubmission);
-  const decoded = decodeDaemonSubmission(observation, observation.tx_hash, observation.submission.submission_ref);
-  assert.equal(decoded.verification_level, "Receipted");
-  assert.equal(decoded.tx_hash, observation.tx_hash);
-  assert.equal(decoded.activity_id, undefined);
-  assert.deepEqual(decoded.portableReceipt, {
-    format: "layerx-receipt-proof-v2", verificationLevel: "receipted",
-    rawTransaction: `0x${observation.receipt.raw_transaction}`, signedReceipt: `0x${observation.receipt.signed_receipt}`,
-    receiptDigest: `0x${hex(keccak_256(bytes(observation.receipt.signed_receipt)))}`,
-    receiptKey: {
-      keyId: `0x${observation.receipt.receipt_key.key_id}`, publicKey: `0x${observation.receipt.receipt_key.public_key}`,
-      firstHeight: "1000", lastHeight: "1999",
-    },
+async function decodeDaemonSubmissionAcceptsOnlyRungLevels(t) {
+  const { transcript, raw, input, receiptKeys } = daemonFixture();
+  const endpoint = await loopback(t, (body) => {
+    assert.equal(body.operation, "track");
+    assert.deepEqual(body.request, { submission_ref: transcript.submit.tx_hash });
+    return { request_id: body.request_id, value: transcript.committed,
+      verification_status: { state: "achieved", rung: "committed" } };
   });
-  const committed = structuredClone(observation);
-  committed.submission.verification_level = "Committed";
-  committed.receipt.verification_level = "Committed";
-  assert.equal(decodeDaemonSubmission(committed).portableReceipt.verificationLevel, "committed");
-  const submitted = { tx_hash: observation.tx_hash, submission: {
-    submission_ref: "submission-7", state: "Submitted", verification_level: "Submitted", evidence: [], transitions: [],
-  }, receipt: null };
-  assert.equal(decodeDaemonSubmission(submitted).verification_level, "Submitted");
-  for (const level of ["Unverified", "SequencerSigned", "BatchIncluded", "StateProven", "CheckpointFinalised", "SettlementAnchored"]) {
+  const observation = await envelopeClient(endpoint).agent("track", { submission_ref: transcript.submit.tx_hash });
+  assert.deepEqual(observation, transcript.committed);
+  const decoded = await resolveDaemonReceipt(decodeDaemonSubmission(observation,
+    observation.activity_id, observation.submission.submission_ref), raw, receiptKeys);
+  assert.equal(decoded.verification_level, "Committed");
+  assert.equal(decoded.state, "Committed");
+  assert.equal(decoded.rung, "committed");
+  assert.equal(decoded.tx_hash, observation.activity_id);
+  assert.equal(decoded.activity_id, observation.activity_id);
+  assert.deepEqual(decoded.portableReceipt, {
+    format: "layerx-receipt-proof-v2", verificationLevel: "committed",
+    rawTransaction: `0x${transcript.raw_transaction}`, signedReceipt: `0x${observation.receipt.canonical_bytes}`,
+    receiptDigest: `0x${hex(keccak_256(bytes(observation.receipt.canonical_bytes)))}`,
+    receiptKey: transcript.receipt_key,
+  });
+  assert.equal(decodeDaemonSubmission(transcript.pending).verification_level, "Submitted");
+  assert.equal(decodeDaemonSubmission(transcript.pending).state, "Unknown");
+  for (const level of ["Unverified", "SequencerSigned", "BatchIncluded", "StateProven", "CheckpointFinalised", "SettlementAnchored", "Receipted", "Committed"]) {
     const value = structuredClone(observation);
-    value.submission.verification_level = level;
+    value.submission.rung = level;
     assert.throws(() => decodeDaemonSubmission(value), decodeFailure, level);
-    value.submission.verification_level = "Receipted";
-    value.receipt.verification_level = level;
+    value.submission.rung = "committed";
+    value.receipt.rung = level;
     assert.throws(() => decodeDaemonSubmission(value), decodeFailure, `receipt ${level}`);
   }
   const missing = structuredClone(observation);
-  delete missing.receipt.signed_receipt;
+  delete missing.receipt.canonical_bytes;
   assert.throws(() => decodeDaemonSubmission(missing), decodeFailure);
-  const wrongRaw = structuredClone(observation);
-  wrongRaw.receipt.raw_transaction = hex(sign(answer).raw);
-  assert.throws(() => decodeDaemonSubmission(wrongRaw), decodeFailure);
-  const wrongRange = structuredClone(observation);
-  wrongRange.receipt.receipt_key.last_height = "999";
-  assert.throws(() => decodeDaemonSubmission(wrongRange), decodeFailure);
+  await assert.rejects(resolveDaemonReceipt(decoded, sign(answer).raw, receiptKeys), decodeFailure);
+  await assert.rejects(resolveDaemonReceipt(decoded, raw, [{ ...receiptKeys[0], last_height: 0n }]), verificationFailure);
   assert.throws(() => decodeDaemonSubmission(observation, "00".repeat(32)), decodeFailure);
   assert.throws(() => decodeDaemonSubmission(observation, undefined, "another-submission"), decodeFailure);
+  for (const mutate of [
+    (value) => { value.submission.tx_hash = "99".repeat(32); },
+    (value) => { value.receipt.tx_hash = "99".repeat(32); },
+    (value) => { value.receipt.rung = "receipted"; },
+    (value) => { value.receipt = null; },
+  ]) {
+    const value = structuredClone(observation); mutate(value);
+    assert.throws(() => decodeDaemonSubmission(value), decodeFailure);
+  }
+  const submitted = decodeDaemonSubmitResult(transcript.submit, decoded.tx_hash, transcript.submit.preparation_ref);
+  assert.equal(submitted.state, "Receipted");
+  assert.equal((await verifyAgentPayment((await resolveDaemonReceipt(submitted, raw, receiptKeys)).portableReceipt,
+    input, receiptKeys)).payment.amount, 25000n);
+}
+
+export async function daemonSerializerPendingTrackingSurvivesReopen(t) {
+  const { transcript, raw, input, prepared, receiptKeys, signer } = daemonFixture();
+  const calls = [];
+  let observation = transcript.pending;
+  const endpoint = await loopback(t, (body, request, response) => {
+    assert.equal(request.url, "/v1/agent/rpc");
+    calls.push(body);
+    let value;
+    if (body.operation === "prepare") {
+      assert.deepEqual(body.request, input.preparation);
+      value = prepared;
+    } else if (body.operation === "submit") {
+      assert.deepEqual(body.request, { preparation_ref: prepared.preparation_ref,
+        signature: sign(prepared, new Uint8Array(32).fill(1)).signature,
+        signer_public_key: input.signerPublicKey, approval_release_ref: null });
+      response.destroy();
+      return;
+    } else {
+      assert.equal(body.operation, "track");
+      assert.deepEqual(body.request, { submission_ref: transcript.submit.tx_hash });
+      value = observation;
+    }
+    return { request_id: body.request_id, value,
+      verification_status: { state: "achieved", rung: value.submission?.rung ?? "submitted" } };
+  });
+  const path = join(temporaryDirectory(t), "pending.sqlite");
+  const receipts = receiptsForDaemon();
+  const open = () => {
+    const budgets = new BudgetStore(path);
+    const middleware = new AgentMiddleware({ client: envelopeClient(endpoint), budgets, receipts, receiptKeys, signer, maximumTrackPolls: 0 });
+    return { budgets, middleware };
+  };
+  let component = open();
+  assert.equal((await component.middleware.spend(input)).kind, "unknown");
+  assert.equal(component.budgets.available, 75000n);
+  assert.equal(component.budgets.transitions.length, 0);
+  component.budgets.close();
+  component = open();
+  const pending = await component.middleware.resume(input, `0x${hex(raw)}`, transcript.submit.tx_hash);
+  assert.equal(pending.kind, "unknown");
+  assert.equal(pending.submission.state, "Unknown");
+  assert.equal(pending.submission.rung, "submitted");
+  assert.deepEqual(pending.submission.transitions, transcript.pending.submission.transitions);
+  assert.equal(component.budgets.available, 75000n);
+  assert.equal(component.budgets.transitions.length, 0);
+  component.budgets.close();
+  observation = transcript.committed;
+  component = open();
+  // A committed label alone cannot authorize a debit without consensus evidence.
+  const committed = await component.middleware.resume(input, `0x${hex(raw)}`, transcript.submit.tx_hash);
+  assert.equal(committed.kind, "unknown");
+  assert.equal(committed.submission.state, "Committed");
+  assert.equal(committed.submission.rung, "committed");
+  assert.deepEqual(committed.submission.observation, transcript.committed);
+  assert.equal(committed.submission.portableReceipt.signedReceipt, `0x${transcript.submit.signed_receipt}`);
+  assert.equal(component.budgets.available, 75000n);
+  assert.equal(component.budgets.transitions.length, 0);
+  assert.equal([...component.budgets.reservations.values()][0].state, "reserved");
+  assert.equal(calls.filter((call) => call.operation === "submit").length, 1);
+  assert.equal(calls.filter((call) => call.operation === "track").length, 2);
+  component.budgets.close();
 }
 
 test(decodeDaemonPreparedRecomputesSigningHash);
 test(signedTransactionHashRecoversPreparedSender);
 test(decodeDaemonSubmissionAcceptsOnlyRungLevels);
+test(daemonSerializerPendingTrackingSurvivesReopen);

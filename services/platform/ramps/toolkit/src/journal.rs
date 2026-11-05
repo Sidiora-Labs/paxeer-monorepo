@@ -233,6 +233,7 @@ pub struct PaxeerSnapshot {
 
 impl OrderSnapshot {
     #[must_use]
+    #[allow(deprecated)]
     pub fn presentation(&self) -> RampPresentation {
         let status = match self.stage {
             WorkflowStage::ManualReview => AggregateStatus::ManualReview,
@@ -270,6 +271,8 @@ impl OrderSnapshot {
             None
         };
         RampPresentation {
+            version: 2,
+            transaction_hash: self.evidence.tx_hash,
             external_custody_label: EXTERNAL_CUSTODY_LABEL,
             status,
             order_digest: self.order.order_digest,
@@ -279,6 +282,42 @@ impl OrderSnapshot {
             refusal_code,
             retry_at,
         }
+    }
+
+    /// Historical activity identifiers are available only through this explicit v1 view.
+    #[must_use]
+    pub fn presentation_v1(&self) -> crate::LegacyRampPresentation {
+        let current = self.presentation();
+        crate::LegacyRampPresentation {
+            version: 1,
+            activity_id: self.evidence.activity_id,
+            status: current.status,
+            order_digest: self.order.order_digest,
+            external_custody_label: EXTERNAL_CUSTODY_LABEL,
+            receipt_digest: current.receipt_digest,
+            provider_evidence_digest: current.provider_evidence_digest,
+            refusal_code: current.refusal_code,
+            retry_at: current.retry_at,
+        }
+    }
+
+    /// Maintained GET order envelope. Journal keys stay unchanged for replay compatibility.
+    #[must_use]
+    pub fn response(&self) -> serde_json::Value {
+        let presentation =
+            serde_json::to_value(self.presentation()).expect("serializable presentation");
+        serde_json::json!({
+            "version": 2,
+            "order_id": self.order.order_id,
+            "order": self.order,
+            "stage": self.stage,
+            "evidence": {
+                "transaction_hash": presentation["transaction_hash"],
+                "receipt_digest": self.evidence.receipt_digest,
+                "rung": self.evidence.rung.map(Rung::name),
+            },
+            "presentation": presentation,
+        })
     }
 }
 
@@ -504,6 +543,13 @@ impl Projection {
                 || evidence.provider_evidence_digest.is_some())
         {
             return Err(RampError::IllegalTransition);
+        }
+        if evidence.tx_hash.is_some_and(|hash| {
+            self.orders.iter().any(|(digest, other)| {
+                digest != order_digest && other.evidence.tx_hash == Some(hash)
+            })
+        }) {
+            return Err(RampError::Conflict);
         }
         validate_resulting_evidence(next, &snapshot.evidence, evidence)?;
         if evidence_conflicts(&snapshot.evidence, evidence) {
@@ -1885,7 +1931,7 @@ fn payment_receipt_missing(evidence: &TransitionEvidence) -> bool {
             || evidence.raw_transaction.is_none()
             || evidence.receipt_digest.is_none()
             || evidence.receipt_height.is_none()
-            || !matches!(evidence.rung, Some(Rung::Receipted | Rung::Committed))
+            || !matches!(evidence.rung, Some(Rung::Committed))
     }
 }
 
@@ -2026,7 +2072,7 @@ fn validate_resulting_evidence(
         .is_some_and(|value| value != [0; 32])
         && (legacy
             || (evidence.receipt_height.is_some_and(|height| height != 0)
-                && matches!(evidence.rung, Some(Rung::Receipted | Rung::Committed))));
+                && matches!(evidence.rung, Some(Rung::Committed))));
     let refusal = evidence
         .refusal_code
         .as_deref()

@@ -46,7 +46,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/policy/lx"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/store"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/transport"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/dealer"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/dealershare"
 )
 
 const (
@@ -801,7 +801,7 @@ func TestApprovedDisclosureBindsActivitySignatures(t *testing.T) {
 	}
 }
 
-const mailTypedData = `{"types":{"EIP712Domain":[{"name":"name","type":"string"},{"name":"version","type":"string"},{"name":"chainId","type":"uint256"},{"name":"verifyingContract","type":"address"}],"Person":[{"name":"name","type":"string"},{"name":"wallet","type":"address"}],"Mail":[{"name":"from","type":"Person"},{"name":"to","type":"Person"},{"name":"contents","type":"string"}]},"primaryType":"Mail","domain":{"name":"Ether Mail","version":"1","chainId":125,"verifyingContract":"0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC"},"message":{"from":{"name":"Cow","wallet":"0xCD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826"},"to":{"name":"Bob","wallet":"0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB"},"contents":"Hello, Bob!"}}`
+const permitTypedData = `{"types":{"EIP712Domain":[{"name":"name","type":"string"},{"name":"version","type":"string"},{"name":"chainId","type":"uint256"},{"name":"verifyingContract","type":"address"}],"Permit":[{"name":"owner","type":"address"},{"name":"spender","type":"address"},{"name":"value","type":"uint256"},{"name":"nonce","type":"uint256"},{"name":"deadline","type":"uint256"}]},"primaryType":"Permit","domain":{"name":"Attestor test token","version":"1","chainId":125,"verifyingContract":"0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC"},"message":{"owner":"%s","spender":"0x1111111111111111111111111111111111111111","value":"100","nonce":"0","deadline":"4102444800"}}`
 
 func TestEVMReviewThenSignAcrossQuorum(t *testing.T) {
 	tokenAddress := common.HexToAddress("0x2222222222222222222222222222222222222222")
@@ -906,7 +906,9 @@ func TestEVMReviewThenSignAcrossQuorum(t *testing.T) {
 }
 
 func TestFiveNodeEndToEnd(t *testing.T) {
-	c := newTestCluster(t, 5, true)
+	doc := testPolicy()
+	doc.Defaults.Caps["0xcccccccccccccccccccccccccccccccccccccccc"] = policy.Cap{PerTransaction: "1000", Daily: "10000"}
+	c := newTestClusterWith(t, 5, true, doc, nil)
 	token := c.idp.mint(t, c.idp.key, testOwner)
 	fresh := func() string { return c.idp.mint(t, c.idp.key, testOwner) }
 
@@ -1020,17 +1022,18 @@ func TestFiveNodeEndToEnd(t *testing.T) {
 		}
 	}
 
-	var mail apitypes.TypedData
-	if err := json.Unmarshal([]byte(mailTypedData), &mail); err != nil {
+	typedData := fmt.Sprintf(permitTypedData, address.Hex())
+	var permit apitypes.TypedData
+	if err := json.Unmarshal([]byte(typedData), &permit); err != nil {
 		t.Fatal(err)
 	}
-	mailDigest, _, err := apitypes.TypedDataAndHash(mail)
+	permitDigest, _, err := apitypes.TypedDataAndHash(permit)
 	if err != nil {
 		t.Fatal(err)
 	}
-	tdResults := decodeOK[SignResponse](t, "typed data", sign("sign-typed-data", SignRequest{KeyID: "evm-key", Kind: KindTypedData, TypedData: mailTypedData}, fresh()))
+	tdResults := decodeOK[SignResponse](t, "typed data", sign("sign-typed-data", SignRequest{KeyID: "evm-key", Kind: KindTypedData, TypedData: typedData}, fresh()))
 	for _, r := range tdResults {
-		if r.SignedBytes != hex.EncodeToString(mailDigest) {
+		if r.SignedBytes != hex.EncodeToString(permitDigest) {
 			t.Fatalf("%s: typed data digest %s", r.NodeID, r.SignedBytes)
 		}
 		digest, _ := hex.DecodeString(r.SignedBytes)

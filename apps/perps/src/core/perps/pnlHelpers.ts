@@ -1,5 +1,6 @@
 /**
- * Collateral, PnL & Liquidation helpers for Paxeer Perps positions.
+ * Position-only collateral, PnL and liquidation estimates for Paxeer Perps.
+ * Cross-margin account risk comes separately from the current getAccount view.
  *
  * Every amount is a bigint at the 18-decimal scale the perps gateway and the
  * perps precompile use for sizeUsd, collateralUsd, leverage, entryPrice,
@@ -14,7 +15,7 @@
  *
  *   remainingCollateral = initialCollateral + unrealizedPnl − fundingPaid − fees
  *
- *   Liquidation occurs when remainingCollateral ≤ the market tier maintenance.
+ *   The position-only estimate reaches the market tier maintenance when:
  *     maintenance = sizeUsd × maintenanceBps / 10000 − deductionUsd
  *     cushion  = (initialCollateral − fundingPaid − fees − maintenance) / sizeUsd
  *     LONG  liqPrice = entryPrice × (1 − cushion)
@@ -27,6 +28,7 @@
  */
 
 import { parseWei, toPlainDecimal } from "@/ui/utils/format";
+import { accountRiskFromView, type AccountRiskView, type AccountView } from "./accountView";
 import { maintenanceMargin as marketMaintenanceMargin, type MarginTier } from "./marketConfig";
 
 export const WAD = 10n ** 18n;
@@ -57,6 +59,10 @@ export interface ParsedPosition {
 }
 
 export interface PositionPnl {
+  estimateScope: "position-only";
+  liquidationPriceLabel: "Position-only liquidation estimate";
+  /** Current cross-margin risk; null until an account snapshot is supplied. */
+  accountRisk: AccountRiskView | null;
   markPrice: bigint;
   initialCollateral: bigint;    // sizeUsd / leverage (what the user actually put up)
   remainingCollateral: bigint;  // initialCollateral + unrealizedPnl − funding − fees (live)
@@ -65,7 +71,7 @@ export interface PositionPnl {
   unrealizedPnlPct: bigint;     // return on initial collateral, 18-dec percent
   netValue: bigint;             // remaining collateral (same as remainingCollateral)
   marginPct: bigint;            // remaining / sizeUsd × 100, 18-dec percent
-  liqPrice: bigint;             // estimated price where position is wiped out, 18-dec USD
+  liqPrice: bigint;             // position-only estimate, never the account liquidation boundary
   liqSafetyBps: bigint;         // 0 = at liquidation, 10000 = at or beyond entry
   roe: bigint;                  // alias for unrealizedPnlPct
 }
@@ -147,11 +153,17 @@ export function computePositionPnl(
   pos: ParsedPosition,
   markPrice: bigint,
   tiers: readonly MarginTier[] = [],
+  account: AccountView | null = null,
 ): PositionPnl {
   const { sizeUsd, entryPrice, leverage } = pos;
   if (typeof markPrice !== "bigint" || sizeUsd < 0n || entryPrice < 0n || leverage < 0n) {
     throw new RangeError("Invalid position PnL input");
   }
+  const risk = {
+    estimateScope: "position-only",
+    liquidationPriceLabel: "Position-only liquidation estimate",
+    accountRisk: account === null ? null : accountRiskFromView(account),
+  } as const;
   const maintenance = maintenanceMargin(sizeUsd, tiers);
   const initialCollateral = leverage > 0n ? (sizeUsd * WAD) / leverage : sizeUsd;
   const charges = pos.fundingPaidUsd + pos.feesUsd;
@@ -159,6 +171,7 @@ export function computePositionPnl(
 
   if (markPrice <= 0n || entryPrice <= 0n) {
     return {
+      ...risk,
       markPrice: 0n,
       initialCollateral,
       remainingCollateral: idle,
@@ -202,6 +215,7 @@ export function computePositionPnl(
   }
 
   return {
+    ...risk,
     markPrice,
     initialCollateral,
     remainingCollateral,

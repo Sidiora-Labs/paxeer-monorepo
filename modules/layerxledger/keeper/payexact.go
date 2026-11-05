@@ -32,13 +32,13 @@ func (k *Keeper) PayExact(ctx sdk.Context, actor Actor, args types.PayExactArgs)
 	if network.Sign() <= 0 || network.BitLen() > 32 {
 		return Result{}, types.ErrNonCanonical
 	}
-	sequence, err := k.NextSequence(ctx, actor.DIDKey, args.Asset)
+	source, err := k.sendSource(ctx, actor, args.From, args.Asset)
 	if err != nil {
 		return Result{}, err
 	}
 	send := types.SendArgs{
 		From: args.From, To: args.To, Asset: args.Asset, Amount: args.Amount,
-		Sequence: sequence, IdempotencyKey: args.PaymentReference, ExpiresAt: args.ExpiresAt,
+		Sequence: source.NextSequence, IdempotencyKey: args.PaymentReference, ExpiresAt: args.ExpiresAt,
 		PublicKey: actor.Authority.VerifiedKey, NetworkID: uint32(network.Uint64()),
 		ProtocolVersion: codec.StateCommitmentProtocolVersion,
 	}

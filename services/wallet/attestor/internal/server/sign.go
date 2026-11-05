@@ -21,7 +21,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/policy"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/policy/evm"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/policy/lx"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/dealer"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/dealershare"
 	tssecdsa "github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/ecdsa"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/eddsa"
 )
@@ -373,6 +373,10 @@ func (s *Server) doSign(r *http.Request, body []byte) (SignResponse, *Error) {
 	if !ok {
 		return SignResponse{}, newError(CodeSessionKind, "kind %q is not supported", req.Kind)
 	}
+	unlockSession := s.lockKey("sign\x00" + requestID(req.KeyID, req.SessionID))
+	defer unlockSession()
+	unlock := s.readKey(req.KeyID)
+	defer unlock()
 	rec, payload, e := s.loadShare(req.KeyID)
 	if e != nil {
 		return SignResponse{}, e
@@ -428,6 +432,17 @@ func (s *Server) doSign(r *http.Request, body []byte) (SignResponse, *Error) {
 	if s.signsVerification(req.KeyID, rec.PublicKey, signed, view) {
 		return refuse(policyError(policy.CodeVerificationIsolated, "the verification message is signed only under "+KindOperatorVerification))
 	}
+	intent := signingIntent(req, rec.Epoch, signed)
+	state, e := s.bindSignIntent(intent)
+	if e != nil {
+		return refuse(e)
+	}
+	if state.Response != nil {
+		if e := s.validateSignResult(rec, intent, signed, *state.Response); e != nil {
+			return refuse(e)
+		}
+		return *state.Response, nil
+	}
 	if strings.HasPrefix(payload.Owner, "agent:") || r.Header.Get(HeaderAgentKey) != "" {
 		if s.opts.Authority == nil {
 			return refuse(newError(CodeTokenUnavailable, "custody authority is not configured"))
@@ -466,7 +481,7 @@ func (s *Server) doSign(r *http.Request, body []byte) (SignResponse, *Error) {
 			return SignResponse{}, newError(CodeKeyNotRefreshed, "key %q needs a refresh before it can sign", req.KeyID)
 		}
 		var sig tssecdsa.EthereumSignature
-		e = s.runBoundSession(r.Context(), req.SessionID, "sign", protocolSignSecp, epochBinding(rec.Epoch), signers, func(ctx context.Context, ps *peerSession) error {
+		e = s.runBoundSession(r.Context(), req.SessionID, "sign", protocolSignSecp, append(epochBinding(rec.Epoch), []byte(intent.Digest)...), signers, func(ctx context.Context, ps *peerSession) error {
 			var err error
 			sig, err = tssecdsa.Sign(ctx, share, ecdsaNet{ps}, signers, signed)
 			return err
@@ -482,7 +497,7 @@ func (s *Server) doSign(r *http.Request, body []byte) (SignResponse, *Error) {
 			return SignResponse{}, newError(CodeKeyInvalidShare, "%v", err)
 		}
 		var sig [64]byte
-		e = s.runBoundSession(r.Context(), req.SessionID, "sign", protocolSignEd, epochBinding(rec.Epoch), signers, func(ctx context.Context, ps *peerSession) error {
+		e = s.runBoundSession(r.Context(), req.SessionID, "sign", protocolSignEd, append(epochBinding(rec.Epoch), []byte(intent.Digest)...), signers, func(ctx context.Context, ps *peerSession) error {
 			var err error
 			sig, err = eddsa.Sign(ctx, k, eddsaNet{ps}, signers, signed)
 			return err
@@ -491,6 +506,12 @@ func (s *Server) doSign(r *http.Request, body []byte) (SignResponse, *Error) {
 			return SignResponse{}, e
 		}
 		resp.Signature = hex.EncodeToString(sig[:])
+	}
+	if e := s.validateSignResult(rec, intent, signed, resp); e != nil {
+		return refuse(e)
+	}
+	if e := s.saveSignResult(intent, resp); e != nil {
+		return refuse(e)
 	}
 	return resp, nil
 }

@@ -604,6 +604,7 @@ mod tests {
             cumulative_gas_used: 1,
             effective_gas_price: 1,
             fee_denom: "asset".to_owned(),
+            payment_denom: "asset".to_owned(),
             fee_amount: [0; 32],
             sponsor: [0; 20],
             from: [2; 20],

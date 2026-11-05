@@ -1,0 +1,243 @@
+[reconcile.r4-109]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r4-109.1]
+interface = "interface.4.cfg-web-next-dist-dir-j30"
+verdict = "served"
+path = "apps/launchpad/web/next.config.ts"
+line = 45
+symbol = "distDir"
+evidence = "The nextConfig property declares distDir: process.env.NEXT_DIST_DIR ?? '.next'; the matching configuration declaration is at line 45."
+
+[row.r4-109.2]
+interface = "interface.4.cfg-web-next-output-file-tracing-root-j30"
+verdict = "served"
+path = "apps/launchpad/web/next.config.ts"
+line = 65
+symbol = "outputFileTracingRoot"
+evidence = "The nextConfig outputFileTracingRoot property declares the repository root in development and the apps/launchpad workspace root otherwise; line 62 only mentions the key in a comment."
+
+[row.r4-109.3]
+interface = "interface.4.cfg-web-next-output-j30"
+verdict = "served"
+path = "apps/launchpad/web/next.config.ts"
+line = 51
+symbol = "output"
+evidence = "The nextConfig property declares output: process.env.VERCEL ? undefined : 'standalone', preserving the registered Vercel-dependent output setting."
+
+[row.r4-109.4]
+interface = "interface.4.env-web-sentry-auth-token-j30"
+verdict = "served"
+path = "apps/launchpad/web/next.config.ts"
+line = 108
+symbol = "SENTRY_AUTH_TOKEN"
+evidence = "The withSentryConfig authToken option reads process.env.SENTRY_AUTH_TOKEN at line 108; the other executable read at line 115 controls sourcemaps.disable."
+
+[row.r4-109.5]
+interface = "interface.4.cli-lp-contracts-script-event-emitter-v2-01-deploy-impl"
+verdict = "served"
+path = "contracts/launchpad/scripts/event-emitter-v2/01-deploy-impl.js"
+line = 82
+symbol = "main"
+evidence = "async function main() is the entry function for hardhat run scripts/event-emitter-v2/01-deploy-impl.js; it qualifies the upgrade, compiles and deploys EventEmitter. Lines 13-14 document invocation and line 195 calls main."
+
+[row.r4-109.6]
+interface = "interface.4.cli-lp-contracts-script-meta-ag-register-tokens-oracle"
+verdict = "served"
+path = "contracts/launchpad/scripts/meta-ag/register-tokens-oracle.js"
+line = 345
+symbol = "main"
+evidence = "async function main() implements hardhat run scripts/meta-ag/register-tokens-oracle.js: it attaches PriceOracle and registers missing tokens; the invocation is at line 501 and usage comments at lines 35 and 38."
+
+[row.r4-109.7]
+interface = "interface.4.cli-lp-contracts-script-meta-ag-seed-vault-liquidity"
+verdict = "served"
+path = "contracts/launchpad/scripts/meta-ag/seed-vault-liquidity.js"
+line = 381
+symbol = "main"
+evidence = "async function main() implements hardhat run scripts/meta-ag/seed-vault-liquidity.js: it attaches PECORVault, filters tokens and seeds reserves; line 643 invokes it, while lines 44-45 document usage."
+
+[row.r4-109.8]
+interface = "interface.4.go-launchpad-keeper-keeper-execute-lp-rewards"
+verdict = "served"
+path = "modules/launchpad/keeper/fees.go"
+line = 512
+symbol = "ExecuteLpRewards"
+evidence = "The *Keeper method declaration matches ExecuteLpRewards(ctx sdk.Context, caller sdk.AccAddress, denom string) (sdk.Int, error); it checks fee rights and calls sendLpRewards."
+
+[row.r4-109.9]
+interface = "interface.4.go-launchpad-keeper-keeper-pause"
+verdict = "served"
+path = "modules/launchpad/keeper/fees.go"
+line = 555
+symbol = "Pause"
+evidence = "The *Keeper Pause(ctx sdk.Context, caller sdk.AccAddress, denom string) error declaration calls setPaused with true; the preceding line is its documentation comment."
+
+[row.r4-109.10]
+interface = "interface.4.go-launchpad-keeper-keeper-router-send-lp-rewards"
+verdict = "served"
+path = "modules/launchpad/keeper/fees.go"
+line = 522
+symbol = "RouterSendLpRewards"
+evidence = "The *Keeper RouterSendLpRewards(ctx sdk.Context, sender, pool common.Address) (sdk.Int, error) declaration checks FeesRouterRole and sends rewards for the resolved pool."
+
+[row.r4-109.11]
+interface = "interface.4.go-launchpad-keeper-keeper-unpause"
+verdict = "served"
+path = "modules/launchpad/keeper/fees.go"
+line = 560
+symbol = "Unpause"
+evidence = "The *Keeper Unpause(ctx sdk.Context, caller sdk.AccAddress, denom string) error declaration calls setPaused with false; the preceding line only documents the method."
+
+[row.r4-109.12]
+interface = "interface.4.go-launchpad-keeper-keeper-iterate-markets"
+verdict = "served"
+path = "modules/launchpad/keeper/keeper.go"
+line = 242
+symbol = "IterateMarkets"
+evidence = "The *Keeper IterateMarkets(ctx sdk.Context, cb func(types.Market) bool) declaration visits indexed markets in creation order and stops when the callback returns true."
+
+[row.r4-109.13]
+interface = "interface.4.go-launchpad-types-book-held-delta-key"
+verdict = "served"
+path = "modules/launchpad/types/keys.go"
+line = 111
+symbol = "BookHeldDeltaKey"
+evidence = "func BookHeldDeltaKey(pool [20]byte, asset [20]byte) []byte declares the matching key constructor and joins BookHeldDeltaPrefix with pool and asset bytes; line 110 is a comment."
+
+[row.r4-109.14]
+interface = "interface.4.go-launchpad-types-fee-held-key"
+verdict = "served"
+path = "modules/launchpad/types/keys.go"
+line = 102
+symbol = "FeeHeldKey"
+evidence = "func FeeHeldKey(accumulator [20]byte) []byte declares the matching constructor returning join(FeeHeldPrefix, accumulator[:]); line 101 is documentation."
+
+[row.r4-109.15]
+interface = "interface.4.go-launchpad-types-fee-right-idmap-key"
+verdict = "served"
+path = "modules/launchpad/types/keys.go"
+line = 116
+symbol = "FeeRightIDMapKey"
+evidence = "func FeeRightIDMapKey(generation1ID uint64) []byte declares the matching constructor using FeeRightIDMapPrefix and uint64Bytes(generation1ID); line 115 is documentation."
+
+[row.r4-109.16]
+interface = "interface.4.go-launchpad-types-held-quote-key"
+verdict = "served"
+path = "modules/launchpad/types/keys.go"
+line = 99
+symbol = "HeldQuoteKey"
+evidence = "func HeldQuoteKey(pool [20]byte) []byte declares the matching constructor returning join(HeldQuotePrefix, pool[:]); line 98 is documentation."
+
+[row.r4-109.17]
+interface = "interface.4.go-launchpad-types-retired-key"
+verdict = "served"
+path = "modules/launchpad/types/keys.go"
+line = 122
+symbol = "RetiredKey"
+evidence = "func RetiredKey(address [20]byte) []byte declares the matching constructor returning join(RetiredPrefix, address[:]); lines 120-121 document the retired-address record."
+
+[row.r4-109.18]
+interface = "interface.4.go-launchpad-types-role-key"
+verdict = "served"
+path = "modules/launchpad/types/keys.go"
+line = 94
+symbol = "RoleKey"
+evidence = "func RoleKey(contract [20]byte, role [32]byte, account [20]byte) []byte declares the matching constructor joining RolePrefix, contract, role and account; line 93 is documentation."
+
+[row.r4-109.19]
+interface = "interface.4.go-launchpad-types-surface-key"
+verdict = "served"
+path = "modules/launchpad/types/keys.go"
+line = 91
+symbol = "SurfaceKey"
+evidence = "func SurfaceKey(surface [20]byte) []byte declares the matching constructor returning join(SurfacePrefix, surface[:]); lines 89-90 document the surface record."
+
+[row.r4-109.20]
+interface = "interface.4.go-launchpad-types-treasury-held-key"
+verdict = "served"
+path = "modules/launchpad/types/keys.go"
+line = 108
+symbol = "TreasuryHeldKey"
+evidence = "func TreasuryHeldKey(token [20]byte) []byte declares the matching constructor returning join(TreasuryHeldPrefix, token[:]); line 107 is documentation."
+
+[row.r4-109.21]
+interface = "interface.4.go-launchpad-types-treasury-ledger-key"
+verdict = "served"
+path = "modules/launchpad/types/keys.go"
+line = 105
+symbol = "TreasuryLedgerKey"
+evidence = "func TreasuryLedgerKey(token [20]byte) []byte declares the matching constructor returning join(TreasuryLedgerPrefix, token[:]); line 104 is documentation."
+
+[row.r4-109.22]
+interface = "interface.4.pc-v610-buy"
+verdict = "served"
+path = "precompiles/launchpad/legacy/v610/launchpad.go"
+line = 47
+symbol = "buy"
+evidence = "BuyMethod = \"buy\" declares the legacy method name. The embedded v610/abi.json defines buy(address,uint256,uint256,address,uint256), nonpayable returning uint256; Execute dispatches it to swap at lines 249-250."
+
+[row.r4-109.23]
+interface = "interface.4.pc-v610-execute-airdrop"
+verdict = "served"
+path = "precompiles/launchpad/legacy/v610/launchpad.go"
+line = 52
+symbol = "executeAirdrop"
+evidence = "ExecuteAirdropMethod = \"executeAirdrop\" declares the legacy method name. The embedded v610/abi.json defines executeAirdrop(address), nonpayable returning uint256; lines 255-256 dispatch it to executeStrategy."
+
+[row.r4-109.24]
+interface = "interface.4.pc-v610-execute-burn"
+verdict = "served"
+path = "precompiles/launchpad/legacy/v610/launchpad.go"
+line = 51
+symbol = "executeBurn"
+evidence = "ExecuteBurnMethod = \"executeBurn\" declares the legacy method name. The embedded v610/abi.json defines executeBurn(address), nonpayable returning uint256; lines 255-256 dispatch it to executeStrategy."
+
+[row.r4-109.25]
+interface = "interface.4.pc-v610-execute-lp-rewards"
+verdict = "served"
+path = "precompiles/launchpad/legacy/v610/launchpad.go"
+line = 55
+symbol = "executeLpRewards"
+evidence = "ExecuteLpRewardsMethod = \"executeLpRewards\" declares the legacy method name. The embedded v610/abi.json defines executeLpRewards(address), nonpayable returning uint256; lines 255-256 dispatch it to executeStrategy."
+
+[row.r4-109.26]
+interface = "interface.4.pc-v610-pause"
+verdict = "served"
+path = "precompiles/launchpad/legacy/v610/launchpad.go"
+line = 56
+symbol = "pause"
+evidence = "PauseMethod = \"pause\" declares the legacy method name. The embedded v610/abi.json defines pause(address), nonpayable returning bool; lines 259-260 dispatch it to setPaused."
+
+[row.r4-109.27]
+interface = "interface.4.pc-v610-sell"
+verdict = "served"
+path = "precompiles/launchpad/legacy/v610/launchpad.go"
+line = 48
+symbol = "sell"
+evidence = "SellMethod = \"sell\" declares the legacy method name. The embedded v610/abi.json defines sell(address,uint256,uint256,address,uint256), nonpayable returning uint256; Execute dispatches it to swap at lines 249-250."
+
+[row.r4-109.28]
+interface = "interface.4.pc-v610-unpause"
+verdict = "served"
+path = "precompiles/launchpad/legacy/v610/launchpad.go"
+line = 57
+symbol = "unpause"
+evidence = "UnpauseMethod = \"unpause\" declares the legacy method name. The embedded v610/abi.json defines unpause(address), nonpayable returning bool; lines 259-260 dispatch it to setPaused."
+
+[row.r4-109.29]
+interface = "interface.4.ts-sdk-op-if-bounty-submissions-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 654
+symbol = "IF_BOUNTY_SUBMISSIONS"
+evidence = "The operationDefinitions object entry IF_BOUNTY_SUBMISSIONS begins at line 654 and declares method GET, path /v2/bounties/{bountyId}/submissions and service api. Line 29 is the OperationTypes member, not this runtime definition."
+
+[row.r4-109.30]
+interface = "interface.4.ts-sdk-op-if-comments-list-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 909
+symbol = "IF_COMMENTS_LIST"
+evidence = "The operationDefinitions object entry IF_COMMENTS_LIST begins at line 909 and declares method GET, path /v2/pools/{poolAddress}/comments and service api. Line 129 is the OperationTypes member, not this runtime definition."

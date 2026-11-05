@@ -1,0 +1,28 @@
+[repair.22.31.452]
+acceptance = "22998.1"
+test_class = "com.sidiora.layerx.spring.Repair2231452Test"
+resolution = "Move the starter and example from the unpatched Spring Boot 3.3 line to the maintained Spring Boot 4 major, pinned to 4.0.7."
+alignment = "Import spring-boot-dependencies 4.0.7 so Boot, auto-configuration, Spring Framework, Servlet, Jackson and JUnit resolve as one supported dependency set; Maven uses the BOM and has no separate lockfile in this module."
+example = "Use the Boot 4 Web MVC starter and convert webhook Jackson 2 trees to plain Java values before the example's Boot 4 Jackson 3 HTTP serialization."
+evidence = "The bounded hf-build and hf-done ledger records the verified candidate revision, exact commands, exits and private evidence locations; this record makes no independent qualification claim."
+qualification = "Maven target output is relocated to private sandbox storage, keeping generated classes and changing Surefire reports outside the source candidate; the test resolves its storage parent to a canonical path and retains every production ownership and permission check."
+
+[alert.2745]
+package = "org.springframework.boot:spring-boot"
+advisory = "GHSA-wwpq-f5c3-7hvx"
+source = "https://api.github.com/advisories/GHSA-wwpq-f5c3-7hvx"
+fixed = "4.0.6"
+resolution = "Move to maintained major 4 and resolve 4.0.7; the 3.3 range names no patched release."
+test = "springBootResolvesAboveItsAdvisoryMinimum"
+
+[alert.2751]
+package = "org.springframework.boot:spring-boot-autoconfigure"
+advisory = "GHSA-ggg2-9786-hwc8"
+source = "https://api.github.com/advisories/GHSA-ggg2-9786-hwc8"
+fixed = "4.0.7"
+resolution = "Move to maintained major 4 and resolve 4.0.7; the 3.3 range names no patched release."
+test = "autoConfigureResolvesAboveItsAdvisoryMinimumAndMatchesBoot"
+
+[context]
+test = "springDiscoversAndLoadsTheIntegrationAutoConfiguration"
+proof = "EnableAutoConfiguration discovers the production AutoConfiguration.imports entry, binds declared properties and instantiates the real receipt authority, seller, webhook consumer and durable stores without credentials or a live endpoint."

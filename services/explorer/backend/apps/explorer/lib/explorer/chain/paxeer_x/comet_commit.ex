@@ -75,6 +75,93 @@ defmodule Explorer.Chain.PaxeerX.CometCommit do
 
   def verify(_chain_id, _signed_header, _validators), do: {:error, :malformed_commit}
 
+  @doc "Converts the SDK inclusion witness to the Comet RPC representation without dropping signed fields."
+  def inclusion_header(header, commit, validators) do
+    signed = %{
+      "header" => %{
+        "version" => %{"block" => decimal_text(header["VersionBlock"]), "app" => decimal_text(header["VersionApp"])},
+        "chain_id" => Map.fetch!(header, "ChainID"),
+        "height" => decimal_text(header["Height"]),
+        "time" => Map.fetch!(header, "Time"),
+        "last_block_id" => inclusion_block_id(Map.fetch!(header, "LastBlockID"))
+      },
+      "commit" => %{
+        "height" => decimal_text(commit["Height"]),
+        "round" => Map.fetch!(commit, "Round"),
+        "block_id" => inclusion_block_id(Map.fetch!(commit, "BlockID")),
+        "signatures" => Enum.map(Map.fetch!(commit, "Signatures"), &inclusion_signature/1)
+      }
+    }
+
+    fields = [
+      {"LastCommitHash", "last_commit_hash"},
+      {"DataHash", "data_hash"},
+      {"ValidatorsHash", "validators_hash"},
+      {"NextValidatorsHash", "next_validators_hash"},
+      {"ConsensusHash", "consensus_hash"},
+      {"AppHash", "app_hash"},
+      {"LastResultsHash", "last_results_hash"},
+      {"EvidenceHash", "evidence_hash"},
+      {"ProposerAddress", "proposer_address"}
+    ]
+
+    signed =
+      Enum.reduce(fields, signed, fn {source, target}, acc ->
+        put_in(acc, ["header", target], inclusion_hex(Map.fetch!(header, source)))
+      end)
+
+    true = is_list(validators) and length(validators) in 1..@max_validators
+
+    entries =
+      Enum.map(validators, fn validator ->
+        public = Map.fetch!(validator, "PublicKey")
+        true = is_list(public) and length(public) == 32 and Enum.all?(public, &(is_integer(&1) and &1 in 0..255))
+        public = :erlang.list_to_binary(public)
+        <<address::binary-size(20), _::binary>> = :crypto.hash(:sha256, public)
+
+        %{
+          "address" => Base.encode16(address),
+          "pub_key" => %{"type" => @ed25519_type, "value" => Base.encode64(public)},
+          "voting_power" => decimal_text(validator["VotingPower"])
+        }
+      end)
+
+    {:ok, signed,
+     %{
+       "block_height" => signed["header"]["height"],
+       "validators" => entries,
+       "count" => Integer.to_string(length(entries)),
+       "total" => Integer.to_string(length(entries))
+     }}
+  rescue
+    _ in [ArgumentError, KeyError, BadMapError, MatchError, FunctionClauseError, Protocol.UndefinedError] -> :error
+  end
+
+  defp inclusion_block_id(block) do
+    %{
+      "hash" => inclusion_hex(Map.fetch!(block, "Hash")),
+      "parts" => %{
+        "total" => Map.fetch!(block, "PartSetTotal"),
+        "hash" => inclusion_hex(Map.fetch!(block, "PartSetHash"))
+      }
+    }
+  end
+
+  defp inclusion_signature(%{"BlockIDFlag" => flag}) when flag in [@flag_absent, @flag_nil],
+    do: %{"block_id_flag" => flag}
+
+  defp inclusion_signature(signature) do
+    %{
+      "block_id_flag" => Map.fetch!(signature, "BlockIDFlag"),
+      "validator_address" => inclusion_hex(Map.fetch!(signature, "ValidatorAddress")),
+      "timestamp" => Map.fetch!(signature, "Timestamp"),
+      "signature" => Map.fetch!(signature, "Signature")
+    }
+  end
+
+  defp inclusion_hex(value), do: value |> Base.decode64!() |> Base.encode16()
+  defp decimal_text(value) when is_integer(value) and value >= 0, do: Integer.to_string(value)
+
   defp tally(chain_id, commit, validators) do
     commit.signatures
     |> Enum.zip(validators)

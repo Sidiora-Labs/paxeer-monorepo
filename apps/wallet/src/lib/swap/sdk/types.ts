@@ -4,116 +4,124 @@
  */
 
 export interface QuoteResult {
-    amountIn: bigint;
-    amountOut: bigint;
-    grossAmountOut: bigint;
-    executionPrice: bigint;
-    spotPriceIn: bigint;
-    spotPriceOut: bigint;
-    feeAmount: bigint;
-    feeBps: bigint;
-    sufficientLiquidity: boolean;
-    availableLiquidity: bigint;
-    priceTimestampIn: bigint;
-    priceTimestampOut: bigint;
-    priceStaleIn: boolean;
-    priceStaleOut: boolean;
-    utilizationCapBps: bigint;
-    tradeUtilizationBps: bigint;
-    cappedByUtilization: boolean;
-    twapOut: bigint;
-    twapDeviationBps: bigint;
-    effectiveFeeBps: bigint;
-    tier: bigint;
-    priceImpactBps: bigint;
-    priceImpactDeduction: bigint;
+  amountIn: bigint;
+  amountOut: bigint;
+  grossAmountOut: bigint;
+  executionPrice: bigint;
+  spotPriceIn: bigint;
+  spotPriceOut: bigint;
+  feeAmount: bigint;
+  feeBps: bigint;
+  sufficientLiquidity: boolean;
+  availableLiquidity: bigint;
+  priceTimestampIn: bigint;
+  priceTimestampOut: bigint;
+  priceStaleIn: boolean;
+  priceStaleOut: boolean;
+  utilizationCapBps: bigint;
+  tradeUtilizationBps: bigint;
+  cappedByUtilization: boolean;
+  twapOut: bigint;
+  twapDeviationBps: bigint;
+  effectiveFeeBps: bigint;
+  tier: bigint;
+  priceImpactBps: bigint;
+  priceImpactDeduction: bigint;
 }
 
 export interface SidioraQuoteResult {
-    amountOut: bigint;
-    feeAmount: bigint;
-    priceImpactBps: bigint;
+  amountOut: bigint;
+  feeAmount: bigint;
+  priceImpactBps: bigint;
 }
 
 export interface SidioraMultihopQuoteResult {
-    amountOut: bigint;
-    intermediateUsdl: bigint;
-    sellFeeAmount: bigint;
-    buyFeeAmount: bigint;
-    sellPriceImpactBps: bigint;
-    buyPriceImpactBps: bigint;
-    combinedPriceImpactBps: bigint;
-    poolA: string;
-    poolB: string;
+  amountOut: bigint;
+  intermediateUsdl: bigint;
+  sellFeeAmount: bigint;
+  buyFeeAmount: bigint;
+  sellPriceImpactBps: bigint;
+  buyPriceImpactBps: bigint;
+  combinedPriceImpactBps: bigint;
+  poolA: string;
+  poolB: string;
 }
 
 export interface PoolState {
-    pool: string;
-    token: string | null;
-    price: bigint;
-    virtualUsdl: bigint;
-    realUsdl: bigint;
-    tokenReserve: bigint;
+  pool: string;
+  token: string | null;
+  price: bigint;
+  virtualUsdl: bigint;
+  realUsdl: bigint;
+  tokenReserve: bigint;
 }
 
+export type OrderType = 0 | 1 | 2 | 3 | 4;
+export type OrderStatus = 0 | 1 | 2 | 3 | 4;
+
 export interface LimitOrder {
-    id: bigint;
-    user: string;
-    stablecoin: string;
-    token: string;
-    amount: bigint;
-    targetPrice: bigint;
-    orderType: number;
-    status: number;
-    createdAt: bigint;
-    expiresAt: bigint;
+  id: bigint;
+  user: string;
+  stablecoin: string;
+  token: string;
+  amount: bigint;
+  targetPrice: bigint;
+  orderType: OrderType;
+  status: OrderStatus;
+  createdAt: bigint;
+  expiresAt: bigint;
 }
 
 export interface StopLossOrder {
-    id: bigint;
-    user: string;
-    stablecoin: string;
-    token: string;
-    amount: bigint;
-    triggerPrice: bigint;
-    status: number;
-    createdAt: bigint;
-    expiresAt: bigint;
+  id: bigint;
+  user: string;
+  stablecoin: string;
+  token: string;
+  amount: bigint;
+  triggerPrice: bigint;
+  status: OrderStatus;
+  createdAt: bigint;
+  expiresAt: bigint;
 }
 
 export interface StopLimitOrder {
-    id: bigint;
-    user: string;
-    stablecoin: string;
-    token: string;
-    amount: bigint;
-    stopPrice: bigint;
-    limitPrice: bigint;
-    orderType: number;
-    status: number;
-    createdAt: bigint;
-    expiresAt: bigint;
+  id: bigint;
+  user: string;
+  stablecoin: string;
+  token: string;
+  amount: bigint;
+  stopPrice: bigint;
+  limitPrice: bigint;
+  orderType: OrderType;
+  status: OrderStatus;
+  createdAt: bigint;
+  expiresAt: bigint;
 }
 
 export interface TokenBalance {
-    symbol: string;
-    address: string;
-    decimals: number;
-    raw: bigint;
-    formatted: string;
+  symbol: string;
+  address: string;
+  decimals: number;
+  raw: bigint;
+  formatted: string;
 }
 
 export interface SwapParams {
-    tokenIn: string;
-    tokenOut: string;
-    amountIn: bigint;
-    slippageBps: number;
-    deadlineSeconds?: number;
+  tokenIn: string;
+  tokenOut: string;
+  amountIn: bigint;
+  slippageBps: number;
+  deadlineSeconds?: number;
 }
 
 export interface SidioraSwapParams {
-    pool: string;
-    amountIn: bigint;
-    slippageBps: number;
-    deadlineSeconds?: number;
+  pool: string;
+  amountIn: bigint;
+  slippageBps: number;
+  deadlineSeconds?: number;
+}
+
+export interface SidioraMultihopConfirmation {
+  minimumAmountOut: bigint;
+  deadline: bigint;
 }

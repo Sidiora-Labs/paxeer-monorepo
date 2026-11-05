@@ -1,42 +1,32 @@
 [sweep.node-platform-middleware]
-revision = "03e2d849d7f3e9ca51cada79f6d3cfe90938a0fb"
+revision = "ace3608260f2ec826292dab08cd058031efe2f46"
 command = "cd TARGET && npm ci && npm run build && npm test"
 targets_total = 5
-targets_passed = 0
-targets_failed = 5
+targets_passed = 5
+targets_failed = 0
 targets_not_run = 0
 
 [target.node-platform-middleware.1]
 target = "services/platform/middleware/seller"
-result = "failed"
-exit_code = 2
-observed = "npm ci succeeded, then npm run build first failed at services/platform/middleware/seller/src/commitment.ts:6:8 with TS2307: Cannot find module '@sidiora/layerx-sdk' or its corresponding type declarations, so npm test was not reached."
-assumption = "The environment lacks the workspace SDK's generated dist/src/index.d.ts export because the per-target command does not build the SDK dependency first."
+result = "passed"
+exit_code = 0
 
 [target.node-platform-middleware.2]
 target = "services/platform/middleware/buyer"
-result = "failed"
-exit_code = 2
-observed = "npm ci succeeded, then npm run build first failed at services/platform/middleware/buyer/src/index.ts:12:8 with TS2307: Cannot find module '@sidiora/layerx-sdk' or its corresponding type declarations, so npm test was not reached."
-assumption = "The environment lacks the workspace SDK's generated dist/src/index.d.ts export because the per-target command does not build the SDK dependency first."
+result = "passed"
+exit_code = 0
 
 [target.node-platform-middleware.3]
 target = "services/platform/middleware/merchant"
-result = "failed"
-exit_code = 2
-observed = "npm ci succeeded, then npm run build first failed at services/platform/middleware/merchant/src/index.ts:17:53 with TS2307: Cannot find module '@sidiora/layerx-sdk' or its corresponding type declarations, so npm test was not reached."
-assumption = "The environment lacks the workspace SDK's generated dist/src/index.d.ts export because the per-target command does not build the SDK dependency first."
+result = "passed"
+exit_code = 0
 
 [target.node-platform-middleware.4]
 target = "services/platform/middleware/agent"
-result = "failed"
-exit_code = 2
-observed = "npm ci succeeded, then npm run build first failed at services/platform/middleware/agent/src/daemon.ts:6:8 with TS2307: Cannot find module '@sidiora/layerx-sdk' or its corresponding type declarations, so npm test was not reached."
-assumption = "The environment lacks the workspace SDK's generated dist/src/index.d.ts export because the per-target command does not build the SDK dependency first."
+result = "passed"
+exit_code = 0
 
 [target.node-platform-middleware.5]
 target = "services/platform/middleware/conformance"
-result = "failed"
-exit_code = 2
-observed = "npm ci succeeded, then npm run build first failed at services/platform/middleware/buyer/dist/index.d.ts:1:119 with TS2307: Cannot find module '@sidiora/layerx-sdk' or its corresponding type declarations, so npm test was not reached."
-assumption = "The environment lacks the workspace SDK's generated dist/src/index.d.ts export required by buyer's declarations because the per-target command does not build the SDK dependency first."
+result = "passed"
+exit_code = 0

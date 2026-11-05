@@ -1,0 +1,757 @@
+# Pre-upgrade product audit of the complete package at the recorded source revision.
+
+[audit.22.30.97]
+task = "22.30.97"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 48
+findings = 37
+docs_reviewed = 13
+upgrade_ready = false
+blocking = ["session_tools_unbound", "shared_payer_methods", "seller_rpc_misroute", "native_disclosure_legacy", "effect_carrier_legacy", "program_carrier_legacy"]
+
+[file.01]
+path = "services/agent/crates/layerx-agentd/host-tests/node_integration.rs"
+lines = 232
+verdict = "clean"
+note = "Read all node-integration fixtures, merged startup, authenticated node access and cleanup; host paths and refusal assertions agree with the merged runtime."
+
+[file.02]
+path = "services/agent/crates/layerx-agentd/host-tests/retired_env.rs"
+lines = 58
+verdict = "clean"
+note = "Read every retired-environment case; obsolete names are intentional rejection inputs and cannot activate retired runtime modes."
+
+[file.03]
+path = "services/agent/crates/layerx-agentd/host-tests/runtime_mode.rs"
+lines = 221
+verdict = "clean"
+note = "Read all mode cases and fixture setup; merged-node selection and unsupported-mode refusals agree with host configuration."
+
+[file.04]
+path = "services/agent/crates/layerx-agentd/host-tests/serve_routes.rs"
+lines = 545
+verdict = "clean"
+note = "Read all route cases; authenticated admission, body bounds and unsupported-route refusals agree with host HTTP dispatch."
+
+[file.05]
+path = "services/agent/crates/layerx-agentd/src/approval/events.rs"
+lines = 215
+verdict = "clean"
+note = "Read every event type, encoding and emission path; tenant-scoped lifecycle events retain approval identifiers without exposing credentials."
+
+[file.06]
+path = "services/agent/crates/layerx-agentd/src/approval/expiry.rs"
+lines = 956
+verdict = "clean"
+note = "Read persistence, expiry observation, recovery and failure tests in full; reservation release follows durable writes and failed writes preserve held exposure."
+
+[file.07]
+path = "services/agent/crates/layerx-agentd/src/approval/mod.rs"
+lines = 2479
+verdict = "issues"
+note = "Read the entire approval service, submission queue and embedded tests; grant publication precedes persistence and has a recovery finding."
+
+[file.08]
+path = "services/agent/crates/layerx-agentd/src/approval/native_effect.rs"
+lines = 1173
+verdict = "issues"
+note = "Read all native-effect carrier construction, validation, durable transitions and restoration; legacy envelope facts prevent merged call recovery."
+
+[file.09]
+path = "services/agent/crates/layerx-agentd/src/approval/native_program.rs"
+lines = 1018
+verdict = "issues"
+note = "Read all program carrier, presentation transitions and rate state; legacy restoration and lifetime committed-record capacity have findings."
+
+[file.10]
+path = "services/agent/crates/layerx-agentd/src/approval/native_program_presentation.rs"
+lines = 220
+verdict = "issues"
+note = "Read all owned presentation and allocation checks; actor and fee checks still use the legacy envelope."
+
+[file.11]
+path = "services/agent/crates/layerx-agentd/src/approval/program_requirement.rs"
+lines = 555
+verdict = "issues"
+note = "Read all requirement records, durable decisions and recovery checks; binding still re-encodes the legacy envelope."
+
+[file.12]
+path = "services/agent/crates/layerx-mcp/Cargo.toml"
+lines = 41
+verdict = "clean"
+note = "Read the complete manifest; dependencies, library exports and automatically discovered binary and test sources match the handwritten crate layout."
+
+[file.13]
+path = "services/agent/crates/layerx-mcp/README.md"
+lines = 159
+verdict = "issues"
+note = "Read the full crate guide; binding keys, serving requirements and catalogue need the recorded documentation rewrite."
+
+[file.14]
+path = "services/agent/crates/layerx-mcp/src/approval.rs"
+lines = 151
+verdict = "clean"
+note = "Read all threshold accumulation and exact-disclosure approval/reject/expire wrappers; overflow and changed disclosures return typed refusals through the daemon registry."
+
+[file.15]
+path = "services/agent/crates/layerx-mcp/src/bin/layerx-mcp.rs"
+lines = 97
+verdict = "clean"
+note = "Read argument parsing, stale socket ownership/inode checks, daemon-client setup and stdio fallback; implementation agrees with the entry point, with stale documentation recorded separately."
+
+[file.16]
+path = "services/agent/crates/layerx-mcp/src/binding.rs"
+lines = 1318
+verdict = "issues"
+note = "Read closed document parsing, protected secrets, readiness transport, invocation and web attachment in full; SharedPayer drops two declared payer methods."
+
+[file.17]
+path = "services/agent/crates/layerx-mcp/src/boundary.rs"
+lines = 448
+verdict = "issues"
+note = "Read every authenticated HTTP read, decoder and error mapping; response bounds are enforced but connection establishment ignores the binding deadline."
+
+[file.18]
+path = "services/agent/crates/layerx-mcp/src/catalogue.rs"
+lines = 1388
+verdict = "issues"
+note = "Read every schema, description, scope mapping and validator; fixed hex lengths and approval list bounds disagree across boundaries."
+
+[file.19]
+path = "services/agent/crates/layerx-mcp/src/lib.rs"
+lines = 13
+verdict = "clean"
+note = "Read every module export; public handwritten modules match the source tree without another transport or authority path."
+
+[file.20]
+path = "services/agent/crates/layerx-mcp/src/listener.rs"
+lines = 224
+verdict = "issues"
+note = "Read all socket ownership, admission, cleanup and serving code; persistent admitted peers can monopolise the sequential accept loop."
+
+[file.21]
+path = "services/agent/crates/layerx-mcp/src/readonly.rs"
+lines = 89
+verdict = "clean"
+note = "Read all read-only wrappers; read kind and mutation are checked before the same authorisation and release gates. Session catalogue omission is owned by server.rs."
+
+[file.22]
+path = "services/agent/crates/layerx-mcp/src/server.rs"
+lines = 1583
+verdict = "issues"
+note = "Read every server definition, scope binding, authorisation/release gate, audit and web route; bound catalogue selection omits SESSION_TOOLS."
+
+[file.23]
+path = "services/agent/crates/layerx-mcp/src/stdio.rs"
+lines = 668
+verdict = "clean"
+note = "Read both line transports, request bounds, descriptions, invocation identity and release handling; refusals preserve uncertainty and credentials are not echoed. Missing session tools originate in server binding."
+
+[file.24]
+path = "services/agent/crates/layerx-mcp/src/tools/faucet.rs"
+lines = 318
+verdict = "clean"
+note = "Read all faucet translation, scope checks, gateway outcomes and rung handling; idempotency is preserved and nonterminal outcomes do not claim receipts."
+
+[file.25]
+path = "services/agent/crates/layerx-mcp/src/tools/mod.rs"
+lines = 8
+verdict = "clean"
+note = "Read every handwritten tool module declaration; exports match faucet, read, wallet, web and write implementations."
+
+[file.26]
+path = "services/agent/crates/layerx-mcp/src/tools/read.rs"
+lines = 396
+verdict = "clean"
+note = "Read every read selector, continuation encoding, receipt/proof/checkpoint/availability decoder and refusal; results retain producer bytes, rung and freshness."
+
+[file.27]
+path = "services/agent/crates/layerx-mcp/src/tools/wallet.rs"
+lines = 499
+verdict = "clean"
+note = "Read all wallet helpers, alias call construction, account/balance selectors and wait handling; ledger targets and call-bound helper facts agree. Served alias verification is defective in write.rs."
+
+[file.28]
+path = "services/agent/crates/layerx-mcp/src/tools/web.rs"
+lines = 2857
+verdict = "issues"
+note = "Read all web configuration, offers, approvals, payer/receipt checks, HTTP and embedded tests; seller RPC routing and non-call holds have findings."
+
+[file.29]
+path = "services/agent/crates/layerx-mcp/src/tools/write.rs"
+lines = 615
+verdict = "issues"
+note = "Read every write stage, intent comparison, owner execution, native disclosure verification and tracking path; native checks still use the retired binder."
+
+[file.30]
+path = "services/agent/crates/layerx-mcp/src/untrusted.rs"
+lines = 129
+verdict = "clean"
+note = "Read every untrusted-output type and instruction envelope; source content is labelled untrusted and cannot override session authority or control fields."
+
+[file.31]
+path = "services/agent/crates/layerx-mcp/src/validate.rs"
+lines = 211
+verdict = "clean"
+note = "Read every injection and argument boundary; closed control fields reject tenant/scope/counterparty overrides and do not derive authority from model text."
+
+[file.32]
+path = "services/agent/crates/layerx-mcp/tests/activity_evm_signatures.rs"
+lines = 143
+verdict = "clean"
+note = "Read every external EVM signature case; exact 65-byte signatures and references use the current external-signature shape and reject retired signing fields."
+
+[file.33]
+path = "services/agent/crates/layerx-mcp/tests/alias_precompiles.rs"
+lines = 188
+verdict = "issues"
+note = "Read every alias/precompile test; ledger send, issueGrant and draw addresses, selectors and ABI words agree with construction and bind_call. Served verification coverage has a finding."
+
+[file.34]
+path = "services/agent/crates/layerx-mcp/tests/approval.rs"
+lines = 207
+verdict = "issues"
+note = "Read every threshold, changed-disclosure and lifecycle case; arbitrary non-call fixtures cannot prove durable merged approval replay."
+
+[file.35]
+path = "services/agent/crates/layerx-mcp/tests/binding_heights.rs"
+lines = 101
+verdict = "clean"
+note = "Read every binding-height case; core_height parses and core_sequence occurs only as a deliberate retired-key rejection input."
+
+[file.36]
+path = "services/agent/crates/layerx-mcp/tests/daemon_bound.rs"
+lines = 1168
+verdict = "issues"
+note = "Read the entire daemon exchange, catalogue, web binding and admission suite; session omissions and retired positive fixtures have findings."
+
+[file.37]
+path = "services/agent/crates/layerx-mcp/tests/faucet.rs"
+lines = 271
+verdict = "clean"
+note = "Read every faucet scope, refusal and idempotency case; state/evidence assertions match the helper and never infer execution from submission alone."
+
+[file.38]
+path = "services/agent/crates/layerx-mcp/tests/faucet_request_funds.rs"
+lines = 263
+verdict = "clean"
+note = "Read every request-funds, gateway, idempotency and partial-failure case; operation/result shapes and tenant/session gates match the current request contract."
+
+[file.39]
+path = "services/agent/crates/layerx-mcp/tests/proof_mcp.rs"
+lines = 271
+verdict = "clean"
+note = "Read every proof/native-read and endpoint case; /rpc URLs appear as deliberate refused endpoints rather than a supported retired route."
+
+[file.40]
+path = "services/agent/crates/layerx-mcp/tests/proof_native_reads.rs"
+lines = 356
+verdict = "clean"
+note = "Read every native proof fixture, decoder and refusal; rung/freshness and canonical evidence match the current read result types."
+
+[file.41]
+path = "services/agent/crates/layerx-mcp/tests/read.rs"
+lines = 249
+verdict = "clean"
+note = "Read every read-helper case; balance/history/receipt/checkpoint/availability selectors, evidence, continuation and refusal assertions match producer structures."
+
+[file.42]
+path = "services/agent/crates/layerx-mcp/tests/read_tools_rungs.rs"
+lines = 120
+verdict = "clean"
+note = "Read every rung case; submitted, receipted and unknown/failed results retain the current rung vocabulary without promoting observations."
+
+[file.43]
+path = "services/agent/crates/layerx-mcp/tests/readonly.rs"
+lines = 295
+verdict = "clean"
+note = "Read every read-only scope, gate, refusal and transport case; writes cannot escape the wrapper and missing authority refuses before effects."
+
+[file.44]
+path = "services/agent/crates/layerx-mcp/tests/scope.rs"
+lines = 624
+verdict = "clean"
+note = "Read all scope, tenant/capability, revocation, audit and injection cases; base catalogue tests cover their helper purpose. Missing session binding coverage is recorded in daemon_bound.rs."
+
+[file.45]
+path = "services/agent/crates/layerx-mcp/tests/session_tools_major_two.rs"
+lines = 263
+verdict = "issues"
+note = "Read every cursor and approval tx_hash/rung case; helper-only execution and imported non-call fixtures leave served/recovery paths unproved."
+
+[file.46]
+path = "services/agent/crates/layerx-mcp/tests/web.rs"
+lines = 2254
+verdict = "issues"
+note = "Read all web replay, approval, receipt, standing-grant and opened-session tests; invented seller RPC and retired positive keys conceal transport failures."
+
+[file.47]
+path = "services/agent/crates/layerx-mcp/tests/web_payments_layerxpay.rs"
+lines = 467
+verdict = "issues"
+note = "Read every payExact/draw ABI, expiry, receipt-address and binding case; seller RPC invention and invalid positive bindings have findings."
+
+[file.48]
+path = "services/agent/crates/layerx-mcp/tests/write.rs"
+lines = 485
+verdict = "clean"
+note = "Read every ordinary write stage, failure class, exact transcript and tracking case; typed refused/unknown outcomes agree with helpers and do not establish the native served-call path."
+
+[finding.session_tools_unbound]
+file = "services/agent/crates/layerx-mcp/src/server.rs"
+line = 525
+class = "wiring-gap"
+severity = "high"
+observed = "Server::bind_for_mode selects TOOL_CATALOGUE and WEB_TOOLS but omits SESSION_TOOLS. ScopeBinding recognises session scopes and catalogue::surface describes eleven approval/subscription tools, yet session-only scopes receive NoScope and mixed sessions cannot list or invoke those tools. Binding::daemon_invocation uses this server for mcp.describe and calls."
+expected = "Requirements 9053.1 and 9053.2 require declared approval/subscription tools to be reachable with major-2 cursor and approval result shapes through authenticated MCP."
+proposal = "Include SESSION_TOOLS in layerx-mcp/src/server.rs binding, deployment filtering, descriptions and dispatch. Prove daemon mcp.describe and MCP tools/list and tools/call with session-only and mixed scopes, including read-only filtering and triple-cursor acknowledgement."
+owner_domain = 9
+interface = "9.http-mcp-tool-approval-get"
+
+[finding.shared_payer_methods]
+file = "services/agent/crates/layerx-mcp/src/binding.rs"
+line = 311
+class = "interface-mismatch"
+severity = "high"
+observed = "SharedPayer forwards grant/pay/draw/submit but inherits standing_grant returning None and view returning Unavailable. web_route wraps the attached payer in this adapter, discarding a supplied standing grant and preventing getPayerGrant for an offered grantId. The production WebPayerBoundary also lacks these overrides."
+expected = "Requirement 1812793.1 requires existing grants to be returned and checked through WebPayer::view, with issueGrant used only when no standing grant exists."
+proposal = "Implement and forward standing_grant and view in layerx-mcp/src/binding.rs and layerx-agentd-host/src/payer.rs. Exercise offered and host-held grants through the opened daemon web route, retaining receipt checks and asserting no issueGrant submission for an existing grant."
+owner_domain = 9
+interface = "9.rs-mcp-tools-web-webpayer"
+
+[finding.seller_rpc_misroute]
+file = "services/agent/crates/layerx-mcp/src/tools/web.rs"
+line = 1242
+class = "interface-mismatch"
+severity = "high"
+observed = "payer_account sends POST /rpc eth_call(accountId) to WebConfig.endpoint, the x-websearch seller. offer_facts performs it for exact and metered prices. The real x-websearch route_of serves GET search/fetch/content and has no /rpc, so valid paid offers fail before settlement."
+expected = "The seller exposes resource HTTP; authenticated node RPC uses its own merged root endpoint. Requirements 9055.1 and 1812793.1 require ledger facts and a complete paid resource exchange."
+proposal = "Move accountId lookup behind the authenticated node/payer boundary in layerx-mcp/src/tools/web.rs. Keep seller requests on resource routes and prove exact and metered purchases against the actual x-websearch router and node transport rather than inventing a seller RPC route."
+owner_domain = 9
+interface = "11.http-xws-search"
+
+[finding.native_disclosure_legacy]
+file = "services/agent/crates/layerx-mcp/src/tools/write.rs"
+line = 441
+class = "interface-mismatch"
+severity = "high"
+observed = "execute_native_alias checks input bytes and the native_disclosure_v1 answer with disclosure::bind. That binder calls retired activity decode_unsigned; the merged preparation producer builds Eip1559Call and bind_call disclosure. Unsigned call RLP cannot pass this consumer, while the native owner path still exchanges legacy preparation shapes."
+expected = "Requirement 22062.1 explicitly requires SDK/MCP consumers to decode the served unsigned call, bind the actor address and compare every disclosed field without the retired canonical-bytes binder."
+proposal = "Migrate layerx-mcp/src/tools/write.rs and the native owner answer to unsigned EIP-1559 decoding plus disclosure::call::bind_call with the authenticated sender. Compare every response and requested intent field and prove prepare/disclose/sign/submit through the actual daemon transport."
+owner_domain = 9
+interface = "9.rs-crypto-disclosure-bind"
+
+[finding.effect_carrier_legacy]
+file = "services/agent/crates/layerx-agentd/src/approval/native_effect.rs"
+line = 307
+class = "interface-mismatch"
+severity = "high"
+observed = "NativeEffectApprovalCarrier::disclosure uses bind/bind_budget_mutation; validate decodes layerx_wire::activity::decode_unsigned with protocol_version 3. Actor, authority and expiry remain activity-envelope facts, so durable restoration rejects the merged unsigned call rather than rebinding its sender."
+expected = "Requirement 22058.1 requires native-effect carrier facts from the call and bound disclosure, with durable restoration by call decoding and sender rebinding."
+proposal = "Replace legacy restoration in layerx-agentd/src/approval/native_effect.rs with call-bound preparation and retained sender. Version durable carriers explicitly and prove reopen, altered bytes/sender refusal and terminal decision recovery through the native owner path."
+owner_domain = 9
+interface = "9.rs-crypto-disclosure-bind"
+
+[finding.program_carrier_legacy]
+file = "services/agent/crates/layerx-agentd/src/approval/native_program.rs"
+line = 107
+class = "restart-recovery"
+severity = "high"
+observed = "NativeProgramApprovalCarrier uses crate::prepare::Prepared, still re-exported from legacy, reads envelope actor/authority/timestamps and restores through restore_canonical. native_rate_submission_update decodes a signed Activity. These durable paths cannot replay the merged call-bound preparation and signed type-2 transaction."
+expected = "Requirement 22058.1 requires program settlement and carriers to read call-derived facts and restore by unsigned call decoding and sender rebinding."
+proposal = "Migrate layerx-agentd/src/approval/native_program.rs to call-bound preparation and verified EVM submission/receipt identities. Version durable state, preserve budget/decision atomicity and prove an admitted program call survives restart, approval, submission and settlement with identical facts."
+owner_domain = 9
+interface = "9.rs-agentd-approval-native-program-presentation-read-owned-j43"
+
+[finding.program_presentation_legacy]
+file = "services/agent/crates/layerx-agentd/src/approval/native_program_presentation.rs"
+line = 95
+class = "wiring-gap"
+severity = "medium"
+observed = "read_owned verifies legacy disclosure binding, reads module/actor/fee from prepared.envelope and derives the allocation actor with did_id_for_protocol instead of binding the EVM call sender."
+expected = "Requirement 22058.1 requires program presentations and allocation checks to use the same call-derived actor, activity, expiry, nonce, fee and idempotency facts as execution."
+proposal = "Update layerx-agentd/src/approval/native_program_presentation.rs with the carrier migration so operation, sender, gas fee bounds and allocation checks come from the rebound call. Compare the human presentation with the exact approved and submitted call."
+owner_domain = 9
+interface = "9.rs-agentd-approval-native-program-presentation-read-owned-j43"
+
+[finding.program_requirement_legacy]
+file = "services/agent/crates/layerx-agentd/src/approval/program_requirement.rs"
+line = 116
+class = "wiring-gap"
+severity = "medium"
+observed = "binding checks prepared.envelope.actor_did and idempotency_key, re-encodes the unsigned activity envelope and retains its payload_hash. Requirement records bind the legacy representation rather than the merged unsigned call."
+expected = "Requirement 22058.1 requires program requirement checks to consume call-bound facts and preserve them through durable decisions and recovery."
+proposal = "Migrate layerx-agentd/src/approval/program_requirement.rs to call-derived sender, canonical digest, operation and idempotency fields. Bind durable requirement decisions to the exact unsigned call and prove replay refuses a changed call or sender."
+owner_domain = 9
+interface = "9.rs-agentd-approval-native-program-presentation-read-owned-j43"
+
+[finding.grant_before_persist]
+file = "services/agent/crates/layerx-agentd/src/approval/mod.rs"
+line = 2220
+class = "restart-recovery"
+severity = "medium"
+observed = "ApprovalService::approve calls submissions.release before persist_grant. A failed complete_claim or fallback decision write leaves the queue entry published. authorize_submit can observe a release without a successful durable grant, and restart cannot preserve the same outcome."
+expected = "Decisions, released preparations and submission authority must become visible only after their joined durable grant succeeds, including storage failure and restart."
+proposal = "In layerx-agentd/src/approval/mod.rs stage the queue release, atomically persist the decision and released record, then publish it using the program release ordering. Inject a durable write failure and reopen to prove no release is visible until commit."
+owner_domain = 9
+interface = "9.rs-agentd-approvalservice-approve-j70"
+
+[finding.web_hold_not_call]
+file = "services/agent/crates/layerx-mcp/src/tools/web.rs"
+line = 1458
+class = "restart-recovery"
+severity = "medium"
+observed = "spend_preparation creates JSON resource/offer bytes, a SHA-256 signing preimage and DID actor, then calls policy::approval::hold without budget reservations. validate_registry and replay_released require unsigned EIP-1559 bytes, matching sender/address actor and durable reservation evidence; memory-only web fixtures hide this incompatibility."
+expected = "Requirement 22057.1 requires held bytes to decode as the unsigned call and disclosure to be rebound with the sender after restart, rejecting changed bytes or sender."
+proposal = "Hold the actual prepared payment call with sender, signing hash and budget reservations through the durable approval boundary in layerx-mcp/src/tools/web.rs. Bind resource/offer commitment separately to that preparation and prove restart, approval and exact retry through the served route."
+owner_domain = 9
+interface = "9.rs-agentd-policy-approval-hold"
+
+[finding.rate_lifetime_cap]
+file = "services/agent/crates/layerx-agentd/src/approval/native_program.rs"
+line = 923
+class = "runtime-risk"
+severity = "medium"
+observed = "StagedNativeRateUse::stage refuses previous.len() >= 4096 before considering expired windows. native_rate_receipt_update marks records committed without removing them; pending_native_uses still counts all RATE_PREFIX entries. Unsigned rejection/expiry removes records, but successful committed entries have no pruning path, eventually exhausting tenant admission."
+expected = "A bound on outstanding rate reservations must not become a lifetime limit on successful operations; committed uses outside authenticated applicable windows must stop consuming pending capacity."
+proposal = "Prune safely expired committed rate records in layerx-agentd/src/approval/native_program.rs, joined to authenticated window advancement and durable updates. Preserve in-flight/replay evidence and verify more than 4096 completed uses across expired windows remain admissible."
+owner_domain = 9
+interface = "9.rs-agentd-approvalservice-approve-j70"
+
+[finding.hex_length_validation]
+file = "services/agent/crates/layerx-mcp/src/catalogue.rs"
+line = 503
+class = "interface-mismatch"
+severity = "medium"
+observed = "Shape::Hex32 and Hex64 schemas require 64 and 128 hex digits, but check only enforces maximum length, evenness and hex alphabet. Two-digit non-native program or activity identifiers pass validation and fail later in the actual read consumer."
+expected = "Published schema, pre-dispatch validator and read decoder must agree on fixed identifier lengths and reject malformed inputs before creating invocations."
+proposal = "Enforce exact lengths for Hex32 and Hex64 separately from Bytes in layerx-mcp/src/catalogue.rs. Check short, exact and oversized identifiers through tools/call and confirm malformed requests never reach the daemon."
+owner_domain = 9
+interface = "9.rs-mcp-catalogue-validate-j43"
+
+[finding.approval_page_bound]
+file = "services/agent/crates/layerx-mcp/src/catalogue.rs"
+line = 927
+class = "interface-mismatch"
+severity = "medium"
+observed = "Ordinary approval.list schema and validation permit limit through u8::MAX (255), while ApprovalService::list rejects page_limit above 100. Schema-valid requests can therefore fail solely because the service declares a different bound."
+expected = "The MCP approval.list schema and owning approval service must agree on the supported page limit without weakening the service maximum."
+proposal = "Align approval.list schema/validation in layerx-mcp/src/catalogue.rs with the service maximum of 100 and verify limits 100 and 101 through the authenticated approval transport."
+owner_domain = 9
+interface = "9.http-mcp-tool-approval-list"
+
+[finding.listener_monopolisation]
+file = "services/agent/crates/layerx-mcp/src/listener.rs"
+line = 169
+class = "runtime-risk"
+severity = "medium"
+observed = "serve_protocol accepts one admitted Unix peer and runs its protocol until EOF before accepting another. Per-read/write deadlines reset on activity, so a peer sending ping before each timeout can retain the only serving slot indefinitely."
+expected = "One admitted client must not indefinitely deny access to other admitted clients by holding an idle or periodically active healthy connection."
+proposal = "Add a bounded connection policy in layerx-mcp/src/listener.rs, such as isolated bounded concurrent sessions or a total connection/request budget. Prove another admitted client receives service while the first keeps its connection alive."
+owner_domain = 9
+interface = "9.rs-mcp-listener-serve-j70"
+
+[finding.connect_deadline]
+file = "services/agent/crates/layerx-mcp/src/boundary.rs"
+line = 204
+class = "runtime-risk"
+severity = "medium"
+observed = "AgentSurface::get calls blocking TcpStream::connect before setting self.deadline read/write timeouts. A saturated loopback listener backlog can stall connection establishment outside the configured deadline and occupy the sequential serving connection."
+expected = "The binding request deadline must cover connection establishment and response I/O so unavailable daemon calls return bounded typed transport refusals."
+proposal = "Use a parsed loopback SocketAddr and connect_timeout with a shared elapsed-time budget in layerx-mcp/src/boundary.rs. Verify backlog saturation and stalled response return the existing unavailable outcome within the configured deadline."
+owner_domain = 9
+interface = "9.rs-mcp-boundary-agentsurface-j43"
+
+[finding.daemon_test_omits_session]
+file = "services/agent/crates/layerx-mcp/tests/daemon_bound.rs"
+line = 518
+class = "test-gap"
+severity = "medium"
+observed = "The helper catalogue test expects surface length 33, but the opened-session handshake expects only 22 and exercises that shorter list. It never invokes the eleven SESSION_TOOLS through the daemon, concealing the binding omission."
+expected = "Requirement 9053 and brief check 7 require major-2 approval/subscription shapes on the real producer, transport and consumer path."
+proposal = "Extend layerx-mcp/tests/daemon_bound.rs to enumerate and call all authorised session tools via daemon description and MCP exchange, including session-only scopes and read-only restrictions."
+owner_domain = 9
+interface = "9.rs-mcp-catalogue-session-tools"
+
+[finding.daemon_web_fixture_retired]
+file = "services/agent/crates/layerx-mcp/tests/daemon_bound.rs"
+line = 1015
+class = "test-gap"
+severity = "medium"
+observed = "web_section emits sequencer_public_key without receipt_key_index, but web_binding rejects that retired field. Positive tests such as missing-attached-payer expect Binding::open success and stop on configuration parsing before their intended assertions."
+expected = "Requirement 9055.2 requires receipt_key_index and refusal of sequencer_public_key; positive documents must match the actual producer, with isolated invalid-field cases."
+proposal = "Update positive web fixtures in layerx-mcp/tests/daemon_bound.rs to a complete current receipt-key binding, retain separate retired-key negatives and prove missing-payer and web-field cases reach their intended branch."
+owner_domain = 9
+interface = "9.cfg-mcp-binding-web-sequencer-public-key"
+
+[finding.web_binding_fixture_retired]
+file = "services/agent/crates/layerx-mcp/tests/web.rs"
+line = 1909
+class = "test-gap"
+severity = "medium"
+observed = "opened_session emits core_sequence and expects Binding::parse success. The parser immediately returns mcp.binding_retired_key for this key, so served web tests never open their session or reach payment/approval assertions."
+expected = "Requirement 9054 requires core_height and rejects core_sequence; positive served fixtures must match the current binding document producer."
+proposal = "Use current producer binding output with core_height and authenticated transport fields in layerx-mcp/tests/web.rs. Keep explicit retired-key negatives and exercise existing web/approval assertions through the actual opened route."
+owner_domain = 9
+interface = "9.cfg-mcp-binding-core-sequence"
+
+[finding.payment_binding_fixture_retired]
+file = "services/agent/crates/layerx-mcp/tests/web_payments_layerxpay.rs"
+line = 415
+class = "test-gap"
+severity = "medium"
+observed = "document emits retired core_sequence and agent.endpoint with an http:// prefix, whereas Binding rejects the key and AgentSurface requires a bare IPv4 loopback address and port. web_binding_names_a_receipt_key_index cannot establish its positive parse baseline."
+expected = "Requirements 9054 and 9055 require valid core_height and receipt_key_index fields with the declared agent endpoint encoding before testing individual refusals."
+proposal = "Build the positive document in layerx-mcp/tests/web_payments_layerxpay.rs from the current producer with core_height and bare loopback endpoint. Preserve receipt-key and retired-key assertions and prove each runs after a valid baseline parses."
+owner_domain = 9
+interface = "9.fmt-mcp-binding-document"
+
+[finding.web_replay_invents_rpc]
+file = "services/agent/crates/layerx-mcp/tests/web.rs"
+line = 279
+class = "test-gap"
+severity = "medium"
+observed = "Replay fabricates a POST /rpc eth_call response on the search/fetch/content endpoint. Real x-websearch route_of has no /rpc route, so this third transport shape hides the paid account lookup misroute."
+expected = "Web tests must use the actual seller resource contract and a distinct authenticated node boundary rather than an endpoint shape the producer never serves."
+proposal = "Use the real x-websearch router in layerx-mcp/tests/web.rs and obtain ledger account facts through the owning node/payer boundary. Preserve exact/metered refusal and receipt assertions and prove no RPC reaches the seller."
+owner_domain = 9
+interface = "11.http-xws-search"
+
+[finding.payment_replay_invents_rpc]
+file = "services/agent/crates/layerx-mcp/tests/web_payments_layerxpay.rs"
+line = 93
+class = "test-gap"
+severity = "medium"
+observed = "The fixture resource listener explicitly expects POST /rpc and answers node eth_call before the resource exchange. Production x-websearch only routes GET resources, so this test validates a transport the seller never produces."
+expected = "Requirement 9055.1 requires payment to round-trip through real producer and consumer contracts, with node RPC and seller HTTP on their declared endpoints."
+proposal = "Use the actual seller router in layerx-mcp/tests/web_payments_layerxpay.rs and ledger evidence from the node boundary. Retain expiry, receiver-sequence and ledger-address receipt assertions on that integrated path."
+owner_domain = 9
+interface = "11.http-xws-search"
+
+[finding.approval_fixture_not_call]
+file = "services/agent/crates/layerx-mcp/tests/approval.rs"
+line = 33
+class = "test-gap"
+severity = "medium"
+observed = "prepared creates canonical-preparation text, an unrelated preimage and DID actor and tests use ApprovalRegistry::default. These are not unsigned EIP-1559 bytes and cannot pass durable validate_held_call; threshold tests do not prove merged hold replay."
+expected = "Requirement 22057.1 requires real unsigned call bytes, matching signing hash and retained sender, with durable replay and corruption rejection."
+proposal = "Create fixtures from actual call preparation in layerx-mcp/tests/approval.rs and a durable registry with reservations. Preserve threshold and changed-disclosure assertions and add reopen/replay with changed bytes and sender."
+owner_domain = 9
+interface = "9.rs-agentd-policy-approval-hold"
+
+[finding.session_tests_bypass_transport]
+file = "services/agent/crates/layerx-mcp/tests/session_tools_major_two.rs"
+line = 182
+class = "test-gap"
+severity = "medium"
+observed = "approval_get_tool_reports_tx_hash_and_rung imports the non-call approval::prepared fixture and calls the helper directly; subscription tests also use helpers. They never bind and invoke served tools and miss both catalogue omission and durable replay incompatibility."
+expected = "Requirement 9053 requires triple cursors and tx_hash/rung on served tools; requirement 22057 requires the same held call to survive restart."
+proposal = "Extend layerx-mcp/tests/session_tools_major_two.rs through authenticated describe/list/call with real preparation and a reopened durable registry. Preserve helper checks and prove triple-cursor acknowledgement and approval result shapes on transport."
+owner_domain = 9
+interface = "9.http-mcp-tool-approval-get"
+
+[finding.alias_tests_bypass_verifier]
+file = "services/agent/crates/layerx-mcp/tests/alias_precompiles.rs"
+line = 32
+class = "test-gap"
+severity = "medium"
+observed = "Alias tests construct Eip1559Call with prepare_alias_call and bind_call directly. They prove addresses/selectors but never feed those bytes through execute_native_alias or a served native-disclosure answer, so the actual consumer still calling the retired binder is untested."
+expected = "Requirements 9052.2 and 22062.1 require the alias call and its disclosed fields to round-trip through the actual MCP/daemon consumer."
+proposal = "Add a real daemon native-alias exchange to layerx-mcp/tests/alias_precompiles.rs using producer unsigned call bytes and external signatures. Preserve all existing ABI assertions and prove the served verifier accepts matching calls and refuses altered fields."
+owner_domain = 9
+interface = "9.rs-crypto-disclosure-bind"
+
+[finding.doc_running]
+file = "docs/site/docs/agents/running.md"
+line = 43
+class = "doc-drift"
+severity = "medium"
+observed = "This guide says layerx-mcp has no binary (43), lists core_sequence (205), says the served path holds no gateway key (8), sends public transactions to /rpc (512), and claims no served path calls approval hold (540). Result vocabulary also retains verification_level instead of current rung on migrated results."
+expected = "The crate ships src/bin/layerx-mcp.rs; open_daemon_client requires agent.readiness gateway credentials; binding requires core_height, public node RPC is at root and paid web registers approval holds."
+proposal = "Rewrite this guide from current binary/daemon-client entry points, closed binding schema, credential boundary, result rungs and durable approval flow. Replace retired public RPC and environment examples and check documented calls against current producer shapes."
+owner_domain = 17
+
+[finding.doc_running_wiki]
+file = "docs/wiki/RunningAnAgent.md"
+line = 43
+class = "doc-drift"
+severity = "medium"
+observed = "This guide says layerx-mcp has no binary (43), lists core_sequence (205), says the served path holds no gateway key (8), sends public transactions to /rpc (512), and claims no served path calls approval hold (540). Result vocabulary also retains verification_level instead of current rung on migrated results."
+expected = "The crate ships src/bin/layerx-mcp.rs; open_daemon_client requires agent.readiness gateway credentials; binding requires core_height, public node RPC is at root and paid web registers approval holds."
+proposal = "Rewrite this guide from current binary/daemon-client entry points, closed binding schema, credential boundary, result rungs and durable approval flow. Replace retired public RPC and environment examples and check documented calls against current producer shapes."
+owner_domain = 17
+
+[finding.doc_root]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction presents layerxd as a separate daemon whose checkpoints settle on Paxeer, includes make layerxd and says the merge is draft with a separately running kernel (181)."
+expected = "Brief facts 1 and 2 define one paxd BFT network with the kernel proposing committed blocks, chain id 125 and no separately operated layerxd or checkpoint settlement network."
+proposal = "Rewrite README.md architecture and build/operations entry points around merged paxd, committed-block finality and supported layout. Remove instructions leading operators to run the retired separate kernel daemon."
+owner_domain = 17
+
+[finding.doc_payments]
+file = "docs/site/docs/overview/payments.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The guide publishes a router origin ending /rpc and legacy lx sequence/payment vocabulary. It says the MCP catalogue has 20 tools and no receipt wait (255), despite activity.wait and the larger current catalogue."
+expected = "Merged public JSON-RPC uses node root and declared namespaces; payments submit signed type-2 transactions to ledger 0x101A. MCP names, scopes and receipt/rung outcomes must match the implementation."
+proposal = "Rewrite docs/site/docs/overview/payments.md for merged root RPC and current transaction/payment commands. Check the MCP inventory against declarations, including activity.wait, readiness, web and session tools after their wiring is repaired."
+owner_domain = 17
+
+[finding.doc_overview_zh_cn]
+file = "docs/site/docs/overview/i18n/zh-cn.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "This translated overview describes ordinary LayerX actions on a separate network without a Paxeer transaction and periodic checkpoint settlement (18). It gives a cluster quickstart and /v1/faucet/claims (24-35) and lists retired layerxd and the former service layout (98 onward)."
+expected = "The product is one paxd BFT network with chain id 125, EVM writes and final receipts at block commit. Retired separate-network, daemon and faucet instructions must not guide onboarding."
+proposal = "Rewrite this translated overview from the merged architecture and supported onboarding source, including root RPC, signed EIP-1559 writes, current service paths and allocation flow. Review each translation independently to remove obsolete topology and commands."
+owner_domain = 17
+
+[finding.doc_overview_ru]
+file = "docs/site/docs/overview/i18n/ru.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "This translated overview describes ordinary LayerX actions on a separate network without a Paxeer transaction and periodic checkpoint settlement (18). It gives a cluster quickstart and /v1/faucet/claims (24-35) and lists retired layerxd and the former service layout (98 onward)."
+expected = "The product is one paxd BFT network with chain id 125, EVM writes and final receipts at block commit. Retired separate-network, daemon and faucet instructions must not guide onboarding."
+proposal = "Rewrite this translated overview from the merged architecture and supported onboarding source, including root RPC, signed EIP-1559 writes, current service paths and allocation flow. Review each translation independently to remove obsolete topology and commands."
+owner_domain = 17
+
+[finding.doc_overview_es]
+file = "docs/site/docs/overview/i18n/es.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "This translated overview describes ordinary LayerX actions on a separate network without a Paxeer transaction and periodic checkpoint settlement (18). It gives a cluster quickstart and /v1/faucet/claims (24-35) and lists retired layerxd and the former service layout (98 onward)."
+expected = "The product is one paxd BFT network with chain id 125, EVM writes and final receipts at block commit. Retired separate-network, daemon and faucet instructions must not guide onboarding."
+proposal = "Rewrite this translated overview from the merged architecture and supported onboarding source, including root RPC, signed EIP-1559 writes, current service paths and allocation flow. Review each translation independently to remove obsolete topology and commands."
+owner_domain = 17
+
+[finding.doc_overview_pt_br]
+file = "docs/site/docs/overview/i18n/pt-br.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "This translated overview describes ordinary LayerX actions on a separate network without a Paxeer transaction and periodic checkpoint settlement (18). It gives a cluster quickstart and /v1/faucet/claims (24-35) and lists retired layerxd and the former service layout (98 onward)."
+expected = "The product is one paxd BFT network with chain id 125, EVM writes and final receipts at block commit. Retired separate-network, daemon and faucet instructions must not guide onboarding."
+proposal = "Rewrite this translated overview from the merged architecture and supported onboarding source, including root RPC, signed EIP-1559 writes, current service paths and allocation flow. Review each translation independently to remove obsolete topology and commands."
+owner_domain = 17
+
+[finding.doc_overview_ja]
+file = "docs/site/docs/overview/i18n/ja.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "This translated overview describes ordinary LayerX actions on a separate network without a Paxeer transaction and periodic checkpoint settlement (18). It gives a cluster quickstart and /v1/faucet/claims (24-35) and lists retired layerxd and the former service layout (98 onward)."
+expected = "The product is one paxd BFT network with chain id 125, EVM writes and final receipts at block commit. Retired separate-network, daemon and faucet instructions must not guide onboarding."
+proposal = "Rewrite this translated overview from the merged architecture and supported onboarding source, including root RPC, signed EIP-1559 writes, current service paths and allocation flow. Review each translation independently to remove obsolete topology and commands."
+owner_domain = 17
+
+[finding.doc_overview_de]
+file = "docs/site/docs/overview/i18n/de.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "This translated overview describes ordinary LayerX actions on a separate network without a Paxeer transaction and periodic checkpoint settlement (18). It gives a cluster quickstart and /v1/faucet/claims (24-35) and lists retired layerxd and the former service layout (98 onward)."
+expected = "The product is one paxd BFT network with chain id 125, EVM writes and final receipts at block commit. Retired separate-network, daemon and faucet instructions must not guide onboarding."
+proposal = "Rewrite this translated overview from the merged architecture and supported onboarding source, including root RPC, signed EIP-1559 writes, current service paths and allocation flow. Review each translation independently to remove obsolete topology and commands."
+owner_domain = 17
+
+[finding.doc_overview_fr]
+file = "docs/site/docs/overview/i18n/fr.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "This translated overview describes ordinary LayerX actions on a separate network without a Paxeer transaction and periodic checkpoint settlement (18). It gives a cluster quickstart and /v1/faucet/claims (24-35) and lists retired layerxd and the former service layout (98 onward)."
+expected = "The product is one paxd BFT network with chain id 125, EVM writes and final receipts at block commit. Retired separate-network, daemon and faucet instructions must not guide onboarding."
+proposal = "Rewrite this translated overview from the merged architecture and supported onboarding source, including root RPC, signed EIP-1559 writes, current service paths and allocation flow. Review each translation independently to remove obsolete topology and commands."
+owner_domain = 17
+
+[finding.doc_mcp]
+file = "docs/site/docs/agents/mcp.md"
+line = 62
+class = "doc-drift"
+severity = "medium"
+observed = "The page says the binary serves only a Unix socket and the served path holds no gateway credential. Its table omits tenant.readiness, web and eleven session tools and points to an old specification as the operational contract."
+expected = "The binary falls back to stdio without a listener, and open_daemon_client requires authenticated readiness. The documented catalogue and credential contract must match current serving and declared tools."
+proposal = "Update docs/site/docs/agents/mcp.md from daemon-client serving and catalogue declarations. Explain required gateway credentials, optional listener, readiness and paid web requirements, and approval/subscription tools once their binding is repaired."
+owner_domain = 17
+
+[finding.doc_crate]
+file = "services/agent/crates/layerx-mcp/README.md"
+line = 127
+class = "doc-drift"
+severity = "medium"
+observed = "The closed binding example uses core_sequence and the web section lists sequencer_public_key. It says listener is required by the binary although run falls back to stdio, and its catalogue/credential description predates the daemon-client readiness path."
+expected = "Binding::parse rejects core_sequence for core_height and sequencer_public_key for receipt_key_index. Documentation must agree on transport choice, authenticated readiness and current tool operations."
+proposal = "Rewrite services/agent/crates/layerx-mcp/README.md examples and serving/catalogue sections from the current producer. Include a complete receipt key index, core_height, authenticated readiness and optional listener, without signing secrets."
+owner_domain = 9
+
+[doc.01]
+path = "docs/site/docs/agents/running.md"
+status = "stale"
+notes = "Read in full; stale topology, commands, binding or catalogue statements and a concrete rewrite proposal are recorded in doc_running."
+
+[doc.02]
+path = "docs/wiki/RunningAnAgent.md"
+status = "stale"
+notes = "Read in full; stale topology, commands, binding or catalogue statements and a concrete rewrite proposal are recorded in doc_running_wiki."
+
+[doc.03]
+path = "README.md"
+status = "stale"
+notes = "Read in full; stale topology, commands, binding or catalogue statements and a concrete rewrite proposal are recorded in doc_root."
+
+[doc.04]
+path = "docs/site/docs/overview/payments.md"
+status = "stale"
+notes = "Read in full; stale topology, commands, binding or catalogue statements and a concrete rewrite proposal are recorded in doc_payments."
+
+[doc.05]
+path = "docs/site/docs/overview/i18n/zh-cn.md"
+status = "stale"
+notes = "Read in full; stale topology, commands, binding or catalogue statements and a concrete rewrite proposal are recorded in doc_overview_zh_cn."
+
+[doc.06]
+path = "docs/site/docs/overview/i18n/ru.md"
+status = "stale"
+notes = "Read in full; stale topology, commands, binding or catalogue statements and a concrete rewrite proposal are recorded in doc_overview_ru."
+
+[doc.07]
+path = "docs/site/docs/overview/i18n/es.md"
+status = "stale"
+notes = "Read in full; stale topology, commands, binding or catalogue statements and a concrete rewrite proposal are recorded in doc_overview_es."
+
+[doc.08]
+path = "docs/site/docs/overview/i18n/pt-br.md"
+status = "stale"
+notes = "Read in full; stale topology, commands, binding or catalogue statements and a concrete rewrite proposal are recorded in doc_overview_pt_br."
+
+[doc.09]
+path = "docs/site/docs/overview/i18n/ja.md"
+status = "stale"
+notes = "Read in full; stale topology, commands, binding or catalogue statements and a concrete rewrite proposal are recorded in doc_overview_ja."
+
+[doc.10]
+path = "docs/site/docs/overview/i18n/de.md"
+status = "stale"
+notes = "Read in full; stale topology, commands, binding or catalogue statements and a concrete rewrite proposal are recorded in doc_overview_de."
+
+[doc.11]
+path = "docs/site/docs/overview/i18n/fr.md"
+status = "stale"
+notes = "Read in full; stale topology, commands, binding or catalogue statements and a concrete rewrite proposal are recorded in doc_overview_fr."
+
+[doc.12]
+path = "docs/site/docs/agents/mcp.md"
+status = "stale"
+notes = "Read in full; stale topology, commands, binding or catalogue statements and a concrete rewrite proposal are recorded in doc_mcp."
+
+[doc.13]
+path = "services/agent/crates/layerx-mcp/README.md"
+status = "stale"
+notes = "Read in full; stale topology, commands, binding or catalogue statements and a concrete rewrite proposal are recorded in doc_crate."

@@ -1,0 +1,9 @@
+{
+  "contracts/names/PaxRegistry.sol": "71c585119f0ed981658a713fd31e9a5172279f40c9eca9843f70e91d53156016",
+  "contracts/names/PaxPublicResolver.sol": "4ad3c236d6031a3b3a269260601772ea49da48b32991af8c5ee12acdb3aa3585",
+  "contracts/names/IPaxNames.sol": "95bec02cd9aa80ff968ef71e9d5a7194b2952ef63b9d8c59fed685042780079b",
+  "contracts/security/Governed.sol": "b9f596a6de6d23c9262ebac787b79022d415a9b5767f736728002c9cddb977c2",
+  "foundry.toml": "70160cbca3648f22c040ec0199aea3fed1a801a0910e9d5f7e55f67cb9a8eb00",
+  "tests/solidity/names/PaxPublicResolver.t.sol": "f36646f696c7ca3b8409e50052a8194c3d589c9fbf07f056e293562dbf988f80",
+  "tests/vectors/names/resolver_layout_v1.json": "7a0361ea80157f401c9d76123ed999d52fb03695d1a94e1cd072a83c3097af88"
+}

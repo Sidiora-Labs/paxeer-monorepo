@@ -7,10 +7,7 @@
 // invoked twice independently. Real account and book records are also read
 // twice, then their actual encoded bytes are truncated at the decoding edge.
 //
-// Out-of-scope finding: modules/perps/types/genesis.go ValidateGenesis and
-// modules/perps/keeper/keeper.go GetMarket still use fmt.Errorf(%w). They should
-// preserve their registered ABCI codes, but currently produce undefined/1;
-// the proof pins that behavior while proving their LXP identity survives.
+// ValidateGenesis and GetMarket preserve their registered ABCI identities.
 package types_test
 
 import (
@@ -210,21 +207,8 @@ func TestProofPerpsErrorsOutsideScope(t *testing.T) {
 		require.NoError(t, types.ValidateGenesis(*genesis))
 		genesis.Params.CollateralToken = common.Address{}
 		invalidGenesis := types.ValidateGenesis(*genesis)
-		require.ErrorIs(t, invalidGenesis, types.ErrInvalidGenesis)
-		proofPerpsLXP(t, invalidGenesis, types.ErrInvalidGenesis)
+		proofPerpsTransport(t, invalidGenesis, types.ErrInvalidGenesis)
 		_, unknownMarket := k.GetMarket(ctx, 987)
-		require.ErrorIs(t, unknownMarket, types.ErrUnknownMarket)
-		proofPerpsLXP(t, unknownMarket, types.ErrUnknownMarket)
-		for _, finding := range []struct {
-			err  error
-			root *sdkerrors.Error
-		}{
-			{invalidGenesis, types.ErrInvalidGenesis}, {unknownMarket, types.ErrUnknownMarket},
-		} {
-			response := sdkerrors.ResponseDeliverTx(finding.err, 0, 0, false)
-			require.Equal(t, sdkerrors.UndefinedCodespace, response.Codespace)
-			require.Equal(t, uint32(1), response.Code)
-			require.NotErrorIs(t, sdkerrors.ABCIError(response.Codespace, response.Code, response.Log), finding.root)
-		}
+		proofPerpsTransport(t, unknownMarket, types.ErrUnknownMarket)
 	}
 }

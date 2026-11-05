@@ -1,13 +1,13 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { ErrorState, UnavailableState } from '@/ui/primitives';
+import { ErrorState, LoadMore, UnavailableState } from '@/ui/primitives';
 import HolderRewardTokenCard from './holder-reward-token-card';
 import HolderRewardsControls, { type HolderRewardsViewMode } from './holder-rewards-controls';
 import type { HolderRewardsAvailability } from './holder-rewards-contract';
 import HolderRewardsHeader from './holder-rewards-header';
 import { coinHref, defaultFilters, defaultOrder, filterRows, rowsToCsv, sortRows, type HolderRewardsFilters, type HolderRewardsOrder } from './holder-rewards-presentation';
-import HolderRewardsTable, { type AirdropHover } from './holder-rewards-table';
+import HolderRewardsTable, { type AirdropHover, type HolderRewardsTableProps } from './holder-rewards-table';
 import StatsRow from './stats-row';
 import TopPayingRail, { topPayingCount } from './top-paying-rail';
 import { useAirdropBalance, useHolderRewardsRows, useHolderRewardsStats } from './use-holder-rewards';
@@ -41,28 +41,31 @@ function downloadCsv(csv: string) {
   URL.revokeObjectURL(url);
 }
 
-function GridView({ rows }: { rows: ReturnType<typeof sortRows> }) {
+function GridView({ rows, hasMore, loadingMore, loadMoreFailed, onLoadMore }: Pick<HolderRewardsTableProps, 'rows' | 'hasMore' | 'loadingMore' | 'loadMoreFailed' | 'onLoadMore'>) {
   return (
-    <ol className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-      {rows.map((row, index) => (
-        <li key={row.poolAddress} className="min-w-0">
-          <HolderRewardTokenCard
-            rank={index + 1}
-            name={row.name}
-            symbol={row.symbol}
-            image={row.image}
-            tokenAddress={row.tokenAddress}
-            href={coinHref(row.poolAddress)}
-            createdAt={row.pool.createdAt}
-            links={row.links}
-            distributedRaw={row.pool.distributedRaw}
-            mcapRaw={row.mcapRaw}
-            holdersPaid={row.pool.holdersPaid}
-            strategyActive={row.pool.strategyActive}
-          />
-        </li>
-      ))}
-    </ol>
+    <>
+      <ol className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        {rows.map((row, index) => (
+          <li key={row.poolAddress} className="min-w-0">
+            <HolderRewardTokenCard
+              rank={index + 1}
+              name={row.name}
+              symbol={row.symbol}
+              image={row.image}
+              tokenAddress={row.tokenAddress}
+              href={coinHref(row.poolAddress)}
+              createdAt={row.pool.createdAt}
+              links={row.links}
+              distributedRaw={row.pool.distributedRaw}
+              mcapRaw={row.mcapRaw}
+              holdersPaid={row.pool.holdersPaid}
+              strategyActive={row.pool.strategyActive}
+            />
+          </li>
+        ))}
+      </ol>
+      <LoadMore hasMore={hasMore} loading={loadingMore} error={loadMoreFailed} onLoadMore={onLoadMore} auto={false} />
+    </>
   );
 }
 
@@ -107,11 +110,15 @@ export default function HolderRewardsView() {
       ) : (
         <>
           <TopPayingRail rows={topRows} loading={top.loading || top.pricesPending || top.identityPending} />
-          <section aria-labelledby="all-holder-rewards-title" className="flex flex-col gap-3">
+          <section aria-labelledby="all-holder-rewards-title" aria-describedby="holder-rewards-scope" className="flex flex-col gap-3">
             <h2 id="all-holder-rewards-title" className="sr-only">All holder rewards coins</h2>
             <HolderRewardsControls order={order} onSortChange={key => setOrder({ key, direction: 'desc' })} view={view} onViewChange={setView} filters={filters} onFiltersChange={setFilters} onExport={exportRows} />
+            <p id="holder-rewards-scope" role="status" className="text-xs text-text-faint">
+              Showing {rows.length} of {list.rows.length} loaded coins. Sorting, filters and CSV export apply only to loaded coins.
+              {list.hasMore ? ' More coins are available; loading them may change the order.' : null}
+            </p>
             {view === 'grid' && rows.length > 0 ? (
-              <GridView rows={rows} />
+              <GridView rows={rows} hasMore={list.hasMore} loadingMore={list.loadingMore} loadMoreFailed={list.loadMoreFailed} onLoadMore={list.loadMore} />
             ) : (
               <HolderRewardsTable
                 rows={rows}

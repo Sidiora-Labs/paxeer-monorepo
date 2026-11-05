@@ -1,4 +1,7 @@
 #[allow(dead_code)]
+mod repair_22_33_1470;
+
+#[allow(dead_code)]
 #[path = "../../../../../programs/crates/layerx-programs-registry/tests/support/mod.rs"]
 mod support;
 
@@ -16,10 +19,7 @@ use layerx_programs::{
 };
 use layerx_programs_runtime::UpgradePolicy;
 
-use support::{
-    deploy_fixture, program, upgrade_fixture, verifier_for_fixture, AUTHORITY, NOW, WASM_V1,
-    WASM_V2,
-};
+use support::{deploy_fixture, program, verifier_for_fixture, AUTHORITY, NOW, WASM_V1, WASM_V2};
 
 const UNEQUAL_SETS: &str = "every deployment projection must have one protocol admission proof";
 
@@ -392,48 +392,8 @@ fn replaying_the_journal_reproduces_the_projection_of_its_evidence() {
 }
 
 #[test]
-fn chain_upgrade_records_are_quarantined_without_inventing_predecessor_hashes() {
-    let fixture = upgrade_fixture(WASM_V1, WASM_V2, 71, NOW);
-    let verifier = verifier_for_fixture(&fixture, 1_000);
-    let upgrade = verifier
-        .verify_deployment(&fixture.proof, NOW)
-        .unwrap_or_else(|error| panic!("upgrade evidence: {error}"));
-    assert_eq!(upgrade.version(), 2);
-    assert_eq!(upgrade.record().old_code_hash, None);
-    assert_eq!(
-        upgrade.record().validate(),
-        Err(RegistryError::VersionHistoryMismatch)
-    );
-    let root = journal_root("upgrade");
-    let journal = open(&root);
-    let digest = append(&journal, &upgrade);
-    let loaded = load(&journal);
-    assert!(loaded.units.is_empty());
-    assert!(loaded.leftovers.is_empty());
-    assert_eq!(
-        quarantine(&loaded),
-        BTreeMap::from([(
-            digest,
-            (
-                vec![unit_path(&root, digest, "envelope")],
-                UnitDefect::Corrupt {
-                    part: UnitPart::Record,
-                    reason: RegistryError::VersionHistoryMismatch.to_string(),
-                }
-            ),
-        )])
-    );
-    assert_eq!(
-        journal.canonical_record(digest),
-        Err(RegistryError::JournalUnavailable)
-    );
-    assert!(journal
-        .audit_projection(&upgrade)
-        .is_err_and(|error| error.contains(&RegistryError::VersionHistoryMismatch.to_string())));
-    assert!(journal
-        .proofs()
-        .is_err_and(|error| error.contains(&RegistryError::VersionHistoryMismatch.to_string())));
-    fs::remove_dir_all(&root).unwrap_or_else(|error| panic!("cleanup: {error}"));
+fn chain_upgrade_records_replay_authenticated_predecessors_after_reopen() {
+    repair_22_33_1470::upgrade_deploy_reopen_preserves_authenticated_history();
 }
 
 #[test]
@@ -799,7 +759,27 @@ fn assert_incomplete_envelope(
         .proofs()
         .is_err_and(|error| error.contains("ends before its seal")));
 
+    assert_eq!(
+        open(root).append(&evidence.replacement),
+        Err(format!(
+            "could not commit {}: deployment publication conflicts with committed bytes",
+            second_path.display()
+        ))
+    );
+    assert_eq!(read(second_path), whole[..whole.len() - 32]);
+    let staged = unit_path(root, second, "envelope.tmp");
+    assert_eq!(read(&staged), whole);
+    open(root)
+        .discard(second)
+        .unwrap_or_else(|error| panic!("discard quarantined unit: {error}"));
+    assert!(!second_path.exists());
+    assert!(!staged.exists());
+    assert_eq!(digests(&load(&open(root))), BTreeSet::from([first]));
+
     assert_eq!(append(&open(root), &evidence.replacement), second);
+    assert_eq!(append(&open(root), &evidence.replacement), second);
+    assert_eq!(read(second_path), whole);
+    assert!(!staged.exists());
     assert_eq!(digests(&load(&open(root))), BTreeSet::from([first, second]));
 }
 

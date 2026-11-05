@@ -1,0 +1,489 @@
+[reconcile.r4-14]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 60
+
+[row.r4-14.1]
+interface = "interface.4.go-launchpad-keeper-keeper-init-genesis"
+verdict = "served"
+path = "modules/launchpad/keeper/genesis.go"
+line = 15
+symbol = "InitGenesis"
+evidence = "Signature unchanged: func (k *Keeper) InitGenesis(ctx sdk.Context, gs types.GenesisState). The implementation now validates gs before writes, imports generation 2 surfaces, roles, fee accounting, fee rights and custody through initContracts, and installs role surfaces; generation 1 state is refused by Validate, implementing decision.409 and override.J28.15."
+
+[row.r4-14.2]
+interface = "interface.4.go-launchpad-keeper-keeper-export-genesis"
+verdict = "served"
+path = "modules/launchpad/keeper/genesis.go"
+line = 178
+symbol = "ExportGenesis"
+evidence = "Signature unchanged: func (k *Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState. The implementation now uses exportContracts to export generation 2 role, fee-right, fee-accounting, custody and retired-address records and validates the export; it no longer exports generation 1 key-space records, implementing decision.409 and override.J28.16."
+
+[row.r4-14.3]
+interface = "interface.4.go-launchpad-app-module-basic-register-grpc-gateway-routes-j28"
+verdict = "served"
+path = "modules/launchpad/module.go"
+line = 78
+symbol = "RegisterGRPCGatewayRoutes"
+evidence = "Now func (AppModuleBasic) RegisterGRPCGatewayRoutes(clientCtx client.Context, mux *runtime.ServeMux): the formerly ignored arguments are named and used by RegisterQueryHandlerClient(context.Background(), mux, types.NewQueryClient(clientCtx)), with registration errors causing panic. This replaces the registered empty body as specified by decision.405."
+
+[row.r4-14.4]
+interface = "interface.4.go-launchpad-app-module-basic-get-query-cmd-j28"
+verdict = "served"
+path = "modules/launchpad/module.go"
+line = 86
+symbol = "GetQueryCmd"
+evidence = "Current declaration: func (AppModuleBasic) GetQueryCmd() *cobra.Command { return cli.GetQueryCmd() }. The method signature is unchanged; its return expression changed from nil to the launchpad CLI query command tree, implementing decision.405."
+
+[row.r4-14.5]
+interface = "interface.4.go-launchpad-app-module-register-services"
+verdict = "served"
+path = "modules/launchpad/module.go"
+line = 105
+symbol = "RegisterServices"
+evidence = "Signature unchanged: func (am AppModule) RegisterServices(cfg module.Configurator). The body now registers both the Msg server via NewMsgServerImpl and the Query server via NewQuerier instead of Msg only, implementing decision.405 and override.J28.14."
+
+[row.r4-14.6]
+interface = "interface.4.go-launchpad-app-module-register-store-decoder-j28"
+verdict = "served"
+path = "modules/launchpad/module.go"
+line = 148
+symbol = "RegisterStoreDecoder"
+evidence = "Now func (am AppModule) RegisterStoreDecoder(sdr sdk.StoreDecoderRegistry): the formerly ignored registry argument is named sdr and the former empty body now assigns simulation.NewDecodeStore() to sdr[types.StoreKey]."
+
+[row.r4-14.7]
+interface = "interface.4.err-sdk-launchpad-2-invalid-params"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 18
+symbol = "ErrInvalidParams"
+evidence = "Current declaration: ErrInvalidParams           = sdkerrors.Register(ModuleName, 2, LaunchpadCode(\"INVALID_PARAMS\")). Compared with the registered Register(\"launchpad\", 2, \"LXP_LAUNCHPAD_INVALID_PARAMS\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 2 and the resulting LXP_LAUNCHPAD_INVALID_PARAMS reason are unchanged."
+
+[row.r4-14.8]
+interface = "interface.4.err-sdk-launchpad-24-invalid-genesis"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 40
+symbol = "ErrInvalidGenesis"
+evidence = "Current declaration: ErrInvalidGenesis          = sdkerrors.Register(ModuleName, 24, LaunchpadCode(\"INVALID_GENESIS\")). Compared with the registered Register(\"launchpad\", 24, \"LXP_LAUNCHPAD_INVALID_GENESIS\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 24 and the resulting LXP_LAUNCHPAD_INVALID_GENESIS reason are unchanged."
+
+[row.r4-14.9]
+interface = "interface.4.err-sdk-launchpad-30-invalid-range"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 46
+symbol = "ErrInvalidRange"
+evidence = "Current declaration: ErrInvalidRange            = sdkerrors.Register(ModuleName, 30, LaunchpadCode(\"INVALID_RANGE\")). Compared with the registered Register(\"launchpad\", 30, \"LXP_LAUNCHPAD_INVALID_RANGE\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 30 and the resulting LXP_LAUNCHPAD_INVALID_RANGE reason are unchanged."
+
+[row.r4-14.10]
+interface = "interface.4.err-sdk-launchpad-31-already-initialized"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 48
+symbol = "ErrAlreadyInitialized"
+evidence = "Current declaration: ErrAlreadyInitialized               = sdkerrors.Register(ModuleName, 31, LaunchpadCode(\"ALREADY_INITIALIZED\")). Compared with the registered Register(\"launchpad\", 31, \"LXP_LAUNCHPAD_ALREADY_INITIALIZED\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 31 and the resulting LXP_LAUNCHPAD_ALREADY_INITIALIZED reason are unchanged."
+
+[row.r4-14.11]
+interface = "interface.4.err-sdk-launchpad-32-already-minted"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 49
+symbol = "ErrAlreadyMinted"
+evidence = "Current declaration: ErrAlreadyMinted                    = sdkerrors.Register(ModuleName, 32, LaunchpadCode(\"ALREADY_MINTED\")). Compared with the registered Register(\"launchpad\", 32, \"LXP_LAUNCHPAD_ALREADY_MINTED\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 32 and the resulting LXP_LAUNCHPAD_ALREADY_MINTED reason are unchanged."
+
+[row.r4-14.12]
+interface = "interface.4.err-sdk-launchpad-33-approve-failed"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 50
+symbol = "ErrApproveFailed"
+evidence = "Current declaration: ErrApproveFailed                    = sdkerrors.Register(ModuleName, 33, LaunchpadCode(\"APPROVE_FAILED\")). Compared with the registered Register(\"launchpad\", 33, \"LXP_LAUNCHPAD_APPROVE_FAILED\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 33 and the resulting LXP_LAUNCHPAD_APPROVE_FAILED reason are unchanged."
+
+[row.r4-14.13]
+interface = "interface.4.err-sdk-launchpad-34-duplicate-pool"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 51
+symbol = "ErrDuplicatePool"
+evidence = "Current declaration: ErrDuplicatePool                    = sdkerrors.Register(ModuleName, 34, LaunchpadCode(\"DUPLICATE_POOL\")). Compared with the registered Register(\"launchpad\", 34, \"LXP_LAUNCHPAD_DUPLICATE_POOL\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 34 and the resulting LXP_LAUNCHPAD_DUPLICATE_POOL reason are unchanged."
+
+[row.r4-14.14]
+interface = "interface.4.err-sdk-launchpad-35-duplicate-token"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 52
+symbol = "ErrDuplicateToken"
+evidence = "Current declaration: ErrDuplicateToken                   = sdkerrors.Register(ModuleName, 35, LaunchpadCode(\"DUPLICATE_TOKEN\")). Compared with the registered Register(\"launchpad\", 35, \"LXP_LAUNCHPAD_DUPLICATE_TOKEN\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 35 and the resulting LXP_LAUNCHPAD_DUPLICATE_TOKEN reason are unchanged."
+
+[row.r4-14.15]
+interface = "interface.4.err-sdk-launchpad-36-fee-out-of-range"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 53
+symbol = "ErrFeeOutOfRange"
+evidence = "Current declaration: ErrFeeOutOfRange                    = sdkerrors.Register(ModuleName, 36, LaunchpadCode(\"FEE_OUT_OF_RANGE\")). Compared with the registered Register(\"launchpad\", 36, \"LXP_LAUNCHPAD_FEE_OUT_OF_RANGE\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 36 and the resulting LXP_LAUNCHPAD_FEE_OUT_OF_RANGE reason are unchanged."
+
+[row.r4-14.16]
+interface = "interface.4.err-sdk-launchpad-37-index-out-of-bounds"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 54
+symbol = "ErrIndexOutOfBounds"
+evidence = "Current declaration: ErrIndexOutOfBounds                 = sdkerrors.Register(ModuleName, 37, LaunchpadCode(\"INDEX_OUT_OF_BOUNDS\")). Compared with the registered Register(\"launchpad\", 37, \"LXP_LAUNCHPAD_INDEX_OUT_OF_BOUNDS\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 37 and the resulting LXP_LAUNCHPAD_INDEX_OUT_OF_BOUNDS reason are unchanged."
+
+[row.r4-14.17]
+interface = "interface.4.err-sdk-launchpad-38-insufficient-balance"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 55
+symbol = "ErrInsufficientBalance"
+evidence = "Current declaration: ErrInsufficientBalance              = sdkerrors.Register(ModuleName, 38, LaunchpadCode(\"INSUFFICIENT_BALANCE\")). Compared with the registered Register(\"launchpad\", 38, \"LXP_LAUNCHPAD_INSUFFICIENT_BALANCE\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 38 and the resulting LXP_LAUNCHPAD_INSUFFICIENT_BALANCE reason are unchanged."
+
+[row.r4-14.18]
+interface = "interface.4.err-sdk-launchpad-39-insufficient-creation-fee"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 56
+symbol = "ErrInsufficientCreationFee"
+evidence = "Current declaration: ErrInsufficientCreationFee          = sdkerrors.Register(ModuleName, 39, LaunchpadCode(\"INSUFFICIENT_CREATION_FEE\")). Compared with the registered Register(\"launchpad\", 39, \"LXP_LAUNCHPAD_INSUFFICIENT_CREATION_FEE\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 39 and the resulting LXP_LAUNCHPAD_INSUFFICIENT_CREATION_FEE reason are unchanged."
+
+[row.r4-14.19]
+interface = "interface.4.err-sdk-launchpad-40-insufficient-surplus"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 57
+symbol = "ErrInsufficientSurplus"
+evidence = "Current declaration: ErrInsufficientSurplus              = sdkerrors.Register(ModuleName, 40, LaunchpadCode(\"INSUFFICIENT_SURPLUS\")). Compared with the registered Register(\"launchpad\", 40, \"LXP_LAUNCHPAD_INSUFFICIENT_SURPLUS\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 40 and the resulting LXP_LAUNCHPAD_INSUFFICIENT_SURPLUS reason are unchanged."
+
+[row.r4-14.20]
+interface = "interface.4.err-sdk-launchpad-41-invalid-balance"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 58
+symbol = "ErrInvalidBalance"
+evidence = "Current declaration: ErrInvalidBalance                   = sdkerrors.Register(ModuleName, 41, LaunchpadCode(\"INVALID_BALANCE\")). Compared with the registered Register(\"launchpad\", 41, \"LXP_LAUNCHPAD_INVALID_BALANCE\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 41 and the resulting LXP_LAUNCHPAD_INVALID_BALANCE reason are unchanged."
+
+[row.r4-14.21]
+interface = "interface.4.err-sdk-launchpad-42-invalid-configuration"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 59
+symbol = "ErrInvalidConfiguration"
+evidence = "Current declaration: ErrInvalidConfiguration             = sdkerrors.Register(ModuleName, 42, LaunchpadCode(\"INVALID_CONFIGURATION\")). Compared with the registered Register(\"launchpad\", 42, \"LXP_LAUNCHPAD_INVALID_CONFIGURATION\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 42 and the resulting LXP_LAUNCHPAD_INVALID_CONFIGURATION reason are unchanged."
+
+[row.r4-14.22]
+interface = "interface.4.err-sdk-launchpad-43-invalid-hook-response"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 60
+symbol = "ErrInvalidHookResponse"
+evidence = "Current declaration: ErrInvalidHookResponse              = sdkerrors.Register(ModuleName, 43, LaunchpadCode(\"INVALID_HOOK_RESPONSE\")). Compared with the registered Register(\"launchpad\", 43, \"LXP_LAUNCHPAD_INVALID_HOOK_RESPONSE\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 43 and the resulting LXP_LAUNCHPAD_INVALID_HOOK_RESPONSE reason are unchanged."
+
+[row.r4-14.23]
+interface = "interface.4.err-sdk-launchpad-44-invalid-implementation"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 61
+symbol = "ErrInvalidImplementation"
+evidence = "Current declaration: ErrInvalidImplementation            = sdkerrors.Register(ModuleName, 44, LaunchpadCode(\"INVALID_IMPLEMENTATION\")). Compared with the registered Register(\"launchpad\", 44, \"LXP_LAUNCHPAD_INVALID_IMPLEMENTATION\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 44 and the resulting LXP_LAUNCHPAD_INVALID_IMPLEMENTATION reason are unchanged."
+
+[row.r4-14.24]
+interface = "interface.4.err-sdk-launchpad-45-invalid-role-account"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 62
+symbol = "ErrInvalidRoleAccount"
+evidence = "Current declaration: ErrInvalidRoleAccount               = sdkerrors.Register(ModuleName, 45, LaunchpadCode(\"INVALID_ROLE_ACCOUNT\")). Compared with the registered Register(\"launchpad\", 45, \"LXP_LAUNCHPAD_INVALID_ROLE_ACCOUNT\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 45 and the resulting LXP_LAUNCHPAD_INVALID_ROLE_ACCOUNT reason are unchanged."
+
+[row.r4-14.25]
+interface = "interface.4.err-sdk-launchpad-46-last-default-admin"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 63
+symbol = "ErrLastDefaultAdmin"
+evidence = "Current declaration: ErrLastDefaultAdmin                 = sdkerrors.Register(ModuleName, 46, LaunchpadCode(\"LAST_DEFAULT_ADMIN\")). Compared with the registered Register(\"launchpad\", 46, \"LXP_LAUNCHPAD_LAST_DEFAULT_ADMIN\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 46 and the resulting LXP_LAUNCHPAD_LAST_DEFAULT_ADMIN reason are unchanged."
+
+[row.r4-14.26]
+interface = "interface.4.err-sdk-launchpad-47-missing-role"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 64
+symbol = "ErrMissingRole"
+evidence = "Current declaration: ErrMissingRole                      = sdkerrors.Register(ModuleName, 47, LaunchpadCode(\"MISSING_ROLE\")). Compared with the registered Register(\"launchpad\", 47, \"LXP_LAUNCHPAD_MISSING_ROLE\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 47 and the resulting LXP_LAUNCHPAD_MISSING_ROLE reason are unchanged."
+
+[row.r4-14.27]
+interface = "interface.4.err-sdk-launchpad-48-multicall-failed"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 65
+symbol = "ErrMulticallFailed"
+evidence = "Current declaration: ErrMulticallFailed                  = sdkerrors.Register(ModuleName, 48, LaunchpadCode(\"MULTICALL_FAILED\")). Compared with the registered Register(\"launchpad\", 48, \"LXP_LAUNCHPAD_MULTICALL_FAILED\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 48 and the resulting LXP_LAUNCHPAD_MULTICALL_FAILED reason are unchanged."
+
+[row.r4-14.28]
+interface = "interface.4.err-sdk-launchpad-49-non-erc721-receiver"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 66
+symbol = "ErrNonERC721Receiver"
+evidence = "Current declaration: ErrNonERC721Receiver                = sdkerrors.Register(ModuleName, 49, LaunchpadCode(\"NON_ERC721_RECEIVER\")). Compared with the registered Register(\"launchpad\", 49, \"LXP_LAUNCHPAD_NON_ERC721_RECEIVER\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 49 and the resulting LXP_LAUNCHPAD_NON_ERC721_RECEIVER reason are unchanged."
+
+[row.r4-14.29]
+interface = "interface.4.err-sdk-launchpad-50-non-payable-upgrade"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 67
+symbol = "ErrNonPayableUpgrade"
+evidence = "Current declaration: ErrNonPayableUpgrade                = sdkerrors.Register(ModuleName, 50, LaunchpadCode(\"NON_PAYABLE_UPGRADE\")). Compared with the registered Register(\"launchpad\", 50, \"LXP_LAUNCHPAD_NON_PAYABLE_UPGRADE\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 50 and the resulting LXP_LAUNCHPAD_NON_PAYABLE_UPGRADE reason are unchanged."
+
+[row.r4-14.30]
+interface = "interface.4.err-sdk-launchpad-51-not-approved"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 68
+symbol = "ErrNotApproved"
+evidence = "Current declaration: ErrNotApproved                      = sdkerrors.Register(ModuleName, 51, LaunchpadCode(\"NOT_APPROVED\")). Compared with the registered Register(\"launchpad\", 51, \"LXP_LAUNCHPAD_NOT_APPROVED\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 51 and the resulting LXP_LAUNCHPAD_NOT_APPROVED reason are unchanged."
+
+[row.r4-14.31]
+interface = "interface.4.err-sdk-launchpad-52-not-initializing"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 69
+symbol = "ErrNotInitializing"
+evidence = "Current declaration: ErrNotInitializing                  = sdkerrors.Register(ModuleName, 52, LaunchpadCode(\"NOT_INITIALIZING\")). Compared with the registered Register(\"launchpad\", 52, \"LXP_LAUNCHPAD_NOT_INITIALIZING\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 52 and the resulting LXP_LAUNCHPAD_NOT_INITIALIZING reason are unchanged."
+
+[row.r4-14.32]
+interface = "interface.4.err-sdk-launchpad-53-not-token-owner"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 70
+symbol = "ErrNotTokenOwner"
+evidence = "Current declaration: ErrNotTokenOwner                    = sdkerrors.Register(ModuleName, 53, LaunchpadCode(\"NOT_TOKEN_OWNER\")). Compared with the registered Register(\"launchpad\", 53, \"LXP_LAUNCHPAD_NOT_TOKEN_OWNER\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 53 and the resulting LXP_LAUNCHPAD_NOT_TOKEN_OWNER reason are unchanged."
+
+[row.r4-14.33]
+interface = "interface.4.err-sdk-launchpad-54-optical-quote-unsupported"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 71
+symbol = "ErrOpticalQuoteUnsupported"
+evidence = "Current declaration: ErrOpticalQuoteUnsupported          = sdkerrors.Register(ModuleName, 54, LaunchpadCode(\"OPTICAL_QUOTE_UNSUPPORTED\")). Compared with the registered Register(\"launchpad\", 54, \"LXP_LAUNCHPAD_OPTICAL_QUOTE_UNSUPPORTED\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 54 and the resulting LXP_LAUNCHPAD_OPTICAL_QUOTE_UNSUPPORTED reason are unchanged."
+
+[row.r4-14.34]
+interface = "interface.4.err-sdk-launchpad-55-pool-index-migration-required"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 72
+symbol = "ErrPoolIndexMigrationRequired"
+evidence = "Current declaration: ErrPoolIndexMigrationRequired       = sdkerrors.Register(ModuleName, 55, LaunchpadCode(\"POOL_INDEX_MIGRATION_REQUIRED\")). Compared with the registered Register(\"launchpad\", 55, \"LXP_LAUNCHPAD_POOL_INDEX_MIGRATION_REQUIRED\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 55 and the resulting LXP_LAUNCHPAD_POOL_INDEX_MIGRATION_REQUIRED reason are unchanged."
+
+[row.r4-14.35]
+interface = "interface.4.err-sdk-launchpad-56-reentrancy-guard-reentrant-call"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 73
+symbol = "ErrReentrancyGuardReentrantCall"
+evidence = "Current declaration: ErrReentrancyGuardReentrantCall     = sdkerrors.Register(ModuleName, 56, LaunchpadCode(\"REENTRANCY_GUARD_REENTRANT_CALL\")). Compared with the registered Register(\"launchpad\", 56, \"LXP_LAUNCHPAD_REENTRANCY_GUARD_REENTRANT_CALL\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 56 and the resulting LXP_LAUNCHPAD_REENTRANCY_GUARD_REENTRANT_CALL reason are unchanged."
+
+[row.r4-14.36]
+interface = "interface.4.err-sdk-launchpad-57-same-token"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 74
+symbol = "ErrSameToken"
+evidence = "Current declaration: ErrSameToken                        = sdkerrors.Register(ModuleName, 57, LaunchpadCode(\"SAME_TOKEN\")). Compared with the registered Register(\"launchpad\", 57, \"LXP_LAUNCHPAD_SAME_TOKEN\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 57 and the resulting LXP_LAUNCHPAD_SAME_TOKEN reason are unchanged."
+
+[row.r4-14.37]
+interface = "interface.4.err-sdk-launchpad-58-token-not-found"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 75
+symbol = "ErrTokenNotFound"
+evidence = "Current declaration: ErrTokenNotFound                    = sdkerrors.Register(ModuleName, 58, LaunchpadCode(\"TOKEN_NOT_FOUND\")). Compared with the registered Register(\"launchpad\", 58, \"LXP_LAUNCHPAD_TOKEN_NOT_FOUND\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 58 and the resulting LXP_LAUNCHPAD_TOKEN_NOT_FOUND reason are unchanged."
+
+[row.r4-14.38]
+interface = "interface.4.err-sdk-launchpad-59-transfer-failed"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 76
+symbol = "ErrTransferFailed"
+evidence = "Current declaration: ErrTransferFailed                   = sdkerrors.Register(ModuleName, 59, LaunchpadCode(\"TRANSFER_FAILED\")). Compared with the registered Register(\"launchpad\", 59, \"LXP_LAUNCHPAD_TRANSFER_FAILED\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 59 and the resulting LXP_LAUNCHPAD_TRANSFER_FAILED reason are unchanged."
+
+[row.r4-14.39]
+interface = "interface.4.err-sdk-launchpad-60-transfer-from-failed"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 77
+symbol = "ErrTransferFromFailed"
+evidence = "Current declaration: ErrTransferFromFailed               = sdkerrors.Register(ModuleName, 60, LaunchpadCode(\"TRANSFER_FROM_FAILED\")). Compared with the registered Register(\"launchpad\", 60, \"LXP_LAUNCHPAD_TRANSFER_FROM_FAILED\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 60 and the resulting LXP_LAUNCHPAD_TRANSFER_FROM_FAILED reason are unchanged."
+
+[row.r4-14.40]
+interface = "interface.4.err-sdk-launchpad-61-uupsnot-through-active-proxy"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 78
+symbol = "ErrUUPSNotThroughActiveProxy"
+evidence = "Current declaration: ErrUUPSNotThroughActiveProxy        = sdkerrors.Register(ModuleName, 61, LaunchpadCode(\"UUPS_NOT_THROUGH_ACTIVE_PROXY\")). Compared with the registered Register(\"launchpad\", 61, \"LXP_LAUNCHPAD_UUPS_NOT_THROUGH_ACTIVE_PROXY\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 61 and the resulting LXP_LAUNCHPAD_UUPS_NOT_THROUGH_ACTIVE_PROXY reason are unchanged."
+
+[row.r4-14.41]
+interface = "interface.4.err-sdk-launchpad-62-uupsnot-through-proxy"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 79
+symbol = "ErrUUPSNotThroughProxy"
+evidence = "Current declaration: ErrUUPSNotThroughProxy              = sdkerrors.Register(ModuleName, 62, LaunchpadCode(\"UUPS_NOT_THROUGH_PROXY\")). Compared with the registered Register(\"launchpad\", 62, \"LXP_LAUNCHPAD_UUPS_NOT_THROUGH_PROXY\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 62 and the resulting LXP_LAUNCHPAD_UUPS_NOT_THROUGH_PROXY reason are unchanged."
+
+[row.r4-14.42]
+interface = "interface.4.err-sdk-launchpad-63-unauthorized-upgrade"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 80
+symbol = "ErrUnauthorizedUpgrade"
+evidence = "Current declaration: ErrUnauthorizedUpgrade              = sdkerrors.Register(ModuleName, 63, LaunchpadCode(\"UNAUTHORIZED_UPGRADE\")). Compared with the registered Register(\"launchpad\", 63, \"LXP_LAUNCHPAD_UNAUTHORIZED_UPGRADE\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 63 and the resulting LXP_LAUNCHPAD_UNAUTHORIZED_UPGRADE reason are unchanged."
+
+[row.r4-14.43]
+interface = "interface.4.err-sdk-launchpad-64-unexecutable-quote"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 81
+symbol = "ErrUnexecutableQuote"
+evidence = "Current declaration: ErrUnexecutableQuote                = sdkerrors.Register(ModuleName, 64, LaunchpadCode(\"UNEXECUTABLE_QUOTE\")). Compared with the registered Register(\"launchpad\", 64, \"LXP_LAUNCHPAD_UNEXECUTABLE_QUOTE\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 64 and the resulting LXP_LAUNCHPAD_UNEXECUTABLE_QUOTE reason are unchanged."
+
+[row.r4-14.44]
+interface = "interface.4.err-sdk-launchpad-65-unsupported-snapshot-token"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 82
+symbol = "ErrUnsupportedSnapshotToken"
+evidence = "Current declaration: ErrUnsupportedSnapshotToken         = sdkerrors.Register(ModuleName, 65, LaunchpadCode(\"UNSUPPORTED_SNAPSHOT_TOKEN\")). Compared with the registered Register(\"launchpad\", 65, \"LXP_LAUNCHPAD_UNSUPPORTED_SNAPSHOT_TOKEN\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 65 and the resulting LXP_LAUNCHPAD_UNSUPPORTED_SNAPSHOT_TOKEN reason are unchanged."
+
+[row.r4-14.45]
+interface = "interface.4.err-sdk-launchpad-66-upgrade-initialization-failed"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 83
+symbol = "ErrUpgradeInitializationFailed"
+evidence = "Current declaration: ErrUpgradeInitializationFailed      = sdkerrors.Register(ModuleName, 66, LaunchpadCode(\"UPGRADE_INITIALIZATION_FAILED\")). Compared with the registered Register(\"launchpad\", 66, \"LXP_LAUNCHPAD_UPGRADE_INITIALIZATION_FAILED\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 66 and the resulting LXP_LAUNCHPAD_UPGRADE_INITIALIZATION_FAILED reason are unchanged."
+
+[row.r4-14.46]
+interface = "interface.4.err-sdk-launchpad-67-invalid-token"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 84
+symbol = "ErrInvalidToken"
+evidence = "Current declaration: ErrInvalidToken                     = sdkerrors.Register(ModuleName, 67, LaunchpadCode(\"INVALID_TOKEN\")). Compared with the registered Register(\"launchpad\", 67, \"LXP_LAUNCHPAD_INVALID_TOKEN\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 67 and the resulting LXP_LAUNCHPAD_INVALID_TOKEN reason are unchanged."
+
+[row.r4-14.47]
+interface = "interface.4.err-sdk-launchpad-68-reentrant-call"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 85
+symbol = "ErrReentrantCall"
+evidence = "Current declaration: ErrReentrantCall                    = sdkerrors.Register(ModuleName, 68, LaunchpadCode(\"REENTRANT_CALL\")). Compared with the registered Register(\"launchpad\", 68, \"LXP_LAUNCHPAD_REENTRANT_CALL\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 68 and the resulting LXP_LAUNCHPAD_REENTRANT_CALL reason are unchanged."
+
+[row.r4-14.48]
+interface = "interface.4.err-sdk-launchpad-69-access-control-unauthorized-account"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 86
+symbol = "ErrAccessControlUnauthorizedAccount"
+evidence = "Current declaration: ErrAccessControlUnauthorizedAccount = sdkerrors.Register(ModuleName, 69, LaunchpadCode(\"ACCESS_CONTROL_UNAUTHORIZED_ACCOUNT\")). Compared with the registered Register(\"launchpad\", 69, \"LXP_LAUNCHPAD_ACCESS_CONTROL_UNAUTHORIZED_ACCOUNT\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 69 and the resulting LXP_LAUNCHPAD_ACCESS_CONTROL_UNAUTHORIZED_ACCOUNT reason are unchanged."
+
+[row.r4-14.49]
+interface = "interface.4.err-sdk-launchpad-70-retired"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 87
+symbol = "ErrRetired"
+evidence = "Current declaration: ErrRetired                          = sdkerrors.Register(ModuleName, 70, LaunchpadCode(\"RETIRED\")). Compared with the registered Register(\"launchpad\", 70, \"LXP_LAUNCHPAD_RETIRED\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 70 and the resulting LXP_LAUNCHPAD_RETIRED reason are unchanged."
+
+[row.r4-14.50]
+interface = "interface.4.err-sdk-launchpad-71-future-lookup"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 88
+symbol = "ErrFutureLookup"
+evidence = "Current declaration: ErrFutureLookup                     = sdkerrors.Register(ModuleName, 71, LaunchpadCode(\"FUTURE_LOOKUP\")). Compared with the registered Register(\"launchpad\", 71, \"LXP_LAUNCHPAD_FUTURE_LOOKUP\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 71 and the resulting LXP_LAUNCHPAD_FUTURE_LOOKUP reason are unchanged."
+
+[row.r4-14.51]
+interface = "interface.4.err-sdk-launchpad-72-insufficient-allowance"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 89
+symbol = "ErrInsufficientAllowance"
+evidence = "Current declaration: ErrInsufficientAllowance            = sdkerrors.Register(ModuleName, 72, LaunchpadCode(\"INSUFFICIENT_ALLOWANCE\")). Compared with the registered Register(\"launchpad\", 72, \"LXP_LAUNCHPAD_INSUFFICIENT_ALLOWANCE\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 72 and the resulting LXP_LAUNCHPAD_INSUFFICIENT_ALLOWANCE reason are unchanged."
+
+[row.r4-14.52]
+interface = "interface.4.err-sdk-launchpad-73-invalid-permit"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 90
+symbol = "ErrInvalidPermit"
+evidence = "Current declaration: ErrInvalidPermit                    = sdkerrors.Register(ModuleName, 73, LaunchpadCode(\"INVALID_PERMIT\")). Compared with the registered Register(\"launchpad\", 73, \"LXP_LAUNCHPAD_INVALID_PERMIT\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 73 and the resulting LXP_LAUNCHPAD_INVALID_PERMIT reason are unchanged."
+
+[row.r4-14.53]
+interface = "interface.4.err-sdk-launchpad-74-invalid-pool-binding"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 91
+symbol = "ErrInvalidPoolBinding"
+evidence = "Current declaration: ErrInvalidPoolBinding               = sdkerrors.Register(ModuleName, 74, LaunchpadCode(\"INVALID_POOL_BINDING\")). Compared with the registered Register(\"launchpad\", 74, \"LXP_LAUNCHPAD_INVALID_POOL_BINDING\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 74 and the resulting LXP_LAUNCHPAD_INVALID_POOL_BINDING reason are unchanged."
+
+[row.r4-14.54]
+interface = "interface.4.err-sdk-launchpad-75-permit-expired"
+verdict = "served"
+path = "modules/launchpad/types/errors.go"
+line = 92
+symbol = "ErrPermitExpired"
+evidence = "Current declaration: ErrPermitExpired                    = sdkerrors.Register(ModuleName, 75, LaunchpadCode(\"PERMIT_EXPIRED\")). Compared with the registered Register(\"launchpad\", 75, \"LXP_LAUNCHPAD_PERMIT_EXPIRED\"), the call is now qualified as sdkerrors.Register and derives the codespace and reason through ModuleName and LaunchpadCode; numeric SDK code 75 and the resulting LXP_LAUNCHPAD_PERMIT_EXPIRED reason are unchanged."
+
+[row.r4-14.55]
+interface = "interface.4.evt-launchpad-launchpad-market-created"
+verdict = "served"
+path = "modules/launchpad/types/events.go"
+line = 4
+symbol = "launchpad_market_created"
+evidence = "Current declaration: EventTypeMarketCreated = \"launchpad_market_created\". The registry signature launchpad_market_created() describes a Cosmos event-type literal, not a Go function; its spelling is unchanged. Unlike the registry note, modules/launchpad/keeper/market.go:234 now emits this event with denom, pointer, creator and strategy attributes; the legacy keeper also emits it at legacy/v610/keeper/market.go:91."
+
+[row.r4-14.56]
+interface = "interface.4.evt-launchpad-launchpad-market-created-j11"
+verdict = "served"
+path = "modules/launchpad/types/events.go"
+line = 4
+symbol = "EventTypeMarketCreated"
+evidence = "Declaration unchanged: EventTypeMarketCreated = \"launchpad_market_created\". The registry note saying only the legacy keeper emits it is obsolete: modules/launchpad/keeper/market.go:234 now emits the current Cosmos event with denom, pointer, creator and strategy attributes. This is an emission change, not a change to the constant identifier or event-type literal."
+
+[row.r4-14.57]
+interface = "interface.4.go-launchpad-types-genesis-state-validate"
+verdict = "served"
+path = "modules/launchpad/types/genesis.go"
+line = 251
+symbol = "Validate"
+evidence = "Signature unchanged: func (gs GenesisState) Validate() error. The body now rejects nonempty generation 1 AirdropEpochs, AirdropClaims, ProtocolFees, AirdropBases, HoldingHistories and HoldingCheckpoints, validates market indexes and delegates generation 2 contract-state validation to validateContracts; this implements decision.409 and override.J28.17."
+
+[row.r4-14.58]
+interface = "interface.4.go-launchpad-types-protocol-fees-key"
+verdict = "retired"
+path = "modules/launchpad/types/keys.go"
+line = 76
+symbol = "ProtocolFeesKey"
+evidence = "ProtocolFeesKey is absent from the entire registered modules/launchpad/types/keys.go, implementing decision.409 and override.J28.4; the generation 1 prefixes remain reserved. Repository-wide whole-identifier search excluding spec and docs found only the listed files: the legacy/v610 declaration and its legacy callers, plus modules/launchpad/types/genesis_test.go:143 asserting the helper stays absent from current types. remaining lists the first match in each file; similarly named pool helpers are distinct identifiers."
+remaining_refs = 4
+remaining = ["modules/launchpad/legacy/v610/keeper/keeper.go:108", "modules/launchpad/legacy/v610/keeper/keeper_test.go:483", "modules/launchpad/legacy/v610/types/keys.go:65", "modules/launchpad/types/genesis_test.go:143"]
+
+[row.r4-14.59]
+interface = "interface.4.go-launchpad-types-airdrop-epoch-key"
+verdict = "retired"
+path = "modules/launchpad/types/keys.go"
+line = 90
+symbol = "AirdropEpochKey"
+evidence = "AirdropEpochKey is absent from the entire registered modules/launchpad/types/keys.go, implementing decision.409 and override.J28.5; the generation 1 prefixes remain reserved. Repository-wide whole-identifier search excluding spec and docs found only the listed files: the legacy/v610 declaration and its legacy callers, plus modules/launchpad/types/genesis_test.go:143 asserting the helper stays absent from current types. remaining lists the first match in each file; similarly named pool helpers are distinct identifiers."
+remaining_refs = 4
+remaining = ["modules/launchpad/legacy/v610/keeper/genesis.go:69", "modules/launchpad/legacy/v610/keeper/keeper.go:259", "modules/launchpad/legacy/v610/types/keys.go:79", "modules/launchpad/types/genesis_test.go:143"]
+
+[row.r4-14.60]
+interface = "interface.4.go-launchpad-types-airdrop-claim-key"
+verdict = "retired"
+path = "modules/launchpad/types/keys.go"
+line = 94
+symbol = "AirdropClaimKey"
+evidence = "AirdropClaimKey is absent from the entire registered modules/launchpad/types/keys.go, implementing decision.409 and override.J28.6; the generation 1 prefixes remain reserved. Repository-wide whole-identifier search excluding spec and docs found only the listed files: the legacy/v610 declaration and its legacy callers, plus modules/launchpad/types/genesis_test.go:143 asserting the helper stays absent from current types. remaining lists the first match in each file; similarly named pool helpers are distinct identifiers."
+remaining_refs = 3
+remaining = ["modules/launchpad/legacy/v610/keeper/keeper.go:280", "modules/launchpad/legacy/v610/types/keys.go:83", "modules/launchpad/types/genesis_test.go:143"]

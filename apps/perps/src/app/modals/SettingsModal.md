@@ -1,301 +1,96 @@
-# SettingsModal Component Documentation
+# SettingsModal
 
-## Overview
+`SettingsModal` is a controlled, accessible drawer. Its props are `isOpen: boolean`
+and `onClose: () => void`. Keep the application `next-themes` provider above it.
+The supported controls are the four appearance choices and **Reduce dialog motion**.
 
-The `SettingsModal` is a premium animated settings drawer that provides global app-level configuration options. It features smooth framer-motion animations, visual theme previews, and organized setting categories with a native drawer-style interface.
+## Appearance
 
-## Architecture
+| Label   | Theme value |
+| ------- | ----------- |
+| Paxify  | `greenify`  |
+| Dark    | `dark`      |
+| Hotline | `hotline`   |
+| OLED    | `oled`      |
 
-### Core Structure
-```
-SettingsModal (Portal)
-├── Backdrop (framer-motion)
-└── Drawer Container (framer-motion flex)
-    ├── Header (fixed)
-    └── Scrollable Content
-        ├── Theme Section (visual previews)
-        ├── User Experience Settings
-        ├── Privacy & Security Settings
-        ├── Advanced Settings
-        └── Footer
-```
+The theme buttons call `next-themes`' `setTheme` and expose selection through
+`aria-pressed`, a border, ring and check mark. System themes resolve through
+`resolvedTheme`. The drawer does not offer light or system buttons, but still
+reflects those values if another application surface selects them.
 
-## Theme System
+The shared consumer is the theme provider in `src/pages/_app.tsx`, which applies
+classes to the document root. Portfolio, trading and wallet surfaces consume
+those classes through the application styles. `next-themes` owns theme storage
+under its `theme` key, separately from dialog motion. The drawer does not claim
+that the theme provider's best-effort storage operation has succeeded.
 
-### Theme Options Configuration
-Each theme includes visual preview properties:
+## Dialog motion and persistence
 
-```typescript
-const themeOptions = [
-  { 
-    label: "Light", 
-    icon: SunIcon, 
-    value: 'light',                    // next-themes value
-    gradient: 'linear-gradient(...)',  // Preview gradient
-    badgeColor: '#1e293b',            // Badge text color
-    badgeBg: '#f1f5f9',               // Badge background
-    border: '#e2e8f0'                 // Border color
-  },
-  // ... more themes
-];
-```
+**Reduce dialog motion** removes the settings drawer's horizontal/vertical
+movement and backdrop transition, and the wallet panel's entrance animation.
+It does not change charts, polling, transaction processing or audio.
 
-### Visual Theme Preview System
-- **Color Preview Circle**: 10x10px gradient showing theme colors
-- **Check Mark**: Appears on selected theme with theme-appropriate colors
-- **Theme Descriptions**: Contextual descriptions for each theme
-- **Interactive Cards**: Hover effects with accent border highlighting
+[`dialogPreferences.ts`](dialogPreferences.ts) supplies a shared external store
+and `useDialogPreferences`. `SettingsModal` and `WalletControlPanel` subscribe
+to the same value. The versioned browser-storage key is
+`hyperpax:dialog-preferences`; its current record is
+`{ "version": 1, "reduceMotion": true }`. Missing data uses `false`.
+The decoder rejects incompatible versions and non-boolean values.
 
-## Settings Architecture
+Consumers wait for restoration before rendering their animated surfaces.
+Updates persist the record before publishing the new value to subscribers.
+The store survives drawer dismissal, and a fresh runtime reads the stored record
+before applying motion behavior. Storage events synchronize other tabs,
+including deletion or clearing of the key.
 
-### State Management
-Individual `useState` hooks for each setting:
-```typescript
-const [notifications, setNotifications] = useState(true);
-const [soundEffects, setSoundEffects] = useState(false);
-const [privateMode, setPrivateMode] = useState(false);
-// ... more settings
-```
+The status text distinguishes loading, an unsaved default, a successful write
+or restoration, and a storage error. A failed write preserves the last applied
+value and reports that the preference was not saved. A failed read or invalid
+record reports an alert in settings; choosing a preference retries persistence.
+Persistence is local to this browser and origin, without account synchronization.
 
-### Setting Categories
+## Supported behavior and future consumers
 
-#### Appearance
-- **Theme Selection**: Visual theme picker with live previews
+There are no switches for hiding PnL or size/margin, risk warnings, fill audio,
+wallet reconnection or skipping confirmations. Those controls previously had
+no runtime consumers. The scoped motion setting replaces the broader low-power
+promise. Adding any of these features requires a shared contract and tests at
+the owning feature before exposing a control. The domain/path wiring requests
+are recorded in [`repair-22-33-11.kvx`](repair-22-33-11.kvx).
 
-#### User Experience
-- **Push Notifications**: App-wide notification toggle
-- **Sound Effects**: Audio feedback for interactions
-- **Auto Refresh Data**: Automatic data polling
+## Accessible operation and responsive motion
 
-#### Privacy & Security
-- **Private Mode**: Hide sensitive information
-- **Usage Analytics**: Data collection consent
+The drawer uses `@radix-ui/react-dialog`: a modal root, portal, overlay, content,
+associated title and description, and a close control labelled “Close settings”.
+Radix supplies initial focus, focus containment, Tab looping, Escape dismissal,
+outside dismissal and scroll management. The custom body-overflow effect is
+removed so Radix coordinates scroll locking with other dialogs.
 
-#### Advanced
-- **Advanced Mode**: Enable power user features
+Launchers use controlled props rather than `Dialog.Trigger`.
+[`useDialogFocus.ts`](useDialogFocus.ts) captures the active launcher when Radix
+opens the dialog and restores focus on dismissal if that element is still
+connected. Each opening captures its own launcher. `DepositWithdrawModal` uses
+the same lifecycle, labelled title/description and “Close collateral dialog”
+control; dismissal does not clear its transaction recovery state.
 
-### Adding New Settings
+`useIsMobile` from `hooks/ui/useMobile` selects a bottom drawer at widths up to
+767px and a right drawer above that. Existing `framer-motion` spring parameters
+are damping 30 and stiffness 300. Reduced motion sets duration to zero and skips
+the entrance movement. Animated exits complete before content unmounts.
+The fixed header and scrollable body remain within an 85vh mobile drawer or a
+420px desktop drawer (maximum 90vw).
 
-1. **Add State Variable**:
-```typescript
-const [newSetting, setNewSetting] = useState(false);
-```
+Current UI dependencies are `ui/atoms/button`, `ui/atoms/label`,
+`ui/atoms/switch`, and `ui/utils/cn`. The switch has an associated label and
+an accessible description of the exact affected surfaces.
 
-2. **Add Setting Row**:
-```typescript
-<div className="flex items-center justify-between">
-  <div className="flex items-center gap-3">
-    <div className="p-2 rounded-lg bg-accent/10">
-      <IconName className="h-4 w-4 text-accent" />
-    </div>
-    <div>
-      <Label htmlFor="new-setting" className="text-sm font-medium cursor-pointer">
-        Setting Name
-      </Label>
-      <p className="text-xs text-muted-foreground">
-        Setting description
-      </p>
-    </div>
-  </div>
-  <Switch 
-    id="new-setting" 
-    checked={newSetting}
-    onCheckedChange={setNewSetting}
-    className="data-[state=checked]:bg-accent"
-  />
-</div>
-```
+## Verification
 
-## Animation System
-
-### Drawer Animations
-Uses framer-motion with spring physics:
-```typescript
-// Direction-aware animations
-initial={isMobile ? { y: "100%" } : { x: "100%" }}
-animate={isMobile ? { y: 0 } : { x: 0 }}
-exit={isMobile ? { y: "100%" } : { x: "100%" }}
-transition={{
-  type: "spring",
-  damping: 30,
-  stiffness: 300,
-}}
-```
-
-### Animation Behavior
-- **Desktop**: Slides in from right edge
-- **Mobile**: Slides up from bottom (like iOS bottom sheets)
-- **Backdrop**: Smooth fade in/out with blur effect
-- **Spring Physics**: Natural feeling animations with bounce
-
-## Scroll Management
-
-### Body Scroll Prevention
-```typescript
-// Simple and effective approach
-useEffect(() => {
-  if (isOpen) {
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }
-}, [isOpen]);
-```
-
-### Mobile Touch Scrolling
-**Critical Implementation Details:**
-- Uses `overflow-y-scroll` instead of `overflow-y-auto`
-- Applies `WebkitOverflowScrolling: 'touch'` for iOS momentum
-- Explicit height (`h-[85vh]`) instead of max-height
-- Flex container structure for proper height calculation
-
-**Why This Works:**
-- **Simplified Structure**: Direct flex container without nested scrollable divs
-- **Proper Height**: Fixed height allows overflow calculation
-- **Native Touch**: Leverages browser's native touch scrolling
-
-## Styling System
-
-### Design Tokens
-- **Colors**: Uses CSS custom properties (`var(--accent)`)
-- **Spacing**: Consistent spacing (p-6, space-y-6, gap-3)
-- **Typography**: Clear hierarchy (text-sm, text-xs)
-
-### Component Patterns
-
-#### Section Headers
-```typescript
-<div>
-  <h3 className="text-sm font-medium text-foreground mb-1">
-    Section Name
-  </h3>
-  <p className="text-xs text-muted-foreground">
-    Section description
-  </p>
-</div>
-```
-
-#### Setting Rows
-```typescript
-<div className="flex items-center justify-between">
-  <div className="flex items-center gap-3">
-    <div className="p-2 rounded-lg bg-accent/10">
-      <Icon className="h-4 w-4 text-accent" />
-    </div>
-    <div>
-      <Label className="text-sm font-medium cursor-pointer">
-        Setting Name
-      </Label>
-      <p className="text-xs text-muted-foreground">
-        Setting description
-      </p>
-    </div>
-  </div>
-  <Switch className="data-[state=checked]:bg-accent" />
-</div>
-```
-
-## Dependencies
-
-### Required Imports
-```typescript
-import { useTheme } from "next-themes";          // Theme management
-import { motion, AnimatePresence } from "framer-motion"; // Animations
-import { createPortal } from "react-dom";        // Portal rendering
-import { Switch } from "@/components/ui/switch"; // Toggle component
-import { Label } from "@/components/ui/label";   // Accessible labels
-import { useIsMobile } from "@/hooks/use-mobile"; // Responsive detection
-```
-
-### Icon System
-Uses Lucide React icons consistently:
-- **4x4px** size for setting icons
-- **5x5px** size for theme check marks
-- **4x4px** size for close button
-
-## Accessibility
-
-### Features
-- **Keyboard Navigation**: All interactive elements focusable
-- **Screen Readers**: Proper labels with `htmlFor` attributes
-- **Color Contrast**: Theme previews use sufficient contrast
-- **Focus Management**: Natural tab order through settings
-
-### Implementation
-```typescript
-<Label htmlFor="setting-id" className="text-sm font-medium cursor-pointer">
-  Setting Name
-</Label>
-// ... 
-<Switch id="setting-id" />
-```
-
-## Performance Considerations
-
-### Rendering Strategy
-- **Portal Rendering**: Prevents layout thrashing in parent components
-- **Conditional Mounting**: Only renders when `isOpen` is true
-- **Hydration Safety**: Waits for `mounted` state before rendering
-
-### Optimization Opportunities
-- **Memoization**: Theme options array could be memoized
-- **Lazy Loading**: Settings could be loaded on first open
-- **Virtual Scrolling**: For many settings (not currently needed)
-
-## Troubleshooting
-
-### Common Issues
-
-#### Mobile Scrolling Not Working
-- **Ensure**: `overflow-y-scroll` (not `overflow-y-auto`)
-- **Check**: `WebkitOverflowScrolling: 'touch'` is applied
-- **Verify**: Container has explicit height, not max-height
-- **Confirm**: No conflicting touch-action CSS
-
-#### Z-Index Issues
-- **Solution**: Component uses portal rendering
-- **Verify**: Z-index values (backdrop: 9998, modal: 9999)
-
-#### Animation Performance
-- **Check**: GPU acceleration is enabled
-- **Ensure**: Spring animations use appropriate damping/stiffness
-
-## Customization Guide
-
-### Drawer Dimensions
-```typescript
-// Adjust in className
-isMobile 
-  ? "bottom-0 left-0 right-0 rounded-t-2xl h-[85vh]"  // Mobile height
-  : "top-0 right-0 h-screen w-[420px] max-w-[90vw]"   // Desktop width
-```
-
-### Theme Colors
-Update the `themeOptions` array with new gradients and colors:
-```typescript
-{
-  label: "Custom",
-  icon: CustomIcon,
-  value: 'custom',
-  gradient: 'linear-gradient(135deg, #custom1, #custom2)',
-  badgeColor: '#textColor',
-  badgeBg: '#bgColor',
-  border: '#borderColor'
-}
-```
-
-## Future Enhancements
-
-### Planned Features
-- **Settings Persistence**: localStorage/API integration
-- **Keyboard Shortcuts**: Hotkey configuration
-- **Import/Export**: Settings backup/restore
-- **Search**: Setting search functionality
-- **Categories**: Collapsible setting groups
-
-### Extensibility Points
-- **Custom Setting Types**: Beyond boolean toggles
-- **Conditional Settings**: Settings that depend on others
-- **Setting Validation**: Input constraints and validation
-- **Real-time Sync**: Multi-device settings sync
+`tests/repair-22-33-11.test.ts` drives the production preference switch, shared
+hook and motion consumers, checks actual Radix server-rendered semantics and
+controlled dismissal, exercises the focus-restoration controller, and restarts
+the component and preference modules while retaining browser storage. It also
+covers write/read failures and the wallet signer's identity through real wagmi
+and embedded SDK paths with loopback services. The Node-only gate does not run
+a browser keyboard walkthrough; focus trapping and Escape are delegated to the
+existing Radix primitive without overriding their handlers.

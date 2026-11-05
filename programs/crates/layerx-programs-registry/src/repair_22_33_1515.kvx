@@ -1,0 +1,21 @@
+[repair.22.33.1515]
+mode = "BUILD"
+acceptance = "22998.1"
+qualification = "hf-build followed by hf-done on the same candidate; the runner records the exact verified revision, command, exit and private evidence location."
+baseline = "No previous gate ledger exists. No unchanged-tree test was run: the explicit ordered gate contract requires complete implementation before hf-build and hf-done, and forbids running verify_cmd by hand. No baseline failures are claimed."
+
+[finding.registry_failed_read_mutation]
+repair = "verify_snapshot and restore_inner replay and validate against a candidate registry, publishing it only after authority, freshness and account-proof validation succeeds."
+tests = ["registry_failed_read_mutation_verify_staleness", "registry_failed_read_mutation_verify_authority", "registry_failed_read_mutation_verify_account_proof", "registry_failed_read_mutation_restore_staleness", "registry_failed_read_mutation_restore_authority", "registry_failed_read_mutation_restore_account_proof", "registry_failed_read_mutation_valid_reads_publish_complete_state"]
+proof = "Committed registration vectors and production commitments feed the real registry, deprecation transition, snapshot verifier, canonical encoder and restore decoder; every refusal compares all entries and fields before a valid retry, and success publishes bindings, lifecycle, history and exit routes."
+wiring = "No out-of-path implementation step is required by this finding."
+
+[gotcha.baseline_order]
+observed = "The historical baseline instruction conflicts with the explicit implementation-first gate order; the explicit order was followed."
+
+[qualification.first_build]
+revision = "f22d9bdc37ed496f18adf5fe11fd36c6f1cdd886"
+command = "cargo build --locked --manifest-path programs/crates/layerx-programs-registry/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The integration fixture called crate-private ProgramValueAccountBinding::validate; the public primary_value serializer performs the same validation and now also checks exact committed vector bytes."

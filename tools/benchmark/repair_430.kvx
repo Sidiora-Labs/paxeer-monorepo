@@ -1,0 +1,8 @@
+[repair.22.31.430]
+finding = "benchmark-home-delete"
+base_revision = "7fc896febbb27d599c34aa9b6e0a81d4a7905759"
+tests = ["TestRepair_430_DedicatedHomePreservesDefaultNode", "TestRepair_430_RejectsUnsafeHomes", "TestRepair_430_ExistingStateRequiresBoundedReset", "TestRepair_430_RefusesUnownedState", "TestRepair_430_ResetCannotFollowLinksOutsideHome", "TestRepair_430_DefaultHomeAliasIsProtected", "TestRepair_430_ScriptConsumesValidatedHome"]
+repair = "Initialize directly in PAX_HOME (default ~/.pax-benchmark), pass --home throughout initialization, and export it to the account producer; only an exact BENCHMARK_RESET_HOME confirmation with a matching ownership marker allows removal, bounded by an open directory handle."
+baseline = "Not run: the task-specific gate order prohibits verification before full implementation and hf-build; no pre-change test failures are claimed."
+evidence = "The runner records the exact candidate revision, command, exit code and private log in /out/run/gates.jsonl; hf-done qualifies the unchanged candidate."
+wiring_requests = []

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"encoding/hex"
@@ -12,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/hd"
 
@@ -20,6 +22,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rlp"
+	gethrpc "github.com/ethereum/go-ethereum/rpc"
 	"github.com/spf13/cobra"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/artifacts/native"
@@ -91,7 +94,10 @@ func CmdAssociateAddress() *cobra.Command {
 			if len(args) == 1 {
 				privHex = args[0]
 			} else {
-				txf := tx.NewFactoryCLI(clientCtx, cmd.Flags())
+				txf, err := tx.NewFactoryCLI(clientCtx, cmd.Flags())
+				if err != nil {
+					return err
+				}
 				kb := txf.Keybase()
 				info, err := kb.Key(clientCtx.GetFromName())
 				if err != nil {
@@ -135,17 +141,7 @@ func CmdAssociateAddress() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			req, err := http.NewRequest(http.MethodPost, rpc, strings.NewReader(body))
-			if err != nil {
-				return err
-			}
-			req.Header.Set("Content-Type", "application/json")
-			res, err := http.DefaultClient.Do(req)
-			if err != nil {
-				return err
-			}
-			defer func() { _ = res.Body.Close() }()
-			resBody, err := io.ReadAll(res.Body)
+			resBody, err := postCLIRequest(cmd.Context(), rpc, body)
 			if err != nil {
 				return err
 			}
@@ -181,7 +177,7 @@ func CmdSend() *cobra.Command {
 			if n, err := cmd.Flags().GetInt64(FlagNonce); err == nil && n >= 0 {
 				nonce = uint64(n)
 			} else {
-				nonce, err = getNonce(rpc, key.PublicKey)
+				nonce, err = getNonce(cmd.Context(), rpc, key.PublicKey)
 				if err != nil {
 					return err
 				}
@@ -200,7 +196,7 @@ func CmdSend() *cobra.Command {
 			txData.Value = val
 			txData.Data = []byte("")
 			txData.To = &to
-			resp, err := sendTx(txData, rpc, key)
+			resp, err := sendTx(cmd.Context(), txData, rpc, key)
 			if err != nil {
 				return err
 			}
@@ -230,16 +226,12 @@ func CmdDeployContract() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "deploy [path to binary] --from=<sender> --gas-fee-cap=<cap> --gas-limit=<limit> --evm-rpc=<url>",
 		Short: "Deploy an EVM contract for binary at specified path",
-		Long:  "",
+		Long:  "Deploy bytecode from an even-length hexadecimal file. Leading and trailing whitespace and an optional lowercase 0x prefix are accepted; embedded whitespace is rejected.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			code, err := os.ReadFile(args[0])
+			bz, err := readContractBinary(args[0])
 			if err != nil {
-				panic("failed to read contract binary")
-			}
-			bz, err := hex.DecodeString(string(code))
-			if err != nil {
-				panic("failed to decode contract binary")
+				return err
 			}
 
 			key, err := getPrivateKey(cmd)
@@ -255,7 +247,7 @@ func CmdDeployContract() *cobra.Command {
 			if n, err := cmd.Flags().GetInt64(FlagNonce); err == nil && n >= 0 {
 				nonce = uint64(n)
 			} else {
-				nonce, err = getNonce(rpc, key.PublicKey)
+				nonce, err = getNonce(cmd.Context(), rpc, key.PublicKey)
 				if err != nil {
 					return err
 				}
@@ -269,7 +261,7 @@ func CmdDeployContract() *cobra.Command {
 			txData.Value = utils.Big0
 			txData.Data = bz
 
-			resp, err := sendTx(txData, rpc, key)
+			resp, err := sendTx(cmd.Context(), txData, rpc, key)
 			if err != nil {
 				return err
 			}
@@ -325,7 +317,7 @@ func CmdCallContract() *cobra.Command {
 			if n, err := cmd.Flags().GetInt64(FlagNonce); err == nil && n >= 0 {
 				nonce = uint64(n)
 			} else {
-				nonce, err = getNonce(rpc, key.PublicKey)
+				nonce, err = getNonce(cmd.Context(), rpc, key.PublicKey)
 				if err != nil {
 					return err
 				}
@@ -349,7 +341,7 @@ func CmdCallContract() *cobra.Command {
 			txData.Data = payload
 			txData.To = &contract
 
-			resp, err := sendTx(txData, rpc, key)
+			resp, err := sendTx(cmd.Context(), txData, rpc, key)
 			if err != nil {
 				return err
 			}
@@ -404,7 +396,7 @@ func CmdERC20Send() *cobra.Command {
 			if n, err := cmd.Flags().GetInt64(FlagNonce); err == nil && n >= 0 {
 				nonce = uint64(n)
 			} else {
-				nonce, err = getNonce(rpc, key.PublicKey)
+				nonce, err = getNonce(cmd.Context(), rpc, key.PublicKey)
 				if err != nil {
 					return err
 				}
@@ -419,7 +411,7 @@ func CmdERC20Send() *cobra.Command {
 			txData.Data = payload
 			txData.To = &contract
 
-			resp, err := sendTx(txData, rpc, key)
+			resp, err := sendTx(cmd.Context(), txData, rpc, key)
 			if err != nil {
 				return err
 			}
@@ -487,7 +479,7 @@ func CmdCallPrecompile() *cobra.Command {
 			if n, err := cmd.Flags().GetInt64(FlagNonce); err == nil && n >= 0 {
 				nonce = uint64(n)
 			} else {
-				nonce, err = getNonce(rpc, key.PublicKey)
+				nonce, err = getNonce(cmd.Context(), rpc, key.PublicKey)
 				if err != nil {
 					return err
 				}
@@ -500,7 +492,8 @@ func CmdCallPrecompile() *cobra.Command {
 
 			valueBig := big.NewInt(0)
 			if value != "" {
-				valueBig, success := new(big.Int).SetString(value, 10)
+				var success bool
+				valueBig, success = new(big.Int).SetString(value, 10)
 				if !success || valueBig.Cmp(utils.Big0) < 0 {
 					return fmt.Errorf("%s is not a valid value. Must be a decimal nonnegative integer", value)
 				}
@@ -516,7 +509,7 @@ func CmdCallPrecompile() *cobra.Command {
 			to := pInfo.Address
 			txData.To = &to
 
-			resp, err := sendTx(txData, rpc, key)
+			resp, err := sendTx(cmd.Context(), txData, rpc, key)
 			if err != nil {
 				return err
 			}
@@ -558,7 +551,7 @@ func CmdDeployWPAX() *cobra.Command {
 			if n, err := cmd.Flags().GetInt64(FlagNonce); err == nil && n >= 0 {
 				nonce = uint64(n)
 			} else {
-				nonce, err = getNonce(rpc, key.PublicKey)
+				nonce, err = getNonce(cmd.Context(), rpc, key.PublicKey)
 				if err != nil {
 					return err
 				}
@@ -572,7 +565,7 @@ func CmdDeployWPAX() *cobra.Command {
 			txData.Value = utils.Big0
 			txData.Data = contractData
 
-			resp, err := sendTx(txData, rpc, key)
+			resp, err := sendTx(cmd.Context(), txData, rpc, key)
 			if err != nil {
 				return err
 			}
@@ -607,7 +600,10 @@ func getPrivateKey(cmd *cobra.Command) (*ecdsa.PrivateKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	txf := tx.NewFactoryCLI(clientCtx, cmd.Flags())
+	txf, err := tx.NewFactoryCLI(clientCtx, cmd.Flags())
+	if err != nil {
+		return nil, err
+	}
 	kb := txf.Keybase()
 	info, err := kb.Key(clientCtx.GetFromName())
 	if err != nil {
@@ -629,58 +625,126 @@ func getPrivateKey(cmd *cobra.Command) (*ecdsa.PrivateKey, error) {
 	return key, nil
 }
 
-func getNonce(rpc string, key ecdsa.PublicKey) (uint64, error) {
-	nonceQuery := fmt.Sprintf("{\"jsonrpc\": \"2.0\",\"method\": \"eth_getTransactionCount\",\"params\":[\"%s\",\"pending\"],\"id\":\"send-cli\"}", crypto.PubkeyToAddress(key).Hex())
-	req, err := http.NewRequest(http.MethodPost, rpc, strings.NewReader(nonceQuery))
+const (
+	cliRPCTimeout       = 15 * time.Second
+	maxCLIResponseBytes = 1 << 20
+)
+
+func readContractBinary(path string) ([]byte, error) {
+	code, err := os.ReadFile(path)
 	if err != nil {
-		return 0, err
+		return nil, fmt.Errorf("read contract binary %q: %w", path, err)
 	}
-	req.Header.Set("Content-Type", "application/json")
-	res, err := http.DefaultClient.Do(req)
+	text := strings.TrimPrefix(strings.TrimSpace(string(code)), "0x")
+	binary, err := hex.DecodeString(text)
 	if err != nil {
-		return 0, err
+		return nil, fmt.Errorf("decode contract binary %q: %w", path, err)
 	}
-	defer func() { _ = res.Body.Close() }()
-	resBody, err := io.ReadAll(res.Body)
-	if err != nil {
-		return 0, err
-	}
-	resObj := map[string]interface{}{}
-	if err := json.Unmarshal(resBody, &resObj); err != nil {
-		return 0, err
-	}
-	nonce := new(hexutil.Uint64)
-	if err := nonce.UnmarshalText([]byte(resObj["result"].(string))); err != nil {
-		return 0, err
-	}
-	return uint64(*nonce), nil
+	return binary, nil
 }
 
-func getChainId(rpc string) (*big.Int, error) {
-	q := "{\"jsonrpc\": \"2.0\",\"method\": \"eth_chainId\",\"params\":[],\"id\":\"send-cli\"}"
-	req, err := http.NewRequest(http.MethodPost, rpc, strings.NewReader(q))
+// cliRPCTransport caps responses for metadata lookups, association and submission.
+type cliRPCTransport struct{}
+
+func (cliRPCTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	res, err := http.DefaultTransport.RoundTrip(req)
+	if err != nil {
+		return nil, err
+	}
+	responseBody := res.Body
+	defer func() { _ = responseBody.Close() }()
+	body, err := io.ReadAll(io.LimitReader(responseBody, maxCLIResponseBytes+1))
+	if err != nil {
+		return nil, fmt.Errorf("read RPC response: %w", err)
+	}
+	if len(body) > maxCLIResponseBytes {
+		return nil, fmt.Errorf("RPC response exceeds %d bytes", maxCLIResponseBytes)
+	}
+	res.Body = io.NopCloser(bytes.NewReader(body))
+	res.ContentLength = int64(len(body))
+	return res, nil
+}
+
+func cliHTTPClient() *http.Client {
+	return &http.Client{Timeout: cliRPCTimeout, Transport: cliRPCTransport{}}
+}
+
+func postCLIRequest(ctx context.Context, endpoint, body string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(ctx, cliRPCTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	res, err := http.DefaultClient.Do(req)
+	res, err := cliHTTPClient().Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = res.Body.Close() }()
-	resBody, err := io.ReadAll(res.Body)
+	if res.StatusCode < http.StatusOK || res.StatusCode >= http.StatusMultipleChoices {
+		return nil, fmt.Errorf("RPC HTTP status %s", res.Status)
+	}
+	return io.ReadAll(res.Body)
+}
+
+type cliRPCError struct {
+	Code    int             `json:"code"`
+	Message string          `json:"message"`
+	Data    json.RawMessage `json:"data,omitempty"`
+}
+
+func (e *cliRPCError) Error() string {
+	return fmt.Sprintf("JSON-RPC error %d: %s", e.Code, e.Message)
+}
+
+type cliQuantityResponse struct {
+	Result *string      `json:"result"`
+	Error  *cliRPCError `json:"error"`
+}
+
+func queryCLIQuantity(ctx context.Context, endpoint, query string) (string, error) {
+	body, err := postCLIRequest(ctx, endpoint, query)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	resObj := map[string]interface{}{}
-	if err := json.Unmarshal(resBody, &resObj); err != nil {
-		return nil, err
+	var response cliQuantityResponse
+	if err := json.Unmarshal(body, &response); err != nil {
+		return "", fmt.Errorf("decode RPC response: %w", err)
 	}
-	chainId := new(hexutil.Big)
-	if err := chainId.UnmarshalText([]byte(resObj["result"].(string))); err != nil {
-		return nil, err
+	if response.Error != nil {
+		return "", response.Error
 	}
-	return chainId.ToInt(), nil
+	if response.Result == nil {
+		return "", errors.New("RPC response has no string result")
+	}
+	return *response.Result, nil
+}
+
+func getNonce(ctx context.Context, rpc string, key ecdsa.PublicKey) (uint64, error) {
+	query := fmt.Sprintf("{\"jsonrpc\":\"2.0\",\"method\":\"eth_getTransactionCount\",\"params\":[\"%s\",\"pending\"],\"id\":\"send-cli\"}", crypto.PubkeyToAddress(key).Hex())
+	result, err := queryCLIQuantity(ctx, rpc, query)
+	if err != nil {
+		return 0, fmt.Errorf("get nonce: %w", err)
+	}
+	nonce, err := hexutil.DecodeUint64(result)
+	if err != nil {
+		return 0, fmt.Errorf("invalid nonce result %q: %w", result, err)
+	}
+	return nonce, nil
+}
+
+func getChainId(ctx context.Context, rpc string) (*big.Int, error) {
+	query := `{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":"send-cli"}`
+	result, err := queryCLIQuantity(ctx, rpc, query)
+	if err != nil {
+		return nil, fmt.Errorf("get chain ID: %w", err)
+	}
+	chainID, err := hexutil.DecodeBig(result)
+	if err != nil {
+		return nil, fmt.Errorf("invalid chain ID result %q: %w", result, err)
+	}
+	return chainID, nil
 }
 
 func getTxData(cmd *cobra.Command) (*ethtypes.DynamicFeeTx, error) {
@@ -696,7 +760,7 @@ func getTxData(cmd *cobra.Command) (*ethtypes.DynamicFeeTx, error) {
 	if err != nil {
 		return nil, err
 	}
-	chainID, err := getChainId(rpc)
+	chainID, err := getChainId(cmd.Context(), rpc)
 	if err != nil {
 		return nil, err
 	}
@@ -708,7 +772,12 @@ func getTxData(cmd *cobra.Command) (*ethtypes.DynamicFeeTx, error) {
 	}, nil
 }
 
-func sendTx(txData *ethtypes.DynamicFeeTx, rpcUrl string, key *ecdsa.PrivateKey) (common.Hash, error) {
+func sendTx(ctx context.Context, txData *ethtypes.DynamicFeeTx, rpcUrl string, key *ecdsa.PrivateKey) (common.Hash, error) {
+	ctx, cancel := context.WithTimeout(ctx, cliRPCTimeout)
+	defer cancel()
+	if err := ctx.Err(); err != nil {
+		return common.Hash{}, err
+	}
 	ethCfg := types.DefaultChainConfig().EthereumConfig(txData.ChainID)
 	signer := ethtypes.MakeSigner(ethCfg, utils.Big1, 1)
 	signedTx, err := ethtypes.SignTx(ethtypes.NewTx(txData), signer, key)
@@ -716,12 +785,14 @@ func sendTx(txData *ethtypes.DynamicFeeTx, rpcUrl string, key *ecdsa.PrivateKey)
 		return common.Hash{}, err
 	}
 
-	ethClient, err := ethclient.Dial(rpcUrl)
+	rpcClient, err := gethrpc.DialOptions(ctx, rpcUrl, gethrpc.WithHTTPClient(cliHTTPClient()))
 	if err != nil {
 		return common.Hash{}, err
 	}
 
-	if err := ethClient.SendTransaction(context.Background(), signedTx); err != nil {
+	ethClient := ethclient.NewClient(rpcClient)
+	defer ethClient.Close()
+	if err := ethClient.SendTransaction(ctx, signedTx); err != nil {
 		return common.Hash{}, err
 	}
 

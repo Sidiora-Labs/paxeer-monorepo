@@ -2,6 +2,7 @@
 
 pub mod admission;
 pub mod deadline;
+pub mod lifecycle;
 pub mod quota;
 
 pub use quota::Quota;

@@ -12,6 +12,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/internal/p2p"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/internal/proxy"
 	sm "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/internal/state"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/utils"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/light"
 	pb "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/statesync"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
@@ -127,6 +128,9 @@ func (s *syncer) SyncAny(
 	discoveryTime time.Duration,
 	requestSnapshots func() error,
 ) (sm.State, *types.Commit, error) {
+	if err := ctx.Err(); err != nil {
+		return sm.State{}, nil, err
+	}
 	if discoveryTime != 0 && discoveryTime < minimumDiscoveryTime {
 		discoveryTime = minimumDiscoveryTime
 	}
@@ -136,7 +140,9 @@ func (s *syncer) SyncAny(
 			return sm.State{}, nil, err
 		}
 		logger.Info("discovering snapshots", "duration", discoveryTime)
-		time.Sleep(discoveryTime)
+		if err := utils.Sleep(ctx, discoveryTime); err != nil {
+			return sm.State{}, nil, err
+		}
 	}
 
 	// The app may ask us to retry a snapshot restoration, in which case we need to reuse
@@ -155,6 +161,9 @@ func (s *syncer) SyncAny(
 	}()
 
 	for {
+		if err := ctx.Err(); err != nil {
+			return sm.State{}, nil, err
+		}
 		// If not nil, we're going to retry restoration of the same snapshot.
 		if snapshot == nil {
 			snapshot = s.snapshots.Best()
@@ -165,7 +174,9 @@ func (s *syncer) SyncAny(
 				return sm.State{}, nil, errNoSnapshots
 			}
 			logger.Info("no snapshots discovered, sleeping", "duration", discoveryTime)
-			time.Sleep(discoveryTime)
+			if err := utils.Sleep(ctx, discoveryTime); err != nil {
+				return sm.State{}, nil, err
+			}
 			continue
 		}
 		if chunks == nil {

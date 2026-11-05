@@ -44,7 +44,16 @@ impl Environment {
     }
 }
 
-/// Credentials applied to every outgoing request.
+/// The security scheme declared by an operation.
+#[derive(Clone, Copy)]
+pub(crate) enum SecurityScheme {
+    RestApiKey,
+    WsMintKey,
+    #[cfg(feature = "websocket")]
+    WsToken,
+}
+
+/// Credentials selected by each outgoing operation.
 #[derive(Clone, Default)]
 struct Auth {
     rest_api_key: Option<String>,
@@ -60,15 +69,24 @@ impl Auth {
     /// credentials are validated through `auth_value`, which marks them
     /// sensitive and never echoes them in errors; query credentials ride
     /// the URL's form-urlencoded serializer.
-    fn apply(&self, headers: &mut http::HeaderMap, url: &mut url::Url) -> Result<(), Error> {
-        if let Some(value) = &self.rest_api_key {
-            headers.insert(header_name("X-API-Key")?, auth_value(value)?);
-        }
-        if let Some(value) = &self.ws_mint_key {
-            headers.insert(header_name("X-API-Key")?, auth_value(value)?);
-        }
-        if let Some(value) = &self.ws_token {
-            url.query_pairs_mut().append_pair("token", value);
+    fn apply(&self, scheme: SecurityScheme, headers: &mut http::HeaderMap, url: &mut url::Url) -> Result<(), Error> {
+        match scheme {
+            SecurityScheme::RestApiKey => {
+                if let Some(value) = &self.rest_api_key {
+                    headers.insert(header_name("X-API-Key")?, auth_value(value)?);
+                }
+            }
+            SecurityScheme::WsMintKey => {
+                if let Some(value) = &self.ws_mint_key {
+                    headers.insert(header_name("X-API-Key")?, auth_value(value)?);
+                }
+            }
+            #[cfg(feature = "websocket")]
+            SecurityScheme::WsToken => {
+                if let Some(value) = &self.ws_token {
+                    url.query_pairs_mut().append_pair("token", value);
+                }
+            }
         }
         Ok(())
     }
@@ -176,11 +194,11 @@ impl ChainflowDataGatewayClient {
         query: &[(String, String)],
         headers: &[(String, String)],
         body: Option<&B>,
-        apply_auth: bool,
+        security: SecurityScheme,
         overrides: RequestOverrides,
     ) -> Result<T, Error> {
         let response = self
-            .dispatch(method, path, query, headers, body, apply_auth, overrides)
+            .dispatch(method, path, query, headers, body, security, overrides)
             .await?;
         let read_deadline = self.body_deadline(overrides, true);
         crate::http::read_with_deadline(
@@ -199,11 +217,11 @@ impl ChainflowDataGatewayClient {
         query: &[(String, String)],
         headers: &[(String, String)],
         body: Option<&B>,
-        apply_auth: bool,
+        security: SecurityScheme,
         overrides: RequestOverrides,
     ) -> Result<(), Error> {
         let response = self
-            .dispatch(method, path, query, headers, body, apply_auth, overrides)
+            .dispatch(method, path, query, headers, body, security, overrides)
             .await?;
         let read_deadline = self.body_deadline(overrides, true);
         crate::http::read_with_deadline(
@@ -222,11 +240,11 @@ impl ChainflowDataGatewayClient {
         query: &[(String, String)],
         headers: &[(String, String)],
         body: Option<&B>,
-        apply_auth: bool,
+        security: SecurityScheme,
         overrides: RequestOverrides,
     ) -> Result<bytes::Bytes, Error> {
         let response = self
-            .dispatch(method, path, query, headers, body, apply_auth, overrides)
+            .dispatch(method, path, query, headers, body, security, overrides)
             .await?;
         let read_deadline = self.body_deadline(overrides, false);
         crate::http::read_with_deadline(
@@ -245,10 +263,10 @@ impl ChainflowDataGatewayClient {
         query: &[(String, String)],
         headers: &[(String, String)],
         body: Option<&B>,
-        apply_auth: bool,
+        security: SecurityScheme,
         overrides: RequestOverrides,
     ) -> Result<http::Response<SdkBody>, Error> {
-        self.dispatch(method, path, query, headers, body, apply_auth, overrides)
+        self.dispatch(method, path, query, headers, body, security, overrides)
             .await
     }
 
@@ -259,7 +277,7 @@ impl ChainflowDataGatewayClient {
         path: &str,
         query: &[(String, String)],
         headers: &[(String, String)],
-        apply_auth: bool,
+        security: SecurityScheme,
     ) -> Result<crate::websocket::WebSocketConnection<Tx, Rx>, Error> {
         let mut url = self
             .inner
@@ -291,9 +309,7 @@ impl ChainflowDataGatewayClient {
         if !header_map.contains_key(http::header::USER_AGENT) {
             header_map.insert(http::header::USER_AGENT, self.inner.user_agent.clone());
         }
-        if apply_auth {
-            self.inner.auth.apply(&mut header_map, &mut url)?;
-        }
+        self.inner.auth.apply(security, &mut header_map, &mut url)?;
         // The handshake helper takes name/value strings; operation and auth
         // values came from `HeaderValue::from_str`, so only a builder-supplied
         // default header with non-UTF-8 bytes can make `to_str` fail here.
@@ -315,7 +331,7 @@ impl ChainflowDataGatewayClient {
         query: &[(String, String)],
         headers: &[(String, String)],
         body: Option<&B>,
-        apply_auth: bool,
+        security: SecurityScheme,
         overrides: RequestOverrides,
     ) -> Result<http::Response<SdkBody>, Error> {
         let mut url = if path.starts_with("http://") || path.starts_with("https://") {
@@ -374,9 +390,7 @@ impl ChainflowDataGatewayClient {
                 .or_insert(http::HeaderValue::from_static("application/json"));
             request_body = SdkBody::from_bytes(serde_json::to_vec(body)?);
         }
-        if apply_auth {
-            self.inner.auth.apply(&mut header_map, &mut url)?;
-        }
+        self.inner.auth.apply(security, &mut header_map, &mut url)?;
         let mut request = http::Request::new(request_body);
         *request.method_mut() = method;
         *request.uri_mut() = url

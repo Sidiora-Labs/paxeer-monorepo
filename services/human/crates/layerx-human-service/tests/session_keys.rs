@@ -27,8 +27,8 @@ use layerx_agentd::sign::{
     self_sign, ProvisionedSessionKey, SigningError, SigningMode, SigningPreparation,
 };
 use layerx_agentd::store::{Store, TenantId};
-use layerx_crypto::evm_transaction::Eip1559Call;
 use layerx_crypto::local::LocalSigner;
+use layerx_crypto::send::{ledger_payment_call, CallOptions};
 use layerx_crypto::session::IssuedSessionKey;
 use layerx_crypto::signer::Signer as _;
 use layerx_human_service::custody::{
@@ -250,23 +250,35 @@ impl AgentLayer {
             &installed.debit_signer,
             self.now,
         );
-        let call = Eip1559Call {
-            chain_id: u64::from(NETWORK_ID),
-            nonce: 7,
-            max_priority_fee_per_gas: 1,
-            max_fee_per_gas: 7,
-            gas_limit: 100_000,
-            to: [0x1a; 20],
-            data: prepared.canonical_bytes.clone(),
-        };
+        let from = installed.actor_address;
+        let call = ledger_payment_call(
+            prepared.envelope.payload().as_bytes(),
+            &CallOptions {
+                from,
+                chain_id: u64::from(NETWORK_ID),
+                nonce: 7,
+                max_priority_fee_per_gas: 1,
+                max_fee_per_gas: 7,
+                gas_limit: 100_000,
+            },
+        )
+        .unwrap_or_else(|error| panic!("send call: {error:?}"))
+        .call;
+        let disclosure = layerx_crypto::disclosure::call::bind_call(&call, from)
+            .unwrap_or_else(|error| panic!("call disclosure: {error:?}"));
+        let disclosure_digest = disclosure
+            .signing_digest()
+            .unwrap_or_else(|error| panic!("disclosure digest: {error:?}"));
         let prepared = SigningPreparation {
             transaction: EvmPrepared {
                 signing_hash: call.signing_hash(),
                 call,
+                from,
+                disclosure,
+                disclosure_digest,
                 observed_head_height: 90,
             },
             actor_address: installed.actor_address,
-            authorization: prepared,
         };
         ready(self_sign(
             Some(&installed.signer),

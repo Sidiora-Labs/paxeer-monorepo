@@ -12,6 +12,7 @@ import (
 )
 
 type committedFixture struct {
+	trust      CommittedTrust
 	receipt    SequencerReceiptVerification
 	header     CommittedHeader
 	inclusion  ReceiptInclusion
@@ -143,8 +144,16 @@ func newCommittedFixture(t *testing.T, id string, powers [4]int64, offset int64)
 	result.Data = committedBytes(1, message)
 	// Three leaves exercise both a full subtree and the unbalanced right branch.
 	wrapped := committedFixtureWrappedTransaction(raw)
-	txs := [3][]byte{batch, wrapped, sequencerFixtureBytes(t, sequencerReceiptCases(t)[1].RawTransaction)}
-	results := [][]byte{(ExecTxResult{}).bytes(), result.bytes(), (ExecTxResult{GasWanted: 60000, GasUsed: 46220}).bytes()}
+	index := int(binary.BigEndian.Uint32(r.Effects[0].Body[24:28]))
+	if index < 1 || index > 2 {
+		t.Fatalf("receipt fixture index %d is outside the three-leaf block", index)
+	}
+	sibling := sequencerFixtureBytes(t, sequencerReceiptCases(t)[1].RawTransaction)
+	txs := [3][]byte{batch, sibling, sibling}
+	txs[index] = wrapped
+	siblingResult := (ExecTxResult{GasWanted: 60000, GasUsed: 46220}).bytes()
+	results := [][]byte{(ExecTxResult{}).bytes(), siblingResult, siblingResult}
+	results[index] = result.bytes()
 	dataHash, txProofs := committedFixtureTransactionTree(txs)
 	resultsHash := committedRoot(results)
 	validatorsHash := committedValidatorsHash(f.validators)
@@ -156,20 +165,29 @@ func newCommittedFixture(t *testing.T, id string, powers [4]int64, offset int64)
 	next.Time = next.Time.Add(time.Second)
 	next.LastBlockID = f.commit.BlockID
 	next.LastResultsHash = resultsHash[:]
-	f.inclusion = ReceiptInclusion{Transaction: wrapped, TransactionProof: txProofs[1],
-		Result: result, ResultProof: committedFixtureProof(results, 1), BatchTransaction: batch, BatchProof: txProofs[0],
+	f.inclusion = ReceiptInclusion{Transaction: wrapped, TransactionProof: txProofs[index],
+		Result: result, ResultProof: committedFixtureProof(results, index), BatchTransaction: batch, BatchProof: txProofs[0],
 		NextHeader: next, NextCommit: committedFixtureCommit(next, f.keys, 3), NextValidators: f.validators}
+	f.trust = CommittedTrust{ChainID: f.header.ChainID, Height: f.header.Height, BlockHash: f.header.Hash()}
 	return f
 }
 
 func (f committedFixture) verify() (Committed, error) {
-	return VerifyCommittedReceipt(f.receipt, f.header, f.inclusion, f.commit, f.validators)
+	return VerifyCommittedReceipt(f.receipt, f.header, f.inclusion, f.commit, f.validators, f.trust)
 }
 
 func (f *committedFixture) reanchor(t *testing.T) {
 	t.Helper()
-	txs := [3][]byte{f.inclusion.BatchTransaction, f.inclusion.Transaction, sequencerFixtureBytes(t, sequencerReceiptCases(t)[1].RawTransaction)}
-	results := [][]byte{(ExecTxResult{}).bytes(), f.inclusion.Result.bytes(), (ExecTxResult{GasWanted: 60000, GasUsed: 46220}).bytes()}
+	index := int(f.inclusion.TransactionProof.Index)
+	if index < 1 || index > 2 {
+		t.Fatalf("receipt fixture index %d is outside the three-leaf block", index)
+	}
+	sibling := sequencerFixtureBytes(t, sequencerReceiptCases(t)[1].RawTransaction)
+	txs := [3][]byte{f.inclusion.BatchTransaction, sibling, sibling}
+	txs[index] = f.inclusion.Transaction
+	siblingResult := (ExecTxResult{GasWanted: 60000, GasUsed: 46220}).bytes()
+	results := [][]byte{(ExecTxResult{}).bytes(), siblingResult, siblingResult}
+	results[index] = f.inclusion.Result.bytes()
 	dataHash, txProofs := committedFixtureTransactionTree(txs)
 	resultsHash, validatorsHash := committedRoot(results), committedValidatorsHash(f.validators)
 	f.header.DataHash = dataHash[:]
@@ -177,8 +195,8 @@ func (f *committedFixture) reanchor(t *testing.T) {
 	f.header.NextValidatorsHash = validatorsHash[:]
 	f.commit = committedFixtureCommit(f.header, f.keys, 3)
 	f.inclusion.BatchProof = txProofs[0]
-	f.inclusion.TransactionProof = txProofs[1]
-	f.inclusion.ResultProof = committedFixtureProof(results, 1)
+	f.inclusion.TransactionProof = txProofs[index]
+	f.inclusion.ResultProof = committedFixtureProof(results, index)
 	f.inclusion.NextHeader.ValidatorsHash = validatorsHash[:]
 	f.inclusion.NextHeader.LastBlockID = f.commit.BlockID
 	f.inclusion.NextHeader.LastResultsHash = resultsHash[:]

@@ -3,10 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "scripts": { "start": "node index.mjs" },
+  "scripts": {
+    "start": "node index.mjs"
+  },
   "dependencies": {
     "@sidiora/layerx-agent-middleware": "0.1.0",
-    "@sidiora/layerx-sdk": "0.1.0"
+    "@sidiora/layerx-sdk": "0.1.0",
+    "@sidiora/layerx-agent-integrations": "0.1.0",
+    "viem": "^2.56.9"
   },
-  "engines": { "node": ">=22" }
+  "engines": {
+    "node": ">=22.18.0"
+  }
 }

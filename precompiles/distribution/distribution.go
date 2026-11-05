@@ -120,6 +120,11 @@ func (p PrecompileExecutor) Execute(ctx sdk.Context, method *abi.Method, caller 
 		}
 		return p.withdrawValidatorCommission(ctx, method, caller, evm)
 	case RewardsMethod:
+		if pcommon.MergePlanActive(ctx, p.evmKeeper) {
+			if err = pcommon.ValidateNonPayable(value); err != nil {
+				return nil, 0, err
+			}
+		}
 		return p.rewards(ctx, method, args)
 	}
 	return

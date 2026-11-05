@@ -1,0 +1,41 @@
+[manifest]
+task = "22.32.150"
+domain = 15
+owner_role = "fm-cosmos-fork"
+pages = 6
+
+[page.1]
+path = "sdk/x/auth/spec/01_concepts.md"
+status = "stale"
+bytes = 2062
+source_1 = "record 22.30.166 [doc.05] (stale): Lines 23-39 omit global fee configuration and incorrectly deny the fee priority computed by the fork; see auth-fee-priority-doc."
+
+[page.2]
+path = "sdk/x/auth/spec/02_state.md"
+status = "misleading"
+bytes = 2213
+source_1 = "record 22.30.166 [doc.06] (misleading): Lines 9-12 place coin balances in account structs despite the shown BaseAccount schema and actual bank-owned balances; see auth-account-balances-doc."
+
+[page.3]
+path = "sdk/x/auth/spec/03_antehandlers.md"
+status = "stale"
+bytes = 2599
+source_1 = "record 22.30.166 [doc.07] (stale): Lines 14-30 list a removed MempoolFeeDecorator and obsolete ordering; see ante-order-doc."
+
+[page.4]
+path = "sdk/x/auth/spec/05_vesting.md"
+status = "misleading"
+bytes = 18283
+source_1 = "record 22.30.166 [doc.09] (misleading): Lines 59-65 incorrectly deny live message creation and omit schema-only administrator/cancellation fields; historical genesis construction examples also need rewriting; see vesting-genesis-only-doc."
+
+[page.5]
+path = "sdk/x/auth/spec/07_client.md"
+status = "misleading"
+bytes = 9114
+source_1 = "record 22.30.166 [doc.10] (misleading): Line 362 gives the wrong REST account route; lines 395-406 advertise an unavailable periodic creation command; see auth-client-wrong-endpoint."
+
+[page.6]
+path = "sdk/x/auth/spec/07_params.md"
+status = "stale"
+bytes = 470
+source_1 = "record 22.30.166 [doc.11] (stale): The table at lines 9-15 omits the active DisableSeqnoCheck parameter and its operational effect; see auth-sequence-parameter-doc."

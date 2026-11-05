@@ -1,0 +1,112 @@
+{
+ "slug": "services-launchpad",
+ "manifests": [
+  "services/launchpad/api/go.mod",
+  "services/launchpad/gateway/go.mod",
+  "services/launchpad/metadata/go.mod",
+  "services/launchpad/pnl-tracker/go.mod",
+  "services/launchpad/trading-charts/go.mod"
+ ],
+ "alerts": [
+  {
+   "ghsa": "GHSA-9f3f-wv7r-qc8r",
+   "number": 2807,
+   "package": "github.com/pion/dtls/v2",
+   "ecosystem": "go",
+   "manifest": "services/launchpad/api/go.mod",
+   "severity": "medium",
+   "range": "<= 2.2.12",
+   "patched": null
+  },
+  {
+   "ghsa": "GHSA-34rh-wp3j-6cxc",
+   "number": 2823,
+   "package": "github.com/pion/stun/v2",
+   "ecosystem": "go",
+   "manifest": "services/launchpad/api/go.mod",
+   "severity": "medium",
+   "range": "<= 2.0.0",
+   "patched": null
+  },
+  {
+   "ghsa": "GHSA-9f3f-wv7r-qc8r",
+   "number": 2825,
+   "package": "github.com/pion/dtls/v2",
+   "ecosystem": "go",
+   "manifest": "services/launchpad/gateway/go.mod",
+   "severity": "medium",
+   "range": "<= 2.2.12",
+   "patched": null
+  },
+  {
+   "ghsa": "GHSA-34rh-wp3j-6cxc",
+   "number": 2841,
+   "package": "github.com/pion/stun/v2",
+   "ecosystem": "go",
+   "manifest": "services/launchpad/gateway/go.mod",
+   "severity": "medium",
+   "range": "<= 2.0.0",
+   "patched": null
+  },
+  {
+   "ghsa": "GHSA-9f3f-wv7r-qc8r",
+   "number": 2875,
+   "package": "github.com/pion/dtls/v2",
+   "ecosystem": "go",
+   "manifest": "services/launchpad/metadata/go.mod",
+   "severity": "medium",
+   "range": "<= 2.2.12",
+   "patched": null
+  },
+  {
+   "ghsa": "GHSA-34rh-wp3j-6cxc",
+   "number": 2893,
+   "package": "github.com/pion/stun/v2",
+   "ecosystem": "go",
+   "manifest": "services/launchpad/metadata/go.mod",
+   "severity": "medium",
+   "range": "<= 2.0.0",
+   "patched": null
+  },
+  {
+   "ghsa": "GHSA-9f3f-wv7r-qc8r",
+   "number": 2895,
+   "package": "github.com/pion/dtls/v2",
+   "ecosystem": "go",
+   "manifest": "services/launchpad/pnl-tracker/go.mod",
+   "severity": "medium",
+   "range": "<= 2.2.12",
+   "patched": null
+  },
+  {
+   "ghsa": "GHSA-34rh-wp3j-6cxc",
+   "number": 2913,
+   "package": "github.com/pion/stun/v2",
+   "ecosystem": "go",
+   "manifest": "services/launchpad/pnl-tracker/go.mod",
+   "severity": "medium",
+   "range": "<= 2.0.0",
+   "patched": null
+  },
+  {
+   "ghsa": "GHSA-9f3f-wv7r-qc8r",
+   "number": 2993,
+   "package": "github.com/pion/dtls/v2",
+   "ecosystem": "go",
+   "manifest": "services/launchpad/trading-charts/go.mod",
+   "severity": "medium",
+   "range": "<= 2.2.12",
+   "patched": null
+  },
+  {
+   "ghsa": "GHSA-34rh-wp3j-6cxc",
+   "number": 3009,
+   "package": "github.com/pion/stun/v2",
+   "ecosystem": "go",
+   "manifest": "services/launchpad/trading-charts/go.mod",
+   "severity": "medium",
+   "range": "<= 2.0.0",
+   "patched": null
+  }
+ ]
+}

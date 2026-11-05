@@ -1,4 +1,4 @@
-use std::fs::{self, File};
+use std::fs::{self, File, OpenOptions};
 use std::io::{Read as _, Write as _};
 use std::net::{IpAddr, TcpStream, ToSocketAddrs as _};
 use std::path::{Path, PathBuf};
@@ -14,8 +14,6 @@ use layerx_crypto::signer::AgentSignature;
 use native_tls::{Certificate, Identity, TlsConnector};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
-use std::collections::BTreeMap;
-use std::sync::Mutex;
 
 use crate::{
     compile_operator_send, compile_payer_grant_draw, verify_order_receipt, AuthenticatedPrincipal,
@@ -29,29 +27,42 @@ const MAX_BODY_BYTES: usize = 512 * 1024;
 const MAX_HEADER_BYTES: usize = 32 * 1024;
 
 #[derive(Clone, Debug)]
-pub struct SecretFile(PathBuf);
+pub struct SecretFile {
+    path: PathBuf,
+    device: u64,
+    inode: u64,
+}
 
 impl SecretFile {
     /// # Errors
-    /// Returns [`RampError::Configuration`] when the path is not a private file within the size bound.
+    /// Refuses links, non-regular files, foreign owners and non-private files.
     pub fn new(path: impl Into<PathBuf>) -> Result<Self, RampError> {
         let path = path.into();
-        let metadata = fs::metadata(&path).map_err(|_| RampError::Configuration)?;
-        if !metadata.is_file() || metadata.len() == 0 || metadata.len() > MAX_SECRET_BYTES as u64 {
-            return Err(RampError::Configuration);
-        }
-        require_private(&metadata)?;
-        Ok(Self(path))
+        let file = open_secret(&path)?;
+        let metadata = file.metadata().map_err(|_| RampError::Configuration)?;
+        use std::os::unix::fs::MetadataExt as _;
+        Ok(Self {
+            path,
+            device: metadata.dev(),
+            inode: metadata.ino(),
+        })
     }
 
     /// # Errors
-    /// Returns [`RampError::Configuration`] when the file cannot be read within the size bound.
+    /// Refuses replacement and validates the descriptor before reading bounded content.
     pub fn read(&self) -> Result<Vec<u8>, RampError> {
-        let file = File::open(&self.0).map_err(|_| RampError::Configuration)?;
+        use std::os::unix::fs::MetadataExt as _;
+        let mut file = open_secret(&self.path)?;
+        let metadata = file.metadata().map_err(|_| RampError::Configuration)?;
+        if (metadata.dev(), metadata.ino()) != (self.device, self.inode) {
+            return Err(RampError::Configuration);
+        }
         let mut bytes = Vec::new();
-        file.take((MAX_SECRET_BYTES + 1) as u64)
+        (&mut file)
+            .take((MAX_SECRET_BYTES + 1) as u64)
             .read_to_end(&mut bytes)
             .map_err(|_| RampError::Configuration)?;
+        require_private(&file.metadata().map_err(|_| RampError::Configuration)?)?;
         if bytes.is_empty() || bytes.len() > MAX_SECRET_BYTES {
             return Err(RampError::Configuration);
         }
@@ -60,8 +71,19 @@ impl SecretFile {
 
     #[must_use]
     pub fn path(&self) -> &Path {
-        &self.0
+        &self.path
     }
+}
+
+fn open_secret(path: &Path) -> Result<File, RampError> {
+    use std::os::unix::fs::OpenOptionsExt as _;
+    let file = OpenOptions::new()
+        .read(true)
+        .custom_flags((rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::NONBLOCK).bits() as i32)
+        .open(path)
+        .map_err(|_| RampError::Configuration)?;
+    require_private(&file.metadata().map_err(|_| RampError::Configuration)?)?;
+    Ok(file)
 }
 
 #[derive(Clone, Debug)]
@@ -885,8 +907,6 @@ impl LayerxConfig {
         Ok(LayerxClient {
             http,
             sequencer,
-            network: layerx_client::px::PxEndpoint::new(&self.rpc_endpoint, &[&trust_anchor])
-                .map_err(|_| "LayerX sequencer network endpoint rejected".to_owned())?,
             signer: Endpoint::parse(&self.signer_endpoint)
                 .map_err(|_| "signer endpoint rejected".to_owned())?,
             signer_token: receipt_secret_text(&self.signer_token_file)?,
@@ -897,7 +917,6 @@ impl LayerxConfig {
             max_fee_per_gas: self.max_fee_per_gas,
             max_priority_fee_per_gas: self.max_priority_fee_per_gas,
             gas_limit_cap: self.gas_limit_cap,
-            raw_transactions: Mutex::new(BTreeMap::new()),
         })
     }
 }
@@ -922,7 +941,6 @@ fn receipt_secret_text(path: &PathBuf) -> Result<String, String> {
 pub struct LayerxClient {
     pub http: MutualTlsClient,
     pub sequencer: SequencerEndpoint,
-    network: layerx_client::px::PxEndpoint,
     pub signer: Endpoint,
     pub signer_token: String,
     pub actor_did: String,
@@ -932,7 +950,6 @@ pub struct LayerxClient {
     pub max_fee_per_gas: u128,
     pub max_priority_fee_per_gas: u128,
     pub gas_limit_cap: u64,
-    raw_transactions: Mutex<BTreeMap<[u8; 32], Vec<u8>>>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1047,6 +1064,9 @@ impl LayerxClient {
             RampDirection::OnRamp => compile_operator_send(order)?,
             RampDirection::OffRamp => compile_payer_grant_draw(order, account_sequence)?,
         };
+        if order.direction() == RampDirection::OffRamp {
+            return Err(RampError::PayerGrantRequired);
+        }
         if order.operator.account != format!("agent:{}:main", self.actor_did) {
             return Err(RampError::InvalidPrincipal);
         }
@@ -1082,14 +1102,64 @@ impl LayerxClient {
         let signature = self.sign(order, &call)?;
         let raw_transaction = assemble(&call, &signature);
         let tx_hash = transaction_hash(&raw_transaction);
-        self.raw_transactions
-            .lock()
-            .map_err(|_| RampError::Layerx)?
-            .insert(tx_hash, raw_transaction.clone());
         Ok(PreparedLayerx {
             tx_hash,
             raw_transaction,
         })
+    }
+
+    /// Accepts a customer's exact signed ordinary-principal budget payment.
+    /// The operator never signs a debit on the customer's behalf.
+    pub fn prepare_customer_payment(
+        &self,
+        order: &RampOrder,
+        raw: &[u8],
+        now: u64,
+    ) -> Result<PreparedLayerx, RampError> {
+        order.validate_bound()?;
+        if order.direction() != RampDirection::OffRamp || now >= order.quote.expires_at {
+            return Err(RampError::InvalidOrder);
+        }
+        let tx_hash = transaction_hash(raw);
+        self.authenticate_payment_transaction(order, tx_hash, raw)?;
+        self.verify_customer_budget(order, None)?;
+        let (call, _) = decode_signed(raw).map_err(|_| RampError::Layerx)?;
+        let sender = self.payment_sender(order)?;
+        let pending = self
+            .sequencer
+            .pending_nonce(&sender)
+            .map_err(|_| RampError::Layerx)?;
+        if call.nonce != pending
+            || call.gas_limit == 0
+            || call.gas_limit > self.gas_limit_cap
+            || call.max_fee_per_gas > self.max_fee_per_gas
+            || call.max_priority_fee_per_gas > self.max_priority_fee_per_gas
+        {
+            return Err(RampError::ReceiptMismatch);
+        }
+        Ok(PreparedLayerx {
+            tx_hash,
+            raw_transaction: raw.to_vec(),
+        })
+    }
+
+    fn payment_sender(&self, order: &RampOrder) -> Result<[u8; 20], RampError> {
+        if order.direction() == RampDirection::OnRamp {
+            return Ok(self.operator_address);
+        }
+        let key = order
+            .customer
+            .account
+            .strip_prefix("agent:did:layerx:")
+            .and_then(|value| value.strip_suffix(":main"))
+            .ok_or(RampError::InvalidPrincipal)?;
+        let public: [u8; 32] = decode_hex(key, 32)?
+            .try_into()
+            .map_err(|_| RampError::InvalidPrincipal)?;
+        self.sequencer
+            .bound_address(&public)
+            .map_err(|_| RampError::Layerx)?
+            .ok_or(RampError::InvalidPrincipal)
     }
 
     #[must_use]
@@ -1152,91 +1222,114 @@ impl LayerxClient {
         order: &RampOrder,
         tx_hash: [u8; 32],
     ) -> Result<(LayerxSubmission, Option<ReceiptEvidence>, bool), RampError> {
+        // Signed bytes belong to the journal or authenticated committed block,
+        // never to a process-lifetime cache. Receipted recovery supplies journal evidence.
+        self.resolve_transaction(order, tx_hash, None, false)
+    }
+
+    /// Reconciles the exact signed bytes retained in the journal. Recovery is
+    /// read only; only the funded engine may authorize re-delivery.
+    pub fn resolve_transaction(
+        &self,
+        order: &RampOrder,
+        tx_hash: [u8; 32],
+        durable_raw: Option<&[u8]>,
+        redeliver: bool,
+    ) -> Result<(LayerxSubmission, Option<ReceiptEvidence>, bool), RampError> {
         order.validate_bound()?;
+        if let Some(raw) = durable_raw {
+            self.authenticate_payment_transaction(order, tx_hash, raw)?;
+        }
         let answer = self
             .sequencer
             .sequencer_receipt(&tx_hash)
             .map_err(|_| RampError::Layerx)?;
-        let cached = self
-            .raw_transactions
-            .lock()
-            .map_err(|_| RampError::Layerx)?
-            .get(&tx_hash)
-            .cloned();
-        let (receipt, committed) = match answer {
+        let raw = durable_raw.map(<[u8]>::to_vec);
+        match &answer {
             None => {
+                if let Some(raw) = &raw {
+                    let (call, _) = decode_signed(raw).map_err(|_| RampError::Layerx)?;
+                    let sender = self.payment_sender(order)?;
+                    let latest = self
+                        .sequencer
+                        .latest_nonce(&sender)
+                        .map_err(|_| RampError::Layerx)?;
+                    let pending = self
+                        .sequencer
+                        .pending_nonce(&sender)
+                        .map_err(|_| RampError::Layerx)?;
+                    if latest != call.nonce || pending != call.nonce {
+                        return Err(RampError::ReceiptMismatch);
+                    }
+                    if redeliver {
+                        let result = self.submit_prepared(
+                            order,
+                            PreparedLayerx {
+                                tx_hash,
+                                raw_transaction: raw.clone(),
+                            },
+                        );
+                        return Ok((result, None, false));
+                    }
+                }
                 return Ok((
                     LayerxSubmission::Unknown {
                         activity_id: tx_hash,
-                        canonical_activity: cached,
+                        canonical_activity: raw,
                     },
                     None,
                     false,
-                ))
+                ));
             }
-            Some(SequencerReceipt::Submitted { .. }) => {
+            Some(SequencerReceipt::Submitted { nonce, .. }) => {
+                if let Some(raw) = &raw {
+                    if decode_signed(raw).map_err(|_| RampError::Layerx)?.0.nonce != *nonce {
+                        return Err(RampError::ReceiptMismatch);
+                    }
+                }
                 return Ok((
                     LayerxSubmission::Pending {
                         activity_id: tx_hash,
-                        canonical_activity: cached,
+                        canonical_activity: raw,
                     },
                     None,
                     false,
-                ))
+                ));
             }
-            Some(SequencerReceipt::Receipted(receipt)) => (receipt, false),
-            Some(SequencerReceipt::Committed {
-                receipt,
-                block_number,
-                block_hash,
-            }) => {
-                let block = self
-                    .sequencer
-                    .block_by_number(block_number)
-                    .map_err(|_| RampError::Layerx)?
-                    .ok_or(RampError::Layerx)?;
-                if block.hash != block_hash {
-                    return Err(RampError::ReceiptMismatch);
-                }
-                (receipt, true)
-            }
-        };
-        let raw_transaction = match cached {
-            Some(raw) => raw,
-            None => {
-                let block = self
-                    .sequencer
-                    .block_by_number(receipt.height)
-                    .map_err(|_| RampError::Layerx)?
-                    .ok_or(RampError::Layerx)?;
-                block
-                    .transactions
-                    .iter()
-                    .find(|raw| transaction_hash(raw) == tx_hash)
-                    .cloned()
-                    .ok_or(RampError::Layerx)?
-            }
-        };
-        let (call, signature) = decode_signed(&raw_transaction).map_err(|_| RampError::Layerx)?;
-        if transaction_hash(&raw_transaction) != tx_hash
-            || call.chain_id != self.chain_id
-            || recover_sender(&call, &signature).map_err(|_| RampError::Layerx)?
-                != self.operator_address
-            || receipt.from != self.operator_address
+            _ => {}
+        }
+        let answer = answer.ok_or(RampError::Layerx)?;
+        let (receipt, committed_raw) = self.authenticate_settlement(tx_hash, &answer)?;
+        let receipt = receipt.ok_or(RampError::Layerx)?;
+        let committed = matches!(answer, SequencerReceipt::Committed { .. });
+        let raw_transaction = raw.or(committed_raw).ok_or(RampError::Layerx)?;
+        self.authenticate_payment_transaction(order, tx_hash, &raw_transaction)?;
+        let (call, _) = decode_signed(&raw_transaction).map_err(|_| RampError::Layerx)?;
+        if receipt.from != self.payment_sender(order)?
             || receipt.to != call.to
             || receipt.nonce != call.nonce
         {
             return Err(RampError::ReceiptMismatch);
         }
+        if order.direction() == RampDirection::OffRamp {
+            let height = match &answer {
+                SequencerReceipt::Committed { block_number, .. } => Some(*block_number),
+                _ => None,
+            };
+            self.verify_customer_budget(order, height)?;
+        }
         let evidence = ReceiptEvidence {
             raw_transaction: raw_transaction.clone(),
-            signed_receipt: receipt.receipt,
+            signed_receipt: receipt.receipt.clone(),
             receipt_keys: self.receipt_keys.clone(),
-            logs: receipt.logs,
+            logs: receipt.logs.clone(),
         };
-        let leg = verify_order_receipt(order, &evidence)?;
+        let mut leg = verify_order_receipt(order, &evidence)?;
         if leg.height != receipt.height {
             return Err(RampError::ReceiptMismatch);
+        }
+        if committed {
+            leg.rung = layerx_types::rung::Rung::Committed;
         }
         Ok((
             LayerxSubmission::Verified {
@@ -1248,17 +1341,186 @@ impl LayerxClient {
         ))
     }
 
+    fn authenticate_payment_transaction(
+        &self,
+        order: &RampOrder,
+        tx_hash: [u8; 32],
+        raw: &[u8],
+    ) -> Result<(), RampError> {
+        let (call, signature) = decode_signed(raw).map_err(|_| RampError::Layerx)?;
+        let compiled = match order.direction() {
+            RampDirection::OnRamp => compile_operator_send(order)?,
+            RampDirection::OffRamp => compile_payer_grant_draw(order, 0)?,
+        };
+        if transaction_hash(raw) != tx_hash
+            || call.chain_id != self.chain_id
+            || recover_sender(&call, &signature).map_err(|_| RampError::Layerx)?
+                != self.payment_sender(order)?
+            || order.operator.account != format!("agent:{}:main", self.actor_did)
+            || call.to != compiled.to
+            || call.data != compiled.data
+        {
+            return Err(RampError::ReceiptMismatch);
+        }
+        Ok(())
+    }
+
+    /// Authenticates successful execution and, for a committed answer, exact
+    /// transaction inclusion. Shared by payment, live custody and recovery.
+    pub fn authenticate_settlement<'a>(
+        &self,
+        transaction: [u8; 32],
+        answer: &'a SequencerReceipt,
+    ) -> Result<
+        (
+            Option<&'a layerx_client::sequencer::ExecutedReceipt>,
+            Option<Vec<u8>>,
+        ),
+        RampError,
+    > {
+        let (receipt, inclusion) = match answer {
+            SequencerReceipt::Submitted { tx_hash, .. } => {
+                if *tx_hash != transaction {
+                    return Err(RampError::ReceiptMismatch);
+                }
+                return Ok((None, None));
+            }
+            SequencerReceipt::Receipted(receipt) => (receipt, None),
+            SequencerReceipt::Committed {
+                receipt,
+                block_number,
+                block_hash,
+            } => {
+                let head = self
+                    .sequencer
+                    .block_number()
+                    .map_err(|_| RampError::Layerx)?;
+                let block = self
+                    .sequencer
+                    .block_by_number(*block_number)
+                    .map_err(|_| RampError::Layerx)?
+                    .ok_or(RampError::Layerx)?;
+                if *block_number > head
+                    || *block_number < receipt.height
+                    || block.hash != *block_hash
+                {
+                    return Err(RampError::ReceiptMismatch);
+                }
+                let raw = block
+                    .transactions
+                    .iter()
+                    .find(|raw| transaction_hash(raw) == transaction)
+                    .cloned()
+                    .ok_or(RampError::ReceiptMismatch)?;
+                let (call, signature) =
+                    decode_signed(&raw).map_err(|_| RampError::ReceiptMismatch)?;
+                if call.chain_id != self.chain_id
+                    || call.nonce != receipt.nonce
+                    || call.to != receipt.to
+                    || recover_sender(&call, &signature).map_err(|_| RampError::ReceiptMismatch)?
+                        != receipt.from
+                {
+                    return Err(RampError::ReceiptMismatch);
+                }
+                (receipt, Some(raw))
+            }
+        };
+        let keys: Vec<_> = self
+            .receipt_keys
+            .iter()
+            .map(|key| {
+                layerx_proof::inclusion::SequencerAuthorization::new(
+                    key.key_id,
+                    key.public_key,
+                    key.first_height,
+                    key.last_height,
+                )
+            })
+            .collect();
+        let signed =
+            layerx_proof::receipt::verify_sequencer_signature(&receipt.receipt, keys.as_slice())
+                .map_err(|_| RampError::ReceiptMismatch)?;
+        let protocol = signed.protocol().ok_or(RampError::ReceiptMismatch)?;
+        let mut height = [0; 32];
+        height[24..].copy_from_slice(&receipt.height.to_be_bytes());
+        if !receipt.success
+            || receipt.tx_hash != transaction
+            || protocol.activity_id() != transaction
+            || protocol.result_code() != 0
+            || protocol.batch_id() != height
+            || protocol.context_hash() != receipt.key_id
+        {
+            return Err(RampError::ReceiptMismatch);
+        }
+        let logs = receipt
+            .logs
+            .iter()
+            .map(|log| {
+                layerx_proof::sequencer_logs::SequencerLog::new(
+                    log.address,
+                    log.topics.clone(),
+                    log.data.clone(),
+                    log.log_index,
+                )
+            })
+            .collect();
+        let verified = layerx_proof::sequencer_logs::verify_logs(&signed, logs)
+            .map_err(|_| RampError::ReceiptMismatch)?;
+        let summary = verified.summary();
+        let mut from = [0; 32];
+        from[12..].copy_from_slice(&receipt.from);
+        let mut to = [0; 32];
+        to[12..].copy_from_slice(&receipt.to);
+        let mut fee = [0; 32];
+        fee[16..].copy_from_slice(&protocol.fee_charged().to_be_bytes());
+        if protocol.from() != from
+            || protocol.to() != to
+            || protocol.debit_sequence() != receipt.nonce
+            || protocol.global_sequence() != receipt.seq
+            || protocol.timestamp() != receipt.timestamp
+            || protocol.activity_root() != <[u8; 32]>::from(Sha256::digest(&receipt.return_data))
+            || protocol.asset()
+                != <[u8; 32]>::from(Sha256::digest(receipt.payment_denom.as_bytes()))
+            || receipt.fee_amount != fee
+            || summary.gas_used() != receipt.gas_used
+            || summary.cumulative_gas_used() != receipt.cumulative_gas_used
+            || summary.effective_gas_price() != receipt.effective_gas_price
+            || u64::from(summary.tx_index()) != receipt.index
+            || summary.contract_address() != receipt.contract_address
+            || summary.sponsor() != receipt.sponsor
+            || summary.fee_denom() != receipt.fee_denom
+            || summary.vm_error_hash()
+                != <[u8; 32]>::from(Sha256::digest(receipt.vm_error.as_bytes()))
+            || usize::try_from(summary.return_data_len()).ok() != Some(receipt.return_data.len())
+        {
+            return Err(RampError::ReceiptMismatch);
+        }
+        Ok((Some(receipt), inclusion))
+    }
+
+    fn verify_customer_budget(
+        &self,
+        order: &RampOrder,
+        height: Option<u64>,
+    ) -> Result<(), RampError> {
+        let authorization = order.customer_payment_authorization()?;
+        let data = crate::evm::encode_get_budget(authorization.budget_id);
+        let bytes = match height {
+            Some(height) => self
+                .sequencer
+                .call_at(height, &crate::evm::PAY_ADDRESS, &data),
+            None => self.sequencer.call_pending(&crate::evm::PAY_ADDRESS, &data),
+        }
+        .map_err(|_| RampError::Layerx)?;
+        crate::evm::verify_customer_budget(order, &bytes, height.is_none())
+    }
+
     fn sign(&self, order: &RampOrder, call: &Eip1559Call) -> Result<AgentSignature, RampError> {
         #[derive(Serialize)]
         struct Request<'a> {
             key_handle: &'a str,
             algorithm: &'static str,
             message: String,
-        }
-        #[derive(Deserialize)]
-        #[serde(deny_unknown_fields)]
-        struct Response {
-            signature: String,
         }
         let authorization = format!("Bearer {}", self.signer_token);
         let response = self.http.json(
@@ -1279,18 +1541,47 @@ impl LayerxClient {
         if response.status != 200 {
             return Err(RampError::Layerx);
         }
-        let body: Response =
-            serde_json::from_slice(&response.body).map_err(|_| RampError::Layerx)?;
-        let bytes: [u8; 65] = base64_decode(&body.signature)?
-            .try_into()
-            .map_err(|_| RampError::Layerx)?;
-        let signature = AgentSignature::new(bytes).map_err(|_| RampError::Layerx)?;
-        if recover_sender(call, &signature).map_err(|_| RampError::Layerx)? != self.operator_address
-        {
-            return Err(RampError::Layerx);
-        }
-        Ok(signature)
+        decode_kms_signature_response(call, &response.body, self.operator_address)
     }
+}
+
+/// Parses the maintained hosted KMS wire response without accepting extra fields.
+pub fn decode_kms_signature_response(
+    call: &Eip1559Call,
+    response: &[u8],
+    operator: [u8; 20],
+) -> Result<AgentSignature, RampError> {
+    #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Response {
+        signature: String,
+        recovery_id: u8,
+    }
+    let body: Response = serde_json::from_slice(response).map_err(|_| RampError::Layerx)?;
+    authenticate_kms_signature(call, &body.signature, body.recovery_id, operator)
+}
+
+/// Decodes the hosted KMS compact signature and authenticates its EVM signer.
+pub fn authenticate_kms_signature(
+    call: &Eip1559Call,
+    encoded: &str,
+    recovery_id: u8,
+    operator: [u8; 20],
+) -> Result<AgentSignature, RampError> {
+    let compact: [u8; 64] = base64_decode(encoded)?
+        .try_into()
+        .map_err(|_| RampError::Layerx)?;
+    if recovery_id > 1 {
+        return Err(RampError::Layerx);
+    }
+    let mut bytes = [0; 65];
+    bytes[..64].copy_from_slice(&compact);
+    bytes[64] = 27 + recovery_id;
+    let signature = AgentSignature::new(bytes).map_err(|_| RampError::Layerx)?;
+    if recover_sender(call, &signature).map_err(|_| RampError::Layerx)? != operator {
+        return Err(RampError::Layerx);
+    }
+    Ok(signature)
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -1555,17 +1846,17 @@ pub(crate) fn base64_decode(encoded: &str) -> Result<Vec<u8>, RampError> {
     Ok(decoded)
 }
 
-#[cfg(unix)]
 fn require_private(metadata: &fs::Metadata) -> Result<(), RampError> {
-    use std::os::unix::fs::PermissionsExt as _;
-    if metadata.permissions().mode() & 0o077 != 0 {
+    use std::os::unix::fs::MetadataExt as _;
+    if !metadata.is_file()
+        || metadata.mode() & 0o7077 != 0
+        || metadata.uid() != rustix::process::geteuid().as_raw()
+        || metadata.nlink() != 1
+        || metadata.len() == 0
+        || metadata.len() > MAX_SECRET_BYTES as u64
+    {
         return Err(RampError::Configuration);
     }
-    Ok(())
-}
-
-#[cfg(not(unix))]
-fn require_private(_metadata: &fs::Metadata) -> Result<(), RampError> {
     Ok(())
 }
 
@@ -2314,15 +2605,10 @@ pub fn verify_recovery_settlement(
     if chain_id != layerx.chain_id {
         return Err(RampError::Paxeer);
     }
-    let network = layerx.network.network().map_err(|_| RampError::Paxeer)?;
-    if network.paxeer.chain_id != layerx.chain_id {
-        return Err(RampError::Paxeer);
-    }
-    let head = layerx
+    let head_height = layerx
         .sequencer
-        .block_by_number(network.paxeer.latest_block)
-        .map_err(|_| RampError::Paxeer)?
-        .ok_or(RampError::Paxeer)?;
+        .block_number()
+        .map_err(|_| RampError::Layerx)?;
     for snapshot in projection.orders().values() {
         snapshot.order.validate_bound()?;
         if &snapshot.order.operator != operator {
@@ -2388,28 +2674,62 @@ pub fn verify_recovery_settlement(
                 return Err(RampError::Provider);
             }
         }
-        if let Some(activity) = snapshot.evidence.activity_id {
-            match layerx.resolve(&snapshot.order, activity)? {
+        if let Some(transaction) = snapshot.evidence.tx_hash {
+            let raw = snapshot
+                .evidence
+                .raw_transaction
+                .as_deref()
+                .ok_or(RampError::Layerx)?;
+            let (answer, _, committed) =
+                layerx.resolve_transaction(&snapshot.order, transaction, Some(raw), false)?;
+            match answer {
                 LayerxSubmission::Verified { leg, .. } => {
-                    if leg.tx_hash != activity
+                    if snapshot
+                        .evidence
+                        .receipt_digest
+                        .is_some_and(|digest| digest != leg.receipt_digest)
                         || snapshot
                             .evidence
-                            .receipt_digest
-                            .is_some_and(|digest| digest != leg.receipt_digest)
+                            .receipt_height
+                            .is_some_and(|height| height != leg.height)
+                        || snapshot.evidence.rung.is_some_and(|rung| rung > leg.rung)
+                        || matches!(
+                            snapshot.stage,
+                            WorkflowStage::Done | WorkflowStage::LayerxVerified
+                        ) && !committed
                     {
-                        return Err(RampError::Layerx);
+                        return Err(RampError::ReceiptMismatch);
                     }
                 }
-                LayerxSubmission::Pending { .. }
+                LayerxSubmission::Unknown { .. } | LayerxSubmission::Pending { .. }
                     if snapshot.evidence.receipt_digest.is_none()
-                        && snapshot.stage != WorkflowStage::Done => {}
-                LayerxSubmission::Refused { .. }
-                    if snapshot.stage == WorkflowStage::LayerxRefused => {}
+                        && snapshot.evidence.rung == Some(layerx_types::rung::Rung::Submitted)
+                        && matches!(
+                            snapshot.stage,
+                            WorkflowStage::LayerxSubmissionPlanned
+                                | WorkflowStage::LayerxSubmittedUnknown
+                                | WorkflowStage::LayerxPending
+                                | WorkflowStage::LayerxRefused
+                        ) => {}
+                _ => return Err(RampError::Layerx),
+            }
+        } else if let Some(activity) = snapshot.evidence.activity_id {
+            // Legacy replay is inspected only; Journal refuses enabling v1 writers.
+            match layerx.resolve(&snapshot.order, activity)? {
+                LayerxSubmission::Verified { leg, .. }
+                    if snapshot
+                        .evidence
+                        .receipt_digest
+                        .is_none_or(|digest| digest == leg.receipt_digest) => {}
                 _ => return Err(RampError::Layerx),
             }
         } else if matches!(
             snapshot.stage,
-            WorkflowStage::Done | WorkflowStage::LayerxVerified
+            WorkflowStage::Done
+                | WorkflowStage::LayerxVerified
+                | WorkflowStage::LayerxSubmissionPlanned
+                | WorkflowStage::LayerxSubmittedUnknown
+                | WorkflowStage::LayerxPending
         ) {
             return Err(RampError::Layerx);
         }
@@ -2433,68 +2753,46 @@ pub fn verify_recovery_settlement(
             .sequencer_receipt(&transaction)
             .map_err(|_| RampError::Paxeer)?
             .ok_or(RampError::Paxeer)?;
-        let (receipt, committed) = match answer {
-            SequencerReceipt::Submitted { .. } if snapshot.stage != "final" => continue,
-            SequencerReceipt::Submitted { .. } => return Err(RampError::Paxeer),
-            SequencerReceipt::Receipted(receipt) => (receipt, None),
-            SequencerReceipt::Committed {
-                receipt,
-                block_number,
-                block_hash,
-            } => {
-                let block = layerx
-                    .sequencer
-                    .block_by_number(block_number)
-                    .map_err(|_| RampError::Paxeer)?
-                    .ok_or(RampError::Paxeer)?;
-                if block.hash != block_hash || block.number > head.number {
-                    return Err(RampError::Paxeer);
-                }
-                (receipt, Some(block_hash))
-            }
-        };
-        let keys: Vec<_> = layerx
-            .receipt_keys
-            .iter()
-            .map(|key| {
-                layerx_proof::inclusion::SequencerAuthorization::new(
-                    key.key_id,
-                    key.public_key,
-                    key.first_height,
-                    key.last_height,
-                )
-            })
-            .collect();
-        let signed =
-            layerx_proof::receipt::verify_sequencer_signature(&receipt.receipt, keys.as_slice())
-                .map_err(|_| RampError::Paxeer)?;
-        let protocol = signed.protocol().ok_or(RampError::Paxeer)?;
-        let mut height = [0; 32];
-        height[24..].copy_from_slice(&receipt.height.to_be_bytes());
-        if !receipt.success
-            || protocol.activity_id() != transaction
-            || protocol.result_code() != 0
-            || protocol.batch_id() != height
-            || protocol.context_hash() != receipt.key_id
+        layerx.authenticate_settlement(transaction, &answer)?;
+        let observation = crate::journal::PaxeerObservation::from_sequencer_receipt(
+            &current.operation_id,
+            &answer,
+        );
+        verify_custody_recovery(snapshot, &observation)?;
+        if observation
+            .block_height
+            .is_some_and(|height| height > head_height)
         {
             return Err(RampError::Paxeer);
         }
-        let logs = receipt
-            .logs
-            .iter()
-            .map(|log| {
-                layerx_proof::sequencer_logs::SequencerLog::new(
-                    log.address,
-                    log.topics.clone(),
-                    log.data.clone(),
-                    log.log_index,
-                )
-            })
-            .collect();
-        layerx_proof::sequencer_logs::verify_logs(&signed, logs).map_err(|_| RampError::Paxeer)?;
-        if snapshot.stage == "final" && (committed.is_none() || snapshot.block_hash != committed) {
-            return Err(RampError::Paxeer);
-        }
+    }
+    Ok(())
+}
+
+/// Applies the persisted v2 rung, with an explicit legacy final-stage branch.
+pub fn verify_custody_recovery(
+    snapshot: &crate::journal::PaxeerSnapshot,
+    observation: &crate::journal::PaxeerObservation<'_>,
+) -> Result<(), RampError> {
+    let persisted = snapshot.rung.or_else(|| match snapshot.stage.as_str() {
+        "final" => Some(layerx_types::rung::Rung::Committed),
+        "receipted" => Some(layerx_types::rung::Rung::Receipted),
+        _ => None,
+    });
+    if snapshot
+        .operation_id
+        .as_deref()
+        .is_some_and(|id| id != observation.operation_id)
+        || snapshot
+            .transaction_hash
+            .is_some_and(|hash| hash != observation.transaction_hash)
+        || persisted.is_some_and(|rung| observation.rung < rung)
+        || persisted == Some(layerx_types::rung::Rung::Committed)
+            && (snapshot.block_hash != observation.block_hash
+                || (snapshot.rung.is_some() || snapshot.block_height.is_some())
+                    && snapshot.block_height != observation.block_height)
+    {
+        return Err(RampError::Paxeer);
     }
     Ok(())
 }

@@ -1,0 +1,39 @@
+[task.22.31.185]
+audit = "22.30.69"
+baseline = "Not run: the ordered gate instructions prohibit testing before implementation is complete and require verification only through hf-done after hf-build; no pre-change failure is claimed."
+path = "Signed deployments execute on the real sequencer, transient receipts flush to Pebble, sealed transaction bytes become blocks through consensus State.MakeBlockAt and BlockStore.SaveBlock, and the real consensus local client supplies blocks to FilterAPI over HTTP JSON-RPC. No component under repair is mocked."
+range_path = "Pebble is the only production receipt backend and returns ErrRangeQueryNotSupported; tests additionally drive normalizeRangeQueryLogs and the shared overflow check using logs emitted by real execution and fetched through HTTP. No supported-range receipt backend is fabricated."
+wiring_requests = []
+
+[finding.receipt-read-log-loss]
+test = "TestRepair_185_ReceiptReadFailureAndRecovery"
+proof = "Corrupt a real Pebble receipt's encoded bytes, distinguish decoding failure from ErrNotFound, require HTTP changes and snapshots plus range normalization to fail, restore the real execution receipt, and require every log with stable indices exactly once on retry."
+
+[finding.silent-log-limit]
+test = "TestRepair_185_LogLimitIsExplicitAndDoesNotConsume"
+proof = "Two matching logs succeed at the cap; three logs across multiple blocks or in one block return explicit errors through HTTP changes, snapshots and getLogs, including numeric and block-hash queries. Repeated failures retain the cursor. Normalized range results enforce the same cap."
+
+[finding.tagged-filter-never-polls]
+test = "TestRepair_185_DynamicEndsAndInclusiveCursor"
+proof = "Latest, safe and finalized ends deliver the initial and subsequent committed blocks through repeated HTTP polls; a next-unread cursor exactly equal to a numeric end delivers that final block once."
+
+[finding.moving-filter-start]
+test = "TestRepair_185_InstalledStartDoesNotMove"
+proof = "Omitted, latest, safe and finalized starts retain the installation boundary across several real commits before the first poll and between later polls; all committed logs arrive exactly once."
+
+[finding.snapshot-consumes-poll-cursor]
+test = "TestRepair_185_SnapshotsDoNotConsumeChanges"
+proof = "Interleaved repeated HTTP snapshots, real commits and changes polls retain repeatable snapshots and deliver every changes log exactly once."
+
+[gotcha.baseline-order]
+observed = "The embedded baseline instruction conflicts with the ordered implementation-first gates; baseline verification was not run."
+
+[gotcha.range-backend]
+observed = "Only the production Pebble receipt backend exists; it does not support FilterLogs range queries, so range normalization is driven directly with producer-emitted HTTP logs."
+
+[gotcha.consensus-proof-commits]
+observed = "The real consensus store rejects blocks without signed previous-block commits; the harness now signs every produced commit with the real file validator and verifies it against the validator set before storing it."
+evidence = "f9b5945009aa8bdca8bdc2040f3c2e39fc9e578c; cg spec done 22.31.185 -f layerx-merge --root /work/paxeer-monorepo; exit 1; /out/logs/verify-1.log"
+
+[gotcha.consensus-test-names]
+observed = "Consensus test-root creation uses the test name as a temporary-directory prefix, so subtest path separators must be replaced before calling CreateConfig."

@@ -1,0 +1,245 @@
+[reconcile.r8-153]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r8-153.1]
+interface = "interface.8.cli-paxai-worker-main-rs-config"
+verdict = "served"
+path = "services/platform/hosted/paxai-worker/src/main.rs"
+line = 1032
+symbol = "--config"
+evidence = "main still parses exactly --config followed by one path and no extra argument; the matching let-pattern is at line 1032, while line 1034 is only usage text."
+
+[row.r8-153.2]
+interface = "interface.8.err-registry-idempotency-record-corrupt"
+verdict = "served"
+path = "services/platform/hosted/registry/src/routes.rs"
+line = 1903
+symbol = "idempotency_record_corrupt"
+evidence = "The journal_refusal match arm still maps JournalRefusal::Corrupt(defect) to HTTP 503 with idempotency_record_corrupt and the defect message at line 1903."
+
+[row.r8-153.3]
+interface = "interface.8.err-registry-invalid-argument"
+verdict = "served"
+path = "services/platform/hosted/registry/src/routes.rs"
+line = 1583
+symbol = "invalid_argument"
+evidence = "ingest_source still maps the Err(error) arm of self.mirror.publish(uri, &plan, &archive) to refusal(400, invalid_argument, &error) at line 1583. The identical arm at line 2054 belongs to refresh_head; earlier occurrences validate other requests."
+
+[row.r8-153.4]
+interface = "interface.8.ts-middleware-buyer-index-layerxhttptransportconfig-j41"
+verdict = "served"
+path = "services/platform/middleware/buyer/src/index.ts"
+line = 568
+symbol = "LayerXHttpTransportConfig"
+evidence = "The exported LayerXHttpTransportConfig interface is declared at line 568 with baseUrl, bearerToken and optional fetch; line 579 is its constructor parameter use."
+
+[row.r8-153.5]
+interface = "interface.8.ts-middleware-buyer-index-paymentquoteterms-2-j41"
+verdict = "served"
+path = "services/platform/middleware/buyer/src/index.ts"
+line = 930
+symbol = "paymentQuoteTerms"
+evidence = "The exported paymentQuoteTerms(requirements: PaymentRequirements): PaymentQuoteTerms function is declared at line 930; line 240 is its call when processing an offer."
+
+[row.r8-153.6]
+interface = "interface.8.ts-middleware-buyer-sidiora-layerx-buyer-middleware-accountidentifiers"
+verdict = "served"
+path = "services/platform/middleware/buyer/src/index.ts"
+line = 942
+symbol = "accountIdentifiers"
+evidence = "The exported async accountIdentifiers(account: string): Promise<readonly Uint8Array[]> declaration is at line 942; it hashes legacy and native account identifiers. Line 957 calls it."
+
+[row.r8-153.7]
+interface = "interface.8.env-middleware-conformance-layerx-settlement-token"
+verdict = "served"
+path = "services/platform/middleware/conformance/service.mjs"
+line = 333
+symbol = "LAYERX_SETTLEMENT_TOKEN"
+evidence = "The merchant configuration declares tokenEnvironment as LAYERX_SETTLEMENT_TOKEN alongside priceEnvironment at line 333; line 325 supplies its conformance value."
+
+[row.r8-153.8]
+interface = "interface.8.env-middleware-conformance-layerx-webhook-keys"
+verdict = "served"
+path = "services/platform/middleware/conformance/service.mjs"
+line = 336
+symbol = "LAYERX_WEBHOOK_KEYS"
+evidence = "The merchant configuration declares webhookKeysEnvironment as LAYERX_WEBHOOK_KEYS at line 336; line 343 supplies the serialized key map to that environment variable."
+
+[row.r8-153.9]
+interface = "interface.8.http-middleware-conformance-any-agent"
+verdict = "served"
+path = "services/platform/middleware/conformance/service.mjs"
+line = 448
+symbol = "/v1/agent/rpc"
+evidence = "The agent boundary handler now declares if (path === /v1/agent/rpc) at line 448, replacing the registered /agent route. It dispatches prepare, submit, track and approval.list RPC operations; the agent-spend import is not a route declaration."
+
+[row.r8-153.10]
+interface = "interface.8.http-middleware-conformance-any-budget"
+verdict = "served"
+path = "services/platform/middleware/conformance/service.mjs"
+line = 528
+symbol = "/budget"
+evidence = "The conformance boundary still declares the /budget route guard at line 528 and queues budgetCall operations; line 552 only constructs the budget service URL."
+
+[row.r8-153.11]
+interface = "interface.8.http-middleware-conformance-any-receipt"
+verdict = "served"
+path = "services/platform/middleware/conformance/service.mjs"
+line = 521
+symbol = "/receipt"
+evidence = "The conformance boundary still declares the /receipt route guard at line 521 and resolves receipt_ref; line 554 configures its URL and the receipts.js import is not this handler."
+
+[row.r8-153.12]
+interface = "interface.8.http-middleware-conformance-any-signer"
+verdict = "served"
+path = "services/platform/middleware/conformance/service.mjs"
+line = 512
+symbol = "/signer"
+evidence = "The conformance boundary still declares the /signer route guard at line 512 and checks signing_hash and preparation_ref; line 553 only configures the signer URL."
+
+[row.r8-153.13]
+interface = "interface.8.http-middleware-conformance-post-settle"
+verdict = "served"
+path = "services/platform/middleware/conformance/service.mjs"
+line = 282
+symbol = "/settle"
+evidence = "The settlement service still rejects requests unless the method is POST and request.url is /settle at line 282; line 324 only constructs LAYERX_SETTLEMENT_URL."
+
+[row.r8-153.14]
+interface = "interface.8.ts-middleware-conformance-receipts-tohex-j41"
+verdict = "served"
+path = "services/platform/middleware/conformance/src/receipts.ts"
+line = 393
+symbol = "toHex"
+evidence = "The exported toHex(value: Uint8Array): string declaration is at line 393 and encodes bytes as padded hexadecimal; the earlier occurrences are calls from receipt construction and hex."
+
+[row.r8-153.15]
+interface = "interface.8.env-middleware-examples-layerx-rpc-token"
+verdict = "served"
+path = "services/platform/middleware/examples/public-rpc.mjs"
+line = 167
+symbol = "LAYERX_RPC_TOKEN"
+evidence = "The PublicRpc constructor reads process.env.LAYERX_RPC_TOKEN at line 167 to select authorization headers, then interpolates it into Bearer at line 168; line 156 is usage text."
+
+[row.r8-153.16]
+interface = "interface.8.err-middleware-seller-payment-refused"
+verdict = "served"
+path = "services/platform/middleware/seller/src/index.ts"
+line = 812
+symbol = "payment_refused"
+evidence = "The safeReason declaration still falls back to the payment_refused literal at line 812 when reason fails the lowercase identifier pattern, matching the registered error-code signature."
+
+[row.r8-153.17]
+interface = "interface.8.ts-middleware-seller-index-verifiedwebhookconsumerconfig-j41"
+verdict = "served"
+path = "services/platform/middleware/seller/src/index.ts"
+line = 526
+symbol = "VerifiedWebhookConsumerConfig"
+evidence = "The exported VerifiedWebhookConsumerConfig interface is declared at line 526 with publicKeys, deliveries and optional timing settings; line 541 is a constructor parameter use."
+
+[row.r8-153.18]
+interface = "interface.8.ts-middleware-seller-sidiora-layerx-seller-middleware-decodepaymentpayloadheader"
+verdict = "served"
+path = "services/platform/middleware/seller/src/index.ts"
+line = 380
+symbol = "decodePaymentPayloadHeader"
+evidence = "The exported decodePaymentPayloadHeader(value: string): PaymentPayload function is declared at line 380 and parses decodeHeader(value); line 249 is a call in seller processing."
+
+[row.r8-153.19]
+interface = "interface.8.ts-middleware-seller-sidiora-layerx-seller-middleware-encodepaymentrequiredheader"
+verdict = "served"
+path = "services/platform/middleware/seller/src/index.ts"
+line = 368
+symbol = "encodePaymentRequiredHeader"
+evidence = "The exported encodePaymentRequiredHeader(value: PaymentRequired): string function is declared at line 368 and encodes validated requirements; line 233 is its payment-required response call."
+
+[row.r8-153.20]
+interface = "interface.8.ts-middleware-seller-sidiora-layerx-seller-middleware-webhookclaimresult"
+verdict = "served"
+path = "services/platform/middleware/seller/src/index.ts"
+line = 516
+symbol = "WebhookClaimResult"
+evidence = "The exported WebhookClaimResult type alias at line 516 still declares claimed, processing, completed and conflict; line 519 uses it as the delivery-store claim return type."
+
+[row.r8-153.21]
+interface = "interface.8.ts-middleware-seller-sidiora-layerx-seller-middleware-webhookconsumeresult"
+verdict = "served"
+path = "services/platform/middleware/seller/src/index.ts"
+line = 524
+symbol = "WebhookConsumeResult"
+evidence = "The exported WebhookConsumeResult type alias at line 524 still declares processed, duplicate and processing; line 566 uses it as the consume method return type."
+
+[row.r8-153.22]
+interface = "interface.8.ts-middleware-seller-sidiora-layerx-seller-middleware-webhookdeliveryclaim"
+verdict = "served"
+path = "services/platform/middleware/seller/src/index.ts"
+line = 510
+symbol = "WebhookDeliveryClaim"
+evidence = "The exported WebhookDeliveryClaim interface is declared at line 510 with deliveryId, payloadDigest and leaseUntilMs; line 519 uses it as the claim parameter type."
+
+[row.r8-153.23]
+interface = "interface.8.ts-middleware-seller-sidiora-layerx-seller-middleware-webhookdeliverystore"
+verdict = "served"
+path = "services/platform/middleware/seller/src/index.ts"
+line = 518
+symbol = "WebhookDeliveryStore"
+evidence = "The exported WebhookDeliveryStore interface is declared at line 518 with claim, complete and release methods; later occurrences type the consumer configuration and private storage field."
+
+[row.r8-153.24]
+interface = "interface.8.ts-middleware-seller-sidiora-layerx-seller-middleware-webhookrequestheaders"
+verdict = "served"
+path = "services/platform/middleware/seller/src/index.ts"
+line = 503
+symbol = "WebhookRequestHeaders"
+evidence = "The exported WebhookRequestHeaders interface is declared at line 503 with id, timestamp, keyId and signature; line 564 uses it as the consume headers parameter type."
+
+[row.r8-153.25]
+interface = "interface.8.err-ramp-reference-rebalance-invalid"
+verdict = "served"
+path = "services/platform/ramps/reference/src/main.rs"
+line = 1082
+symbol = "rebalance_invalid"
+evidence = "rebalance still emits HTTP 400 rebalance_invalid at line 1082 for body-decoding failures. The registered serde_json::from_slice call has changed to decode_rebalance(&request.body), retaining the same error code."
+
+[row.r8-153.26]
+interface = "interface.8.err-ramp-reference-rebalance-transaction-conflict"
+verdict = "retired"
+path = "services/platform/ramps/reference/src/main.rs"
+line = 1150
+symbol = "rebalance_transaction_conflict"
+evidence = "rebalance_transaction_conflict is absent from the registered file and a repository-wide literal search excluding spec and docs found no remaining files. Rebalance operations now delegate to InventoryRebalancer and map_rebalance_error; conflicts map to operation_conflict in map_error."
+remaining_refs = 0
+remaining = []
+
+[row.r8-153.27]
+interface = "interface.8.rs-ramp-toolkit-clients-decode-hex-j41"
+verdict = "served"
+path = "services/platform/ramps/toolkit/src/clients.rs"
+line = 1470
+symbol = "decode_hex"
+evidence = "The public decode_hex(value: &str, maximum: usize) -> Result<Vec<u8>, RampError> declaration is at line 1470; the other occurrences call it for addresses, signatures, fixed hashes and receipts."
+
+[row.r8-153.28]
+interface = "interface.8.rs-ramp-toolkit-layerx-ramp-toolkit-clients-hex"
+verdict = "served"
+path = "services/platform/ramps/toolkit/src/clients.rs"
+line = 1450
+symbol = "hex"
+evidence = "The public hex(bytes: &[u8]) -> String declaration is at line 1450 below must_use; it formats bytes using lowercase DIGITS. Other occurrences derive idempotency keys or encode receipt fields."
+
+[row.r8-153.29]
+interface = "interface.8.rs-ramp-toolkit-layerx-ramp-toolkit-clients-parse-hex32"
+verdict = "served"
+path = "services/platform/ramps/toolkit/src/clients.rs"
+line = 1462
+symbol = "parse_hex32"
+evidence = "The public parse_hex32(value: &str) -> Result<[u8; 32], RampError> declaration is at line 1462 and converts decode_hex(value, 32); other occurrences are configuration and receipt validation calls."
+
+[row.r8-153.30]
+interface = "interface.8.rs-ramp-toolkit-journal-journalhealth-j41"
+verdict = "served"
+path = "services/platform/ramps/toolkit/src/journal.rs"
+line = 869
+symbol = "JournalHealth"
+evidence = "The public JournalHealth struct declaration is at line 869 below derive(Clone, Debug, Serialize), with readiness and durability fields; line 1020 returns it and line 1034 constructs a value."

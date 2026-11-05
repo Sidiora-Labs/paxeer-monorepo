@@ -1,15 +1,15 @@
 [sweep.go-storage]
-revision = "03e2d849d7f3e9ca51cada79f6d3cfe90938a0fb"
+revision = "ace3608260f2ec826292dab08cd058031efe2f46"
 command = "CGO_ENABLED=1 go vet ./TARGET/ && CGO_ENABLED=1 go test -count=1 ./TARGET/"
 targets_total = 69
-targets_passed = 66
-targets_failed = 3
+targets_passed = 69
+targets_failed = 0
 targets_not_run = 0
 enumeration_command = "CGO_ENABLED=1 go list ./storage/..."
 enumeration_exit_code = 0
 execution_environment = "GOMAXPROCS=2; three concurrent per-target workers; CGO_ENABLED=1 throughout."
-native_archives = "No package or test dependency requires the native kernel archive, as established by the cgo dependency inventory; make paxd-native-libs was not needed."
-evidence = "/out/logs/go-storage/qualification.jsonl"
+native_archives = "The cgo dependency inventory contains no native kernel archive dependency; no additional make paxd-native-libs invocation was needed."
+evidence = "/out/logs/go-storage-closure/qualification.jsonl"
 
 [target.go-storage.1]
 target = "storage/common/errors"
@@ -123,10 +123,8 @@ exit_code = 0
 
 [target.go-storage.23]
 target = "storage/db_engine/litt/test"
-result = "failed"
-exit_code = 1
-observed = "storage/db_engine/litt/test/migration_test.go:138: TestMigration/3->3 failed because a key was missing after migration."
-assumption = "The existing Litt migration path likely fails to preserve every source key in the 3-to-3 migration case."
+result = "passed"
+exit_code = 0
 
 [target.go-storage.24]
 target = "storage/db_engine/litt/types"
@@ -135,10 +133,8 @@ exit_code = 0
 
 [target.go-storage.25]
 target = "storage/db_engine/litt/util"
-result = "failed"
-exit_code = 1
-observed = "storage/db_engine/litt/util/file_utils_test.go:1041: TestDeleteOrphanedSwapFilesPermissions expected an error but received nil."
-assumption = "The sandbox runs as root, which likely bypasses the filesystem permission restriction expected by this test; this is an environmental cause."
+result = "passed"
+exit_code = 0
 
 [target.go-storage.26]
 target = "storage/db_engine/pebbledb"
@@ -277,10 +273,8 @@ exit_code = 0
 
 [target.go-storage.53]
 target = "storage/state_db/sc/memiavl"
-result = "failed"
-exit_code = 1
-observed = "storage/state_db/sc/memiavl/anchor_delete_test.go:39: TestApplyUpgradesDeletesAnchorTreeAndKeepsMergeTrees/0 failed with failed to apply initial stores: memiavl tree name conflicts: layerxanchor."
-assumption = "The existing anchor-deletion fixture likely attempts to initialize the layerxanchor tree more than once."
+result = "passed"
+exit_code = 0
 
 [target.go-storage.54]
 target = "storage/state_db/sc/migration"

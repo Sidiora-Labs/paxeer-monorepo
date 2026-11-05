@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "id": "3.1",
+  "task": "3.1",
+  "roles": [
+    "control"
+  ],
+  "module": "hierarchy/packages.js",
+  "entry": "createComponent",
+  "api_version": 1,
+  "actions": [
+    "hierarchy.describe",
+    "hierarchy.leader.acquire",
+    "hierarchy.package.configure",
+    "hierarchy.package.assign",
+    "hierarchy.package.handoff.propose",
+    "hierarchy.package.handoff.acknowledge",
+    "hierarchy.package.handoff.withdraw",
+    "hierarchy.package.transition",
+    "hierarchy.domain.handoff",
+    "hierarchy.role.bind",
+    "hierarchy.inspect",
+    "hierarchy.history"
+  ],
+  "requires": [
+    "4.2",
+    "14.1"
+  ]
+}

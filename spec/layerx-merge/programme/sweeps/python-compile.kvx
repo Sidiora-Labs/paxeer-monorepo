@@ -1,12 +1,12 @@
 [sweep.python-compile]
-revision = "03e2d849d7f3e9ca51cada79f6d3cfe90938a0fb"
+revision = "ace3608260f2ec826292dab08cd058031efe2f46"
 command = "python3 -m compileall -q -f TARGET"
 selection = "TARGET expands to the tracked Python file operands in each top-level directory, excluding core/deps, sdk/contrib and every node_modules directory."
 bytecode = "PYTHONPYCACHEPREFIX redirects compiler output to private evidence storage outside the repository."
-files_total = 1185
+files_total = 1217
 targets_total = 13
-targets_passed = 12
-targets_failed = 1
+targets_passed = 13
+targets_failed = 0
 targets_not_run = 0
 
 [target.python-compile.1]
@@ -61,30 +61,28 @@ files_total = 23
 target = "sdk"
 result = "passed"
 exit_code = 0
-files_total = 171
+files_total = 172
 
 [target.python-compile.10]
 target = "services"
 result = "passed"
 exit_code = 0
-files_total = 212
+files_total = 217
 
 [target.python-compile.11]
 target = "spec"
 result = "passed"
 exit_code = 0
-files_total = 68
+files_total = 80
 
 [target.python-compile.12]
 target = "tests"
 result = "passed"
 exit_code = 0
-files_total = 175
+files_total = 183
 
 [target.python-compile.13]
 target = "tools"
-result = "failed"
-exit_code = 1
-files_total = 399
-observed = "Compilation failed for tools/benchmark/loadtest/scripts/validator_failures.py:92: SyntaxError: expected ':'."
-assumption = "The pre-existing _run_paxd_cmd function declaration is missing its terminating colon, so Python 3 cannot parse the file."
+result = "passed"
+exit_code = 0
+files_total = 405

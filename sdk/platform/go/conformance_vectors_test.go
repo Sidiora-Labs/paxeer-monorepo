@@ -2,6 +2,7 @@ package layerx_test
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -18,8 +19,8 @@ func VerifySequencerReceipt(receiptJSON, rawTransaction []byte, keys sdk.Receipt
 	return sdk.VerifySequencerReceipt(receiptJSON, rawTransaction, keys)
 }
 
-func VerifyCommittedReceipt(receipt sdk.SequencerReceiptVerification, header sdk.CommittedHeader, inclusion sdk.ReceiptInclusion, commit sdk.CometCommit, validators []sdk.CometValidator) (sdk.Committed, error) {
-	return sdk.VerifyCommittedReceipt(receipt, header, inclusion, commit, validators)
+func VerifyCommittedReceipt(receipt sdk.SequencerReceiptVerification, header sdk.CommittedHeader, inclusion sdk.ReceiptInclusion, commit sdk.CometCommit, validators []sdk.CometValidator, trust ...sdk.CommittedTrust) (sdk.Committed, error) {
+	return sdk.VerifyCommittedReceipt(receipt, header, inclusion, commit, validators, trust...)
 }
 
 type conformanceReceiptCase struct {
@@ -124,6 +125,9 @@ func assertConformanceBlockTransaction(t *testing.T, c conformanceReceiptCase, i
 	if err != nil {
 		t.Fatal(err)
 	}
+	if digest := sha256.Sum256(data); hex.EncodeToString(digest[:]) != "5013cd232ee94ece8d25fca4c802ca60c892f3a5f637a70962d9909dc71c4e7b" {
+		t.Fatal("committed conformance source recording changed")
+	}
 	var source struct {
 		Settlement struct {
 			RawTransaction   string `json:"raw_transaction"`
@@ -150,8 +154,8 @@ func TestVectorFilesV1ToV3MatchSequencerReceiptFixture(t *testing.T) {
 		Cases []json.RawMessage `json:"cases"`
 	}
 	readConformanceVector(t, "sequencer-receipt-v1", &source)
-	if len(source.Cases) != 11 {
-		t.Fatalf("want 11 source cases, got %d", len(source.Cases))
+	if len(source.Cases) != 13 {
+		t.Fatalf("want 13 source cases, got %d", len(source.Cases))
 	}
 	refusals := map[string]struct {
 		check sdk.ReceiptCheck
@@ -168,8 +172,8 @@ func TestVectorFilesV1ToV3MatchSequencerReceiptFixture(t *testing.T) {
 		name, section string
 		count         int
 	}{
-		{"vector-v1-receipted-positive", "V1", 4},
-		{"vector-v2-receipted-revert", "V2", 1},
+		{"vector-v1-receipted-positive", "V1", 5},
+		{"vector-v2-receipted-revert", "V2", 2},
 		{"vector-v3-receipt-refusals", "V3", 6},
 	} {
 		t.Run(group.section, func(t *testing.T) {
@@ -236,6 +240,10 @@ func TestVectorFilesV1ToV3MatchSequencerReceiptFixture(t *testing.T) {
 						if result.Status != 1 || result.Revert != nil {
 							t.Fatal("positive receipt was not successful")
 						}
+					} else if c.ID == "V2-pax-transfer-insufficient-funds" {
+						if result.Status != 0 || result.Receipt.ResultCode != 1 || len(result.ReturnData) != 0 || len(result.Logs) != 0 || c.LXPCode != "" || result.Revert == nil || result.Revert.Code != "" || result.Revert.Reason != "" {
+							t.Fatalf("lost preexecution refusal: %+v", result)
+						}
 					} else if result.Status != 0 || result.Revert == nil || result.Revert.Code != c.LXPCode ||
 						result.Revert.Reason != "LXP_INSUFFICIENT_BALANCE: insufficient balance" || !bytes.Equal(result.Revert.ReturnData, result.ReturnData) {
 						t.Fatalf("revert lost its authenticated reason: %+v", result.Revert)
@@ -253,6 +261,8 @@ func TestVectorV4CommittedVerifiesAndRefuses(t *testing.T) {
 		t.Fatal("missing V4 identity or insufficient-power refusal")
 	}
 	c := vector.Positive
+	trust := sdk.CommittedTrust{ChainID: "committed-fixture", Height: 10}
+	copy(trust.BlockHash[:], conformanceHex(t, "0xa7c648246a5213d57d6a2f2aa7bdc8e0050249629e5e92a4b89f2bdb918e9108", 32))
 	if c.Expected.Rung != "committed" {
 		t.Fatal("V4 positive must require the committed rung")
 	}
@@ -266,7 +276,7 @@ func TestVectorV4CommittedVerifiesAndRefuses(t *testing.T) {
 	}
 	assertConformanceReceipt(t, c.conformanceReceiptCase, receipt, "receipted")
 	t.Run("positive", func(t *testing.T) {
-		result, err := VerifyCommittedReceipt(receipt, c.BlockHeader, c.ReceiptInclusion, c.Commit, c.ValidatorSet)
+		result, err := VerifyCommittedReceipt(receipt, c.BlockHeader, c.ReceiptInclusion, c.Commit, c.ValidatorSet, trust)
 		if err != nil {
 			t.Fatalf("recorded V4 positive must verify at committed (header height %d, supplied commit height %d, check %s): %v", c.BlockHeader.Height, c.Commit.Height, conformanceFailureCheck(err), err)
 		}
@@ -304,7 +314,7 @@ func TestVectorV4CommittedVerifiesAndRefuses(t *testing.T) {
 			}
 			inclusion := c.ReceiptInclusion
 			inclusion.NextCommit = commit
-			result, err := VerifyCommittedReceipt(receipt, c.BlockHeader, inclusion, c.Commit, c.ValidatorSet)
+			result, err := VerifyCommittedReceipt(receipt, c.BlockHeader, inclusion, c.Commit, c.ValidatorSet, trust)
 			var verification *sdk.VerificationError
 			if !errors.Is(err, sdk.ErrVerification) || !errors.As(err, &verification) || verification.Check != refusal.ExpectedCheck || result.Rung != "" || len(result.CanonicalBytes) != 0 {
 				t.Fatalf("want %s refusal without verified evidence, got %+v, %v", refusal.ExpectedCheck, result, err)
@@ -328,7 +338,7 @@ func TestVectorV5PortableRoundTrips(t *testing.T) {
 	readConformanceVector(t, "vector-v1-receipted-positive", &v1)
 	var v4 conformanceCommittedVector
 	readConformanceVector(t, "vector-v4-committed", &v4)
-	if len(v1.Cases) != 4 {
+	if len(v1.Cases) != 5 {
 		t.Fatal("V1 source cases missing")
 	}
 	for i, level := range []string{"receipted", "committed"} {
@@ -340,6 +350,8 @@ func TestVectorV5PortableRoundTrips(t *testing.T) {
 				evidence = &sdk.PortableCommittedEvidence{BlockHeader: v4.Positive.BlockHeader, ReceiptInclusion: v4.Positive.ReceiptInclusion, Commit: v4.Positive.Commit, ValidatorSet: v4.Positive.ValidatorSet}
 			}
 			keys := conformanceKeys(t, c)
+			trust := sdk.CommittedTrust{ChainID: "committed-fixture", Height: 10}
+			copy(trust.BlockHash[:], conformanceHex(t, "0xa7c648246a5213d57d6a2f2aa7bdc8e0050249629e5e92a4b89f2bdb918e9108", 32))
 			data := vector.Bundles[i]
 			var bundle sdk.PortableReceipt
 			if err := json.Unmarshal(data, &bundle); err != nil {
@@ -368,19 +380,19 @@ func TestVectorV5PortableRoundTrips(t *testing.T) {
 						!reflect.DeepEqual(bundle.ValidatorSet, evidence.ValidatorSet) {
 						t.Fatal("portable committed evidence differs from V4 execution and successor evidence")
 					}
-					committed, err := VerifyCommittedReceipt(receipt, *bundle.BlockHeader, *bundle.ReceiptInclusion, *bundle.Commit, bundle.ValidatorSet)
+					committed, err := VerifyCommittedReceipt(receipt, *bundle.BlockHeader, *bundle.ReceiptInclusion, *bundle.Commit, bundle.ValidatorSet, trust)
 					if err != nil {
 						t.Fatalf("V5 committed evidence (check %s): %v", conformanceFailureCheck(err), err)
 					}
 					assertConformanceReceipt(t, c, committed.SequencerReceiptVerification, level)
 				})
 			}
-			result, err := sdk.VerifyPortableReceipt(data, keys)
+			result, err := sdk.VerifyPortableReceipt(data, keys, trust)
 			if err != nil {
 				t.Fatalf("portable %s verification (check %s): %v", level, conformanceFailureCheck(err), err)
 			}
 			assertConformanceReceipt(t, c, result, level)
-			rebuilt, err := sdk.ExportPortableReceipt(c.ReceiptJSON, conformanceHex(t, c.RawTransaction, 0), keys, evidence)
+			rebuilt, err := sdk.ExportPortableReceipt(c.ReceiptJSON, conformanceHex(t, c.RawTransaction, 0), keys, evidence, trust)
 			if err != nil {
 				t.Fatal(err)
 			}

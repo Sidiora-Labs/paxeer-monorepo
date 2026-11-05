@@ -1031,25 +1031,24 @@ func TestEventTopics(t *testing.T) {
 
 		local, err := os.ReadFile("XWeb.sol")
 		require.NoError(t, err)
-		source := regexp.MustCompile(`(?s)/\*.*?\*/|//[^\n]*`).ReplaceAllString(string(local), "")
-		declared := make(map[string]string)
-		for _, declaration := range regexp.MustCompile(`(?s)\bevent\s+(\w+)\s*\(([^)]*)\)\s*;`).FindAllStringSubmatch(source, -1) {
-			var params []string
-			for _, field := range strings.Split(declaration[2], ",") {
-				params = append(params, strings.Fields(field)[0])
-			}
-			declared[declaration[1]] = declaration[1] + "(" + strings.Join(params, ",") + ")"
-		}
+		declared := repairM1282SolidityEvents(t, local)
+		imported, err := os.ReadFile("../../contracts/src/precompiles/IXWeb.sol")
+		require.NoError(t, err)
+		consumer := repairM1282SolidityEvents(t, imported)
 		require.Len(t, declared, len(want))
-		require.Equal(t, len(want), strings.Count(source, "event "))
+		require.Len(t, consumer, len(want))
 
 		for _, event := range want {
 			t.Run(event.name, func(t *testing.T) {
 				require.Equal(t, event.topic, crypto.Keccak256Hash([]byte(event.sig)))
-				require.Equal(t, event.sig, declared[event.name])
+				require.Equal(t, event.sig, declared[event.name].Sig)
 				got, exists := parsed.Events[event.name]
 				require.True(t, exists)
 				require.Equal(t, event.sig, got.Sig)
+				require.Equal(t, got.Inputs, declared[event.name].Inputs, "local named schema")
+				require.Equal(t, got.Inputs, consumer[event.name].Inputs, "consumer named schema")
+				require.Equal(t, got.Anonymous, declared[event.name].Anonymous)
+				require.Equal(t, got.Anonymous, consumer[event.name].Anonymous)
 				require.Equal(t, event.topic, got.ID)
 				require.False(t, got.Anonymous)
 				indexed := make([]bool, len(got.Inputs))

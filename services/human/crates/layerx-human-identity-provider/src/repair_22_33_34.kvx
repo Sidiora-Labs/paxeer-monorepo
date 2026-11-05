@@ -1,0 +1,25 @@
+[repair.22.33.34]
+audit = "22.30.103"
+acceptance = "22998.1"
+mode = "BUILD"
+baseline_revision = "1d48f80e6824413c88ebe482f484d13c1990e6ec"
+baseline = "The integration test did not exist and the private gate ledger contained no prior run; the explicit implementation-first, hf-done-only order prohibits the conflicting pre-change verify step, so no baseline test failure is claimed."
+qualification = "The private hf-build/hf-done ledger records the exact candidate revision, command, exit and log; closure requires hf-done passing with build and verification at the same revision."
+
+[finding.identity-first-batch]
+tests = ["identity_first_batch_provisions_after_restart_at_later_height", "identity_first_batch_refuses_recovered_spending_history", "identity_first_batch_preserves_identity_and_canonical_state_refusals", "identity_first_batch_preserves_authenticated_current_head_refusals", "identity_first_batch_hosted_job_observes_after_merged_registration"]
+repair = "validate-account-head reads px_getAccount and ledger accountId/accountOwner/balanceOf/nextSequence over the configured pinned HTTPS endpoint or local loopback node, checks the DID and asset account at one current committed height, and refuses stale/changing heads or unsupported debit history before publishing any result."
+consumption = "Zero consumption is established only for the selected account with a canonical zero debit sequence; any nonzero sequence refuses because this interface cannot recover Human limit history. A later committed height alone never resets consumption."
+proof = "The production library entry point used by the CLI crosses real SequencerEndpoint/PxEndpoint HTTP clients into a disk-backed loopback transcript peer, using an artifact emitted by the production EVM calldata/return codecs and canonical account/DID domains. The peer is stopped and reopened at a later height with retained account/consumption state; no external binary, environment configuration, endpoint, credential or native artifact is needed."
+trust = "The configured HTTPS node and pinned DER CA authenticate chain observations; HTTP is restricted by SequencerEndpoint to loopback. This is the node trust boundary used by hosted provisioning, not an offline BFT light client or a claim that arbitrary supplied headers prove account state."
+hosted = "Owner identity provisioning runs before merged registration; only after registration is validated does a separate observation Job query the merged chain. The full bound observation is retained and its verified consumed field is projected into the existing assembler input."
+
+[wiring]
+job_template = "Domain 10: services/platform/hosted/human/provision-owner-job.yaml should separate owner identity creation from the committed-chain validation Job; provision.sh currently derives both Jobs from the retained template without editing that out-of-scope file."
+assembler = "Domain 10: services/platform/hosted/human/provision.py should consume layerx.human.account-head.v1 directly and bind its account/asset/chain provenance; provision.sh currently retains that full observation and projects only the verified consumed value required by its strict legacy schema."
+legacy_tests = "Domain 10: services/human/crates/layerx-human-identity-provider/tests/account_head.rs still expects protocol-3 first-batch envelope success; migrate those positive cases to the committed-chain input contract without retaining the retired trust path."
+
+[gotchas]
+input_order = "A pre-change verify conflicts with the explicit implementation-first and hf-done-only gate order; do not claim an unrun baseline."
+codec_dependencies = "Importing the hosted EVM CLI codec requires its optional cryptography signing dependency; record its pure calldata/encode functions without importing signing or running a subprocess in the gate."
+account_owner = "ledger accountId takes the DID public key while accountOwner returns the protocol DID id; verify both against their real canonical derivations."

@@ -372,6 +372,11 @@ impl Harness {
             .env("LAYERX_CORE_STATE_DIR", self.root.join("state"))
             .env("LAYERX_CORE_NODE_URL", "http://127.0.0.1:1")
             .env("LAYERX_CORE_REPLICA_URL", "http://127.0.0.1:1")
+            .env("LAYERX_CORE_SEQUENCER_ENDPOINT", "https://localhost:1")
+            .env(
+                "LAYERX_CORE_SEQUENCER_TRUST_ANCHOR_DER",
+                self.root.join("tls.der"),
+            )
             .env("LAYERX_CORE_LNI_SOCKET", self.root.join("absent-lni.sock"))
             .env(
                 "LAYERX_CORE_SUPERVISOR_SOCKET",
@@ -883,4 +888,12 @@ fn retired_activity_and_program_routes_answer_not_found() {
     );
     assert_eq!(status, 503, "{document}");
     assert_eq!(document["error"]["code"], "node_unavailable");
+}
+
+#[path = "support/native_funding.rs"]
+mod native_funding;
+
+#[test]
+fn native_funding_transfer_commits_and_recovers_after_response_loss() {
+    native_funding::native_funding_lost_response_reopen_archive_import();
 }

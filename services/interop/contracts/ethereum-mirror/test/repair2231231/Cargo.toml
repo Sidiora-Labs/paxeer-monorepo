@@ -1,0 +1,15 @@
+[package]
+name = "repair2231231-publisher"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[dependencies]
+k256 = { version = "=0.13.4", default-features = false, features = ["ecdsa", "std"] }
+layerx-mirror = { path = "../../../../crates/layerx-mirror" }
+layerx-mirror-signer = { path = "../../../../crates/layerx-mirror-signer" }
+serde_json = "=1.0.151"
+sha2 = "=0.10.9"
+sha3 = "=0.10.8"

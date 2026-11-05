@@ -848,7 +848,9 @@ func ParseCoinNormalized(coinStr string) (coin Coin, err error) {
 // sanitized coins.
 // Otherwise, it will return an error.
 // If an empty string is provided to ParseCoinsNormalized, it returns nil Coins.
-// ParseCoinsNormalized supports decimal coins as inputs, and truncate them to int after converted to the smallest unit.
+// ParseCoinsNormalized supports decimal coins as inputs. Converted amounts use
+// the SDK's 18-place decimal precision, are summed per normalized denomination,
+// and then each total is truncated toward zero to an integer.
 // Expected format: "{amount0}{denomination},...,{amountN}{denominationN}"
 func ParseCoinsNormalized(coinStr string) (Coins, error) {
 	coins, err := ParseDecCoins(coinStr)

@@ -1,0 +1,921 @@
+# Pre-upgrade wallet audit; product findings and proposed repairs only.
+
+[audit.22.30.119]
+task = "22.30.119"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 70
+findings = 40
+docs_reviewed = 14
+upgrade_ready = false
+blocking = ["virtual-network-disconnect", "evm-approval-recovery", "lx-approval-recovery", "human-daily-cap-fail-open", "human-unknown-spend-unaccounted", "signature-ledger-write-loss", "raw-precompile-policy-bypass", "hosted-evm-routes-missing", "hosted-sponsored-quote-missing", "send-transport-uncertainty"]
+
+[file.01]
+path = "apps/wallet/nixpacks.toml"
+lines = 11
+verdict = "clean"
+note = "Reviewed the complete Node 22, frozen pnpm install, app build and start declarations against the wallet package commands; no additional slice-local discrepancy found."
+
+[file.02]
+path = "apps/wallet/pnpm-lock.yaml"
+lines = 9179
+verdict = "generated"
+note = "Generated pnpm dependency lock; reviewed lock metadata and wallet importer provenance. Generated dependency resolution data is recorded as generated rather than source-reviewed."
+
+[file.03]
+path = "apps/wallet/src/wallet/WalletProvider.test.tsx"
+lines = 210
+verdict = "issues"
+note = "Reviewed the complete root-chain connection and signing tests; virtual-network switch and persisted selection coverage is missing as recorded."
+
+[file.04]
+path = "apps/wallet/src/wallet/WalletProvider.tsx"
+lines = 721
+verdict = "issues"
+note = "Reviewed network persistence, identity lifecycle, embedded and injected connection, event listeners, signer facade and write guards; active virtual-chain state conflicts are recorded."
+
+[file.05]
+path = "apps/wallet/src/wallet/config.test.ts"
+lines = 41
+verdict = "clean"
+note = "Reviewed the full configuration unit cases for missing values, supported URLs, invalid configuration and redirect selection; these assert the configuration parser contract."
+
+[file.06]
+path = "apps/wallet/src/wallet/config.ts"
+lines = 91
+verdict = "clean"
+note = "Reviewed all environment names, URL validation, merged root RPC default, wallet API and identity configuration and redirect resolution against their consumers."
+
+[file.07]
+path = "apps/wallet/src/wallet/identity.test.ts"
+lines = 38
+verdict = "clean"
+note = "Reviewed complete identity client cases and their session and bearer-token expectations; the isolated tests match the IdentitySession wrapper contract."
+
+[file.08]
+path = "apps/wallet/src/wallet/identity.ts"
+lines = 95
+verdict = "clean"
+note = "Reviewed the complete Supabase wrapper, token supplier, user projection, email/OAuth calls, session subscription and sign-out behavior against SDK consumers."
+
+[file.09]
+path = "apps/wallet/src/wallet/session.test.ts"
+lines = 146
+verdict = "clean"
+note = "Reviewed the full embedded/injected wallet facade and transfer conversion cases; assertions match these adapter contracts and are not treated as a live node proof."
+
+[file.10]
+path = "apps/wallet/src/wallet/session.ts"
+lines = 109
+verdict = "clean"
+note = "Reviewed discovery filtering, shared WalletInterface adapters, account authorization and native/ERC20 transfer encodings and units against the wallet SDK."
+
+[file.11]
+path = "apps/wallet/src/wallet/signer.test.ts"
+lines = 72
+verdict = "clean"
+note = "Reviewed all adapter tests, request-field assertions, message recovery and refusal cases. Their fixture transport limitation is recorded on test/gateway.ts; unsupported-field behavior is recorded on signer.ts."
+
+[file.12]
+path = "apps/wallet/src/wallet/signer.ts"
+lines = 109
+verdict = "issues"
+note = "Reviewed the complete ethers signer implementation, sender checks, message encoding, transaction copying and bounded transaction lookup; silently discarded fields are recorded."
+
+[file.13]
+path = "apps/wallet/src/wallet/test/gateway.ts"
+lines = 251
+verdict = "issues"
+note = "Reviewed every fixture loader, identity route, wallet response, synthetic transaction and HTTP dispatch branch; hash substitution and the retired RPC path are recorded."
+
+[file.14]
+path = "apps/wallet/src/wallet/test/injected.ts"
+lines = 122
+verdict = "clean"
+note = "Reviewed the full injected-provider unit helper and EIP-6963 announcement, account and chain events, supported request handling and signature construction; fixtures are limited to unit behavior."
+
+[file.15]
+path = "apps/wallet/vitest.config.ts"
+lines = 32
+verdict = "clean"
+note = "Reviewed the complete test include patterns, source aliases, browser SDK alias and dependency deduplication; these resolve the intended wallet source consumers."
+
+[file.16]
+path = "services/wallet/attestor/internal/audit/audit.go"
+lines = 330
+verdict = "clean"
+note = "Reviewed binary frame encoding, sequence/hash replay, truncation and corruption rejection, fsync, append failure and close behavior. The running attestor opens its exclusive bbolt store before this log, preventing a second daemon from sharing the data directory."
+
+[file.17]
+path = "services/wallet/attestor/internal/audit/audit_test.go"
+lines = 263
+verdict = "clean"
+note = "Reviewed every audit test for hash chaining, tamper/truncation rejection, reopen, failure handling and concurrent appends on one log; assertions match the encoded producer records."
+
+[file.18]
+path = "services/wallet/gateway/src/agent/actions/errors.ts"
+lines = 200
+verdict = "clean"
+note = "Reviewed all action error codes, phase and retry strategy mappings, retry delays, serialized causes and terminal statuses against route and orchestrator consumers."
+
+[file.19]
+path = "services/wallet/gateway/src/agent/actions/nonceLock.ts"
+lines = 11
+verdict = "clean"
+note = "Reviewed the complete adapter forwarding action ownership to the distributed wallet lock and shared nonce store; it preserves the lease callback contract."
+
+[file.20]
+path = "services/wallet/gateway/src/agent/actions/orchestrator.ts"
+lines = 623
+verdict = "clean"
+note = "Reviewed every retained action state and transition, approval/call plan, durable draft and signed bytes, exact-hash recovery, nonce reservation, fee replacement and terminal cleanup. Shared lease fencing and uncertain-read defects are recorded at their owning implementations."
+
+[file.21]
+path = "services/wallet/gateway/src/agent/actions/plan.ts"
+lines = 133
+verdict = "clean"
+note = "Reviewed allowance-and-call construction, mover selector restrictions, canonical amounts and calldata, approval leg and zero-value call intent against durable action consumers."
+
+[file.22]
+path = "services/wallet/gateway/src/agent/actions/worker.ts"
+lines = 68
+verdict = "issues"
+note = "Reviewed worker startup, claim cadence, serial tick bound, error handling and stop lifecycle; the unrenewed lease duration is recorded."
+
+[file.23]
+path = "services/wallet/gateway/src/agent/authority.ts"
+lines = 219
+verdict = "clean"
+note = "Reviewed inventory signature and custody identity validation, publisher document construction and signed replication against the attestor authority consumer."
+
+[file.24]
+path = "services/wallet/gateway/src/agent/verify.ts"
+lines = 273
+verdict = "clean"
+note = "Reviewed raw request capture, exact digest framing, signature headers, DID/key binding, expiry and replay persistence, route method binding and structured refusals against attestor request framing."
+
+[file.25]
+path = "services/wallet/gateway/src/attestor/client.ts"
+lines = 1235
+verdict = "clean"
+note = "Reviewed all 1235 lines, including mTLS transport, quorum selection, sign/review/key response validators, refusal mapping, signature lengths and recovery parity, sponsor construction and LX/EVM review evidence. Compared the declared wire shapes and supported signing kinds with attestor producers."
+
+[file.26]
+path = "services/wallet/gateway/src/attestor/quorum.ts"
+lines = 69
+verdict = "clean"
+note = "Reviewed health/version/peer checks, deterministic quorum membership, insufficient quorum refusal and caller contracts; it does not admit an unhealthy signing peer."
+
+[file.27]
+path = "services/wallet/gateway/src/audit.ts"
+lines = 136
+verdict = "clean"
+note = "Reviewed signing audit persistence and typed decisions, durable per-client/account rate windows, transactional increment and retry-after reporting against route callers."
+
+[file.28]
+path = "services/wallet/gateway/src/auth/agentToken.ts"
+lines = 89
+verdict = "clean"
+note = "Reviewed lane enablement, required signing secret, issuer/audience, token TTL and scope validation; minted bearer tokens remain read-only without the separate signed request proof."
+
+[file.29]
+path = "services/wallet/gateway/src/auth/did.ts"
+lines = 146
+verdict = "clean"
+note = "Reviewed strict DID parsing, Ed25519 key and signature encoding, signed challenge message and key-to-DID binding; encodings agree with agent authentication callers."
+
+[file.30]
+path = "services/wallet/gateway/src/auth/jwt.ts"
+lines = 90
+verdict = "clean"
+note = "Reviewed Supabase issuer, JWKS resolution, audience, token algorithm and subject checks and token error mapping against requireAuth."
+
+[file.31]
+path = "services/wallet/gateway/src/chain.ts"
+lines = 31
+verdict = "clean"
+note = "Reviewed merged chain 125 definition, configured root RPC, explorer definition, local raw transaction hash and broadcast grace constant against callers."
+
+[file.32]
+path = "services/wallet/gateway/src/chainReads.ts"
+lines = 391
+verdict = "issues"
+note = "Reviewed every balance, allowance, nonce, gas, simulation, receipt and liveness helper and ABI argument conversion; receipt/liveness failure-to-absence conversion is recorded."
+
+[file.33]
+path = "services/wallet/gateway/src/cors.ts"
+lines = 27
+verdict = "clean"
+note = "Reviewed exact, wildcard and configured origin compilation and matching behavior against index.ts registration; this module only controls browser response access."
+
+[file.34]
+path = "services/wallet/gateway/src/crypto.ts"
+lines = 141
+verdict = "clean"
+note = "Reviewed AES-256-GCM version framing, IV and tag lengths, key validation, authenticated decrypt, safe comparison and master-key loading; no plaintext key is logged or exposed by this module."
+
+[file.35]
+path = "services/wallet/gateway/src/db/actions.ts"
+lines = 551
+verdict = "issues"
+note = "Reviewed all idempotent action persistence, claims, transitions, retained authorization/draft/raw evidence and budget/nonce release paths; lease fencing and obsolete credit transition are recorded."
+
+[file.36]
+path = "services/wallet/gateway/src/db/agents.ts"
+lines = 516
+verdict = "issues"
+note = "Reviewed principal/challenge lifecycle, ownership, policy and rule storage, budgets, activity aggregates and custody reservation binding; reservation concurrency is recorded."
+
+[file.37]
+path = "services/wallet/gateway/src/db/authorizations.ts"
+lines = 28
+verdict = "clean"
+note = "Reviewed exact authorization evidence retention and DID-scoped retrieval and JSON conversion against signed-agent execution consumers."
+
+[file.38]
+path = "services/wallet/gateway/src/db/migrate.ts"
+lines = 111
+verdict = "clean"
+note = "Reviewed full migration ordering, digest identity, advisory lock, transaction/connection handling and applied-ledger checks against the shipped migrations and startup caller."
+
+[file.39]
+path = "services/wallet/gateway/src/db/pool.ts"
+lines = 74
+verdict = "clean"
+note = "Reviewed connection configuration, bounded pool, query forwarding, begin/commit/rollback lifecycle and close behavior against gateway database consumers."
+
+[file.40]
+path = "services/wallet/gateway/src/db/schema.sql"
+lines = 87
+verdict = "issues"
+note = "Reviewed the complete standalone schema and bootstrap instructions; it disagrees with migration-backed wallet subjects, custody nullability and current columns as recorded."
+
+[file.41]
+path = "services/wallet/gateway/src/db/wallets.ts"
+lines = 512
+verdict = "issues"
+note = "Reviewed public projections, archive guards, user/agent identity, migration-aware signer and legacy envelope selection, provisioning and signature accounting; swallowed authoritative log writes are recorded."
+
+[file.42]
+path = "services/wallet/gateway/src/env.ts"
+lines = 310
+verdict = "issues"
+note = "Reviewed all 310 lines of environment validation, merged RPC defaults, signing and custody configuration, trusted proxies, limits and path checks; the unused reconciliation interval is recorded."
+
+[file.43]
+path = "services/wallet/gateway/src/index.ts"
+lines = 247
+verdict = "clean"
+note = "Reviewed Fastify hooks, raw request parser, authentication/route registration including EVM approval routes, migration readiness, workers, health, shutdown and process startup. Missing hosted ingress routes are recorded on their wallet producers."
+
+[file.44]
+path = "services/wallet/gateway/src/jobs/backfillAccounts.ts"
+lines = 146
+verdict = "clean"
+note = "Reviewed CLI argument bounds, wallet/agent batch selection, dry-run and cursor options, outcome totals, safe error reporting and exit handling against backfillAccounts."
+
+[file.45]
+path = "services/wallet/gateway/src/middleware/auth.ts"
+lines = 51
+verdict = "clean"
+note = "Reviewed bearer parsing, JWT verification and typed unauthorized responses; protected human routes receive only the verified subject."
+
+[file.46]
+path = "services/wallet/gateway/src/middleware/principal.ts"
+lines = 77
+verdict = "clean"
+note = "Reviewed read-only agent bearer validation, enabled lane, principal lookup/freeze checks and owner authorization helper against agent and owner routes."
+
+[file.47]
+path = "services/wallet/gateway/src/nonce/store.ts"
+lines = 288
+verdict = "clean"
+note = "Reviewed all durable lock, latest/pending reconciliation, outstanding hash persistence, explicit reservations, broadcast tracking and rollback branches. Pending-state reads are supported by the real node; no unsupported-pending finding is made."
+
+[file.48]
+path = "services/wallet/gateway/src/policy/agent.ts"
+lines = 573
+verdict = "issues"
+note = "Reviewed complete policy ordering, mover decoding, deny/allow precedence, native and token caps, rate/daily checks and budget reservation; raw scheduler and stream operand omissions are recorded."
+
+[file.49]
+path = "services/wallet/gateway/src/policy/index.ts"
+lines = 106
+verdict = "issues"
+note = "Reviewed all human per-transaction, rate and daily-cap checks and error behavior; fail-open daily aggregation and pre-lock decision timing are recorded."
+
+[file.50]
+path = "services/wallet/gateway/src/precompiles.ts"
+lines = 727
+verdict = "clean"
+note = "Reviewed served address resolution, ABI encoders/decoders, scheduler, streams, EIP-712 and TEE adapters against the Go precompile producers, including unsupported method refusals and canonical integer encodings."
+
+[file.51]
+path = "services/wallet/gateway/src/provision/backfill.ts"
+lines = 119
+verdict = "clean"
+note = "Reviewed durable cursor, batch bounds, dry-run, candidate selection, per-subject outcome classification and resumed provisioning; it delegates the real state machine without a second signing implementation."
+
+[file.52]
+path = "services/wallet/gateway/src/provision/bind.ts"
+lines = 468
+verdict = "clean"
+note = "Reviewed all identity/bind framing, unified account reads, nonce signature, attestor client adapter, retained receipt lookup, single broadcast and station-sponsored construction validation against node and station contracts."
+
+[file.53]
+path = "services/wallet/gateway/src/provision/state.ts"
+lines = 650
+verdict = "clean"
+note = "Reviewed the entire durable human/agent state machine, subject locking, key and identity persistence, sponsored setup, retained submission recovery and activation. Restart uses persisted raw setup evidence; no top-up or separate daemon call is introduced."
+
+[file.54]
+path = "services/wallet/gateway/src/routes/admin.ts"
+lines = 58
+verdict = "clean"
+note = "Reviewed legacy import authentication, strict body, envelope/key identity checks and disabled behavior without configured administrative authority."
+
+[file.55]
+path = "services/wallet/gateway/src/routes/agent.ts"
+lines = 399
+verdict = "clean"
+note = "Reviewed all agent reads, simulation, transfer/approve/raw transaction and message routes, signed-request requirements and execution delegation; read uncertainty and raw policy defects are recorded at chainReads.ts and policy/agent.ts."
+
+[file.56]
+path = "services/wallet/gateway/src/routes/agentActions.ts"
+lines = 198
+verdict = "clean"
+note = "Reviewed idempotency key and action ownership, retained original request, durable intake, live allowance-and-call route, response serialization and action polling authorization."
+
+[file.57]
+path = "services/wallet/gateway/src/routes/agentAuth.ts"
+lines = 167
+verdict = "clean"
+note = "Reviewed challenge issuance/consumption, signed DID verification, principal upsert, read-only token mint/refresh, expiry and invalid-credential refusals against DID and token producers."
+
+[file.58]
+path = "services/wallet/gateway/src/routes/agentExec.ts"
+lines = 537
+verdict = "clean"
+note = "Reviewed every transaction, message and typed-data execution path, signed request/custody checks, lock and nonce handling, budget release decisions and uncertain agent spend logging. Shared policy and accounting storage issues are recorded at their owners."
+
+[file.59]
+path = "services/wallet/gateway/src/routes/agentPrecompiles.ts"
+lines = 466
+verdict = "issues"
+note = "Reviewed every mounted helper route, served-method guard, policy intent, ABI conversion and returned shape; empty/missing responses on failed reads are recorded and raw policy equivalence is recorded at policy/agent.ts."
+
+[file.60]
+path = "services/wallet/gateway/src/routes/agents.ts"
+lines = 125
+verdict = "clean"
+note = "Reviewed principal listing, claim digest framing, owner key signature, expiry/nonce, transactional ownership change, repeated claim and safe refusal states."
+
+[file.61]
+path = "services/wallet/gateway/src/routes/evmApprovals.ts"
+lines = 319
+verdict = "issues"
+note = "Reviewed the full retained artifact, original key/account checks, review/approve/sign/status transitions and attestor signature evidence; interrupted-state recovery and missing hosted transport are recorded."
+
+[file.62]
+path = "services/wallet/gateway/src/routes/owner.ts"
+lines = 515
+verdict = "clean"
+note = "Reviewed every owner route in full, ownership checks, freeze/policy replication, rules and budgets, funding and sweep construction, signing and broadcast/receipt handling; common RPC uncertainty is recorded at rpc/pool.ts."
+
+[file.63]
+path = "services/wallet/gateway/src/routes/readiness.ts"
+lines = 171
+verdict = "issues"
+note = "Reviewed all component probes, deadlines, aggregation and readiness status semantics; unauthenticated diagnostic disclosure is recorded."
+
+[file.64]
+path = "services/wallet/gateway/src/routes/sign.ts"
+lines = 1329
+verdict = "issues"
+note = "Reviewed all 1329 lines of human signing, migration-aware custody, strict input, sponsored construction, retained LX approval, rate/nonce/audit paths and error mapping; unresolved approval and unknown-spend accounting findings are recorded."
+
+[file.65]
+path = "services/wallet/gateway/src/routes/wallet.ts"
+lines = 670
+verdict = "issues"
+note = "Reviewed provisioning, account projection and status, sponsored quote/submit/status bodies and station evidence validation; missing hosted quote dispatch is recorded."
+
+[file.66]
+path = "services/wallet/gateway/src/rpc/pool.ts"
+lines = 546
+verdict = "issues"
+note = "Reviewed all health/chain checks, endpoint selection, gas/nonce reads, transaction lookup, exact-once send and nonce-conflict classification, receipt calls and HTTP handling; send uncertainty and response-body deadlines are recorded."
+
+[file.67]
+path = "services/wallet/gateway/src/schemas/agent.ts"
+lines = 269
+verdict = "issues"
+note = "Reviewed every DID/signature, request, action, precompile, policy/rule, budget and owner-operation schema against consumers; the unreferenced retired deposit schema is recorded."
+
+[file.68]
+path = "services/wallet/gateway/src/schemas/tx.ts"
+lines = 112
+verdict = "issues"
+note = "Reviewed all hex/numeric/address bounds and transaction/message envelopes; nested transaction stripping and the unreferenced funded validator are recorded."
+
+[file.69]
+path = "services/wallet/gateway/src/sponsor/station.ts"
+lines = 101
+verdict = "clean"
+note = "Reviewed complete quote, submit and status adapter transport, configuration refusal, timeout, status/error propagation and response validation against station consumers."
+
+[file.70]
+path = "services/wallet/gateway/src/util/walletLock.ts"
+lines = 29
+verdict = "clean"
+note = "Reviewed normalized per-wallet promise queue, distributed nonce lock delegation, action ownership forwarding and queue cleanup after success or failure."
+
+[finding.virtual-network-disconnect]
+file = "apps/wallet/src/wallet/WalletProvider.tsx"
+line = 447
+class = "interface-mismatch"
+severity = "high"
+observed = "WalletNetworkProvider restores and switches a saved virtual chain, but WalletProvider binds chainChanged to invalidate(), disposes the active wallet and signs out. connectEmbedded at 271 rejects the restored virtual chain against expectedChain, and requireWallet at 522 and refresh at 536 still require the root chain."
+expected = "Requirements 8361.1 and 20007.1 require the same live provider to retain the selected namespace, route and identity after a switch and to restore that selection after restart."
+proposal = "In apps/wallet/src/wallet/WalletProvider.tsx, update connection.chainId on an accepted network switch, retain the connected provider and identity, and validate sends against the active saved network. Prove switch, send refusal for another chain, reload and reconnect through the real provider."
+owner_domain = 12
+interface = "12.ts-app-wallet-provider"
+
+[finding.evm-approval-recovery]
+file = "services/wallet/gateway/src/routes/evmApprovals.ts"
+line = 271
+class = "restart-recovery"
+severity = "high"
+observed = "The sign handler commits signing_unknown before attestors.sign. Raw signed bytes and tx_hash are not saved before broadcast and sequencerReceipt; a crash or failure before the final evidence update leaves signing_unknown. Subsequent sign calls at 262 never attempt recovery and GET approvals only reads the row; no recovery worker consumes wallet_evm_approvals."
+expected = "An approved EVM transaction must resolve to durable signature and submission evidence or an honest terminal refusal. Restart or a lost reply must preserve the ability to recover the exact authorized transaction without signing a different payment."
+proposal = "In services/wallet/gateway/src/routes/evmApprovals.ts and its approval persistence migration, retain the signing session and verified raw bytes plus local hash before submission; add durable reconciliation for interrupted signing and receipt lookup. Distinguish definite pre-sign refusal from uncertain signing and prove restart at each boundary."
+owner_domain = 12
+interface = "12.http-gw-post-v1-wallet-evm-sign-j49"
+
+[finding.lx-approval-recovery]
+file = "services/wallet/gateway/src/routes/sign.ts"
+line = 1270
+class = "restart-recovery"
+severity = "high"
+observed = "The retained LX handler commits signing_unknown before attestors.sign and catches signing failures as 202. The repeat handler at 1263 refuses to attempt that state again; GET only reads it. No background consumer resumes wallet_lx_approvals, so even a definitive attestor refusal or a crash after signing can leave an approval pending forever without its signature evidence."
+expected = "A retained activity approval must recover the original authorized session and evidence after interruption and present a definitive refusal when no signature could have been produced, rather than permanently consume an approval in an unresolved state."
+proposal = "In services/wallet/gateway/src/routes/sign.ts and LX approval storage, persist recoverable session progress, reconcile the original attestor session on retry or restart, and store the verified signature atomically with completion. Add real attestor and database restart coverage for refusal, lost reply and evidence persistence."
+owner_domain = 12
+interface = "12.http-gw-post-v1-wallet-lx-sign"
+
+[finding.human-daily-cap-fail-open]
+file = "services/wallet/gateway/src/policy/index.ts"
+line = 97
+class = "security"
+severity = "high"
+observed = "evaluate catches a failed wallet_signatures aggregate and still returns allow. It also reads the daily total before routes/sign.ts:342 acquires its wallet transaction and nonce lock, so concurrent requests can all pass against the same old total. The legacy envelope signing path at sign.ts:365-370 remains reachable and has no independent attestor cap."
+expected = "POLICY_MAX_DAILY_VALUE_WEI must bound the total value authorized for a human wallet even during database errors and concurrent requests; a lookup failure cannot grant additional signing authority."
+proposal = "In services/wallet/gateway/src/policy/index.ts and routes/sign.ts, reserve daily value durably under the wallet or principal database lock before releasing signing authority, fail closed when the reservation cannot be read or written, and reconcile uncertain sends against that reservation. Prove parallel requests and database refusal on the legacy path."
+owner_domain = 12
+interface = "12.env-gw-policy-max-daily-value-wei"
+
+[finding.human-unknown-spend-unaccounted]
+file = "services/wallet/gateway/src/routes/sign.ts"
+line = 714
+class = "security"
+severity = "high"
+observed = "A BroadcastOutcomeUnknownError returns 202 with hash and nonce but no signatureLog. Other broadcast errors at 728 also omit it; only the successful branch at 746 constructs the row. A transaction that reached the node can therefore be missing from wallet_signatures, the source of the human daily value cap."
+expected = "Possibly accepted human sends must count against the authorized spend window until a definite rejection or settlement resolves them, just as agent unknown outcomes retain their value under requirement 18818.1."
+proposal = "In services/wallet/gateway/src/routes/sign.ts, durably reserve value and retain the signed transaction hash before the network write, keep the reservation on every uncertain result, and reconcile its final outcome without requiring the caller to resubmit. Prove an accepted send followed by a lost reply still consumes the daily cap."
+owner_domain = 12
+interface = "12.http-gw-post-v1-wallet-send"
+
+[finding.signature-ledger-write-loss]
+file = "services/wallet/gateway/src/db/wallets.ts"
+line = 493
+class = "runtime-risk"
+severity = "high"
+observed = "logSignature catches every insert failure and returns successfully without a retry record. wallet_signatures is consumed by policy/index.ts daily totals and db/agents.ts sumAgentDailyValue and signature counts, so a completed signing operation can lose the accounting row that later authorizations depend on."
+expected = "Authoritative spend and signature accounting must survive a transient insert failure and restart; an operation cannot complete with only a console warning when later policy decisions treat the missing row as zero usage."
+proposal = "In services/wallet/gateway/src/db/wallets.ts and signing callers, make the accounting reservation durable before signing or retain a transactional outbox with the signature evidence. Reconcile completion idempotently by request and transaction hash, and test a database write failure followed by restart without permitting additional spend."
+owner_domain = 12
+interface = "12.key-gw-table-wallet-signatures"
+
+[finding.raw-precompile-policy-bypass]
+file = "services/wallet/gateway/src/policy/agent.ts"
+line = 341
+class = "security"
+severity = "high"
+observed = "decodeMoverCounterparty knows token and multicall selectors but does not decode served scheduler and streams calls. Raw /v1/agent/send leaves tokenRecipient and tokenContract null, bypassing withdrawal and token-cap checks for the same calldata that agentPrecompiles.ts:169-174 and 275-282 annotates with eventual target, payee, token and cap. Attestor authority.go likewise only decodes the three ERC20 selectors here."
+expected = "An agent must receive the same recipient and spend-policy decision for an identical signed precompile call through a helper or the raw sign/send route; encoding a payment manually must not bypass owner restrictions."
+proposal = "In services/wallet/gateway/src/policy/agent.ts and services/wallet/attestor/internal/auth/agent/authority.go, decode scheduler and streams operands from the served ABIs for every transaction path, including nested scheduled calls; apply destination, token and withdrawal restrictions consistently and refuse undecodable movement. Prove raw and helper denials with the real precompiles."
+owner_domain = 12
+interface = "12.http-gw-post-v1-agent-precompiles-streams-open"
+
+[finding.hosted-evm-routes-missing]
+file = "services/wallet/gateway/src/routes/evmApprovals.ts"
+line = 162
+class = "interface-mismatch"
+severity = "high"
+observed = "The wallet gateway mounts /v1/wallet/evm/review, approve, sign and approvals/:id, and sdk/wallet/src/index.ts calls these routes. tools/paxeer-x/route-catalogue.json contains none of them; services/platform/hosted/gateway/src/lib.rs:786 only forwards a method and path that matches a proxy catalogue row, so the hosted transport cannot deliver these SDK requests."
+expected = "The declared EVM review, approval, signing and status interfaces must be reachable from the wallet SDK through the hosted gateway with the same method, authorization, body and response contract as the wallet producer."
+proposal = "Add the four EVM approval routes to tools/paxeer-x/route-catalogue.json with the wallet-gateway upstream and exact authentication and method restrictions; extend services/platform/hosted/gateway route validation and real proxy tests to deliver review, approve, sign and status plus an unauthorized refusal to the real wallet service."
+owner_domain = 8
+interface = "12.http-gw-post-v1-wallet-evm-review-j49"
+
+[finding.hosted-sponsored-quote-missing]
+file = "services/wallet/gateway/src/routes/wallet.ts"
+line = 482
+class = "interface-mismatch"
+severity = "high"
+observed = "walletSponsorRoutes serves POST /v1/wallet/sponsored/quote and sdk/wallet/src/modules/gas-station.ts requests it, but the hosted route catalogue has sponsored/submit and sponsored/status only. unified_service_route has no matching proxy row for quote, blocking the public SDK quote flow before the wallet producer."
+expected = "The wallet sponsored quote interface, including its budget_exhausted refusal, must round-trip through the same hosted gateway used for sponsored submission and status."
+proposal = "Add POST /v1/wallet/sponsored/quote to tools/paxeer-x/route-catalogue.json and the hosted gateway wallet contract restrictions in services/platform/hosted/gateway/src/lib.rs, preserving bearer authorization and station error bodies. Prove an SDK quote and a budget refusal through the real proxy and wallet handler."
+owner_domain = 8
+interface = "12.http-gw-post-v1-wallet-sponsored-quote"
+
+[finding.send-transport-uncertainty]
+file = "services/wallet/gateway/src/rpc/pool.ts"
+line = 428
+class = "interface-mismatch"
+severity = "high"
+observed = "sendRawTransactionVia computes the local transaction hash, but rethrows any non-RpcResponseError immediately. A timeout, HTTP failure or lost JSON body after node acceptance becomes RpcTransportError without hash or nonce evidence. routes/sign.ts:728 maps it to send_failed with txHash null rather than the typed outcome_unknown response."
+expected = "A write with no definitive node refusal must retain the canonical signed hash and nonce and tell consumers to poll that transaction rather than interpret a transport failure as permission to submit another payment."
+proposal = "In services/wallet/gateway/src/rpc/pool.ts classify send transport failures as an uncertain broadcast carrying the local hash, nonce and member; preserve the nonce reservation and propagate a poll_receipt response through human and owner routes. Prove node acceptance followed by connection loss through the real transport."
+owner_domain = 12
+interface = "12.ts-gw-rpc-pool-send-raw-transaction-via"
+
+[finding.rpc-body-timeout]
+file = "services/wallet/gateway/src/rpc/pool.ts"
+line = 492
+class = "runtime-risk"
+severity = "medium"
+observed = "postOnce clears its AbortController timer as soon as fetch returns response headers, before res.json at 498. A node that sends headers and then stalls or slowly streams an unbounded JSON body escapes RPC_TIMEOUT_MS and can keep wallet locks and action workers occupied."
+expected = "The configured RPC deadline must cover response consumption as well as connection and headers, and a malformed or oversized answer must terminate within a bounded amount of work."
+proposal = "In services/wallet/gateway/src/rpc/pool.ts keep the abort deadline active until the response body is fully consumed and decoded, apply a response byte limit appropriate to each method, and always release resources on timeout. Add a real HTTP server test that stalls after headers and one that exceeds the body limit."
+owner_domain = 12
+interface = "12.ts-gw-rpc-pool"
+
+[finding.action-lease-fencing]
+file = "services/wallet/gateway/src/db/actions.ts"
+line = 266
+class = "restart-recovery"
+severity = "medium"
+observed = "claimNextAction persists only worker_locked_until, not a lease identity. releaseLease unconditionally clears it by action id and updateAction does not fence mutations by owner. When an expired lease is reclaimed, the original worker can clear the new lease or overwrite progress from the replacement worker."
+expected = "After a durable action lease expires and another worker claims it, the old owner must lose permission to release or mutate that action, so recovery cannot overwrite newer evidence."
+proposal = "In services/wallet/gateway/src/db/actions.ts add an owner token or increasing lease epoch to claims, conditional progress updates and release; reject stale owners while retaining signed transaction integrity checks. Prove expiry, reclamation and a delayed original worker with two real database connections."
+owner_domain = 12
+interface = "12.key-gw-table-agent-actions"
+
+[finding.action-lease-duration]
+file = "services/wallet/gateway/src/agent/actions/worker.ts"
+line = 35
+class = "runtime-risk"
+severity = "medium"
+observed = "startActionWorker sets leaseMs to the receipt timeout or four worker intervals, but advanceAction performs signing, RPC work and a full receipt wait under that fixed lease. It does not renew the lease, so ordinary slow external work can exceed the claim duration before the original tick finishes."
+expected = "A healthy action worker must retain ownership throughout its bounded external work or explicitly surrender it before another worker advances the same durable action."
+proposal = "In services/wallet/gateway/src/agent/actions/worker.ts renew the fenced action lease while advanceAction is active and stop advancing if renewal fails; bound the complete operation and await in-flight work during shutdown. Exercise a signing delay followed by a receipt timeout with competing workers."
+owner_domain = 12
+interface = "12.key-gw-table-agent-actions"
+
+[finding.budget-atomicity]
+file = "services/wallet/gateway/src/db/agents.ts"
+line = 416
+class = "runtime-risk"
+severity = "medium"
+observed = "reserveBudget describes an atomic headroom reservation, but cap and active checks occur only in an unlocked scalar subquery. Concurrent invocations can select the same id from an old snapshot; after a row-lock wait the outer update has no spent_wei plus amount <= cap_wei predicate to recheck before incrementing."
+expected = "The budget persistence operation must enforce its headroom, expiry and active conditions at the locked update even when two consumers reserve against the same principal; callers must not need undocumented external serialization to preserve the cap."
+proposal = "In services/wallet/gateway/src/db/agents.ts lock the selected budget before checking and incrementing, or repeat all eligibility predicates on the outer atomic update and handle contention explicitly. Add a real PostgreSQL concurrent-reservation test whose combined requested amount exceeds the remaining cap."
+owner_domain = 12
+interface = "12.key-gw-table-agent-budgets"
+
+[finding.receipt-read-hides-outage]
+file = "services/wallet/gateway/src/chainReads.ts"
+line = 283
+class = "runtime-risk"
+severity = "medium"
+observed = "getReceipt returns null for every exception, including RPC transport and decoding failures; isTxKnown also converts errors into false. routes/agent.ts:242 exposes an outage as 404 receipt not available, and the durable action orchestrator receives an apparent absent transaction instead of an unavailable observation."
+expected = "Receipt absence and transaction absence must be distinguished from an unavailable or invalid node response so clients and recovery logic never use an outage as evidence that a transaction was not observed."
+proposal = "In services/wallet/gateway/src/chainReads.ts return null only for the node client explicit not-found result, propagate typed unavailability for transport and decode failures, and update routes/agent.ts and action recovery to preserve uncertainty. Prove not-found, pending, unavailable and malformed real-node responses separately."
+owner_domain = 12
+
+[finding.precompile-reads-hide-outage]
+file = "services/wallet/gateway/src/routes/agentPrecompiles.ts"
+line = 251
+class = "runtime-risk"
+severity = "medium"
+observed = "The scheduler pending handler catches every failure as an empty job list and returns 200. The stream lookup at 347 similarly turns every failure into null and returns 404, so a failed RPC or ABI decode is presented as proof that the users jobs or stream do not exist."
+expected = "Read responses must preserve the difference between an empty result or missing stream and an unavailable precompile read, allowing clients to retain their state and retry an outage safely."
+proposal = "In services/wallet/gateway/src/routes/agentPrecompiles.ts map transport and decode errors to a typed read_failed response and return empty or not_found only on explicit producer evidence. Exercise the served scheduler and streams read paths with real success, missing and unavailable outcomes."
+owner_domain = 12
+interface = "12.http-gw-get-v1-agent-precompiles-scheduler-pending"
+
+[finding.readiness-internal-disclosure]
+file = "services/wallet/gateway/src/routes/readiness.ts"
+line = 165
+class = "security"
+severity = "medium"
+observed = "The unauthenticated /readyz response includes attestor endpoint strings, RPC URLs, per-node lastError and raw database or identity exception messages from reasonOf. URL-valued configuration accepts credentials in userinfo, so an operator-configured secret or internal service topology can be exposed to a public readiness caller."
+expected = "Public readiness must communicate component availability without revealing configured credentials, internal endpoint details or raw infrastructure errors."
+proposal = "In services/wallet/gateway/src/routes/readiness.ts expose coarse component state and stable reason codes publicly, move endpoint-level diagnostics behind operator authentication, and redact URL userinfo and sensitive errors at their source. Verify a public response against credential-bearing configuration without returning those credentials."
+owner_domain = 12
+interface = "12.http-gw-get-readyz"
+
+[finding.obsolete-bootstrap-schema]
+file = "services/wallet/gateway/src/db/schema.sql"
+line = 4
+class = "config-drift"
+severity = "medium"
+observed = "schema.sql instructs operators to run it once in the Supabase editor, but defines user_id as uuid referencing auth.users and encrypted_private_key as NOT NULL. The running gateway uses the migration-backed Postgres schema, text agent subjects, migrated attestor wallets and additional kind, archive and provisioning fields absent from this bootstrap."
+expected = "An executable schema advertised for setup must produce the tables and nullability the real gateway consumes, or clearly identify itself as a historical snapshot that must never initialize a running service."
+proposal = "In services/wallet/gateway/src/db/schema.sql remove the obsolete setup instructions and retire the duplicate bootstrap, or generate a reference from services/wallet/gateway/migrations and direct installation to runMigrations. Prove a fresh supported database accepts both agent and migrated human wallet rows."
+owner_domain = 12
+interface = "12.fmt-gw-db-schema-sql"
+
+[finding.unused-reconcile-setting]
+file = "services/wallet/gateway/src/env.ts"
+line = 202
+class = "config-drift"
+severity = "low"
+observed = "ACTION_RECONCILE_INTERVAL_MS is parsed and accepted as an operator setting but has no runtime consumer. startActionWorker uses ACTION_WORKER_INTERVAL_MS for the combined worker and reconciler loop, so changing the advertised reconciliation setting has no effect."
+expected = "An accepted reconciliation interval must control the documented reconciliation cadence, or be retired with an explicit configuration migration rather than silently ignored."
+proposal = "In services/wallet/gateway/src/env.ts and the operator configuration contract, remove ACTION_RECONCILE_INTERVAL_MS if the single loop is intended and document ACTION_WORKER_INTERVAL_MS as the cadence; otherwise wire a separately bounded reconciler to the setting."
+owner_domain = 12
+interface = "12.env-gw-action-reconcile-interval-ms"
+
+[finding.retired-deposit-validator]
+file = "services/wallet/gateway/src/schemas/agent.ts"
+line = 123
+class = "dead-code"
+severity = "low"
+observed = "LayerxDepositBody still exposes the retired token-to-LayerX deposit request shape, including asset, amount, did_claim and idempotency_key, but no gateway source imports it or serves the removed layerx-deposit action."
+expected = "The merged wallet schema surface must describe the retained action paths and must not imply that a retired custody deposit operation remains available."
+proposal = "Remove LayerxDepositBody from services/wallet/gateway/src/schemas/agent.ts after confirming its retired interface disposition, and update imports or reference documentation that still advertises the old deposit action. Keep the live allowance-and-call schema separate."
+owner_domain = 12
+
+[finding.retired-credit-transition]
+file = "services/wallet/gateway/src/db/actions.ts"
+line = 288
+class = "dead-code"
+severity = "low"
+observed = "markCreditVerified and its deposit-oriented comment remain exported even though the retained action kind is allowance_and_call and no gateway source calls this transition. It preserves a callable-looking confirmation step for retired LayerX deposit credit."
+expected = "Retired deposit-credit workflows must not appear as supported durable action transitions after the wallet action surface has been reduced to retained allowance-and-call."
+proposal = "Remove markCreditVerified from services/wallet/gateway/src/db/actions.ts and retire its obsolete credit transition contract while preserving any historical columns required to read old records; update the durable action documentation to list only live transitions."
+owner_domain = 12
+
+[finding.tx-extra-fields-discarded]
+file = "services/wallet/gateway/src/schemas/tx.ts"
+line = 83
+class = "runtime-risk"
+severity = "medium"
+observed = "TxRequest deliberately strips unknown fields. A caller supplying accessList, authorizationList, type or gasPrice to the sign/send routes receives an accepted request with those transaction semantics silently discarded before viem construction; outer strict validation does not protect the nested transaction object."
+expected = "A wallet must either honor each supplied transaction field end to end or reject an unsupported field before approval and signing, so it cannot authorize a different transaction through silent input normalization."
+proposal = "In services/wallet/gateway/src/schemas/tx.ts reject unsupported nested transaction fields explicitly, or add their precise typed serialization and review support through the gateway and attestors. Test a direct request carrying each unsupported field and assert an explicit refusal without signing."
+owner_domain = 12
+interface = "12.http-gw-post-v1-wallet-send"
+
+[finding.retired-funded-validator]
+file = "services/wallet/gateway/src/schemas/tx.ts"
+line = 108
+class = "dead-code"
+severity = "low"
+observed = "ProvisionFundedBody and its tier_id input remain exported, and the shared schema comments still describe /v1/funded endpoints. There is no live source consumer or mounted funded provisioning route in this gateway slice."
+expected = "The merged wallet schema exports and comments must not advertise the removed funded-wallet provisioning workflow as an available signing or provisioning surface."
+proposal = "Remove ProvisionFundedBody from services/wallet/gateway/src/schemas/tx.ts and update its shared-validator comments to the retained wallet and agent routes; update historical funded-validator tests to assert the explicit retirement refusal through the real route contract."
+owner_domain = 12
+
+[finding.signer-extra-fields-discarded]
+file = "apps/wallet/src/wallet/signer.ts"
+line = 77
+class = "runtime-risk"
+severity = "medium"
+observed = "WalletSigner.sendTransaction accepts ethers.TransactionRequest but only copies to, data, value, gasLimit, EIP-1559 fees, nonce and chainId. Supplied gasPrice, type, accessList and authorizationList are ignored before wallet.sendTransaction, so an ethers caller can get a different transaction than it requested."
+expected = "The ethers signer adapter must preserve supported transaction semantics and reject unsupported nonempty fields before sending, rather than discard fields accepted by its public parameter type."
+proposal = "In apps/wallet/src/wallet/signer.ts validate every supplied ethers transaction field against the wallet-supported contract and throw WalletSignerError for unsupported fields; implement any newly supported fields through the SDK and gateway explicitly. Add adapter coverage proving no send occurs on unsupported input."
+owner_domain = 12
+interface = "12.ts-app-wallet-signer"
+
+[finding.synthetic-chain-response]
+file = "apps/wallet/src/wallet/test/gateway.ts"
+line = 102
+class = "test-gap"
+severity = "medium"
+observed = "minedResponse signs the fixed constructions transaction but returns the caller-provided fixture hash rather than parsed.hash. The HTTP helper serves canned wallet fixtures instead of signRoutes, so changing the send request need not change the returned transaction bytes or hash. The signer test then treats this constructed object as a chain response."
+expected = "A transaction response used to establish wallet-to-chain agreement must be emitted by the actual send and node lookup, with hash, signature, sender and requested fields all referring to the same transaction."
+proposal = "In apps/wallet/src/wallet/test/gateway.ts and signer integration coverage, use the real wallet HTTP producer and node for the send/lookup assertion and verify the returned hash against the actual signed bytes. Keep narrow unit fixtures explicitly scoped and never use a substituted hash as evidence of a mined transaction."
+owner_domain = 12
+
+[finding.test-retired-rpc-path]
+file = "apps/wallet/src/wallet/test/gateway.ts"
+line = 190
+class = "retired-reference"
+severity = "medium"
+observed = "The test gateway serves JSON-RPC only at /rpc and advertises rpcUrl as the fixture base plus /rpc at 231, retaining the retired unified endpoint in wallet integration setup."
+expected = "Audit brief fact 2 and fact 3 require the node JSON-RPC root path, with /chain/<id> only for selected tenant namespaces; a wallet integration fixture must not normalize the retired /rpc route."
+proposal = "Update apps/wallet/src/wallet/test/gateway.ts and its consuming integration setup to use the root node RPC URL and selected namespace routing, preferably against the real node transport; assert the emitted request path so a future /rpc regression is visible."
+owner_domain = 12
+
+[finding.provider-switch-restart-coverage]
+file = "apps/wallet/src/wallet/WalletProvider.test.tsx"
+line = 90
+class = "test-gap"
+severity = "medium"
+observed = "The suite exercises root-chain sign-in, provision, signing and account invalidation through the static HTTP helper, but has no connected virtual-chain switch followed by send and remount or reload. It therefore does not expose the restored virtual-chain rejection and chainChanged sign-out in WalletProvider."
+expected = "Requirements 8361.1 and 20007.1 require an observable live network switch and saved selection recovery; a root-chain fixture success cannot establish those state and routing guarantees."
+proposal = "In apps/wallet/src/wallet/WalletProvider.test.tsx add a real-provider test that adds a virtual network, switches the existing connected object, checks chainId and RPC route, sends on that network, rejects a mismatched chain and remounts from persisted preferences without signing out."
+owner_domain = 12
+interface = "12.ts-app-wallet-provider"
+
+[finding.readme-separate-kernel]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 44-47 describe two execution domains with layerxd as a separately running daemon and checkpoint settlement through layerxAnchor. Lines 141-146 instruct building layerxd, and 181 says the merge remains draft and the current kernel runs separately."
+expected = "The upgrade documentation must describe one BFT network with the kernel in paxd and final committed receipts, with no separate layerxd deployment or checkpoint-settlement procedure."
+proposal = "Rewrite README.md:40-49, 141-146 and 181 around the merged paxd node, supported build targets and receipt finality; replace the two-domain architecture description and remove the retired daemon operating instructions."
+owner_domain = 17
+
+[finding.monorepo-retired-boundaries]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The monorepo introduction lists layerxd as a subsystem, the services/platform row at 29 lists relay archive, and lines 70-72 describe custody checkpoint registration, guarantor bonds, challenges and emergency exits as current operational boundaries."
+expected = "The monorepo guide must distinguish retained services and the kernel inside paxd from retired daemon, relay and checkpoint-settlement infrastructure before operators plan the upgrade."
+proposal = "Update docs/MONOREPO.md:3, 29 and 70-72 to the merged runtime and retained service inventory, explaining the actual module and service ownership and removing the retired checkpoint, guarantor and exit workflow from current setup guidance."
+owner_domain = 17
+
+[finding.xweb-retired-payment-and-kernel]
+file = "docs/site/docs/protocol/xweb.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 41-44 prescribe lx_sendActivity with lx_getActivityStatus or lx_getReceipt for paid-route settlement; lines 169-172 describe a separate kernel observation/batch web-root flow, and line 292 points readers at include/layerx/lx_web.h and src/modules/web as current source. The page correctly notes web_read retirement but retains these obsolete integration steps."
+expected = "The XWeb guide must use the retained merged payment and observation interfaces, committed node evidence and actual module sources; retired LayerX RPC and standalone kernel instructions cannot be the integrator recipe."
+proposal = "Rewrite docs/site/docs/protocol/xweb.md:41-44, 165-175 and 292 against the served node, xweb module and payment producer contracts; include current request and recovery examples and retain the explicit web_read-disabled behavior."
+owner_domain = 2
+
+[finding.readme-pt-br-retired-architecture]
+file = "docs/readme/README.pt-BR.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 37-39 describe layerxd as a separate execution domain and checkpoint settlement through layerxAnchor. The repository table at 80-86 and the architecture prose and diagram at 125-242 retain daemon, LNI, relay, guarantor and custody-credit wiring as the current network."
+expected = "The translated network overview must describe the same merged paxd execution and committed receipt finality as the upgraded product, without directing readers to deploy retired daemon and checkpoint infrastructure."
+proposal = "Rewrite docs/readme/README.pt-BR.md:37-39, 80-86 and 125-242 from the corrected merged-network overview, including the architecture diagram and repository locations; review the translation so its build and operational claims match the canonical page."
+owner_domain = 17
+
+[finding.readme-fr-retired-architecture]
+file = "docs/readme/README.fr.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 37-39 describe layerxd as a separate execution domain and checkpoint settlement through layerxAnchor. The repository table at 80-86 and the architecture prose and diagram at 125-242 retain daemon, LNI, relay, guarantor and custody-credit wiring as the current network."
+expected = "The translated network overview must describe the same merged paxd execution and committed receipt finality as the upgraded product, without directing readers to deploy retired daemon and checkpoint infrastructure."
+proposal = "Rewrite docs/readme/README.fr.md:37-39, 80-86 and 125-242 from the corrected merged-network overview, including the architecture diagram and repository locations; review the translation so its build and operational claims match the canonical page."
+owner_domain = 17
+
+[finding.readme-ja-retired-architecture]
+file = "docs/readme/README.ja.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 37-39 describe layerxd as a separate execution domain and checkpoint settlement through layerxAnchor. The repository table at 80-86 and the architecture prose and diagram at 125-242 retain daemon, LNI, relay, guarantor and custody-credit wiring as the current network."
+expected = "The translated network overview must describe the same merged paxd execution and committed receipt finality as the upgraded product, without directing readers to deploy retired daemon and checkpoint infrastructure."
+proposal = "Rewrite docs/readme/README.ja.md:37-39, 80-86 and 125-242 from the corrected merged-network overview, including the architecture diagram and repository locations; review the translation so its build and operational claims match the canonical page."
+owner_domain = 17
+
+[finding.readme-ru-retired-architecture]
+file = "docs/readme/README.ru.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 37-39 describe layerxd as a separate execution domain and checkpoint settlement through layerxAnchor. The repository table at 80-86 and the architecture prose and diagram at 125-242 retain daemon, LNI, relay, guarantor and custody-credit wiring as the current network."
+expected = "The translated network overview must describe the same merged paxd execution and committed receipt finality as the upgraded product, without directing readers to deploy retired daemon and checkpoint infrastructure."
+proposal = "Rewrite docs/readme/README.ru.md:37-39, 80-86 and 125-242 from the corrected merged-network overview, including the architecture diagram and repository locations; review the translation so its build and operational claims match the canonical page."
+owner_domain = 17
+
+[finding.readme-zh-cn-retired-architecture]
+file = "docs/readme/README.zh-CN.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 37-39 describe layerxd as a separate execution domain and checkpoint settlement through layerxAnchor. The repository table at 80-86 and the architecture prose and diagram at 125-242 retain daemon, LNI, relay, guarantor and custody-credit wiring as the current network."
+expected = "The translated network overview must describe the same merged paxd execution and committed receipt finality as the upgraded product, without directing readers to deploy retired daemon and checkpoint infrastructure."
+proposal = "Rewrite docs/readme/README.zh-CN.md:37-39, 80-86 and 125-242 from the corrected merged-network overview, including the architecture diagram and repository locations; review the translation so its build and operational claims match the canonical page."
+owner_domain = 17
+
+[finding.readme-de-retired-architecture]
+file = "docs/readme/README.de.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 37-39 describe layerxd as a separate execution domain and checkpoint settlement through layerxAnchor. The repository table at 80-86 and the architecture prose and diagram at 125-242 retain daemon, LNI, relay, guarantor and custody-credit wiring as the current network."
+expected = "The translated network overview must describe the same merged paxd execution and committed receipt finality as the upgraded product, without directing readers to deploy retired daemon and checkpoint infrastructure."
+proposal = "Rewrite docs/readme/README.de.md:37-39, 80-86 and 125-242 from the corrected merged-network overview, including the architecture diagram and repository locations; review the translation so its build and operational claims match the canonical page."
+owner_domain = 17
+
+[finding.readme-es-retired-architecture]
+file = "docs/readme/README.es.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 37-39 describe layerxd as a separate execution domain and checkpoint settlement through layerxAnchor. The repository table at 80-86 and the architecture prose and diagram at 125-242 retain daemon, LNI, relay, guarantor and custody-credit wiring as the current network."
+expected = "The translated network overview must describe the same merged paxd execution and committed receipt finality as the upgraded product, without directing readers to deploy retired daemon and checkpoint infrastructure."
+proposal = "Rewrite docs/readme/README.es.md:37-39, 80-86 and 125-242 from the corrected merged-network overview, including the architecture diagram and repository locations; review the translation so its build and operational claims match the canonical page."
+owner_domain = 17
+
+[finding.route-catalogue-doc-drift]
+file = "docs/system/routes.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The generated page is titled Router routes; lines 17, 31 and 41 advertise archive, standalone kernel batches and replica-authority, line 908 advertises /rpc/evm/ws, and lines 965 and 1018-1029 retain retired deposit/custody routes. The wallet-gateway section at 963-1034 omits the mounted EVM approval flow and sponsored quote."
+expected = "The published route catalogue must describe the served merged-network paths and complete wallet interfaces; generated output must not keep retired routes or hide supported approval and quote operations."
+proposal = "Correct tools/paxeer-x/route-catalogue.json and its service inventory for retired surfaces and missing wallet routes, then regenerate docs/system/routes.md through tools/docs/gen-system-docs.sh. Verify the catalogue against real hosted gateway dispatch rather than editing the generated page by hand."
+owner_domain = 8
+
+[finding.site-separate-settlement]
+file = "docs/site/docs/index.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 11-14 describe separate deterministic LayerX execution with periodic checkpoints settled to Paxeer; lines 24-26 and the settlement row at 46 still describe guarantor bonds, checkpoint registration, reconciliation and emergency exits as the product architecture."
+expected = "The documentation entry page must present the merged network and finality of committed blocks so wallet integrators do not build against a second custody and checkpoint lifecycle."
+proposal = "Rewrite docs/site/docs/index.md:11-14, 24-26 and 46 to describe paxd executing the merged kernel with node receipts, retained modules and current proof and recovery semantics, then reconcile its links with the retired-component inventory."
+owner_domain = 17
+
+[finding.service-contract-key-custody]
+file = "spec/layerx-merge/contracts/services.md"
+line = 2089
+class = "doc-drift"
+severity = "medium"
+observed = "The embedded-wallet-gateway contract says the user key exists only as attestor shares and quorum loss prevents all signing. routes/sign.ts:365-370 and db/wallets.ts still select and decrypt the legacy encrypted envelope for an unmigrated wallet, so the stated custody boundary excludes a reachable signing path."
+expected = "The service security contract must distinguish legacy envelope custody from migrated threshold custody and state which production principals can still reach each path, without claiming universal quorum enforcement prematurely."
+proposal = "Update spec/layerx-merge/contracts/services.md:2085-2090 from the actual migration-aware signer contract, explicitly documenting the legacy envelope eligibility and retirement condition, master-key authority and attestor-only guarantees for migrated rows; keep operational migration checks aligned with that boundary."
+owner_domain = 12
+
+[doc.01]
+path = "README.md"
+status = "stale"
+notes = "Read the page; lines 44-47, 141-146 and 181 still describe a separate layerxd, its build and checkpoint settlement. Rewrite against the merged network."
+
+[doc.02]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Read the page; line 3 lists standalone layerxd, line 29 retains relay archive, and lines 70-72 retain checkpoint, guarantor and emergency-exit boundaries."
+
+[doc.03]
+path = "docs/site/docs/protocol/xweb.md"
+status = "misleading"
+notes = "Read the page; lines 41-44 use retired LX payment RPC, 169-172 describe obsolete kernel batching, and 292 names retired kernel paths. The web_read-disabled statement at 167 and 173-175 is retained and correct."
+
+[doc.04]
+path = "docs/readme/README.pt-BR.md"
+status = "stale"
+notes = "Read all 301 lines. Lines 37-39, 80-86 and 125-242 retain the separate layerxd, checkpoint settlement, LNI, relay and guarantor architecture; translate the corrected merged-network overview and diagram."
+
+[doc.05]
+path = "docs/readme/README.fr.md"
+status = "stale"
+notes = "Read all 301 lines. Lines 37-39, 80-86 and 125-242 retain the separate layerxd, checkpoint settlement, LNI, relay and guarantor architecture; translate the corrected merged-network overview and diagram."
+
+[doc.06]
+path = "docs/readme/README.ja.md"
+status = "stale"
+notes = "Read all 301 lines. Lines 37-39, 80-86 and 125-242 retain the separate layerxd, checkpoint settlement, LNI, relay and guarantor architecture; translate the corrected merged-network overview and diagram."
+
+[doc.07]
+path = "docs/readme/README.ru.md"
+status = "stale"
+notes = "Read all 301 lines. Lines 37-39, 80-86 and 125-242 retain the separate layerxd, checkpoint settlement, LNI, relay and guarantor architecture; translate the corrected merged-network overview and diagram."
+
+[doc.08]
+path = "docs/readme/README.zh-CN.md"
+status = "stale"
+notes = "Read all 301 lines. Lines 37-39, 80-86 and 125-242 retain the separate layerxd, checkpoint settlement, LNI, relay and guarantor architecture; translate the corrected merged-network overview and diagram."
+
+[doc.09]
+path = "docs/readme/README.de.md"
+status = "stale"
+notes = "Read all 301 lines. Lines 37-39, 80-86 and 125-242 retain the separate layerxd, checkpoint settlement, LNI, relay and guarantor architecture; translate the corrected merged-network overview and diagram."
+
+[doc.10]
+path = "docs/readme/README.es.md"
+status = "stale"
+notes = "Read all 301 lines. Lines 37-39, 80-86 and 125-242 retain the separate layerxd, checkpoint settlement, LNI, relay and guarantor architecture; translate the corrected merged-network overview and diagram."
+
+[doc.11]
+path = "docs/system/routes.md"
+status = "misleading"
+notes = "Generated by tools/docs/gen-system-docs.sh from the hosted route catalogue; reviewed service inventory and route contract sections. Lines 3, 17, 31, 41, 908, 965 and 1018-1029 retain retired surfaces; wallet section 963-1034 omits EVM approval and quote routes. Regenerate from corrected source."
+
+[doc.12]
+path = "docs/site/docs/index.md"
+status = "stale"
+notes = "Read the page; lines 11-14, 24-26 and the settlement row at 46 still describe separate execution and checkpoint/guarantor settlement rather than merged committed-block finality."
+
+[doc.13]
+path = "spec/layerx-merge/contracts/services.md"
+status = "stale"
+notes = "Reviewed the domain 12 wallet service section at 2072-2163 against its code. Lines 2085-2090 claim universal attestor-only user custody and quorum enforcement despite the reachable unmigrated envelope branch."
+
+[doc.14]
+path = "spec/layerx-merge/contracts/clients.md"
+status = "accurate"
+notes = "Reviewed wallet-app section 349-440 as an interface change and retirement catalogue. Its change/retire statuses describe planned disposition rather than a claim that retired custody pages remain served; no additional contradiction found in that section."

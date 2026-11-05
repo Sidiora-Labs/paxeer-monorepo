@@ -1,0 +1,53 @@
+{
+  "manifests": {
+    "go.mod": {
+      "filippo.io/edwards25519": "1.1.1",
+      "github.com/consensys/gnark-crypto": "0.18.1",
+      "github.com/docker/cli": "29.2.0",
+      "github.com/go-git/go-billy/v5": "5.9.0",
+      "github.com/go-git/go-git/v5": "5.19.2",
+      "github.com/golang-jwt/jwt/v4": "4.5.2",
+      "github.com/klauspost/compress": "1.18.7",
+      "github.com/nats-io/nats-server/v2": "2.12.6",
+      "github.com/opencontainers/runc": "1.3.6",
+      "go.opentelemetry.io/otel": "1.41.0",
+      "go.opentelemetry.io/otel/sdk": "1.45.0",
+      "golang.org/x/crypto": "0.52.0",
+      "golang.org/x/image": "0.41.0",
+      "golang.org/x/net": "0.55.0"
+    },
+    "tools/paxctl/go.mod": {
+      "filippo.io/edwards25519": "1.1.1",
+      "github.com/aws/aws-sdk-go-v2/service/s3": "1.97.3",
+      "github.com/consensys/gnark-crypto": "0.18.1",
+      "github.com/klauspost/compress": "1.18.7",
+      "go.opentelemetry.io/otel/sdk": "1.45.0",
+      "golang.org/x/net": "0.55.0"
+    },
+    "tools/loadtest/go.mod": {
+      "github.com/consensys/gnark-crypto": "0.18.1",
+      "github.com/ethereum/go-ethereum": "1.17.0",
+      "github.com/go-viper/mapstructure/v2": "2.4.0",
+      "github.com/gorilla/websocket": "1.5.3",
+      "go.opentelemetry.io/otel": "1.41.0",
+      "go.opentelemetry.io/otel/sdk": "1.45.0",
+      "golang.org/x/crypto": "0.52.0"
+    },
+    "services/wallet/ceremony/go.mod": {
+      "filippo.io/edwards25519": "1.1.1",
+      "github.com/consensys/gnark-crypto": "0.18.1",
+      "github.com/ethereum/go-ethereum": "1.17.0"
+    },
+    "services/wallet/attestor/go.mod": {
+      "filippo.io/edwards25519": "1.1.1",
+      "github.com/consensys/gnark-crypto": "0.18.1",
+      "github.com/ethereum/go-ethereum": "1.17.0"
+    },
+    "sdk/cosmovisor/go.mod": {
+      "github.com/go-jose/go-jose/v4": "4.1.6",
+      "go.opentelemetry.io/otel/sdk": "1.45.0",
+      "golang.org/x/net": "0.55.0",
+      "google.golang.org/grpc": "1.83.1"
+    }
+  }
+}

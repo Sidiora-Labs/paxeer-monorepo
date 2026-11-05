@@ -1,0 +1,14 @@
+[repair.go-sdk-modules.5]
+target = "services/wallet/attestor"
+command = "cd services/wallet/attestor && go vet ./... && go test -count=1 ./..."
+revision = "cea04b0a20fed9621b2f2580398024b38b76ff2e"
+result = "repaired"
+change = "cmd/loadtest/loadtest_test.go provisions signed generation and signing inventories (decision 2130), cmd/loadtest/main.go separates measurement from generation, internal/lxwire/lxwire_test.go checks asset sub-account identifiers against Rust and chain kind 14 (task 0.7), internal/server/e2e_test.go signs a capped Permit (task 22.23.2), and internal/policy/policy_test.go pins permit validation, retired kinds, the expanded perps selectors and untrusted precompile approval refusal, and services/wallet/deploy/attestor-policy.json canonically orders the unchanged perps selector set."
+producer_input_tests = ["TestProofS28WalletAttestorsTss", "TestXweb0x1019ApplicationPolicy", "TestNativeCustodyRealProfiles", "TestNativeSendPurposeRealProfiles"]
+producer_input_decision = "2501; native Rust consumer inputs: decision 2325"
+verify_command = "test -s spec/layerx-merge/programme/sweeps/repairs/go-sdk-modules.5.kvx && cd services/wallet/attestor && go test -count=1 -skip 'TestProofS28WalletAttestorsTss|TestXweb0x1019ApplicationPolicy|TestNativeCustodyRealProfiles|TestNativeSendPurposeRealProfiles' ./..."
+typed_data_policy = "TestTypedDataChainPinned retains missing-contract and digest refusals and checks valid and foreign-chain permits: qualified task 22.23.2, commit 6617e0f372ccecd7a076135902a71b7c61b2101a."
+retired_activity_policy = "TestShippedPolicyListsSendAuthorizationKind requires lx_send_authorization and refuses retired lx_activity: qualified task 12.3.3, commit 070fba60c274b72907eecf3492fc3143d16a226c."
+perps_selector_policy = "TestShippedPolicyAllowsWalletSDKWrites requires exactly thirteen perps write selectors including the eight added writes: qualified task 18.962.1, commit 9247a7ffcc5c7b52fc81e2d5f294538c90192d1a."
+spender_policy = "TestShippedPolicyAllowsLaunchpadApproveThenBuy uses the registered, untrusted layerxledger spender and retains selector_not_allowed: qualified task 18.926.1, commit 3927ace886159b312206e88bf9503eab572ce09d; the obsolete layerxcustody ABI was removed by qualified task 12.2.3, commit 43911aef26e68017c73ffc70697fd26a10febd67."
+producer_input_requirements = ["TestProofS28WalletAttestorsTss: installed TypeScript consumer dependencies", "TestXweb0x1019ApplicationPolicy: xweb-proof-calldata supplied by the application proof", "TestNativeCustodyRealProfiles: prebuilt native Rust custody consumer supplied through PAXEER_X_NATIVE_CUSTODY_RUST_TEST (decision 2325)", "TestNativeSendPurposeRealProfiles: prebuilt native Rust custody consumer supplied through PAXEER_X_NATIVE_SEND_RUST_TEST (decision 2325)"]

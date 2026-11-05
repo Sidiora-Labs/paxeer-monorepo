@@ -3,7 +3,8 @@
   "private": false,
   "license": "Apache-2.0",
   "scripts": {
-    "build": "node tools/build/npm-workspace-build.mjs"
+    "build": "node tools/build/npm-workspace-build.mjs",
+    "build:dependencies": "node sdk/integrations/build-dependencies.mjs"
   },
   "workspaces": [
     "services/agent/sdk/typescript",
@@ -31,7 +32,7 @@
     "@modelcontextprotocol/sdk": "1.32.0",
     "body-parser": "2.4.0",
     "fast-uri": "3.1.9",
-    "hono": "4.13.7",
+    "hono": "4.13.11",
     "ip-address": "10.7.4",
     "next": "16.4.1",
     "proxy-addr": "2.0.8",

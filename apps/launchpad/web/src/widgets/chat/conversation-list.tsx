@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useSyncExternalStore } from 'react';
 import { useAccount } from 'wagmi';
 import Link from 'next/link';
 import { getDmConversations, type DmConversation } from '@/core/clients/chat-api';
@@ -9,7 +9,11 @@ import { formatAddress } from '@/utils/format';
 import { isSignedOutError } from '@/core/market/unsupported';
 import { Button, EmptyState, ErrorState, Skeleton } from '@/ui/primitives';
 import { SignedOutState } from '@/ui/shared/signed-out-state';
-import { publicProfile } from '@/widgets/profile/account-transport';
+import { accountEpoch, accountSession, publicProfile, registerAccountInvalidator, subscribeAccount } from '@/widgets/profile/account-transport';
+
+const revocations = new Set<() => void>();
+registerAccountInvalidator(revocations, () => { for (const revoke of revocations) revoke(); });
+const serverEpoch = () => 0;
 
 function relTime(ts: number | null): string {
   if (!ts) return '';
@@ -29,43 +33,50 @@ export default function ConversationList() {
   const [conversations, setConversations] = useState<DmConversation[]>([]);
   const [peerMeta, setPeerMeta] = useState<Record<string, PeerMeta>>({});
   const [loading, setLoading] = useState(true);
-  const [scope, setScope] = useState<string>();
+  const sessionEpoch = useSyncExternalStore(subscribeAccount, accountEpoch, serverEpoch);
+  const session = accountSession();
+  const sessionMatches = isConnected && !!address && !!session && !session.signal.aborted && Date.parse(session.session.accessExpiresAt) > Date.now() && session.session.wallet.toLowerCase() === address.toLowerCase();
+  const [scope, setScope] = useState<number>();
   const [error, setError] = useState<{ message: string; signedOut: boolean } | null>(null);
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    setConversations([]); setPeerMeta({}); setError(null); setLoading(true);
-    if (!isConnected || !address) { setLoading(false); return; }
-    let cancelled = false;
+    const reset = () => { setConversations([]); setPeerMeta({}); setScope(undefined); setError(null); setLoading(false); };
+    reset();
+    if (!sessionMatches || !session) return;
+    setLoading(true);
+    const controller = new AbortController();
+    const signal = AbortSignal.any([controller.signal, session.signal]);
+    const current = () => !signal.aborted && accountSession() === session && accountEpoch() === sessionEpoch && Date.parse(session.session.accessExpiresAt) > Date.now();
+    const revoke = () => { controller.abort(); reset(); };
+    revocations.add(revoke);
 
     async function load() {
       try {
-        const convos = await getDmConversations();
-        if (!cancelled) {
-          setScope(address); setConversations(convos);
-          // Peer display names: public GET /v2/profiles/{wallet} on the gateway; a 404 (no profile row) keeps the address.
-          const peers = convos.map(c => c.peer).filter(Boolean);
-          peers.forEach(peer => {
-            publicProfile(peer)
-              .then(response => {
-                if (!cancelled) setPeerMeta(prev => ({ ...prev, [peer.toLowerCase()]: { displayName: response.data.profile.displayName } }));
-              })
-              .catch(() => {});
-          });
+        const convos = await getDmConversations(signal);
+        if (!current()) return;
+        setScope(sessionEpoch); setConversations(convos);
+        // Peer display names are public; their association with a conversation is session private.
+        for (const peer of convos.map(convo => convo.peer).filter(Boolean)) {
+          void publicProfile(peer, signal).then(response => {
+            if (current()) setPeerMeta(previous => ({ ...previous, [peer.toLowerCase()]: { displayName: response.data.profile.displayName } }));
+          }).catch(() => {});
         }
       } catch (e: unknown) {
-        // A 401/403 means the wallet is connected but the app session is missing: that is the sign-in prompt, not an error.
-        if (!cancelled) { if (!isSignedOutError(e)) console.error('[chat] conversations failed to load', e); setError({ message: 'Check your connection and try again', signedOut: isSignedOutError(e) }); }
+        if (current()) {
+          if (!isSignedOutError(e)) console.error('[chat] conversations failed to load', e);
+          setError({ message: 'Check your connection and try again', signedOut: isSignedOutError(e) });
+        }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (current()) setLoading(false);
       }
     }
 
-    load();
-    return () => { cancelled = true; };
-  }, [isConnected, address, attempt]);
+    void load();
+    return () => { controller.abort(); revocations.delete(revoke); };
+  }, [sessionMatches, session, sessionEpoch, attempt]);
 
-  if (!isConnected || error?.signedOut) {
+  if (!sessionMatches || error?.signedOut) {
     return <SignedOutState icon={MessageCircle} title="Sign in to see your messages" body="Your direct messages with other traders show up here." />;
   }
 
@@ -91,7 +102,7 @@ export default function ConversationList() {
 
   return (
     <div className="space-y-1">
-      {(scope === address ? conversations : []).map(convo => {
+      {(scope === sessionEpoch ? conversations : []).map(convo => {
         const meta = peerMeta[convo.peer.toLowerCase()];
         return (
           <Link

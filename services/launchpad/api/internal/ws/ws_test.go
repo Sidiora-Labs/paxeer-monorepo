@@ -103,7 +103,7 @@ func TestWS_SubscribeAndReceiveFilteredByPool(t *testing.T) {
 	c := dial(t, srv, "/ws")
 	readUntil(t, c, "connected")
 
-	sub := map[string]any{"type": "subscribe", "channels": []string{constants.ChannelSwap}, "pools": []string{"0xAAA"}}
+	sub := map[string]any{"type": "subscribe", "channels": []string{constants.ChannelSwap}, "pools": []string{"0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}}
 	if err := c.WriteJSON(sub); err != nil {
 		t.Fatalf("write subscribe: %v", err)
 	}
@@ -114,12 +114,12 @@ func TestWS_SubscribeAndReceiveFilteredByPool(t *testing.T) {
 
 	// Give the server a moment to apply the Resubscribe before publishing.
 	time.Sleep(50 * time.Millisecond)
-	b.Dispatch(constants.ChannelSwap, swapPayload("0xBBB")) // filtered out by pool
-	b.Dispatch(constants.ChannelSwap, swapPayload("0xAAA")) // delivered
+	b.Dispatch(constants.ChannelSwap, swapPayload("0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB")) // filtered out by pool
+	b.Dispatch(constants.ChannelSwap, swapPayload("0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")) // delivered
 
 	got := readUntil(t, c, "swap")
-	if got["pool"] != "0xaaa" {
-		t.Fatalf("received swap pool = %v, want 0xaaa (0xBBB should have been filtered)", got["pool"])
+	if got["pool"] != "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" {
+		t.Fatalf("received swap pool = %v, want 0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa (0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB should have been filtered)", got["pool"])
 	}
 }
 
@@ -152,12 +152,12 @@ func TestWS_CandlesEndpointParity(t *testing.T) {
 	c := dial(t, srv, "/ws/candles")
 	readUntil(t, c, "connected")
 
-	_ = c.WriteJSON(map[string]any{"type": "subscribe", "pools": []string{"0xAAA"}, "timeframes": []string{"1m"}})
+	_ = c.WriteJSON(map[string]any{"type": "subscribe", "pools": []string{"0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}, "timeframes": []string{"1m"}})
 	readUntil(t, c, "subscribed")
 
 	time.Sleep(50 * time.Millisecond)
 	candle, _ := json.Marshal(map[string]any{
-		"poolAddress": "0xAAA", "timeframe": "1m", "candleStart": 60,
+		"poolAddress": "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "timeframe": "1m", "candleStart": 60,
 		"open": "1000000", "high": "2000000", "low": "500000", "close": "1500000",
 		"volumeUsdl": "0", "volumeToken": "0", "buyVolumeUsdl": "0", "sellVolumeUsdl": "0",
 		"tradeCount": 1, "uniqueTraders": 1, "largeTradeCount": 0,
@@ -167,7 +167,7 @@ func TestWS_CandlesEndpointParity(t *testing.T) {
 
 	got := readUntil(t, c, "candle_update")
 	data, ok := got["data"].(map[string]any)
-	if !ok || data["poolAddress"] != "0xAAA" {
+	if !ok || data["poolAddress"] != "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" {
 		t.Fatalf("candle_update data = %v", got["data"])
 	}
 }

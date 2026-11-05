@@ -1743,13 +1743,27 @@ fn serve(name: &str, pki: &Pki, signed: &[u8], port: u16) -> Checked<Running> {
     config.insert("market".into(), text(hex(market.as_bytes())));
     config.insert("worker".into(), text(hex(worker.as_bytes())));
     config.insert("owner".into(), text(hex(owner.as_bytes())));
+    config.insert("state_dir".into(), path("state"));
+    config.insert("input_dir".into(), path("inputs"));
+    config.insert(
+        "runner".into(),
+        text(env!("CARGO_BIN_EXE_layerx-paxai-runner").to_owned()),
+    );
+    config.insert("authority_reader".into(), path("authority-reader"));
+    config.insert("sponsored_sender".into(), path("sponsored-sender"));
+    config.insert("chain_config".into(), path("chain.json"));
+    config.insert("capabilities".into(), serde_json::json!([]));
+    config.insert("access_declaration".into(), serde_json::json!([]));
+    config.insert("response_capacity".into(), serde_json::json!(16384));
+    config.insert("budget".into(), serde_json::json!([1, 2, 3, 4, 5, 6, 7]));
+    config.insert("fee_limit".into(), serde_json::json!(100));
     let config_path = file("worker.json");
     fs::write(&config_path, serde_json::to_string(&Value::Object(config))?)?;
     let mut child = Command::new(env!("CARGO_BIN_EXE_layerx-paxai-worker"))
         .arg("--config")
         .arg(&config_path)
         .stdout(Stdio::piped())
-        .stderr(Stdio::null())
+        .stderr(Stdio::inherit())
         .spawn()?;
     let stdout = child.stdout.take();
     let running = Running(child);
@@ -3030,4 +3044,19 @@ fn a19_real_revoked_delegate_keeps_completed_evidence_and_evaluator_samples() ->
         (Some(saved), evidence, output)
     );
     scored(&mut real.m, result)
+}
+
+// The self-contained listener/store/chain regressions also run under the focused repair
+// target; they do not depend on the licensed workload provisioning of the tests above.
+#[path = "support/participant.rs"]
+mod participant;
+
+#[test]
+fn participant_tls_same_store_chain_commit_and_restart() {
+    participant::participant_tls_same_store_chain_commit_and_restart();
+}
+
+#[test]
+fn participant_tls_cancel_survives_store_reopen() {
+    participant::participant_tls_cancel_survives_store_reopen();
 }

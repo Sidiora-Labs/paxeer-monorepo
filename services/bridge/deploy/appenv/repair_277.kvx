@@ -1,0 +1,6 @@
+[task.22.31.277]
+finding = "22.30.150/004"
+proof = "TestRepair_277_DeploymentPhasesToApp, TestRepair_277_RejectsUnverifiedReadiness, TestRepair_277_AtomicCheckpoint, TestRepair_277_LegacyProducerCheckpoint"
+baseline = "Not run: the explicit gate order forbids verification before complete implementation; no baseline failure is claimed."
+contract = "Solana records use version 1 and phase deployed, initialized or ready; only ready exports to the app, after custody and all app assets have been verified."
+wiring = "Domain 14: services/bridge/deploy/deploy-solana-program.sh must publish versioned checkpoints atomically through appenv.WriteSolanaRecord (retaining deployment provenance), read back and compare owner, threshold, attestors and every registered asset before phase ready, and retain deployed/initialized on incomplete runs; migrate services/bridge/deploy/tests/fixtures/records/solana.json to the verified versioned format."

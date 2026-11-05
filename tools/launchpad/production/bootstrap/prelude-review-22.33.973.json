@@ -1,0 +1,18 @@
+{
+  "approval": "task:22.33.973/do_9",
+  "source_sha256": "9899f10158a075d02a90a22a9f826762e86b8f018791a5f2bd93296d70737c64",
+  "ownership_sha256": "dde9c9101e5fc5ac6e6eb612d9c33fd95af0d00e39f167aa053eeae77dd5cc78",
+  "path_count": 388,
+  "patch_path_count": 387,
+  "added_control": {
+    "path": "tools/launchpad/production/control_plane.py",
+    "owner": "root-exclusive-control-plane"
+  },
+  "control_source_sha256": "dcab06c8c76aa0b3040fdf29122a385a25d1dc53610c586f5e1d02b3dd9ccf1a",
+  "root_exclusive_control_paths": [
+    "tools/launchpad/production/control_plane.py",
+    "tools/launchpad/production/serial_gate.py",
+    "tools/launchpad/production/tests/test_serial_gate.py"
+  ],
+  "generator_command": "python3 tools/launchpad/production/approve_serial_prelude.py --approval 22.33.973"
+}

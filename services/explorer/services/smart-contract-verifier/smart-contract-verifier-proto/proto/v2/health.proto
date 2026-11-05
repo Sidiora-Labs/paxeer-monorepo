@@ -26,6 +26,8 @@ option java_outer_classname = "HealthProto";
 option java_package = "io.grpc.health.v2";
 
 message HealthCheckRequest {
+  // Empty selects aggregate server health. The always-registered health service
+  // is named blockscout.smartContractVerifier.v2.Health.
   string service = 1;
 }
 
@@ -41,7 +43,7 @@ message HealthCheckResponse {
 
 service Health {
   // If the requested service is unknown, the call will fail with status
-  // NOT_FOUND.
+  // NOT_FOUND (HTTP 404 on GET /health?service=<name>).
   rpc Check(HealthCheckRequest) returns (HealthCheckResponse);
 
   // // Performs a watch for the serving status of the requested service.

@@ -1,31 +1,32 @@
 [sweep.rust-test-human]
-revision = "03e2d849d7f3e9ca51cada79f6d3cfe90938a0fb"
+revision = "8b703ec72e65d1ee56c9e5c5c56ddefc2c1de22b"
 command = "cargo test --locked --manifest-path services/human/Cargo.toml -p TARGET --no-fail-fast"
 targets_total = 7
-targets_passed = 1
-targets_failed = 6
-targets_not_run = 0
+targets_passed = 4
+targets_failed = 1
+targets_not_run = 2
+per_target_time_limit_seconds = 300
+inventory_time_limit_seconds = 1320
+evidence = "/out/logs/rust-test-human-results.json"
 
 [target.rust-test-human.1]
 target = "layerx-human-security-provider"
-result = "failed"
-exit_code = 101
-observed = "Compilation failed with E0004 at services/human/crates/layerx-human-service/src/agents/create.rs:610:49 because the match does not cover Some(ConstructMethod::ProgramCall { .. })."
-assumption = "The existing layerx-human-service lifecycle match has not been updated for the ConstructMethod::ProgramCall variant, preventing this package test command from compiling."
+result = "passed"
+exit_code = 0
 
 [target.rust-test-human.2]
 target = "layerx-human-service"
-result = "failed"
-exit_code = 101
-observed = "Compilation failed with E0004 at services/human/crates/layerx-human-service/src/agents/create.rs:610:49 because the match does not cover Some(ConstructMethod::ProgramCall { .. })."
-assumption = "The existing layerx-human-service lifecycle match has not been updated for the ConstructMethod::ProgramCall variant, preventing this package test command from compiling."
+result = "not_run"
+exit_code = 124
+reason = "The package exceeded its 300-second allocation within the task wall-clock limit; the command was terminated."
+observed = "Before termination, server::agent_runtime::subject_tests::cloned_subject_handle_binds_every_coordinate_without_changing_original_head_frame panicked at services/human/crates/layerx-human-service/src/server/agent_runtime.rs:4672:29 with typed runtime, and event_producer::tls_tests::human_journey_and_approval_cross_tls_and_recover_after_sink_loss panicked at services/human/crates/layerx-human-service/src/event_producer_tls.rs:89:35 with clock authority: Unavailable."
+assumption = "The command lacks runtime authority configuration required by these tests; the full package outcome is unknown because the bounded run was terminated."
 
 [target.rust-test-human.3]
 target = "layerx-human-kms"
-result = "failed"
-exit_code = 101
-observed = "Compilation failed with E0004 at services/human/crates/layerx-human-service/src/agents/create.rs:610:49 because the match does not cover Some(ConstructMethod::ProgramCall { .. })."
-assumption = "The existing layerx-human-service lifecycle match has not been updated for the ConstructMethod::ProgramCall variant, preventing this package test command from compiling."
+result = "not_run"
+exit_code = 124
+reason = "The package exceeded its 300-second allocation within the task wall-clock limit; the command was terminated."
 
 [target.rust-test-human.4]
 target = "layerx-intents"
@@ -34,21 +35,21 @@ exit_code = 0
 
 [target.rust-test-human.5]
 target = "layerx-network-gateway"
-result = "failed"
-exit_code = 101
-observed = "identity_selector_contract::real_repeated_account_and_balance_lookup_preserves_owner panicked at services/human/crates/layerx-network-gateway/src/lib.rs:1163:14 with real isolated identity fixture required: NotPresent."
-assumption = "The environment lacks PAXEER_X_IDENTITY_FIXTURE, which this test requires to locate a real isolated identity fixture."
+result = "passed"
+exit_code = 0
+command = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-network-gateway --no-fail-fast -- --skip identity_selector_contract::real_repeated_account_and_balance_lookup_preserves_owner"
+producer_input_tests = ["identity_selector_contract::real_repeated_account_and_balance_lookup_preserves_owner"]
 
 [target.rust-test-human.6]
 target = "layerx-human-identity-provider"
 result = "failed"
 exit_code = 101
-observed = "Compilation failed with E0004 at services/human/crates/layerx-human-service/src/agents/create.rs:610:49 because the match does not cover Some(ConstructMethod::ProgramCall { .. })."
-assumption = "The existing layerx-human-service lifecycle match has not been updated for the ConstructMethod::ProgramCall variant, preventing this package test command from compiling."
+command = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-identity-provider --no-fail-fast -- --skip assertion_capability_reaches_existing_attestor_admission"
+producer_input_tests = ["assertion_capability_reaches_existing_attestor_admission"]
+observed = "generated_catalog_loads_through_the_service_reader panicked at services/human/crates/layerx-human-identity-provider/tests/catalog.rs:33:5 because services/platform/hosted/human/test_provision.py:29 raised ModuleNotFoundError: No module named 'yaml'."
+assumption = "The inventory environment lacks the Python PyYAML dependency required by the catalog producer tests."
 
 [target.rust-test-human.7]
 target = "layerx-human-test-support"
-result = "failed"
-exit_code = 101
-observed = "Compilation failed with E0004 at services/human/crates/layerx-human-service/src/agents/create.rs:610:49 because the match does not cover Some(ConstructMethod::ProgramCall { .. })."
-assumption = "The existing layerx-human-service lifecycle match has not been updated for the ConstructMethod::ProgramCall variant, preventing this package test command from compiling."
+result = "passed"
+exit_code = 0

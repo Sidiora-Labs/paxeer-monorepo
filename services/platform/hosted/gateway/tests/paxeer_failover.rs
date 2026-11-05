@@ -8,7 +8,7 @@ use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -38,6 +38,41 @@ fn free_port() -> u16 {
         .and_then(|listener| listener.local_addr())
         .unwrap_or_else(|error| panic!("test port must be allocated: {error}"))
         .port()
+}
+
+struct RefusingEndpoint {
+    _socket: rustix::fd::OwnedFd,
+    port: u16,
+}
+
+impl RefusingEndpoint {
+    fn reserve() -> Self {
+        use rustix::net::{bind, getsockname, socket_with, AddressFamily, SocketFlags, SocketType};
+        let socket = socket_with(
+            AddressFamily::INET,
+            SocketType::STREAM,
+            SocketFlags::CLOEXEC,
+            Some(rustix::net::ipproto::TCP),
+        )
+        .expect("unreachable endpoint socket");
+        bind(
+            &socket,
+            &std::net::SocketAddrV4::new(std::net::Ipv4Addr::LOCALHOST, 0),
+        )
+        .expect("reserve unreachable endpoint without listening");
+        let address = std::net::SocketAddrV4::try_from(
+            getsockname(&socket).expect("reserved endpoint address"),
+        )
+        .expect("IPv4 endpoint");
+        Self {
+            _socket: socket,
+            port: address.port(),
+        }
+    }
+
+    fn url(&self) -> String {
+        format!("https://localhost:{}", self.port)
+    }
 }
 
 /// A real TLS Redis for the gateway's durable store, and the localhost
@@ -231,6 +266,7 @@ struct Upstream {
     port: u16,
     failing: Arc<AtomicBool>,
     hits: Arc<AtomicUsize>,
+    calls: Arc<Mutex<Vec<Value>>>,
     stop: Arc<AtomicBool>,
     join: Option<JoinHandle<()>>,
 }
@@ -247,6 +283,8 @@ impl Upstream {
             .unwrap_or_else(|error| panic!("{error}"));
         let failing = Arc::new(AtomicBool::new(failing));
         let hits = Arc::new(AtomicUsize::new(0));
+        let calls = Arc::new(Mutex::new(Vec::new()));
+        let observed = Arc::clone(&calls);
         let stop = Arc::new(AtomicBool::new(false));
         let (tls, fail, count, stopped) = (
             Arc::clone(tls),
@@ -267,6 +305,12 @@ impl Upstream {
                         let mut stream = StreamOwned::new(connection, tcp);
                         let request = http::parse_client_request(&mut stream)
                             .unwrap_or_else(|error| panic!("chain request must be read: {error}"));
+                        assert_eq!(request.method, "POST");
+                        assert_eq!(request.path, "/");
+                        observed
+                            .lock()
+                            .expect("captured calls")
+                            .push(serde_json::from_slice(&request.body).expect("upstream JSON"));
                         count.fetch_add(1, Ordering::AcqRel);
                         let response = if fail.load(Ordering::Acquire) {
                             http::refusal(502, "bad_gateway", None)
@@ -291,6 +335,7 @@ impl Upstream {
             port,
             failing,
             hits,
+            calls,
             stop,
             join: Some(join),
         }
@@ -320,7 +365,7 @@ impl Drop for Upstream {
 
 fn chain_answer(request: &http::Request) -> http::Response {
     assert_eq!(request.method, "POST");
-    assert_eq!(request.path, "/rpc");
+    assert_eq!(request.path, "/");
     let Ok(call) = serde_json::from_slice::<Value>(&request.body) else {
         return http::refusal(400, "invalid_json", None);
     };
@@ -366,13 +411,21 @@ impl Gateway {
         let port = free_port();
         let child = gateway_command(&fixture.environment(port, &json!(urls).to_string()))
             .stdout(Stdio::null())
-            .stderr(Stdio::null())
+            .stderr(Stdio::piped())
             .spawn()
             .unwrap_or_else(|error| panic!("gateway must start: {error}"));
         let mut gateway = Self { child, port };
         for _ in 0..200 {
             if let Ok(Some(status)) = gateway.child.try_wait() {
-                panic!("gateway refused start-up: {status}");
+                let mut diagnostic = String::new();
+                gateway
+                    .child
+                    .stderr
+                    .take()
+                    .expect("startup stderr")
+                    .read_to_string(&mut diagnostic)
+                    .expect("startup diagnostic");
+                panic!("gateway refused start-up: {status}: {diagnostic}; endpoints: {urls:?}");
             }
             if gateway
                 .exchange("GET", "/livez", b"")
@@ -419,8 +472,14 @@ impl Gateway {
 
     fn chain_id(&self) -> Value {
         let request = json!({"jsonrpc": "2.0", "id": 7, "method": "eth_chainId", "params": []});
+        assert_eq!(
+            self.exchange("POST", "/rpc", request.to_string().as_bytes())
+                .expect("retired RPC refusal")
+                .0,
+            404
+        );
         let (status, body) = self
-            .exchange("POST", "/rpc", request.to_string().as_bytes())
+            .exchange("POST", "/", request.to_string().as_bytes())
             .unwrap_or_else(|error| panic!("eth_chainId must be answered: {error}"));
         assert_eq!(status, 200);
         let document: Value = serde_json::from_slice(&body)
@@ -473,7 +532,7 @@ fn pax_sequencer_receipt_relays_the_node_answer() {
             "params": [tx_hash]
         });
         let (status, body) = gateway
-            .exchange("POST", "/rpc", request.to_string().as_bytes())
+            .exchange("POST", "/", request.to_string().as_bytes())
             .unwrap_or_else(|error| panic!("pax_sequencerReceipt must be answered: {error}"));
         assert_eq!(status, 200);
         let expected = json!({
@@ -497,6 +556,26 @@ fn pax_sequencer_receipt_relays_the_node_answer() {
         upstream.hits() > 0,
         "the chain listener must receive the call"
     );
+    let calls = upstream.calls.lock().expect("captured calls");
+    assert_eq!(calls.len(), 4);
+    for (pair, id) in calls
+        .chunks_exact(2)
+        .zip([json!("receipt-caller"), json!(9_007_199_254_740_993_u64)])
+    {
+        assert_eq!(
+            pair[0],
+            json!({"jsonrpc":"2.0", "id":"route-network", "method":"eth_chainId", "params":[]})
+        );
+        assert_eq!(
+            pair[1],
+            json!({"jsonrpc":"2.0", "id":id, "method":"pax_sequencerReceipt", "params":[tx_hash]})
+        );
+    }
+    assert_eq!(
+        second.hits(),
+        0,
+        "a successful first endpoint ends retrying"
+    );
 }
 
 #[test]
@@ -515,21 +594,18 @@ fn a_failing_first_rpc_name_fails_over_and_the_chain_is_down_only_when_both_fail
     gateway.assert_up();
     drop(gateway);
 
-    let refusing = format!("https://localhost:{}", free_port());
+    let refusing = RefusingEndpoint::reserve();
     let answering = Upstream::start(&fixture.tls, false);
-    let gateway = Gateway::start(&fixture, &[refusing, answering.url()]);
+    let gateway = Gateway::start(&fixture, &[refusing.url(), answering.url()]);
     gateway.assert_up();
     answering.fail(true);
     gateway.assert_down("paxeer_node_unavailable");
     drop(gateway);
 
-    let gateway = Gateway::start(
-        &fixture,
-        &[
-            format!("https://localhost:{}", free_port()),
-            format!("https://localhost:{}", free_port()),
-        ],
-    );
+    let first = RefusingEndpoint::reserve();
+    let second = RefusingEndpoint::reserve();
+    assert_ne!(first.port, second.port);
+    let gateway = Gateway::start(&fixture, &[first.url(), second.url()]);
     gateway.assert_down("paxeer_unreachable");
 }
 

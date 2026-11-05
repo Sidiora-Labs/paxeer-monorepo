@@ -9,6 +9,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/feetoken"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxbridge"
+	precompiletest "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/testutil"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/secp256k1"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/signing"
@@ -103,6 +104,9 @@ func FeeTokenTransfer(app *processblock.App, sender FeeTokenSigner, nonce uint64
 // it in the cosmos transaction a block carries.
 func EVMTransaction(app *processblock.App, signer FeeTokenSigner, nonce uint64, gasPrice *big.Int, gas uint64,
 	to common.Address, data []byte) signing.Tx {
+	if err := precompiletest.Install(app.App); err != nil {
+		panic(err)
+	}
 	ctx := app.Ctx()
 	ethCfg := evmtypes.DefaultChainConfig().EthereumConfig(app.EvmKeeper.ChainID(ctx))
 	ethSigner := ethtypes.MakeSigner(ethCfg, big.NewInt(ctx.BlockHeight()), uint64(ctx.BlockTime().Unix())) // nolint:gosec

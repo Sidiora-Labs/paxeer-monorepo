@@ -23,6 +23,10 @@ var (
 )
 
 // Base Vesting Account
+//
+// Admin and CancelledTime are reserved schema fields for a future cancellation
+// policy. Admin is retained as metadata and grants no cancellation authority.
+// Cancellation is unsupported: valid accounts must have CancelledTime == 0.
 
 // NewBaseVestingAccount creates a new BaseVestingAccount object. It is the
 // callers responsibility to ensure the base account has sufficient funds with
@@ -148,6 +152,9 @@ func (bva BaseVestingAccount) GetEndTime() int64 {
 
 // Validate checks for errors on the account fields
 func (bva BaseVestingAccount) Validate() error {
+	if bva.CancelledTime != 0 {
+		return errors.New("vesting cancellation is unsupported: cancelled_time must be zero")
+	}
 	if !(bva.DelegatedVesting.IsAllLTE(bva.OriginalVesting)) {
 		return errors.New("delegated vesting amount cannot be greater than original vesting amount")
 	}

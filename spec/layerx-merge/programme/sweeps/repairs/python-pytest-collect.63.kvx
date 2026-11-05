@@ -1,0 +1,6 @@
+[repair.python-pytest-collect.63]
+target = "tools/launchpad"
+command = "python3 -m pytest -q --collect-only tools/launchpad"
+revision = "c69af8b6706e55a243bc0f3a0e184b872b900e14"
+result = "repaired"
+change = "tools/launchpad/requirements.txt declares the JSON Schema validation dependency required to collect the interface tests."

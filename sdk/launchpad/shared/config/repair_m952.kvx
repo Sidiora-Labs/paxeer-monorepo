@@ -1,0 +1,10 @@
+[task.22.33.952]
+audit = "22.30.27"
+source_revision = "72c91077cb966f1c4c640ded61b4b259f41cad90"
+baseline = "No prior gate ledger or partial in-scope change was present. The explicit implementation-first order and hf-done-only verification supersede do_5's baseline-run request; no baseline command ran and no pre-change test failure is claimed."
+evidence = "The final hf-done record in /out/run/gates.jsonl supplies the exact candidate revision, command, exit code and private log location; this repair is qualified only when that record reports exit zero."
+wiring_request = "services/launchpad/*/internal/config/config_test.go (launchpad service configuration, domain 4 / fm-launchpad): exercise each real service loader's inheritance of RPC_URL and RPC_URL_FALLBACK with reviewed chain-125 root origins; internal service packages are outside this SDK task's scope and cannot be imported here under Go internal visibility."
+
+[finding.env-retired-rpc-fixture]
+tests = ["TestRepairM_952_ReviewedSuccessFixtures", "TestRepairM_952_CurrentRPCKeys", "TestRepairM_952_NegativeRPCFixtures"]
+proof = "The existing success fixtures use reviewed api1/api2 root origins, with exact fallback preservation asserted. Production Load and LoadWithManifest parse all fourteen numbered origins plus the pooled root as both RPC keys against deployment.Current. Malformed URLs are rejected with no partial environment or secret disclosure; credential-bearing values occur only in negative disclosure and conflicting-export cases, preserving all existing assertions."

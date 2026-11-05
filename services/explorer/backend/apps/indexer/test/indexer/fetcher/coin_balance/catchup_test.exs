@@ -263,38 +263,32 @@ defmodule Indexer.Fetcher.CoinBalance.CatchupTest do
 
       BlockNumber.set_max(2)
 
-      case CoinBalanceCatchup.run(entries, json_rpc_named_arguments) do
-        :ok ->
-          balances = Repo.all(from(balance in Address.CoinBalance, where: balance.address_hash == ^hash_data))
+      assert :ok = CoinBalanceCatchup.run(entries, json_rpc_named_arguments)
 
-          assert Enum.count(balances) == 2
+      balances = Repo.all(from(balance in Address.CoinBalance, where: balance.address_hash == ^hash_data))
 
-          balance_by_block_number =
-            Enum.into(balances, %{}, fn %Address.CoinBalance{block_number: block_number} = balance ->
-              {block_number, balance}
-            end)
+      assert Enum.count(balances) == 2
 
-          Enum.each(expected_balance_by_block_number, fn {block_number, expected_balance} ->
-            expected_value = %Explorer.Chain.Wei{value: Decimal.new(expected_balance)}
+      balance_by_block_number =
+        Enum.into(balances, %{}, fn %Address.CoinBalance{block_number: block_number} = balance ->
+          {block_number, balance}
+        end)
 
-            assert %Address.CoinBalance{value: ^expected_value} = balance_by_block_number[block_number]
-          end)
+      Enum.each(expected_balance_by_block_number, fn {block_number, expected_balance} ->
+        expected_value = %Explorer.Chain.Wei{value: Decimal.new(expected_balance)}
 
-          fetched_address = Repo.one!(from(address in Address, where: address.hash == ^hash_data))
+        assert %Address.CoinBalance{value: ^expected_value} = balance_by_block_number[block_number]
+      end)
 
-          {expected_fetched_balance_block_number, expected_fetched_balance_value} =
-            Enum.max_by(expected_balance_by_block_number, fn {block_number, _} -> block_number end)
+      fetched_address = Repo.one!(from(address in Address, where: address.hash == ^hash_data))
 
-          expected_fetched_balance = %Explorer.Chain.Wei{value: Decimal.new(expected_fetched_balance_value)}
+      {expected_fetched_balance_block_number, expected_fetched_balance_value} =
+        Enum.max_by(expected_balance_by_block_number, fn {block_number, _} -> block_number end)
 
-          assert fetched_address.fetched_coin_balance == expected_fetched_balance
-          assert fetched_address.fetched_coin_balance_block_number == expected_fetched_balance_block_number
+      expected_fetched_balance = %Explorer.Chain.Wei{value: Decimal.new(expected_fetched_balance_value)}
 
-        other ->
-          # not all nodes behind the `https://mainnet.infura.io` pool are fully-synced.  Node that aren't fully-synced
-          # won't have historical address balances.
-          assert {:retry, ^entries} = other
-      end
+      assert fetched_address.fetched_coin_balance == expected_fetched_balance
+      assert fetched_address.fetched_coin_balance_block_number == expected_fetched_balance_block_number
     end
   end
 

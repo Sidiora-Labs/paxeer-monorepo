@@ -1,0 +1,5 @@
+[meta]
+active_feature = "layerx-merge" # authoritative feature selection
+
+[agents]
+active_feature = "must-not-be-selected"

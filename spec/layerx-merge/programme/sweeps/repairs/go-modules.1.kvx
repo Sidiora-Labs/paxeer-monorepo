@@ -1,0 +1,8 @@
+[repair.go-modules.1]
+target = "modules/epoch"
+command = "CGO_ENABLED=1 go vet ./modules/epoch/ && CGO_ENABLED=1 go test -count=1 -timeout 35m ./modules/epoch/"
+revision = "cea04b0a20fed9621b2f2580398024b38b76ff2e"
+result = "already-passing"
+change = "modules/epoch/README.md records package verification; no product or test changes were needed because the inventory timeout no longer reproduces."
+producer_input_tests = []
+elapsed_seconds = 3.984

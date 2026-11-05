@@ -1,0 +1,2043 @@
+[audit.22.30.147]
+task = "22.30.147"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 158
+findings = 53
+docs_reviewed = 21
+upgrade_ready = false
+blocking = ["ws-handle-after-failback"]
+
+[file.001]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/README.md"
+lines = 85
+verdict = "issues"
+note = "Configuration and integration instructions need the active named-argument runtime layout; see readme-config."
+
+[file.002]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/config/config.exs"
+lines = 32
+verdict = "clean"
+note = "Application defaults, HTTP pool, tracing adapter and dedicated logger metadata keys match their consumers."
+
+[file.003]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/config/dev.exs"
+lines = 5
+verdict = "clean"
+note = "Development tracing and logging overrides use the same module keys as the application defaults."
+
+[file.004]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/config/prod.exs"
+lines = 7
+verdict = "clean"
+note = "Production tracing and logging overrides retain the declared application keys and backend shape."
+
+[file.005]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/config/runtime/test.exs"
+lines = 10
+verdict = "clean"
+note = "Runtime test variant selection is limited to the explicit test support environment variables."
+
+[file.006]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/config/test.exs"
+lines = 22
+verdict = "clean"
+note = "Test throttle/coordinator defaults and Mox transport selection match the application start path."
+
+[file.007]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc.ex"
+lines = 986
+verdict = "issues"
+note = "Batch correlation, quantity conversion, request construction and transport dispatch reviewed; finalized tag wiring is missing."
+
+[file.008]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/anvil.ex"
+lines = 55
+verdict = "clean"
+note = "Anvil delegates its supported debug traces and pending requests through the Geth variant."
+
+[file.009]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/application.ex"
+lines = 83
+verdict = "clean"
+note = "Application child wiring starts transport pools, endpoint observers, rolling windows and the HTTP guard."
+
+[file.010]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/arbitrum.ex"
+lines = 391
+verdict = "clean"
+note = "Arbitrum-specific block/trace compatibility remains isolated behind its variant; its batch language belongs to that chain."
+
+[file.011]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/arbitrum/constants/contracts.ex"
+lines = 694
+verdict = "clean"
+note = "Arbitrum contract addresses, selectors, tuples and EigenDA structures are other-chain ABI adapters, not Paxeer router references."
+
+[file.012]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/arbitrum/constants/events.ex"
+lines = 155
+verdict = "clean"
+note = "Arbitrum event topics and unindexed ABI tuples are isolated other-chain constants."
+
+[file.013]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/besu.ex"
+lines = 81
+verdict = "clean"
+note = "Besu trace/pending implementation uses its trace endpoint and delegates block handling through the shared adapters."
+
+[file.014]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/besu/trace.ex"
+lines = 47
+verdict = "clean"
+note = "Besu trace conversion reads RPC revertReason data; the registry match to MockSidioraRouter is lexical, not a Solidity call."
+
+[file.015]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/besu/traces.ex"
+lines = 16
+verdict = "clean"
+note = "Besu trace collection annotates transaction/block positions and preserves input ordering."
+
+[file.016]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/block.ex"
+lines = 984
+verdict = "clean"
+note = "Block decoding covers optional roots, header quantities, Paxeer Cosmos shells and chain-specific fields without treating absent data as a committed receipt."
+
+[file.017]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/block/by_hash.ex"
+lines = 9
+verdict = "clean"
+note = "Block-by-hash request encodes the hash plus full transaction flag for the node BlockAPI."
+
+[file.018]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/block/by_nephew.ex"
+lines = 15
+verdict = "clean"
+note = "Uncle-by-nephew request encodes the index as an RPC quantity; no Paxeer uncles are invented."
+
+[file.019]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/block/by_number.ex"
+lines = 39
+verdict = "clean"
+note = "Block-by-number request encodes the number as a quantity and preserves correlation ID."
+
+[file.020]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/block/by_tag.ex"
+lines = 62
+verdict = "issues"
+note = "Block tag helper has an error-key normalization mismatch; see block-tag-error-keys."
+
+[file.021]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/blocks.ex"
+lines = 554
+verdict = "clean"
+note = "Batch block assembly correlates responses by ID, converts blocks/transactions/uncles and records missing/error members."
+
+[file.022]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/contract.ex"
+lines = 292
+verdict = "clean"
+note = "Contract call batching selects ABI outputs by selector and annotates per-call decode failures."
+
+[file.023]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/decode_error.ex"
+lines = 77
+verdict = "issues"
+note = "Exception rendering exposes headers and unbounded response material; see decode-error-secrets."
+
+[file.024]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/encoder.ex"
+lines = 130
+verdict = "clean"
+note = "ABI argument conversion and selector-based result decoding reviewed with its call sites."
+
+[file.025]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/erc20.ex"
+lines = 148
+verdict = "clean"
+note = "ERC20 metadata and balance selectors use shared contract batching and quantity decoding."
+
+[file.026]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/erigon.ex"
+lines = 61
+verdict = "clean"
+note = "Erigon chooses supported trace/pending paths and shared Geth-compatible result handling."
+
+[file.027]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/fetched_balance.ex"
+lines = 62
+verdict = "clean"
+note = "Fetched balance request encodes address and block tag; no tenant-local cache is introduced."
+
+[file.028]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/fetched_balances.ex"
+lines = 61
+verdict = "clean"
+note = "Balance batches preserve ID-to-address/block correlation and annotate errors before import."
+
+[file.029]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/fetched_beneficiaries.ex"
+lines = 196
+verdict = "clean"
+note = "Beneficiary lookup maps each requested block response and reports per-block failures."
+
+[file.030]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/fetched_beneficiary.ex"
+lines = 17
+verdict = "clean"
+note = "Beneficiary result conversion handles node header miner/author fields in the common block view."
+
+[file.031]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/fetched_code.ex"
+lines = 94
+verdict = "clean"
+note = "Fetched code conversion accepts RPC bytecode and constructs explorer import params; params is a generic function name, not staking params()."
+
+[file.032]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/fetched_codes.ex"
+lines = 84
+verdict = "clean"
+note = "Code batch correlation and missing-code responses reviewed against eth_getCode."
+
+[file.033]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/filecoin.ex"
+lines = 744
+verdict = "clean"
+note = "Filecoin CID/address and trace translations are client-specific adapters; examples and full decoding paths reviewed."
+
+[file.034]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/geth.ex"
+lines = 519
+verdict = "clean"
+note = "Geth trace configuration, callTracer/custom/native selection, timeouts and pending transaction handling reviewed."
+
+[file.035]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/geth/call.ex"
+lines = 490
+verdict = "clean"
+note = "Geth call/create/selfdestruct decoding flattens callTracer trees with transaction index and trace address."
+
+[file.036]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/geth/calls.ex"
+lines = 239
+verdict = "clean"
+note = "Geth calls collection maps decoded trace entries into explorer internal transaction params."
+
+[file.037]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/geth/polygon_tracer.ex"
+lines = 355
+verdict = "clean"
+note = "Polygon structLog compatibility is isolated to its selected tracer; it is not the Paxeer default callTracer path."
+
+[file.038]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/geth/tracer.ex"
+lines = 321
+verdict = "issues"
+note = "Native structLog creation handling reads CALL-style output operands incorrectly; see native-create-stack."
+
+[file.039]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/http.ex"
+lines = 309
+verdict = "clean"
+note = "HTTP endpoint selection, batch splitting, decode errors and canonical response conversion reviewed."
+
+[file.040]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/http/helper.ex"
+lines = 85
+verdict = "clean"
+note = "HTTP helper detects batch errors and inflates content-encoding bodies; instrumentation call order is covered by transport findings."
+
+[file.041]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/http/httpoison.ex"
+lines = 36
+verdict = "issues"
+note = "HTTPoison instrumentation misattributes batches and inspects compressed bytes before inflation."
+
+[file.042]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/http/tesla.ex"
+lines = 36
+verdict = "issues"
+note = "Tesla instrumentation has the same batch attribution and compressed-error gaps as HTTPoison."
+
+[file.043]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/http/throttle.ex"
+lines = 590
+verdict = "issues"
+note = "Admission, ticket generation, coalescing and endpoint budgets reviewed; outage bounds, recovery and gauge aggregation need repair."
+
+[file.044]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/http/throttle/metrics.ex"
+lines = 89
+verdict = "clean"
+note = "Metric definitions use bounded class labels and declared counter/gauge/histogram types; aggregation defects are at publish call sites."
+
+[file.045]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/ipc.ex"
+lines = 93
+verdict = "issues"
+note = "IPC request lifecycle has inconsistent deadlines, dead-socket reuse and single-error shape drift."
+
+[file.046]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/log.ex"
+lines = 193
+verdict = "clean"
+note = "Log quantities, topic ordering, removed flag and transaction positions map into common explorer params."
+
+[file.047]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/logs.ex"
+lines = 125
+verdict = "issues"
+note = "Log filter builder handles numbers and tags but omits finalized."
+
+[file.048]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/nethermind.ex"
+lines = 70
+verdict = "clean"
+note = "Nethermind trace batching and pending transactions remain behind explicit client variant selection."
+
+[file.049]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/nethermind/trace.ex"
+lines = 487
+verdict = "clean"
+note = "Nethermind trace conversion handles action/result/error shape and explorer trace positioning."
+
+[file.050]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/nethermind/trace/action.ex"
+lines = 54
+verdict = "clean"
+note = "Nethermind call/create/reward/selfdestruct actions map their declared fields and quantities."
+
+[file.051]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/nethermind/trace/result.ex"
+lines = 42
+verdict = "clean"
+note = "Nethermind trace result decoding preserves create code/address and call output/gas usage."
+
+[file.052]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/nethermind/traces.ex"
+lines = 16
+verdict = "clean"
+note = "Nethermind trace collection converts each typed trace without imposing its shape on Paxeer callTracer."
+
+[file.053]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/nft.ex"
+lines = 203
+verdict = "clean"
+note = "NFT tokenURI(uint256) selector and ABI return string agree with the declared ERC721 pointer and MyNFT functions."
+
+[file.054]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/nonce.ex"
+lines = 91
+verdict = "clean"
+note = "Nonce request encodes address and block selector; params occurrence is not a staking precompile invocation."
+
+[file.055]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/nonces.ex"
+lines = 84
+verdict = "clean"
+note = "Nonce batches correlate account results and errors with requested block context."
+
+[file.056]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/paxeer_x.ex"
+lines = 388
+verdict = "issues"
+note = "PaxeerX header/body parity and Cosmos normalization reviewed; sync health and configurable storage bound need repair."
+
+[file.057]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/pending_transaction.ex"
+lines = 75
+verdict = "clean"
+note = "Pending transaction source configuration delegates to the selected variant with the configured RPC arguments."
+
+[file.058]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/prometheus/instrumenter.ex"
+lines = 36
+verdict = "clean"
+note = "Request/error counters have method labels; counting defects reside in HTTP transport call sites."
+
+[file.059]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/receipt.ex"
+lines = 452
+verdict = "clean"
+note = "Receipt decoding preserves status, gas, transaction position, logs and optional chain-specific fields."
+
+[file.060]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/receipts.ex"
+lines = 452
+verdict = "issues"
+note = "Receipt request correlation crashes on the advertised hex-height input; see receipt-hex-id-crash."
+
+[file.061]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/receipts/by_block_number.ex"
+lines = 36
+verdict = "clean"
+note = "Receipt-by-number builder preserves a valid hex selector or encodes an integer selector; correlation issue is in Receipts."
+
+[file.062]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/receipts/by_transaction_hash.ex"
+lines = 22
+verdict = "clean"
+note = "Receipt-by-transaction builder preserves hash and independent request ID."
+
+[file.063]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/request_coordinator.ex"
+lines = 198
+verdict = "issues"
+note = "Coordinator timeout backoff is wired; legacy rolling-window rate-limit key lookup is inconsistent."
+
+[file.064]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/rolling_window.ex"
+lines = 224
+verdict = "clean"
+note = "ETS rolling-window increment/count/rotation handles bounded windows used by request coordination."
+
+[file.065]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/rsk.ex"
+lines = 25
+verdict = "clean"
+note = "RSK trace/pending behavior is isolated behind its variant and declared configuration."
+
+[file.066]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/rsk/trace.ex"
+lines = 21
+verdict = "clean"
+note = "RSK action/result translation handles its own client trace structure."
+
+[file.067]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/rsk/traces.ex"
+lines = 16
+verdict = "clean"
+note = "RSK trace collection maps decoded traces to explorer params with explicit positions."
+
+[file.068]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/signed_authorization.ex"
+lines = 58
+verdict = "clean"
+note = "Signed authorization decodes chain ID, nonce, address and signature quantities; generic params is not staking params()."
+
+[file.069]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/subscription.ex"
+lines = 64
+verdict = "clean"
+note = "Subscription struct carries subscriber, transport and local reference; cancellation dispatches to the stored transport."
+
+[file.070]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/trace_block.ex"
+lines = 91
+verdict = "clean"
+note = "trace_block request builder encodes the selected quantity/tag for clients serving that method."
+
+[file.071]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/trace_replay_block_transactions.ex"
+lines = 297
+verdict = "clean"
+note = "trace_replayBlockTransactions request includes the requested trace kinds and block selector."
+
+[file.072]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/tracer.ex"
+lines = 5
+verdict = "clean"
+note = "Spandex tracer uses the declared ethereum_jsonrpc tracing configuration."
+
+[file.073]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/transaction.ex"
+lines = 781
+verdict = "clean"
+note = "Transaction decoding covers quantities, access lists, authorization lists and Paxeer type normalization."
+
+[file.074]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/transactions.ex"
+lines = 159
+verdict = "clean"
+note = "Transaction collection converts indexed or pending RPC results and preserves import positions."
+
+[file.075]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/transport.ex"
+lines = 126
+verdict = "clean"
+note = "Transport behavior declares single/batch requests, result/error tuples and subscription callbacks."
+
+[file.076]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/uncle.ex"
+lines = 42
+verdict = "clean"
+note = "Uncle request/decoding follows the shared block interface; Paxeer known blocks have no uncles."
+
+[file.077]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/uncles.ex"
+lines = 37
+verdict = "clean"
+note = "Uncle collection preserves per-request results without manufacturing uncle entries."
+
+[file.078]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/utility/common_helper.ex"
+lines = 72
+verdict = "issues"
+note = "Duration parsing and URL selection reviewed; malformed duration inputs are not fully validated."
+
+[file.079]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/utility/endpoint_availability_checker.ex"
+lines = 161
+verdict = "clean"
+note = "Availability checker schedules configured probes and reports endpoint status to the observer."
+
+[file.080]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/utility/endpoint_availability_observer.ex"
+lines = 502
+verdict = "clean"
+note = "Availability observer tracks URL types and fallback substitutions using explicit configured endpoints."
+
+[file.081]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/utility/ranges_helper.ex"
+lines = 298
+verdict = "clean"
+note = "Range helper parses and intersects configured block/trace ranges without caching tenant data."
+
+[file.082]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/variant.ex"
+lines = 136
+verdict = "clean"
+note = "Variant behavior declares supported callbacks and generic synchronization handling."
+
+[file.083]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/web_socket.ex"
+lines = 115
+verdict = "clean"
+note = "WebSocket public callback documents tagged subscription errors and routes through the returned transport options."
+
+[file.084]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/web_socket/registration.ex"
+lines = 81
+verdict = "clean"
+note = "Registration struct carries caller/type/request; pending deadline and monitoring gap is in WebSocketClient."
+
+[file.085]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/web_socket/retry_worker.ex"
+lines = 59
+verdict = "clean"
+note = "RetryWorker retains unavailable endpoint state and starts a replacement client; stale public PID ownership is recorded at WebSocketClient."
+
+[file.086]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/web_socket/supervisor.ex"
+lines = 66
+verdict = "issues"
+note = "Client supervisor uses temporary children, leaving unexpected exits without guaranteed restart."
+
+[file.087]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/web_socket/web_socket_client.ex"
+lines = 625
+verdict = "issues"
+note = "WebSocket ID maps, reconnection, subscription delivery and termination reviewed; failback leaves handles bound to the old PID."
+
+[file.088]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/web_socket/web_socket_client/options.ex"
+lines = 17
+verdict = "clean"
+note = "WebSocket options struct retains connection identity and event params; it does not itself resolve replacement owners."
+
+[file.089]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/withdrawal.ex"
+lines = 101
+verdict = "clean"
+note = "Withdrawal RPC conversion decodes index, validator index, address and amount for clients that emit withdrawals."
+
+[file.090]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/withdrawals.ex"
+lines = 67
+verdict = "clean"
+note = "Withdrawals collection maps optional block withdrawals into explorer params."
+
+[file.091]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/zilliqa.ex"
+lines = 19
+verdict = "clean"
+note = "Zilliqa-specific aggregate/nested quorum extensions remain conditional chain fields."
+
+[file.092]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/zilliqa/aggregate_quorum_certificate.ex"
+lines = 187
+verdict = "clean"
+note = "Aggregate certificate conversion decodes its typed optional quorum fields."
+
+[file.093]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/zilliqa/helper.ex"
+lines = 145
+verdict = "clean"
+note = "Zilliqa helper normalizes quantities and nested certificate data for that variant."
+
+[file.094]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/zilliqa/nested_quorum_certificates.ex"
+lines = 192
+verdict = "clean"
+note = "Nested certificate decoder preserves the aggregate and quorum shapes of that chain."
+
+[file.095]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/zilliqa/quorum_certificate.ex"
+lines = 100
+verdict = "clean"
+note = "Quorum certificate decoder converts epoch/view and signature metadata without imposing them on Paxeer."
+
+[file.096]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/zksync/constants/contracts.ex"
+lines = 139
+verdict = "clean"
+note = "zkSync L1 contract constants are explicit other-chain addresses and selectors."
+
+[file.097]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/mix.exs"
+lines = 94
+verdict = "clean"
+note = "Mix application/dependency declarations wire ABI, HTTP, Mox, tracing, socket and metrics modules."
+
+[file.098]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/priv/js/ethereum_jsonrpc/geth/debug_traceTransaction/tracer.js"
+lines = 479
+verdict = "clean"
+note = "JavaScript custom Geth tracer handles call/create/selfdestruct events and is selected explicitly, separate from the native structLog adapter."
+
+[file.099]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/block_test.exs"
+lines = 112
+verdict = "clean"
+note = "Block unit/doctests cover quantity and chain field conversions, including optional headers."
+
+[file.100]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/blocks_test.exs"
+lines = 5
+verdict = "clean"
+note = "Blocks tests cover batch ordering, missing members, transactions, uncles and error propagation."
+
+[file.101]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/contract_test.exs"
+lines = 317
+verdict = "clean"
+note = "Contract tests exercise ABI call batching, output decode and per-result failures."
+
+[file.102]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/encoder_test.exs"
+lines = 171
+verdict = "clean"
+note = "Encoder tests cover ABI argument and output conversion using explicit selectors."
+
+[file.103]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/fetched_beneficiaries_test.exs"
+lines = 260
+verdict = "clean"
+note = "Beneficiary tests use generic JSON-RPC -32603 errors; lexical matches do not establish CLI or gateway calls."
+
+[file.104]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/filecoin_test.exs"
+lines = 200
+verdict = "clean"
+note = "Filecoin tests exercise client-specific block/trace/CID conversions."
+
+[file.105]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/geth/call_test.exs"
+lines = 49
+verdict = "clean"
+note = "Geth call tests cover call/create/selfdestruct result fields and nested trace addressing."
+
+[file.106]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/geth/calls_tests.exs"
+lines = 5
+verdict = "clean"
+note = "Geth calls tests cover flattened call sets and explorer internal transaction parameters."
+
+[file.107]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/geth/tracer_test.exs"
+lines = 53
+verdict = "clean"
+note = "Native tracer tests review existing opcode cases; missing minimal CREATE operands are captured by native-create-stack."
+
+[file.108]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/geth_test.exs"
+lines = 1013
+verdict = "clean"
+note = "Geth variant tests exercise trace selection, allow-empty behavior, errors and pending results."
+
+[file.109]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/http/mox_test.exs"
+lines = 307
+verdict = "clean"
+note = "HTTP Mox tests cover standard responses, batches, decode failures and request/error handling."
+
+[file.110]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/http/throttle_test.exs"
+lines = 520
+verdict = "clean"
+note = "Throttle tests cover concurrency, weighted RPS, coalescing and stale ticket rejection; surviving pre-restart work remains a recovery gap."
+
+[file.111]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/log_test.exs"
+lines = 32
+verdict = "clean"
+note = "Log tests cover topic, data, quantity and import parameter conversions."
+
+[file.112]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/mox_test.exs"
+lines = 38
+verdict = "clean"
+note = "Shared transport Mox tests exercise callback response conventions without claiming deployed node parity."
+
+[file.113]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/nethermind/trace/action_test.exs"
+lines = 5
+verdict = "clean"
+note = "Nethermind action tests cover client-specific typed actions."
+
+[file.114]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/nethermind/trace/result_test.exs"
+lines = 5
+verdict = "clean"
+note = "Nethermind result tests cover client-specific call/create result quantities."
+
+[file.115]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/nethermind/trace_test.exs"
+lines = 5
+verdict = "clean"
+note = "Nethermind trace tests cover errors, positions, actions and results."
+
+[file.116]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/nethermind_test.exs"
+lines = 617
+verdict = "clean"
+note = "Nethermind variant tests cover trace and pending dispatch for that client."
+
+[file.117]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/paxeer_x_new_head_fields_test.exs"
+lines = 31
+verdict = "issues"
+note = "New-head field tests use a reconstructed fixture and do not establish current node WebSocket parity."
+
+[file.118]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/paxeer_x_new_head_parity_test.exs"
+lines = 34
+verdict = "issues"
+note = "New-head parity tests include useful parent/receipts-root mutations but no real node transport capture."
+
+[file.119]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/paxeer_x_syncing_parity_test.exs"
+lines = 71
+verdict = "issues"
+note = "Syncing parity HTTP handler emits hand-built results rather than current node consensus progress."
+
+[file.120]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/paxeer_x_test.exs"
+lines = 379
+verdict = "issues"
+note = "PaxeerX decoder tests include useful Cosmos/header cases but preserve the obsolete unconditional syncing-refusal assumption."
+
+[file.121]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/paxeer_x_trace_parity_test.exs"
+lines = 92
+verdict = "issues"
+note = "Trace parity test consumes stored callTracer data and does not exercise the current node producer."
+
+[file.122]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/paxeer_x_tx_count_parity_test.exs"
+lines = 73
+verdict = "issues"
+note = "Count parity test pairs reconstructed eth responses with an incorrect Cosmos-shell membership assumption."
+
+[file.123]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/receipt_test.exs"
+lines = 30
+verdict = "clean"
+note = "Receipt tests cover status, gas, logs and optional fields on common and client-specific shapes."
+
+[file.124]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/receipts_test.exs"
+lines = 178
+verdict = "clean"
+note = "Receipts tests cover transaction-hash and block result processing; hex request-ID crash is recorded at implementation."
+
+[file.125]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/request_coordinator_test.exs"
+lines = 67
+verdict = "clean"
+note = "Coordinator tests cover timeout/backoff behavior but do not establish the actual nested runtime throttle configuration."
+
+[file.126]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/rolling_window_test.exs"
+lines = 119
+verdict = "clean"
+note = "Rolling-window tests exercise rotation and count semantics used by coordinator."
+
+[file.127]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/transaction_test.exs"
+lines = 15
+verdict = "clean"
+note = "Transaction tests cover typed transactions, optional fields and normalized import params."
+
+[file.128]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/transactions_test.exs"
+lines = 45
+verdict = "clean"
+note = "Transactions tests cover result ordering, missing entries and explorer parameter conversion."
+
+[file.129]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/uncle_test.exs"
+lines = 5
+verdict = "clean"
+note = "Uncle tests cover shared block/uncle decoding with explicit RPC examples."
+
+[file.130]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/uncles_test.exs"
+lines = 5
+verdict = "clean"
+note = "Uncles tests cover collection assembly and errors without asserting Paxeer emits uncles."
+
+[file.131]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/utility/common_helper_test.exs"
+lines = 52
+verdict = "clean"
+note = "Common helper tests cover accepted durations and URL helpers; incomplete-input defect is recorded in parser finding."
+
+[file.132]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/utility/ranges_helper_test.exs"
+lines = 24
+verdict = "clean"
+note = "Range tests exercise configuration range parsing and intersections."
+
+[file.133]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/web_socket/web_socket_client_test.exs"
+lines = 167
+verdict = "issues"
+note = "WebSocket client tests have an empty reconnect describe block and assert the undocumented raw close envelope."
+
+[file.134]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/web_socket_test.exs"
+lines = 231
+verdict = "clean"
+note = "WebSocket transport tests cover local subscribe/unsubscribe behavior; no failback lifecycle proof is supplied."
+
+[file.135]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/withdrawal_test.exs"
+lines = 5
+verdict = "clean"
+note = "Withdrawal tests cover quantity conversion and import parameter shape."
+
+[file.136]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/withdrawals_test.exs"
+lines = 5
+verdict = "clean"
+note = "Withdrawals tests cover collection handling including empty inputs."
+
+[file.137]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/zilliqa_test.exs"
+lines = 8
+verdict = "clean"
+note = "Zilliqa tests cover conditional certificate fields rather than Paxeer finality."
+
+[file.138]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc_test.exs"
+lines = 1112
+verdict = "clean"
+note = "Top-level tests cover request IDs, quantity conversions, single/batch RPC and helper dispatch."
+
+[file.139]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/support/ethereum_jsonrpc/case.ex"
+lines = 57
+verdict = "clean"
+note = "Shared case selects an explicit test implementation and injects JSON-RPC arguments."
+
+[file.140]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/support/ethereum_jsonrpc/case/filecoin/mox.ex"
+lines = 17
+verdict = "clean"
+note = "Filecoin Mox support isolates the other-client transport and expectations."
+
+[file.141]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/support/ethereum_jsonrpc/case/geth/http_websocket.ex"
+lines = 20
+verdict = "issues"
+note = "Geth integration case hardcodes external provider HTTP/WebSocket URLs."
+
+[file.142]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/support/ethereum_jsonrpc/case/geth/mox.ex"
+lines = 17
+verdict = "clean"
+note = "Geth Mox support selects the Geth variant and a mock transport for unit cases."
+
+[file.143]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/support/ethereum_jsonrpc/case/nethermind/http_websocket.ex"
+lines = 20
+verdict = "issues"
+note = "Nethermind integration case hardcodes a public IP rather than a disposable Paxeer node."
+
+[file.144]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/support/ethereum_jsonrpc/case/nethermind/mox.ex"
+lines = 17
+verdict = "clean"
+note = "Nethermind Mox support isolates its unit expectations from other variants."
+
+[file.145]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/support/ethereum_jsonrpc/http/case.ex"
+lines = 32
+verdict = "clean"
+note = "HTTP test support configures the selected mock/client transport and test options."
+
+[file.146]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/support/ethereum_jsonrpc/web_socket/case.ex"
+lines = 9
+verdict = "clean"
+note = "WebSocket test case selects explicit support modules and configures transports."
+
+[file.147]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/support/ethereum_jsonrpc/web_socket/case/geth.ex"
+lines = 25
+verdict = "issues"
+note = "Geth WebSocket support hardcodes an external provider endpoint."
+
+[file.148]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/support/ethereum_jsonrpc/web_socket/case/mox.ex"
+lines = 76
+verdict = "clean"
+note = "WebSocket Mox support implements the behavior explicitly for unit testing."
+
+[file.149]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/support/ethereum_jsonrpc/web_socket/case/nethermind.ex"
+lines = 25
+verdict = "issues"
+note = "Nethermind WebSocket support hardcodes an external endpoint."
+
+[file.150]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/support/ethereum_jsonrpc/web_socket/cowboy/websocket_handler.ex"
+lines = 67
+verdict = "clean"
+note = "Cowboy WebSocket helper supplies local canned subscription behavior; it is not evidence of node failback/recovery."
+
+[file.151]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/support/fixture/geth/trace/calltracer.json"
+lines = 1
+verdict = "clean"
+note = "Geth callTracer fixture stores nested calls/create/error frames for deterministic decoder examples."
+
+[file.152]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/support/fixture/paxeer_x/call_tracer_block.json"
+lines = 31
+verdict = "clean"
+note = "Paxeer callTracer fixture supplies nested create/call positions for decoder parity examples; real producer evidence remains missing."
+
+[file.153]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/support/fixture/paxeer_x/consecutive_blocks.json"
+lines = 48
+verdict = "clean"
+note = "Consecutive block fixture supports local parent/receipts-root mutation checks; no real node transport proof is implied."
+
+[file.154]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/support/fixture/paxeer_x/cosmos_originated_transaction.json"
+lines = 51
+verdict = "clean"
+note = "Cosmos compatibility fixture deliberately includes legacy nullable shell fields for adapter normalization."
+
+[file.155]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/support/fixture/paxeer_x/new_head.json"
+lines = 24
+verdict = "clean"
+note = "Legacy new-head fixture captures the abbreviated header shape the hash refetch path tolerates."
+
+[file.156]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/support/fixture/paxeer_x/new_head_full.json"
+lines = 44
+verdict = "clean"
+note = "Full new-head fixture is reconstructed parity input and requires replacement or supplementation with current node capture."
+
+[file.157]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/support/fixture/paxeer_x/tx_count_parity.json"
+lines = 86
+verdict = "issues"
+note = "Mixed count fixture incorrectly labels a Cosmos-shell block as an eth namespace block."
+
+[file.158]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/test/test_helper.exs"
+lines = 16
+verdict = "clean"
+note = "Test helper starts ExUnit, configures Mox and selects the explicit client cases."
+
+[finding.ws-handle-after-failback]
+file = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/web_socket/web_socket_client.ex"
+line = 487
+class = "interface-mismatch"
+severity = "high"
+observed = "A new subscription captures the client PID in Options.web_socket. RetryWorker starts another client with the retained state; handle_connect stops the original fallback client, while the resubscribe branch replaces only server ID maps. WebSocket.unsubscribe therefore calls the terminated PID held by the original Subscription."
+expected = "The subscription returned to the indexer must remain cancellable after primary failure, fallback use and primary recovery. The eth_unsubscribe request must reach the connection that owns the replacement server subscription ID."
+proposal = "In services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/web_socket, route subscription handles through a stable owner or registry and resolve the current connection and server ID at cancellation. Prove subscribe, main outage, fallback, recovered main, notification delivery and unsubscribe through real node WebSockets."
+owner_domain = 14
+interface = "7.rpc-eth-unsubscribe"
+
+[finding.ws-old-server-ids]
+file = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/web_socket/web_socket_client.ex"
+line = 472
+class = "runtime-risk"
+severity = "medium"
+observed = "The resubscribe branch adds the new server subscription ID without removing the previous ID for the same local reference. Repeated reconnects retain obsolete ID mappings until the subscription is removed."
+expected = "One active local subscription should own only its current server ID, with bounded connection-local state over repeated reconnects."
+proposal = "In web_socket/web_socket_client.ex, replace the old reverse mapping atomically when a resubscribe succeeds and clear connection-scoped IDs on disconnect; exercise repeated reconnects and assert that map sizes remain bounded."
+owner_domain = 14
+interface = "7.rpc-eth-subscribe"
+
+[finding.ws-unbounded-pending]
+file = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/web_socket/web_socket_client.ex"
+line = 160
+class = "runtime-risk"
+severity = "medium"
+observed = "Disconnected requests are registered without a deadline or a caller monitor. GenServer callers can time out while their registrations remain in request_id_to_registration and rerequest later sends them again."
+expected = "An expired or dead caller must not leave an indefinitely retained request or cause a timed-out request to be replayed after connection recovery."
+proposal = "In web_socket/web_socket_client.ex and registration.ex, carry request deadlines and monitor callers, expire queued registrations, and define which idempotent requests may be replayed. Test a prolonged outage with timed-out and terminated callers."
+owner_domain = 14
+interface = "7.rpc-eth-subscribe"
+
+[finding.ws-crash-recovery]
+file = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/web_socket/supervisor.ex"
+line = 63
+class = "restart-recovery"
+severity = "medium"
+observed = "Both initial and replacement WebSocket clients have restart: :temporary. RetryWorker is activated by handle_disconnect, so an unexpected client crash outside that callback can leave the supervisor with no active client and no retry."
+expected = "The realtime indexer must regain a node connection after an unexpected client exit as well as after an orderly disconnect."
+proposal = "In web_socket/supervisor.ex and retry_worker.ex, give a stable connection owner responsibility for unexpected exits and durable subscription intent. Test client process termination and eventual resubscription with the same public handles."
+owner_domain = 14
+interface = "7.ws-eth-subscribe-newheads"
+
+[finding.ws-termination-envelope]
+file = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/web_socket/web_socket_client.ex"
+line = 182
+class = "runtime-risk"
+severity = "medium"
+observed = "terminate/2 broadcasts the raw reason to subscribers, whereas WebSocket documents subscription messages as {subscription, {:ok, result}} or {subscription, {:error, reason}}. The local test explicitly expects {subscription, :close}."
+expected = "Subscription consumers should receive the documented tagged error shape for a terminal connection failure, including failback termination of the previous client."
+proposal = "In web_socket/web_socket_client.ex, define and emit a tagged termination error or a documented nonterminal recovery signal, then update the realtime consumer and lifecycle tests to handle that same envelope."
+owner_domain = 14
+interface = "7.ws-eth-subscribe-newheads"
+
+[finding.ws-url-logging]
+file = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/web_socket/web_socket_client.ex"
+line = 129
+class = "security"
+severity = "medium"
+observed = "Disconnect warnings interpolate state.url and state.fallback_url directly. A configured URL may include userinfo, an access token in a path or query, and those values enter the application logs."
+expected = "Node endpoint diagnostics must identify the failing endpoint without exposing credentials or token-bearing URL components."
+proposal = "In web_socket/web_socket_client.ex, use a common endpoint redactor for every primary, fallback and retry warning and test URL userinfo, query tokens and credential-bearing path segments without printing their original values."
+owner_domain = 14
+
+[finding.ws-reconnect-test-absent]
+file = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/web_socket/web_socket_client_test.exs"
+line = 77
+class = "test-gap"
+severity = "medium"
+observed = "The reconnect describe block contains setup only and no test. It starts a TLS Cowboy listener but constructs a ws URL and a three-element client argument list, so it provides no exercised reconnect or unsubscribe recovery proof."
+expected = "Subscription lifecycle evidence must cover the actual producer, transport and indexer consumer across loss of the primary, fallback operation, primary recovery and cancellation."
+proposal = "Replace the unused setup in test/ethereum_jsonrpc/web_socket/web_socket_client_test.exs with real lifecycle tests using valid client start arguments and matching TLS URLs. Include the stale-handle failure and verify cancellation on the recovered node."
+owner_domain = 14
+interface = "7.rpc-eth-unsubscribe"
+
+[finding.sync-error-becomes-synced]
+file = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/paxeer_x.ex"
+line = 310
+class = "runtime-risk"
+severity = "medium"
+observed = "PaxeerX.fetch_syncing_status maps every transport or RPC error to {:ok, :synced}. Its comment assumes the node always refuses eth_syncing with -32000, but rpc/info.go Syncing now emits false or a hex progress object and propagates consensus Status errors."
+expected = "Unavailable consensus state or a failed HTTP request must remain an error; only the node false result establishes that synchronization is complete."
+proposal = "In lib/ethereum_jsonrpc/paxeer_x.ex, propagate operational errors and decode the current false/object producer contract. If legacy refusal compatibility is retained, bind it to an explicit supported version and never treat arbitrary failures as healthy."
+owner_domain = 14
+interface = "7.rpc-eth-syncing"
+
+[finding.sync-legacy-test]
+file = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/paxeer_x_test.exs"
+line = 309
+class = "test-gap"
+severity = "medium"
+observed = "The eth_syncing test calls an unconditional -32000 refusal the node normal response and asserts synced. The current rpc/info.go producer returns false or SyncingResult and returns a real consensus Status error on failure."
+expected = "Requirements 14271.1 and 14271.2 need evidence from the current node response shape, with operational failures preserved instead of reported as caught up."
+proposal = "In test/ethereum_jsonrpc/paxeer_x_test.exs, capture current node false/progress/error responses through HTTP and assert the corresponding adapter states; keep any legacy compatibility case separately named and versioned."
+owner_domain = 14
+interface = "7.rpc-eth-syncing"
+
+[finding.throttle-admission-unbounded]
+file = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/http/throttle.ex"
+line = 256
+class = "runtime-risk"
+severity = "medium"
+observed = "Throttle.acquire calls the guard with :infinity and recursively sleeps and retries every guard exit. Per-endpoint queues have no capacity or admission deadline and pump repeatedly scans the waiting entries during a sustained node outage."
+expected = "A slow or unavailable node must not retain arbitrarily many explorer callers or keep them waiting beyond an explicit request budget."
+proposal = "In http/throttle.ex, add a bounded admission queue and absolute deadline shared with HTTP execution, cancel expired waiters, and return a typed overload or unavailable result. Preserve existing rate and concurrency limits and exercise a sustained outage."
+owner_domain = 14
+interface = "14.cfg-ethereum-jsonrpc-ethereumjsonrpc-http-throttle"
+
+[finding.throttle-restart-cap]
+file = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/http/throttle.ex"
+line = 510
+class = "restart-recovery"
+severity = "medium"
+observed = "A restarted guard creates empty inflight and leader maps while already admitted HTTP work continues in caller tasks. New requests can be admitted on top of that surviving work; the restart test deliberately has requests A and B active under max_inflight: 1."
+expected = "The per-endpoint node protection budget should still cap actual outstanding work during guard recovery. Requirement 18698.1 separately requires that an old completion cannot release a replacement ticket, which the generation checks already address."
+proposal = "In http/throttle.ex and its supervision boundary, either recover outstanding admissions or cancel and drain old work before issuing new tickets. Extend throttle_test.exs to count actual concurrent work during restart while retaining the existing stale-completion assertion."
+owner_domain = 14
+interface = "14.cfg-ethereum-jsonrpc-ethereumjsonrpc-http-throttle"
+
+[finding.throttle-inflight-gauge]
+file = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/http/throttle.ex"
+line = 502
+class = "interface-mismatch"
+severity = "medium"
+observed = "publish/1 writes one endpoint counts into gauges labelled only by class. With multiple configured HTTP endpoints, the last endpoint published overwrites the others and an idle endpoint can display zero while another still has work."
+expected = "The exported class gauge must have a defined value representing all work in its label set, so operators can observe explorer node pressure reliably."
+proposal = "In http/throttle.ex, aggregate class counts over all endpoint state before setting the gauges, or introduce a bounded credential-free endpoint identity with a documented aggregation rule. Verify two simultaneously busy endpoints and one idle endpoint."
+owner_domain = 14
+interface = "14.met-explorer-json-rpc-throttle-inflight"
+
+[finding.throttle-queue-gauge]
+file = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/http/throttle.ex"
+line = 501
+class = "interface-mismatch"
+severity = "medium"
+observed = "publish/1 writes one endpoint counts into gauges labelled only by class. With multiple configured HTTP endpoints, the last endpoint published overwrites the others and an idle endpoint can display zero while another still has work."
+expected = "The exported class gauge must have a defined value representing all work in its label set, so operators can observe explorer node pressure reliably."
+proposal = "In http/throttle.ex, aggregate class counts over all endpoint state before setting the gauges, or introduce a bounded credential-free endpoint identity with a documented aggregation rule. Verify two simultaneously busy endpoints and one idle endpoint."
+owner_domain = 14
+interface = "14.met-explorer-json-rpc-throttle-queue-depth"
+
+[finding.http-batch-metrics-40]
+file = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/http/httpoison.ex"
+line = 15
+class = "interface-mismatch"
+severity = "medium"
+observed = "The HTTP adapter selects the first method from a JSON batch and increments one request counter under that method. Errors from a mixed batch are also attributed only to that first method rather than the request ID of the failed member."
+expected = "The json_rpc_requests_count{method} and json_rpc_requests_errors_count{method} series should count and attribute the individual method calls that the explorer sends."
+proposal = "In http/httpoison.ex and http/helper.ex, associate every request ID with its method and count each batch member and its error under the matching method. Preserve one clear rule for whole-transport failures and prove a mixed successful/failed batch."
+owner_domain = 14
+interface = "14.met-explorer-json-rpc-requests-count"
+
+[finding.http-gzip-errors-40]
+file = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/http/httpoison.ex"
+line = 21
+class = "interface-mismatch"
+severity = "medium"
+observed = "The HTTP adapter attempts Jason.decode(body) for error instrumentation before Helper.try_unzip runs. A gzip-compressed JSON-RPC error therefore reaches the caller after decompression but does not increment the RPC error counter."
+expected = "Transport compression must not change error accounting for identical JSON-RPC responses or hide node refusals from explorer monitoring."
+proposal = "In http/httpoison.ex, inflate the body once before both JSON error inspection and response delivery, and verify that compressed and plain versions of the same error produce the same method error count."
+owner_domain = 14
+interface = "14.met-explorer-json-rpc-requests-errors-count"
+
+[finding.http-batch-metrics-41]
+file = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/http/tesla.ex"
+line = 15
+class = "interface-mismatch"
+severity = "medium"
+observed = "The HTTP adapter selects the first method from a JSON batch and increments one request counter under that method. Errors from a mixed batch are also attributed only to that first method rather than the request ID of the failed member."
+expected = "The json_rpc_requests_count{method} and json_rpc_requests_errors_count{method} series should count and attribute the individual method calls that the explorer sends."
+proposal = "In http/tesla.ex and http/helper.ex, associate every request ID with its method and count each batch member and its error under the matching method. Preserve one clear rule for whole-transport failures and prove a mixed successful/failed batch."
+owner_domain = 14
+interface = "14.met-explorer-json-rpc-requests-count"
+
+[finding.http-gzip-errors-41]
+file = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/http/tesla.ex"
+line = 21
+class = "interface-mismatch"
+severity = "medium"
+observed = "The HTTP adapter attempts Jason.decode(body) for error instrumentation before Helper.try_unzip runs. A gzip-compressed JSON-RPC error therefore reaches the caller after decompression but does not increment the RPC error counter."
+expected = "Transport compression must not change error accounting for identical JSON-RPC responses or hide node refusals from explorer monitoring."
+proposal = "In http/tesla.ex, inflate the body once before both JSON error inspection and response delivery, and verify that compressed and plain versions of the same error produce the same method error count."
+owner_domain = 14
+interface = "14.met-explorer-json-rpc-requests-errors-count"
+
+[finding.decode-error-secrets]
+file = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/decode_error.ex"
+line = 68
+class = "security"
+severity = "medium"
+observed = "DecodeError.message includes every request header, the full URL by default, and the complete response body. HTTP.decode_json logs this exception, so Authorization headers and URL credentials can be disclosed and oversized invalid bodies can flood logs."
+expected = "RPC decoding diagnostics must redact credentials and bound untrusted request and response content before they enter any logger backend."
+proposal = "In decode_error.ex and the HTTP decode logging path, redact Authorization and other sensitive headers, sanitize URL components and cap response bytes. Add focused redaction cases while keeping status and bounded diagnostic context."
+owner_domain = 14
+
+[finding.ipc-timeout-mismatch]
+file = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/ipc.ex"
+line = 25
+class = "runtime-risk"
+severity = "medium"
+observed = "IPC.post uses the default five-second GenServer.call deadline, while handle_call waits up to 500000 milliseconds on the socket and poolboy.transaction allows 600000 milliseconds. A slow valid node can exit the caller while the worker keeps waiting."
+expected = "The public IPC request should return the documented result or error within one coherent deadline and leave its worker in a usable state after timeout."
+proposal = "In ipc.ex, propagate one configured absolute deadline through pool acquisition, GenServer.call and socket reads, catch expected timeout exits as typed transport errors, and discard any response that belongs to an expired request."
+owner_domain = 14
+interface = "14.cfg-ethereum-jsonrpc-ipc-path"
+
+[finding.ipc-dead-socket]
+file = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/ipc.ex"
+line = 60
+class = "restart-recovery"
+severity = "medium"
+observed = "After gen_tcp.send or recv reports a closed socket, handle_call replies with the error and retains the same socket in worker state. The connection is established only in init, so a surviving pooled worker never reconnects after the node restarts."
+expected = "An explorer using the configured IPC transport must reconnect or replace its worker after the node closes and reopens the local socket."
+proposal = "In ipc.ex, close and invalidate failed sockets and reconnect safely before the next request, or terminate the failed worker so pool supervision replaces it. Prove node socket close, restart and a subsequent successful request."
+owner_domain = 14
+interface = "14.cfg-ethereum-jsonrpc-rpc-transport"
+
+[finding.ipc-error-shape]
+file = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/ipc.ex"
+line = 69
+class = "runtime-risk"
+severity = "medium"
+observed = "IPC.request returns a single JSON-RPC error as the original string-keyed map, while HTTP.standardize_response produces atom-keyed code/message/data maps. Callers selecting the configured transport therefore observe different error shapes."
+expected = "The Transport callback error contract should be identical across HTTP and IPC for the same node JSON-RPC error, including code and data fields."
+proposal = "In ipc.ex, pass single responses through the same response standardizer as HTTP and cover successful, error and batch messages against the same real response corpus. Update exact-key consumers to the documented common contract."
+owner_domain = 14
+interface = "14.cfg-ethereum-jsonrpc-rpc-transport"
+
+[finding.coordinator-rate-limit-key]
+file = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/request_coordinator.ex"
+line = 148
+class = "config-drift"
+severity = "medium"
+observed = "throttle_request takes rate_limit from the top-level throttle_rate_limit configuration but checks opts[:throttle_rate_limit], where opts is throttle_rolling_window_opts. The normal nested window options contain duration/window_count, so this condition bypasses the configured limit."
+expected = "A configured rolling-window rate limit must be applied using the same configuration layout that runtime.exs supplies, independently of the newer HTTP guard."
+proposal = "In request_coordinator.ex, validate and read rate_limit from its declared top-level key and use window options only for window timing. Exercise the actual runtime configuration shape with enough requests to cross the limit."
+owner_domain = 14
+interface = "14.cfg-ethereum-jsonrpc-ethereumjsonrpc-requestcoordinator"
+
+[finding.duration-parser-partial]
+file = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/utility/common_helper.ex"
+line = 9
+class = "config-drift"
+severity = "medium"
+observed = "The duration regex permits a missing unit and scans unanchored fragments. A bare number reaches convert_to_ms with an empty unit and raises, while text such as 5ms or junk around 5s can be partially accepted as another duration."
+expected = "Operator timeout values must either parse completely to the documented milliseconds or return a typed invalid-format error without crashing configuration readers."
+proposal = "In utility/common_helper.ex, require complete input consumption with explicit supported units and return an error for missing units or trailing text. Cover composite durations, mixed case, malformed fragments and bare numbers."
+owner_domain = 14
+interface = "14.cfg-ethereum-jsonrpc-ethereumjsonrpc-geth"
+
+[finding.finalized-block-tag]
+file = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc.ex"
+line = 435
+class = "wiring-gap"
+severity = "medium"
+observed = "fetch_block_by_tag and fetch_block_number_by_tag accept earliest/latest/pending/safe but omit finalized. The node BlockNumber contract supports finalized as a committed-head selector, so an otherwise valid client call has no matching helper clause."
+expected = "The explorer block selector helpers should accept the merged BFT node committed-head tags consistently with eth_getBlockByNumber."
+proposal = "In lib/ethereum_jsonrpc.ex, support finalized through both tag helpers and their request builders and verify it against a committed node head; document the equivalence of safe/finalized/latest on this chain."
+owner_domain = 14
+interface = "7.rpc-eth-getblockbynumber"
+
+[finding.finalized-log-tag]
+file = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/logs.ex"
+line = 83
+class = "wiring-gap"
+severity = "medium"
+observed = "Logs.block_number_to_quantity_or_tag omits finalized even though the producer FilterCriteria accepts it. A log request using that standard committed selector fails locally instead of reaching eth_getLogs."
+expected = "The explorer log request builder should preserve every supported committed block tag accepted by the node, with correct fromBlock and toBlock encodings."
+proposal = "In logs.ex, include finalized in the accepted selectors and test both range bounds through the HTTP path against the node FilterAPI. Keep invalid tags refused explicitly."
+owner_domain = 14
+interface = "7.rpc-eth-getlogs"
+
+[finding.block-tag-error-keys]
+file = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/block/by_tag.ex"
+line = 60
+class = "runtime-risk"
+severity = "medium"
+observed = "Block.ByTag.number_from_result recognizes invalid parameters only in a string-keyed code map, but HTTP.standardize_response returns an atom-keyed %{code: -32602} error. HTTP callers receive the raw map instead of the advertised :invalid_tag result."
+expected = "The invalid-parameter error of eth_getBlockByNumber should map to the helper documented {:error, :invalid_tag} result on the configured HTTP transport."
+proposal = "In block/by_tag.ex, consume the canonical transport error shape and test the real HTTP decoding path for -32602. Reuse that shape consistently across IPC and WebSocket error normalization."
+owner_domain = 14
+interface = "7.rpc-eth-getblockbynumber"
+
+[finding.receipt-hex-id-crash]
+file = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/receipts.ex"
+line = 210
+class = "runtime-risk"
+severity = "medium"
+observed = "fetch_by_block_numbers advertises integer or hex quantity heights and uses the supplied height as the request ID. check_equivalence only accepts an integer ID, so a valid hex-height request that returns nonempty receipts raises a FunctionClauseError."
+expected = "Both advertised height encodings should retrieve receipts and logs without changing correlation semantics or crashing after a successful node response."
+proposal = "In receipts.ex, normalize heights to integers for correlation or use independent numeric request IDs with an explicit expected-height map. Test integer and hex forms of the same block with nonempty receipts through HTTP."
+owner_domain = 14
+interface = "7.rpc-eth-getblockreceipts"
+
+[finding.cosmos-type-storage-bound]
+file = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/paxeer_x.ex"
+line = 138
+class = "config-drift"
+severity = "medium"
+observed = "stored_cosmos_transaction_type accepts every nonnegative integer, including the original 0xffffffff marker that the adapter is meant to replace because transactions.type is a signed database integer. Runtime configuration can reintroduce an unstoreable type."
+expected = "The configured replacement type must fit the explorer database type and must not collide with reserved wire markers or supported EVM transaction types."
+proposal = "In paxeer_x.ex and its runtime configuration reader, validate the signed storage bound and the permitted replacement range at boot. Explain the configured 127 default and reject overflow values before indexing."
+owner_domain = 14
+interface = "14.cfg-ethereum-jsonrpc-ethereumjsonrpc-paxeerx"
+
+[finding.native-create-stack]
+file = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/geth/tracer.ex"
+line = 195
+class = "runtime-risk"
+severity = "medium"
+observed = "Geth.Tracer.create_op reads five stack arguments for CREATE and CREATE2. CREATE consumes value/offset/size and CREATE2 adds only salt, so a minimal valid structLog stack fails the match; additional unrelated stack entries are mistaken for output offsets."
+expected = "The native structLog reconstruction path should decode actual EVM creation operands and derive returned code from the creation result rather than CALL-style output operands."
+proposal = "In geth/tracer.ex, implement distinct CREATE and CREATE2 stack rules and their exit handling using actual node debug traces. Add minimal-stack contract creation and nested creation cases without changing the callTracer path."
+owner_domain = 14
+interface = "7.rpc-debug-tracetransaction"
+
+[finding.mixed-count-test-capture]
+file = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/paxeer_x_tx_count_parity_test.exs"
+line = 12
+class = "test-gap"
+severity = "medium"
+observed = "The parity test reads two reconstructed responses and asserts count == 2 without invoking a node. Its first transaction is a Cosmos shell, but rpc/block.go NewBlockAPI configures eth with includeShellReceipts false; those shells belong to the pax view."
+expected = "Requirement 14269.1 needs eth_getBlockByNumber and eth_getBlockTransactionCountByNumber from the same real mixed block and the same namespace, with matching visible transaction indexes."
+proposal = "In paxeer_x_tx_count_parity_test.exs, compare both RPC results from an actual committed block containing EVM and Cosmos transactions. Capture and identify the source revision, keep eth and pax visibility separate, and check every returned index."
+owner_domain = 14
+interface = "7.rpc-eth-getblocktransactioncountbynumber"
+
+[finding.mixed-count-fixture-shape]
+file = "services/explorer/backend/apps/ethereum_jsonrpc/test/support/fixture/paxeer_x/tx_count_parity.json"
+line = 5
+class = "test-gap"
+severity = "medium"
+observed = "tx_count_parity.json labels the reconstructed two-transaction block as an eth_getBlockByNumber response although one transaction is a Cosmos-originated shell. The current eth BlockAPI excludes shell receipts while PaxBlockAPI includes them."
+expected = "A fixture used to prove eth transaction count parity must have the exact namespace, field shape and transaction membership emitted by the node."
+proposal = "Replace test/support/fixture/paxeer_x/tx_count_parity.json with paired block/count captures from one current node revision and committed height; retain any synthetic Cosmos compatibility example under an explicit synthetic name."
+owner_domain = 14
+interface = "7.rpc-eth-getblockbynumber"
+
+[finding.newhead-fields-real-path]
+file = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/paxeer_x_new_head_fields_test.exs"
+line = 0
+class = "test-gap"
+severity = "medium"
+observed = "The test covers useful decoder behavior, but new_head_full.json fields are checked by local decoding and reconstructed fixture data. It does not connect the current node producer through the deployed transport to the explorer consumer."
+expected = "Requirement 14267.1 and brief check_7 require producer-faithful evidence along the real node, HTTP/WebSocket and explorer decoding path, including the relevant refusal case."
+proposal = "Extend services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/paxeer_x_new_head_fields_test.exs with an integration capture from a current disposable Paxeer node. Preserve the existing decoder and mutation assertions, record the source block and revision, and compare the node emitted data with the imported explorer result."
+owner_domain = 14
+interface = "7.ws-eth-subscribe-newheads"
+
+[finding.newhead-parity-real-path]
+file = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/paxeer_x_new_head_parity_test.exs"
+line = 0
+class = "test-gap"
+severity = "medium"
+observed = "The test covers useful decoder behavior, but header/body parity and field mutations are exercised with manually paired fixture responses. It does not connect the current node producer through the deployed transport to the explorer consumer."
+expected = "Requirement 14268.1 and brief check_7 require producer-faithful evidence along the real node, HTTP/WebSocket and explorer decoding path, including the relevant refusal case."
+proposal = "Extend services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/paxeer_x_new_head_parity_test.exs with an integration capture from a current disposable Paxeer node. Preserve the existing decoder and mutation assertions, record the source block and revision, and compare the node emitted data with the imported explorer result."
+owner_domain = 14
+interface = "7.ws-eth-subscribe-newheads"
+
+[finding.syncing-real-path]
+file = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/paxeer_x_syncing_parity_test.exs"
+line = 0
+class = "test-gap"
+severity = "medium"
+observed = "The test covers useful decoder behavior, but syncing responses are hand-built by a local HTTP handler rather than emitted by consensus Status. It does not connect the current node producer through the deployed transport to the explorer consumer."
+expected = "Requirement 14271.1 and 14271.2 and brief check_7 require producer-faithful evidence along the real node, HTTP/WebSocket and explorer decoding path, including the relevant refusal case."
+proposal = "Extend services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/paxeer_x_syncing_parity_test.exs with an integration capture from a current disposable Paxeer node. Preserve the existing decoder and mutation assertions, record the source block and revision, and compare the node emitted data with the imported explorer result."
+owner_domain = 14
+interface = "7.rpc-eth-syncing"
+
+[finding.trace-real-path]
+file = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/paxeer_x_trace_parity_test.exs"
+line = 0
+class = "test-gap"
+severity = "medium"
+observed = "The test covers useful decoder behavior, but trace parity is checked against a stored callTracer block rather than a traced current node block. It does not connect the current node producer through the deployed transport to the explorer consumer."
+expected = "Requirement 14270.1 and brief check_7 require producer-faithful evidence along the real node, HTTP/WebSocket and explorer decoding path, including the relevant refusal case."
+proposal = "Extend services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/paxeer_x_trace_parity_test.exs with an integration capture from a current disposable Paxeer node. Preserve the existing decoder and mutation assertions, record the source block and revision, and compare the node emitted data with the imported explorer result."
+owner_domain = 14
+interface = "7.rpc-debug-traceblockbynumber"
+
+[finding.external-test-endpoint-140]
+file = "services/explorer/backend/apps/ethereum_jsonrpc/test/support/ethereum_jsonrpc/case/geth/http_websocket.ex"
+line = 13
+class = "config-drift"
+severity = "medium"
+observed = "The integration support module hardcodes an external provider URL or a fixed public IP instead of a task-configured disposable Paxeer node. These cases cannot demonstrate the merged chain-125 contract and depend on an unrelated live service."
+expected = "Merged-network integration evidence must bind HTTP and WebSocket endpoints to the same declared disposable node and verify chain id 125 before using its data."
+proposal = "In services/explorer/backend/apps/ethereum_jsonrpc/test/support/ethereum_jsonrpc/case/geth/http_websocket.ex, take paired endpoints from explicit test configuration, use a disposable local node for qualification, and retain other-client examples only as opt-in compatibility profiles with no embedded provider credential."
+owner_domain = 14
+interface = "14.env-ethereum-jsonrpc-http-url"
+
+[finding.external-test-endpoint-142]
+file = "services/explorer/backend/apps/ethereum_jsonrpc/test/support/ethereum_jsonrpc/case/nethermind/http_websocket.ex"
+line = 13
+class = "config-drift"
+severity = "medium"
+observed = "The integration support module hardcodes an external provider URL or a fixed public IP instead of a task-configured disposable Paxeer node. These cases cannot demonstrate the merged chain-125 contract and depend on an unrelated live service."
+expected = "Merged-network integration evidence must bind HTTP and WebSocket endpoints to the same declared disposable node and verify chain id 125 before using its data."
+proposal = "In services/explorer/backend/apps/ethereum_jsonrpc/test/support/ethereum_jsonrpc/case/nethermind/http_websocket.ex, take paired endpoints from explicit test configuration, use a disposable local node for qualification, and retain other-client examples only as opt-in compatibility profiles with no embedded provider credential."
+owner_domain = 14
+interface = "14.env-ethereum-jsonrpc-http-url"
+
+[finding.external-test-endpoint-146]
+file = "services/explorer/backend/apps/ethereum_jsonrpc/test/support/ethereum_jsonrpc/web_socket/case/geth.ex"
+line = 9
+class = "config-drift"
+severity = "medium"
+observed = "The integration support module hardcodes an external provider URL or a fixed public IP instead of a task-configured disposable Paxeer node. These cases cannot demonstrate the merged chain-125 contract and depend on an unrelated live service."
+expected = "Merged-network integration evidence must bind HTTP and WebSocket endpoints to the same declared disposable node and verify chain id 125 before using its data."
+proposal = "In services/explorer/backend/apps/ethereum_jsonrpc/test/support/ethereum_jsonrpc/web_socket/case/geth.ex, take paired endpoints from explicit test configuration, use a disposable local node for qualification, and retain other-client examples only as opt-in compatibility profiles with no embedded provider credential."
+owner_domain = 14
+interface = "14.env-ethereum-jsonrpc-http-url"
+
+[finding.external-test-endpoint-148]
+file = "services/explorer/backend/apps/ethereum_jsonrpc/test/support/ethereum_jsonrpc/web_socket/case/nethermind.ex"
+line = 9
+class = "config-drift"
+severity = "medium"
+observed = "The integration support module hardcodes an external provider URL or a fixed public IP instead of a task-configured disposable Paxeer node. These cases cannot demonstrate the merged chain-125 contract and depend on an unrelated live service."
+expected = "Merged-network integration evidence must bind HTTP and WebSocket endpoints to the same declared disposable node and verify chain id 125 before using its data."
+proposal = "In services/explorer/backend/apps/ethereum_jsonrpc/test/support/ethereum_jsonrpc/web_socket/case/nethermind.ex, take paired endpoints from explicit test configuration, use a disposable local node for qualification, and retain other-client examples only as opt-in compatibility profiles with no embedded provider credential."
+owner_domain = 14
+interface = "14.env-ethereum-jsonrpc-http-url"
+
+[finding.readme-config]
+file = "services/explorer/backend/apps/ethereum_jsonrpc/README.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "The library README instructs configuring top-level url/trace_url/http and presents embedded public-provider URLs for Geth tests. Production selection uses json_rpc_named_arguments transport_options with URL lists and the PaxeerX variant, so the example does not describe the current running path."
+expected = "The library guide should show the effective merged-network HTTP and WebSocket configuration, chain id 125, runtime timeout and guard settings, and credential-free reproducible integration setup."
+proposal = "Rewrite services/explorer/backend/apps/ethereum_jsonrpc/README.md around the active runtime.exs keys and named arguments, with root-path Paxeer node URLs or explicit disposable endpoints. Remove embedded provider identifiers and explain optional other-client profiles."
+owner_domain = 14
+interface = "14.cfg-explorer-json-rpc-named-arguments"
+
+[finding.root-network]
+file = "README.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+observed = "The network overview describes two execution domains, a separate layerxd daemon settling checkpoints through layerxAnchor, and repeats that architecture in the releases section at line 181."
+expected = "The finished network is one BFT Paxeer chain, id 125, with its kernel integrated into paxd and final receipts at commit. Node RPC uses the root path on api1 through api14.mainnet-beta.paxeer.network and api-mainnet-beta.paxeer.network; hosted extension methods are px_."
+proposal = "Rewrite README.md around the integrated chain and current root-path endpoints. Remove separate layerxd/router and custody/anchor/batch settlement instructions, distinguish private test services from public product behavior, and link the actual node and hosted gateway contracts."
+owner_domain = 17
+
+[finding.monorepo-network]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The monorepo introduction identifies layerxd as the LayerX kernel runtime, while lines 71-72 retain custody, checkpoint, guarantor and emergency-exit settlement boundaries."
+expected = "The finished network is one BFT Paxeer chain, id 125, with its kernel integrated into paxd and final receipts at commit. Node RPC uses the root path on api1 through api14.mainnet-beta.paxeer.network and api-mainnet-beta.paxeer.network; hosted extension methods are px_."
+proposal = "Rewrite docs/MONOREPO.md around the integrated chain and current root-path endpoints. Remove separate layerxd/router and custody/anchor/batch settlement instructions, distinguish private test services from public product behavior, and link the actual node and hosted gateway contracts."
+owner_domain = 17
+
+[finding.quickstart-network]
+file = "docs/site/docs/overview/quickstart.md"
+line = 167
+class = "doc-drift"
+severity = "medium"
+observed = "The quickstart sends clients to POST /rpc and /rpc/ws, later publishes those paths on api-mainnet-beta, and describes custody credit and authorized sequencer batches as the funding and receipt path."
+expected = "The finished network is one BFT Paxeer chain, id 125, with its kernel integrated into paxd and final receipts at commit. Node RPC uses the root path on api1 through api14.mainnet-beta.paxeer.network and api-mainnet-beta.paxeer.network; hosted extension methods are px_."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md around the integrated chain and current root-path endpoints. Remove separate layerxd/router and custody/anchor/batch settlement instructions, distinguish private test services from public product behavior, and link the actual node and hosted gateway contracts."
+owner_domain = 8
+
+[finding.control-network]
+file = "docs/site/docs/operators/beta-control.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The control guide directs public accounts to custody credit submitted to a router at line 5 and presents the separate core/sequencer/receipt-authority dependency model as the hosted network."
+expected = "The finished network is one BFT Paxeer chain, id 125, with its kernel integrated into paxd and final receipts at commit. Node RPC uses the root path on api1 through api14.mainnet-beta.paxeer.network and api-mainnet-beta.paxeer.network; hosted extension methods are px_."
+proposal = "Rewrite docs/site/docs/operators/beta-control.md around the integrated chain and current root-path endpoints. Remove separate layerxd/router and custody/anchor/batch settlement instructions, distinguish private test services from public product behavior, and link the actual node and hosted gateway contracts."
+owner_domain = 8
+
+[finding.cluster-network]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The beta-cluster introduction deploys a separate LayerX daemon, and lines 26-50 describe settlement deployment, GuarantorBond, CheckpointRegistry and layerxd custody-profile operation."
+expected = "The finished network is one BFT Paxeer chain, id 125, with its kernel integrated into paxd and final receipts at commit. Node RPC uses the root path on api1 through api14.mainnet-beta.paxeer.network and api-mainnet-beta.paxeer.network; hosted extension methods are px_."
+proposal = "Rewrite docs/site/docs/operators/beta-cluster.md around the integrated chain and current root-path endpoints. Remove separate layerxd/router and custody/anchor/batch settlement instructions, distinguish private test services from public product behavior, and link the actual node and hosted gateway contracts."
+owner_domain = 8
+
+[finding.faucet-network]
+file = "docs/site/docs/platform/faucet.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The faucet introduction routes public funding through custody credit and the router; its service-claim section still publishes lx_requestFunds instead of the hosted gateway px_ namespace."
+expected = "The finished network is one BFT Paxeer chain, id 125, with its kernel integrated into paxd and final receipts at commit. Node RPC uses the root path on api1 through api14.mainnet-beta.paxeer.network and api-mainnet-beta.paxeer.network; hosted extension methods are px_."
+proposal = "Rewrite docs/site/docs/platform/faucet.md around the integrated chain and current root-path endpoints. Remove separate layerxd/router and custody/anchor/batch settlement instructions, distinguish private test services from public product behavior, and link the actual node and hosted gateway contracts."
+owner_domain = 8
+
+[finding.cli-network]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The CLI guide requires --rpc to end in /rpc at line 8 and repeats the restriction at line 131; later receipt instructions retain caller-supplied authorized-batch and sequencer trust-anchor concepts."
+expected = "The finished network is one BFT Paxeer chain, id 125, with its kernel integrated into paxd and final receipts at commit. Node RPC uses the root path on api1 through api14.mainnet-beta.paxeer.network and api-mainnet-beta.paxeer.network; hosted extension methods are px_."
+proposal = "Rewrite docs/site/docs/platform/cli.md around the integrated chain and current root-path endpoints. Remove separate layerxd/router and custody/anchor/batch settlement instructions, distinguish private test services from public product behavior, and link the actual node and hosted gateway contracts."
+owner_domain = 8
+
+[finding.gateway-network]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 50
+class = "doc-drift"
+severity = "medium"
+observed = "The hosted gateway guide publishes POST /rpc, GET /rpc/schema and /rpc/ws, advertises lx_ methods, and describes pinned sequencer keys and independent authorized-batch receipt verification."
+expected = "The finished network is one BFT Paxeer chain, id 125, with its kernel integrated into paxd and final receipts at commit. Node RPC uses the root path on api1 through api14.mainnet-beta.paxeer.network and api-mainnet-beta.paxeer.network; hosted extension methods are px_."
+proposal = "Rewrite docs/site/docs/platform/hosted-gateway.md around the integrated chain and current root-path endpoints. Remove separate layerxd/router and custody/anchor/batch settlement instructions, distinguish private test services from public product behavior, and link the actual node and hosted gateway contracts."
+owner_domain = 8
+
+[finding.workspace-network]
+file = "docs/site/docs/programs/workspace.md"
+line = 121
+class = "doc-drift"
+severity = "medium"
+observed = "The workspace guide describes sequencer execution receipts and separate transaction/batch/result inclusion for settlement at lines 121-142; those instructions present the retired settlement split as the program verification path."
+expected = "The finished network is one BFT Paxeer chain, id 125, with its kernel integrated into paxd and final receipts at commit. Node RPC uses the root path on api1 through api14.mainnet-beta.paxeer.network and api-mainnet-beta.paxeer.network; hosted extension methods are px_."
+proposal = "Rewrite docs/site/docs/programs/workspace.md around the integrated chain and current root-path endpoints. Remove separate layerxd/router and custody/anchor/batch settlement instructions, distinguish private test services from public product behavior, and link the actual node and hosted gateway contracts."
+owner_domain = 8
+
+[finding.wiki-gateway-network]
+file = "docs/wiki/HostedGateway.md"
+line = 50
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki gateway page repeats /rpc, /rpc/schema and /rpc/ws and the old lx_ and sequencer-authority architecture. It also differs from the site page on the advertised method count, 18 versus 15."
+expected = "The finished network is one BFT Paxeer chain, id 125, with its kernel integrated into paxd and final receipts at commit. Node RPC uses the root path on api1 through api14.mainnet-beta.paxeer.network and api-mainnet-beta.paxeer.network; hosted extension methods are px_."
+proposal = "Rewrite docs/wiki/HostedGateway.md around the integrated chain and current root-path endpoints. Remove separate layerxd/router and custody/anchor/batch settlement instructions, distinguish private test services from public product behavior, and link the actual node and hosted gateway contracts."
+owner_domain = 8
+
+[finding.wiki-faucet-network]
+file = "docs/wiki/HostedFaucet.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki faucet introduction sends public funding through custody credit to a router and publishes lx_requestFunds as the JSON-RPC service-claim interface."
+expected = "The finished network is one BFT Paxeer chain, id 125, with its kernel integrated into paxd and final receipts at commit. Node RPC uses the root path on api1 through api14.mainnet-beta.paxeer.network and api-mainnet-beta.paxeer.network; hosted extension methods are px_."
+proposal = "Rewrite docs/wiki/HostedFaucet.md around the integrated chain and current root-path endpoints. Remove separate layerxd/router and custody/anchor/batch settlement instructions, distinguish private test services from public product behavior, and link the actual node and hosted gateway contracts."
+owner_domain = 8
+
+[finding.wiki-cluster-network]
+file = "docs/wiki/BetaCluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki beta cluster guide starts a separate LayerX daemon and deploys GuarantorBond/CheckpointRegistry, retaining the same old settlement architecture as the site guide."
+expected = "The finished network is one BFT Paxeer chain, id 125, with its kernel integrated into paxd and final receipts at commit. Node RPC uses the root path on api1 through api14.mainnet-beta.paxeer.network and api-mainnet-beta.paxeer.network; hosted extension methods are px_."
+proposal = "Rewrite docs/wiki/BetaCluster.md around the integrated chain and current root-path endpoints. Remove separate layerxd/router and custody/anchor/batch settlement instructions, distinguish private test services from public product behavior, and link the actual node and hosted gateway contracts."
+owner_domain = 8
+
+[finding.env-template-sync-and-retired]
+file = "services/explorer/deploy/env/backend.example.env"
+line = 25
+class = "doc-drift"
+severity = "medium"
+observed = "The deployment template describes anchor and lx_* import surfaces at lines 25-26 and tells operators that the PaxeerX adapter reads an eth_syncing refusal as synced at lines 30-33. The node now implements false/progress results and integrated-chain finality."
+expected = "The environment template should explain current chain-125 adapter behavior and the active explorer surfaces without promising retired anchor or lx_ product paths."
+proposal = "Update services/explorer/deploy/env/backend.example.env comments with current merged-network names and synchronization error semantics when the adapter fix lands; keep the existing effective HTTP, WebSocket and throttle variable names."
+owner_domain = 14
+
+[doc.01]
+path = "README.md"
+status = "stale"
+notes = "line 44: root-network — The network overview describes two execution domains, a separate layerxd daemon settling checkpoints through layerxAnchor, and repeats that architecture in the releases section at line 181."
+
+[doc.02]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "line 3: monorepo-network — The monorepo introduction identifies layerxd as the LayerX kernel runtime, while lines 71-72 retain custody, checkpoint, guarantor and emergency-exit settlement boundaries."
+
+[doc.03]
+path = "docs/site/docs/overview/quickstart.md"
+status = "stale"
+notes = "line 167: quickstart-network — The quickstart sends clients to POST /rpc and /rpc/ws, later publishes those paths on api-mainnet-beta, and describes custody credit and authorized sequencer batches as the funding and receipt path."
+
+[doc.04]
+path = "docs/site/docs/operators/beta-control.md"
+status = "stale"
+notes = "line 5: control-network — The control guide directs public accounts to custody credit submitted to a router at line 5 and presents the separate core/sequencer/receipt-authority dependency model as the hosted network."
+
+[doc.05]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "stale"
+notes = "line 3: cluster-network — The beta-cluster introduction deploys a separate LayerX daemon, and lines 26-50 describe settlement deployment, GuarantorBond, CheckpointRegistry and layerxd custody-profile operation."
+
+[doc.06]
+path = "docs/site/docs/platform/faucet.md"
+status = "stale"
+notes = "line 5: faucet-network — The faucet introduction routes public funding through custody credit and the router; its service-claim section still publishes lx_requestFunds instead of the hosted gateway px_ namespace."
+
+[doc.07]
+path = "docs/site/docs/platform/cli.md"
+status = "stale"
+notes = "line 8: cli-network — The CLI guide requires --rpc to end in /rpc at line 8 and repeats the restriction at line 131; later receipt instructions retain caller-supplied authorized-batch and sequencer trust-anchor concepts."
+
+[doc.08]
+path = "docs/site/docs/platform/hosted-gateway.md"
+status = "stale"
+notes = "line 50: gateway-network — The hosted gateway guide publishes POST /rpc, GET /rpc/schema and /rpc/ws, advertises lx_ methods, and describes pinned sequencer keys and independent authorized-batch receipt verification."
+
+[doc.09]
+path = "docs/site/docs/programs/workspace.md"
+status = "stale"
+notes = "line 121: workspace-network — The workspace guide describes sequencer execution receipts and separate transaction/batch/result inclusion for settlement at lines 121-142; those instructions present the retired settlement split as the program verification path."
+
+[doc.10]
+path = "docs/wiki/HostedGateway.md"
+status = "stale"
+notes = "line 50: wiki-gateway-network — The wiki gateway page repeats /rpc, /rpc/schema and /rpc/ws and the old lx_ and sequencer-authority architecture. It also differs from the site page on the advertised method count, 18 versus 15."
+
+[doc.11]
+path = "docs/wiki/HostedFaucet.md"
+status = "stale"
+notes = "line 5: wiki-faucet-network — The wiki faucet introduction sends public funding through custody credit to a router and publishes lx_requestFunds as the JSON-RPC service-claim interface."
+
+[doc.12]
+path = "docs/wiki/BetaCluster.md"
+status = "stale"
+notes = "line 3: wiki-cluster-network — The wiki beta cluster guide starts a separate LayerX daemon and deploys GuarantorBond/CheckpointRegistry, retaining the same old settlement architecture as the site guide."
+
+[doc.13]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/README.md"
+status = "stale"
+notes = "line 11: readme-config — The library README instructs configuring top-level url/trace_url/http and presents embedded public-provider URLs for Geth tests. Production selection uses json_rpc_named_arguments transport_options with URL lists and the PaxeerX variant, so the example does not describe the current running path."
+
+[doc.14]
+path = "services/explorer/deploy/env/backend.example.env"
+status = "stale"
+notes = "line 25: env-template-sync-and-retired — The deployment template describes anchor and lx_* import surfaces at lines 25-26 and tells operators that the PaxeerX adapter reads an eth_syncing refusal as synced at lines 30-33. The node now implements false/progress results and integrated-chain finality."
+
+[doc.15]
+path = "spec/layerx-merge/contracts/explorer-config.md"
+status = "accurate"
+notes = "Reviewed the package-linked interface declarations and notes in this frozen source catalogue; these describe the pinned interfaces, not successful current-node qualification."
+
+[doc.16]
+path = "spec/layerx-merge/contracts/explorer-metrics.md"
+status = "accurate"
+notes = "Reviewed the package-linked interface declarations and notes in this frozen source catalogue; these describe the pinned interfaces, not successful current-node qualification."
+
+[doc.17]
+path = "spec/layerx-merge/contracts/launchpad.md"
+status = "accurate"
+notes = "Reviewed the package-linked interface declarations and notes in this frozen source catalogue; these describe the pinned interfaces, not successful current-node qualification."
+
+[doc.18]
+path = "spec/layerx-merge/contracts/address-inventory.md"
+status = "accurate"
+notes = "Reviewed the package-linked interface declarations and notes in this frozen source catalogue; these describe the pinned interfaces, not successful current-node qualification."
+
+[doc.19]
+path = "spec/layerx-merge/contracts/evm-rpc.md"
+status = "accurate"
+notes = "Reviewed the package-linked interface declarations and notes in this frozen source catalogue; these describe the pinned interfaces, not successful current-node qualification."
+
+[doc.20]
+path = "spec/layerx-merge/contracts/platform-cli.md"
+status = "accurate"
+notes = "Reviewed the package-linked interface declarations and notes in this frozen source catalogue; these describe the pinned interfaces, not successful current-node qualification."
+
+[doc.21]
+path = "spec/layerx-merge/contracts/platform-gateway.md"
+status = "stale"
+notes = "Reviewed gateway error and subscription rows. The frozen service route table at line 1123 retains /rpc, /rpc/schema and /rpc/ws, superseded by audit brief network fact_2; the site and wiki gateway findings request the same endpoint rewrite."
+
+[interface_review.01]
+interface = "14.cfg-ethereum-jsonrpc-ethereumjsonrpc-tracer"
+direction = "produces"
+notes = "config/config.exs defines service/adapter/trace_key/env/disabled? for EthereumJSONRPC.Tracer. tracer.ex uses Spandex.Tracer with otp_app :ethereum_jsonrpc and the HTTP and Geth paths open spans through that module; development/production overrides retain the same keys."
+findings = []
+
+[interface_review.02]
+interface = "14.cfg-logger-ethereum-jsonrpc"
+direction = "produces"
+notes = "config/config.exs declares the ethereum_jsonrpc logger backend metadata filter, file path and rotation settings. Library errors carry application metadata and use that backend. DecodeError and WebSocket URL redaction gaps are recorded at the producing log calls."
+findings = []
+
+[interface_review.03]
+interface = "14.met-explorer-json-rpc-requests-count"
+direction = "produces"
+notes = "The declared metric name, type and bounded method/class label set match Instrumenter or Throttle.Metrics. HTTP transports and throttle publish are the producers; the default Prometheus registry is the consumer. Counter attribution and gauge aggregation issues are recorded separately; no metric gate was executed."
+findings = ["http-batch-metrics-40", "http-batch-metrics-41"]
+
+[interface_review.04]
+interface = "14.met-explorer-json-rpc-requests-errors-count"
+direction = "produces"
+notes = "The declared metric name, type and bounded method/class label set match Instrumenter or Throttle.Metrics. HTTP transports and throttle publish are the producers; the default Prometheus registry is the consumer. Counter attribution and gauge aggregation issues are recorded separately; no metric gate was executed."
+findings = ["http-gzip-errors-40", "http-gzip-errors-41"]
+
+[interface_review.05]
+interface = "14.met-explorer-json-rpc-throttle-coalesced-count"
+direction = "produces"
+notes = "Throttle increments Metrics.coalesced(class) when a follower attaches to an existing identical in-flight leader. Metrics exports a counter under the default registry with only default/archive/trace class labels; leader completion returns the same result to followers. No endpoint URL or credentials are labels."
+findings = []
+
+[interface_review.06]
+interface = "14.met-explorer-json-rpc-throttle-inflight"
+direction = "produces"
+notes = "The declared metric name, type and bounded method/class label set match Instrumenter or Throttle.Metrics. HTTP transports and throttle publish are the producers; the default Prometheus registry is the consumer. Counter attribution and gauge aggregation issues are recorded separately; no metric gate was executed."
+findings = ["throttle-inflight-gauge"]
+
+[interface_review.07]
+interface = "14.met-explorer-json-rpc-throttle-queue-depth"
+direction = "produces"
+notes = "The declared metric name, type and bounded method/class label set match Instrumenter or Throttle.Metrics. HTTP transports and throttle publish are the producers; the default Prometheus registry is the consumer. Counter attribution and gauge aggregation issues are recorded separately; no metric gate was executed."
+findings = ["throttle-queue-gauge"]
+
+[interface_review.08]
+interface = "14.met-explorer-json-rpc-throttle-wait-time-milliseconds"
+direction = "produces"
+notes = "Throttle records monotonic queue-to-admission elapsed milliseconds through Metrics.wait_time(class, milliseconds). The histogram declares duration_unit false and millisecond buckets, so producer units agree with the exported metric name and consumer interpretation."
+findings = []
+
+[interface_review.09]
+interface = "14.cfg-ethereum-jsonrpc-ethereumjsonrpc-geth"
+direction = "consumes"
+notes = "runtime.exs produces block_traceable?, allow_empty_traces?, debug_trace_timeout and tracer under EthereumJSONRPC.Geth. geth.ex reads those keys to choose per-block tracing, empty-trace policy and call/custom/native tracers; debug_trace_timeout is sent to node TraceConfig and parsed for client timeout. The current default is call_tracer and 5s; malformed parser input is recorded separately."
+findings = ["duration-parser-partial"]
+
+[interface_review.10]
+interface = "14.cfg-ethereum-jsonrpc-ethereumjsonrpc-http"
+direction = "consumes"
+notes = "runtime.exs supplies HTTP.headers as string pairs and gzip_enabled? as a boolean. HTTP.headers adds Accept-Encoding only when enabled and Helper.try_unzip reads the same key. HTTPoison/Tesla return inflated response bytes; compressed error instrumentation is recorded separately."
+findings = []
+
+[interface_review.11]
+interface = "14.cfg-ethereum-jsonrpc-ethereumjsonrpc-http-throttle"
+direction = "consumes"
+notes = "runtime.exs supplies max_inflight 32, rps 200, trace_max_inflight 4, archive_max_inflight 8 and coalesce? true. Throttle merges those keys with test overrides, classifies each request and debits per-endpoint weighted tokens. Ticket generations reject stale completion; outage admission and restart cap gaps are recorded separately."
+findings = ["throttle-admission-unbounded", "throttle-restart-cap"]
+
+[interface_review.12]
+interface = "14.cfg-ethereum-jsonrpc-ethereumjsonrpc-paxeerx"
+direction = "consumes"
+notes = "runtime.exs supplies cosmos_transaction_type 127 and native_coin_decimals 18. PaxeerX reads those module keys for Cosmos marker normalization and native display metadata; bank_denom_decimals remains 6 and wei scaling remains 10^12. The configured storage-type upper-bound gap is recorded separately."
+findings = ["cosmos-type-storage-bound"]
+
+[interface_review.13]
+interface = "14.cfg-ethereum-jsonrpc-ethereumjsonrpc-pendingtransaction"
+direction = "consumes"
+notes = "runtime.exs supplies PendingTransaction.type from ETHEREUM_JSONRPC_PENDING_TRANSACTIONS_TYPE with default default. Nethermind chooses its Geth pending path only for string geth, otherwise its parity path. PaxeerX delegates to its Geth-compatible pending behavior; other-client source selection remains explicit."
+findings = []
+
+[interface_review.14]
+interface = "14.cfg-ethereum-jsonrpc-ethereumjsonrpc-requestcoordinator"
+direction = "consumes"
+notes = "Application reads rolling_window_opts to start ETS windows, and RequestCoordinator reads wait_per_timeout/max_jitter for backoff. Optional top-level throttle_rate_limit starts the separate throttle window. The request path incorrectly checks the limit inside throttle_rolling_window_opts; see coordinator-rate-limit-key."
+findings = ["coordinator-rate-limit-key"]
+
+[interface_review.15]
+interface = "14.cfg-ethereum-jsonrpc-ethereumjsonrpc-utility-endpointavailabilitychecker"
+direction = "consumes"
+notes = "runtime.exs enables EndpointAvailabilityChecker and the checker reads that same module key before scheduling a probe pass. Probe results feed EndpointAvailabilityObserver URL-type state rather than changing the declared node method payload."
+findings = []
+
+[interface_review.16]
+interface = "14.cfg-ethereum-jsonrpc-ethereumjsonrpc-websocket-retryworker"
+direction = "consumes"
+notes = "runtime.exs parses ETHEREUM_JSONRPC_WS_RETRY_INTERVAL into milliseconds under retry_interval, default one minute. RetryWorker reads retry_interval and uses Process.send_after. It retains one unavailable endpoint state; replacement client lifecycle defects are recorded in WebSocket findings."
+findings = []
+
+[interface_review.17]
+interface = "14.cfg-ethereum-jsonrpc-ipc-path"
+direction = "consumes"
+notes = "runtime.exs takes IPC_PATH and Application passes it as the pool worker path when rpc_transport is :ipc. IPC.init opens a local gen_tcp socket at that path. Timeout coherence and node-restart recovery need the recorded IPC proposals."
+findings = ["ipc-timeout-mismatch"]
+
+[interface_review.18]
+interface = "14.cfg-ethereum-jsonrpc-rpc-transport"
+direction = "consumes"
+notes = "ConfigHelper parses ETHEREUM_JSONRPC_TRANSPORT into the :http/:ipc choice used by Application.add_ipc_client; higher-level named arguments select the corresponding transport module. HTTP standardizes error code/message/data while single IPC errors currently do not."
+findings = ["ipc-dead-socket", "ipc-error-shape"]
+
+[interface_review.19]
+interface = "14.cfg-explorer-chain-type"
+direction = "consumes"
+notes = "runtime.exs supplies :explorer chain_type and compile-time environment helpers use it for Block/Receipt/Transaction field branches. Variant.get_default_variant special-cases rsk/filecoin and otherwise geth; the deployment explicitly supplies paxeer_x variant. Chain-specific options are not inferred from arbitrary incoming JSON."
+findings = []
+
+[interface_review.20]
+interface = "14.cfg-explorer-json-rpc-named-arguments"
+direction = "consumes"
+notes = "Explorer configuration supplies transport, transport_options and variant. CommonHelper reads its transport_options when no explicit options are passed, then selects healthy primary/fallback URL lists by request type. Caller-supplied named arguments override that fallback; README example drift is recorded."
+findings = ["readme-config"]
+
+[interface_review.21]
+interface = "14.cfg-explorer-subscribe-named-arguments"
+direction = "consumes"
+notes = "The listed WebSocket supervisor caller actually reads :indexer realtime_overrides/subscribe_named_arguments, not :explorer subscribe_named_arguments. The registry association is an atom-name match across applications; the live replacement-client path uses indexer configuration as documented in the corresponding indexer row."
+findings = []
+
+[interface_review.22]
+interface = "14.cfg-explorer-transport"
+direction = "consumes"
+notes = "The listed top-level library caller lines describe or destructure :transport in JSON-RPC named arguments, rather than reading Application.get_env(:explorer, :transport). Dispatch uses the transport module present in the passed keyword list. This registry edge conflates a field name with a global application setting."
+findings = []
+
+[interface_review.23]
+interface = "14.cfg-indexer-block-ranges"
+direction = "consumes"
+notes = "runtime.exs supplies :indexer block_ranges as the configured range expression; RangesHelper reads the same key, parses limits and intersects requested block spans. No range state is persisted inside this library."
+findings = []
+
+[interface_review.24]
+interface = "14.cfg-indexer-indexer-fetcher-tokeninstance-helper"
+direction = "consumes"
+notes = "NFT.fetch_token_instances reads base_uri_retry? under Indexer.Fetcher.TokenInstance.Helper before retrying the VM-refusal subset with a base-URI call. Other host filtering keys belong to later media retrieval; this slice only constructs and decodes contract calls."
+findings = []
+
+[interface_review.25]
+interface = "14.cfg-indexer-subscribe-named-arguments"
+direction = "consumes"
+notes = "WebSocket.Supervisor.start_client first reads :indexer realtime_overrides[:subscribe_named_arguments] and otherwise :indexer subscribe_named_arguments. It extracts transport_options.web_socket to start the replacement client with retained state. Producer and reader key names match; stable public handle ownership does not survive failback."
+findings = []
+
+[interface_review.26]
+interface = "14.cfg-indexer-trace-block-ranges"
+direction = "consumes"
+notes = "runtime.exs supplies :indexer trace_block_ranges and RangesHelper reads that exact application key, intersects with block_ranges and checks traceable ranges. The parser uses explicit configured range boundaries rather than an implicit tenant namespace."
+findings = []
+
+[interface_review.27]
+interface = "14.cfg-logger-error"
+direction = "consumes"
+notes = "Registry callers in ethereum_jsonrpc.ex are error tuple atoms and callback specifications, not reads of the logger backend named :error. No producer/consumer relationship with that logger configuration can be inferred from those atom matches."
+findings = []
+
+[interface_review.28]
+interface = "14.cfg-logger-explorer"
+direction = "consumes"
+notes = "Registry callers use the :explorer application atom for chain_type and json_rpc_named_arguments, not the logger backend named :explorer. These matches do not make the library consume that logger backend configuration."
+findings = []
+
+[interface_review.29]
+interface = "14.cfg-logger-indexer"
+direction = "consumes"
+notes = "Registry callers read :indexer settings for subscriptions, ranges and token helper behavior, not the logger backend named :indexer. Backend metadata is handled by logging configuration; an application-name match is not a separate RPC interface."
+findings = []
+
+[interface_review.30]
+interface = "14.cfg-nft-media-handler-standalone-media-worker"
+direction = "consumes"
+notes = "Application.start reads :nft_media_handler standalone_media_worker?. True starts only the HTTP Throttle child for this application; false starts HTTP pooling, rolling windows and endpoint monitoring plus optional IPC. The same boolean key is produced by runtime.exs."
+findings = []
+
+[interface_review.31]
+interface = "14.cfg-spandex-phoenix-tracer"
+direction = "consumes"
+notes = "The listed Geth callers choose debug TraceConfig.tracer and have no read of :spandex_phoenix tracer configuration. This registry edge conflates the EVM tracer selector with the Phoenix tracing module; actual application spans use EthereumJSONRPC.Tracer."
+findings = []
+
+[interface_review.32]
+interface = "14.env-ethereum-jsonrpc-disable-archive-balances"
+direction = "consumes"
+notes = "runtime.exs parses ETHEREUM_JSONRPC_DISABLE_ARCHIVE_BALANCES and also disables archive balances when no trace URL is configured. Shared balance fetching consumes the resulting disable_archive_balances? and archive_balances_window keys. The listed test changes application settings to exercise fallback; it is not another environment parser."
+findings = []
+
+[interface_review.33]
+interface = "14.env-ethereum-jsonrpc-http-url"
+direction = "consumes"
+notes = "ConfigHelper selects ETHEREUM_JSONRPC_HTTP_URLS or singular ETHEREUM_JSONRPC_HTTP_URL and produces HTTP URL lists in named arguments. CommonHelper selects a currently available URL, and HTTP passes it through the guard and selected adapter. Unit support uses the same explicit test environment; hardcoded other-client integration profiles are recorded separately."
+findings = ["external-test-endpoint-140", "external-test-endpoint-142", "external-test-endpoint-146", "external-test-endpoint-148"]
+
+[interface_review.34]
+interface = "14.env-ethereum-jsonrpc-transport"
+direction = "consumes"
+notes = "ConfigHelper accepts the configured HTTP or IPC transport and runtime.exs publishes it. Test support uses the same environment selection to provide transport modules and options. WebSocket subscription configuration is separate and cannot replace HTTP calls with a wss URL."
+findings = []
+
+[interface_review.35]
+interface = "14.env-ethereum-jsonrpc-variant"
+direction = "consumes"
+notes = "Variant.get reads ETHEREUM_JSONRPC_VARIANT, lowercases the module suffix and aliases parity to nethermind. The deployment supplies paxeer_x and shared dispatch resolves it to PaxeerX; this is independent of the rsk-specific runtime flag cited by the registry producer line."
+findings = []
+
+[interface_review.36]
+interface = "4.sol-mocksidiorarouter-revertreason-61b5b636"
+direction = "consumes"
+notes = "Besu trace.ex reads the JSON trace revertReason field; it neither invokes MockSidioraRouter nor consumes its Solidity getter. This registry caller is a lexical field-name match, so no cross-domain ABI or lifecycle dependency is established."
+findings = []
+
+[interface_review.37]
+interface = "6.pc-0x1005-params"
+direction = "consumes"
+notes = "FetchedCode, Nonce and SignedAuthorization define generic params conversion functions. None sends selector params() to staking address 0x1005; the inferred registry edge is a lexical match rather than an RPC invocation."
+findings = []
+
+[interface_review.38]
+interface = "6.sol-cw721erc721pointer-tokenuri-c87b56dd"
+direction = "consumes"
+notes = "NFT sends tokenURI(uint256) selector c87b56dd through Contract eth_call with a uint256 token ID and decodes one ABI string; CW721ERC721Pointer.tokenURI emits that string shape. Target address comes from the requested token contract."
+findings = []
+
+[interface_review.39]
+interface = "6.sol-evmcompatibilitytester-gaslimit-f68016b7"
+direction = "consumes"
+notes = "Block and Blocks read the JSON-RPC gasLimit field as a quantity. They do not call EVMCompatibilityTester.gasLimit(); the registry association is a lexical field-name match."
+findings = []
+
+[interface_review.40]
+interface = "6.sol-mynft-tokenuri-c87b56dd"
+direction = "consumes"
+notes = "NFT uses the same tokenURI(uint256) selector and string return ABI as MyNFT.tokenURI. This is a fungible ERC721 selector dependency rather than a fixed MyNFT deployment dependency."
+findings = []
+
+[interface_review.41]
+interface = "7.rpc-debug-traceblockbynumber"
+direction = "consumes"
+notes = "Node DebugAPI accepts hex block selectors or transaction hashes plus tracer configuration. Geth/PaxeerX select callTracer and decode call/create/selfdestruct trees with explicit transaction index and traceAddress; structLog native/custom alternatives remain conditional. Stored fixture tests do not establish current producer integration; see trace-real-path and native-create-stack."
+findings = ["trace-real-path"]
+
+[interface_review.42]
+interface = "7.rpc-debug-tracetransaction"
+direction = "consumes"
+notes = "Node DebugAPI accepts hex block selectors or transaction hashes plus tracer configuration. Geth/PaxeerX select callTracer and decode call/create/selfdestruct trees with explicit transaction index and traceAddress; structLog native/custom alternatives remain conditional. Stored fixture tests do not establish current producer integration; see trace-real-path and native-create-stack."
+findings = ["native-create-stack"]
+
+[interface_review.43]
+interface = "7.rpc-eth-blocknumber"
+direction = "consumes"
+notes = "InfoAPI.BlockNumber emits hexutil.Uint64 at the node committed/pending watermarks. The library block-number helper sends no params, decodes the hex quantity and preserves an RPC error through HTTP standardization. It does not infer finality from a transport acknowledgment."
+findings = []
+
+[interface_review.44]
+interface = "7.rpc-eth-chainid"
+direction = "consumes"
+notes = "InfoAPI.ChainId emits hexutil.Big, so chain 125 is 0x7d. fetch_chain_id sends an empty parameter list and quantity_to_integer accepts that encoding. A decimal unit example is decoder compatibility rather than current-node wire evidence."
+findings = []
+
+[interface_review.45]
+interface = "7.rpc-eth-getbalance"
+direction = "consumes"
+notes = "StateAPI.GetBalance accepts an address plus BlockNumberOrHash and emits a wei-denominated hexutil.Big. FetchedBalance(s) send address/block selectors, correlate batch IDs and convert quantity results to integer import values. Archive-balance fallback is configuration-controlled; bank uhpx precision is not applied to the RPC result a second time."
+findings = []
+
+[interface_review.46]
+interface = "7.rpc-eth-getblockbyhash"
+direction = "consumes"
+notes = "BlockAPI.GetBlockByHash accepts a 32-byte hash and fullTx boolean and emits a map or null. Block.ByHash sends true for full indexing; Blocks correlates IDs and Block/Transactions convert quantities. PaxeerX compares hash/number/parentHash/receiptsRoot with newHeads and falls back to number refetch on inconsistency; missing real producer capture is recorded."
+findings = []
+
+[interface_review.47]
+interface = "7.rpc-eth-getblockbynumber"
+direction = "consumes"
+notes = "BlockAPI.GetBlockByNumber accepts a quantity or committed tag and fullTx boolean. Block.ByNumber/ByTag and Blocks preserve IDs then decode block and transaction fields. The eth producer excludes Cosmos shell receipts whereas pax includes them; the mixed-count fixture violates that distinction. Finalized helper omission and invalid-tag error normalization are recorded separately."
+findings = ["finalized-block-tag", "block-tag-error-keys", "mixed-count-fixture-shape"]
+
+[interface_review.48]
+interface = "7.rpc-eth-getblockreceipts"
+direction = "consumes"
+notes = "BlockAPI.GetBlockReceipts accepts BlockNumberOrHash and emits receipt maps with transaction positions, status, gas and logs. Receipts.ByBlockNumber sends a quantity and Receipts correlates the batch by expected height before Receipt/Logs conversion. Hex height IDs hit an integer-only assertion branch; see receipt-hex-id-crash."
+findings = ["receipt-hex-id-crash"]
+
+[interface_review.49]
+interface = "7.rpc-eth-getblocktransactioncountbynumber"
+direction = "consumes"
+notes = "The node count API returns hexutil.Uint or null for an absent block and scopes counts through the same domain/block visibility as its block API. The package parity test never calls it and instead compares two constructed responses with an eth/pax shell mismatch; see both mixed-count findings."
+findings = ["mixed-count-test-capture"]
+
+[interface_review.50]
+interface = "7.rpc-eth-getcode"
+direction = "consumes"
+notes = "StateAPI.GetCode accepts address and BlockNumberOrHash and returns bytecode as 0x-prefixed hexutil.Bytes. FetchedCode(s) preserve code bytes, requested address and block correlation in explorer import params; missing-code/error handling remains explicit."
+findings = []
+
+[interface_review.51]
+interface = "7.rpc-eth-getlogs"
+direction = "consumes"
+notes = "FilterAPI.GetLogs accepts address/topic and block filters and returns FilterLog objects. Logs sends range quantities/tags and Log converts blockNumber/logIndex/transactionIndex to integers while preserving topics/data/hash bytes and removed. The finalized filter-builder omission is recorded separately; the configured HTTP path is the supported query transport."
+findings = ["finalized-log-tag"]
+
+[interface_review.52]
+interface = "7.rpc-eth-getstorageat"
+direction = "consumes"
+notes = "StateAPI.GetStorageAt accepts address, slot key and BlockNumberOrHash and emits a 32-byte hexutil.Bytes word. The library helper passes the address/key/block selector and returns the hex word without converting it into a decimal amount; HTTP errors preserve their code and optional data."
+findings = []
+
+[interface_review.53]
+interface = "7.rpc-eth-gettransactionbyblockhashandindex"
+direction = "consumes"
+notes = "TransactionAPI takes hash plus hexutil.Uint position and returns RPCTransaction or null. Shared transaction requests encode the index as a quantity and Transaction conversion preserves hash/block/index plus typed fields. No shell transaction from the pax namespace is assumed in an eth-only view."
+findings = []
+
+[interface_review.54]
+interface = "7.rpc-eth-gettransactionbyblocknumberandindex"
+direction = "consumes"
+notes = "TransactionAPI takes BlockNumber plus hexutil.Uint position. The library encodes the numeric selector and position as quantities, then decodes the same RPCTransaction shape as hash lookup, keeping null separate from an error."
+findings = []
+
+[interface_review.55]
+interface = "7.rpc-eth-gettransactionbyhash"
+direction = "consumes"
+notes = "TransactionAPI returns RPCTransaction or null from a transaction hash, including pending results. Transaction(s) converts quantity fields and nullable block context; the PaxeerX compatibility path normalizes a legacy 0xffffffff Cosmos type before database params. The replacement-type configuration bound is recorded separately."
+findings = []
+
+[interface_review.56]
+interface = "7.rpc-eth-gettransactioncount"
+direction = "consumes"
+notes = "TransactionAPI returns the account nonce as hexutil.Uint64 for address and BlockNumberOrHash. Nonce/Nonces construct address/block requests, convert the quantity to an integer and correlate per-account failures. This is the EVM account nonce, not an LXP activity sequence."
+findings = []
+
+[interface_review.57]
+interface = "7.rpc-eth-gettransactionreceipt"
+direction = "consumes"
+notes = "TransactionAPI emits receipt maps or null keyed by transaction hash. Receipts.ByTransactionHash constructs requests with independent correlation IDs; Receipt decodes status 0x0/0x1, gas, transaction positions and Logs. A committed receipt is final under the merged chain; the adapter does not manufacture an authorized-batch receipt."
+findings = []
+
+[interface_review.58]
+interface = "7.rpc-eth-subscribe"
+direction = "consumes"
+notes = "Node SubscriptionAPI and built-in subscribe/unsubscribe emit string IDs and eth_subscription params.subscription/result; the gateway relays that envelope and WebSocketClient maps server IDs to local Subscription references. Header quantities go through PaxeerX body refetch and parity checks. Failback handle ownership and missing recovery evidence are recorded in ws-handle-after-failback and ws-reconnect-test-absent."
+findings = ["ws-old-server-ids", "ws-unbounded-pending"]
+
+[interface_review.59]
+interface = "7.rpc-eth-syncing"
+direction = "consumes"
+notes = "Node InfoAPI.Syncing emits false or startingBlock/currentBlock/highestBlock hex quantities and propagates Status errors. HTTP standardizes the result and PaxeerX decodes the false/progress forms, but drops every error into synced; see sync-error-becomes-synced and syncing-real-path."
+findings = ["sync-error-becomes-synced", "sync-legacy-test", "syncing-real-path"]
+
+[interface_review.60]
+interface = "7.rpc-eth-unsubscribe"
+direction = "consumes"
+notes = "Node SubscriptionAPI and built-in subscribe/unsubscribe emit string IDs and eth_subscription params.subscription/result; the gateway relays that envelope and WebSocketClient maps server IDs to local Subscription references. Header quantities go through PaxeerX body refetch and parity checks. Failback handle ownership and missing recovery evidence are recorded in ws-handle-after-failback and ws-reconnect-test-absent."
+findings = ["ws-handle-after-failback", "ws-reconnect-test-absent"]
+
+[interface_review.61]
+interface = "7.rpc-txpool-content"
+direction = "consumes"
+notes = "TxPoolAPI.Content emits pending/queued maps grouped by sender then nonce containing RPCTransaction values. Geth PendingTransaction selects the content method and flattens actual pending transactions into params. Pending data remains node-local and no separate sequencer receipt is used to establish commitment."
+findings = []
+
+[interface_review.62]
+interface = "7.ws-eth-subscribe-newheads"
+direction = "consumes"
+notes = "Node SubscriptionAPI and built-in subscribe/unsubscribe emit string IDs and eth_subscription params.subscription/result; the gateway relays that envelope and WebSocketClient maps server IDs to local Subscription references. Header quantities go through PaxeerX body refetch and parity checks. Failback handle ownership and missing recovery evidence are recorded in ws-handle-after-failback and ws-reconnect-test-absent."
+findings = ["ws-crash-recovery", "ws-termination-envelope", "newhead-fields-real-path", "newhead-parity-real-path"]
+
+[interface_review.63]
+interface = "8.err-cli-32603"
+direction = "consumes"
+notes = "FetchedBeneficiaries test uses a generic JSON-RPC -32603 Internal error fixture. It does not invoke the CLI A2A task ledger; identical numeric error codes do not establish that producer-consumer path."
+findings = []
+
+[interface_review.64]
+interface = "8.err-gateway-32603"
+direction = "consumes"
+notes = "FetchedBeneficiaries test uses generic JSON-RPC -32603. There is no gateway call at this registry caller; transport standardization preserves code/message/data for actual HTTP errors."
+findings = []
+
+[interface_review.65]
+interface = "8.rpc-gateway-eth-subscribe"
+direction = "consumes"
+notes = "Node SubscriptionAPI and built-in subscribe/unsubscribe emit string IDs and eth_subscription params.subscription/result; the gateway relays that envelope and WebSocketClient maps server IDs to local Subscription references. Header quantities go through PaxeerX body refetch and parity checks. Failback handle ownership and missing recovery evidence are recorded in ws-handle-after-failback and ws-reconnect-test-absent."
+findings = []
+
+[interface_review.66]
+interface = "8.rpc-gateway-eth-subscription"
+direction = "consumes"
+notes = "Node SubscriptionAPI and built-in subscribe/unsubscribe emit string IDs and eth_subscription params.subscription/result; the gateway relays that envelope and WebSocketClient maps server IDs to local Subscription references. Header quantities go through PaxeerX body refetch and parity checks. Failback handle ownership and missing recovery evidence are recorded in ws-handle-after-failback and ws-reconnect-test-absent."
+findings = []
+
+[interface_review.67]
+interface = "8.rpc-gateway-eth-unsubscribe"
+direction = "consumes"
+notes = "Node SubscriptionAPI and built-in subscribe/unsubscribe emit string IDs and eth_subscription params.subscription/result; the gateway relays that envelope and WebSocketClient maps server IDs to local Subscription references. Header quantities go through PaxeerX body refetch and parity checks. Failback handle ownership and missing recovery evidence are recorded in ws-handle-after-failback and ws-reconnect-test-absent."
+findings = []
+
+[requirement_review.parity]
+requirements = ["14267.1", "14268.1", "14269.1", "14270.1", "14271.1", "14271.2"]
+notes = "PaxeerX refetches full blocks, checks parentHash and receiptsRoot against newHeads and rejects changed fields; Geth callTracer flattens call/create positions; syncing decodes false/progress. Existing local mutation tests are useful but reconstructed fixtures do not establish producer parity. Count fixture namespace membership and synchronization failures require the proposals above."
+
+[requirement_review.guard]
+requirements = ["18698.1"]
+notes = "Tickets include a guard-generation identity and completion/release refuses old tickets. The existing restart test asserts an old completion leaves the replacement slot occupied. Actual outstanding work can still exceed the cap across guard restart, recorded separately without weakening the stale-ticket criterion."
+
+[audit_limits.22.30.147]
+notes = "This record proposes source and documentation repairs only. Runtime integration tests were inspected, not executed; the declared qualification checks the record and graph. No chain state, remote endpoint or production configuration was changed. Arbitrum and zkSync batch/sequencer wording belongs to other-chain adapters. This library creates no tenant database namespace; tenant routing depends on configured node endpoints and headers plus downstream explorer scoping. Multi-domain explorer indexing isolation is not proven by this slice."
+qualification = "Bounded build and hf-done evidence is produced by the task runner after this record is complete."

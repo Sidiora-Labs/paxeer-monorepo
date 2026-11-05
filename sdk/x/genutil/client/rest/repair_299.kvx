@@ -1,0 +1,8 @@
+[repair.22.31.299]
+finding = "gentx-rest-codec-mismatch"
+proof = "TestRepair_299_GenesisTxRoundTrip"
+additional_tests = ["TestRepair_299_EmptyGenesisTxs", "TestRepair_299_InvalidGenesisTx"]
+representation = "A bare JSON array of transactions encoded with the configured TxConfig, preserving messages, signer metadata and signatures."
+baseline = "Not executed: the explicit task order requires implementation before gates and prohibits running verify_cmd by hand. No baseline failure is claimed."
+wiring_requests = []
+evidence = "The runner's hf-build/hf-done ledger records the verified candidate revision, exact command, exit code and private log location."

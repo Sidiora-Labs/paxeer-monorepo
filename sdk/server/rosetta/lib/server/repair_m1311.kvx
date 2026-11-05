@@ -1,0 +1,20 @@
+[task.22.33.1311]
+audit = "22.30.70"
+acceptance = "22998.1"
+baseline = "No unchanged-tree verification ran: the explicit implementation-first gate order prohibits the inherited baseline instruction. No pre-change test failure is claimed."
+evidence = "The runner records the exact candidate revision, command, exit and private log; qualification requires hf-done passing at the hf-build revision."
+wiring_requests = ["sdk/server/rosetta/client_online.go — domain 15 (cosmos-fork): retain the grpc.ClientConn created by Client.Bootstrap, implement Close() error to release it, and close it when bootstrap fails; Server now owns io.Closer clients, but the current concrete online client has no closeable interface."]
+
+[finding.rosetta-resource-lifecycle]
+test = "TestRepairM_1311_RestartRecovery"
+additional_tests = ["TestRepairM_1311_ShutdownBeforeStart", "TestRepairM_1311_StartupFailuresReleaseClient"]
+proof = "Two server start/stop cycles reuse one Rosetta address through the real HTTP router and production offline adapter/client, expose the replacement node network identity, and close a real gRPC health transport composed into the fixture client. Server copies share shutdown ownership. Constructor and listener failures release owned clients; shutdown before Start prevents late binding."
+remaining = "Concrete online gRPC connection retention requires the out-of-scope domain 15 wiring request; the offline fixture proves the Server ownership contract, not closure of the current concrete online client's hidden connection."
+
+[gotcha.baseline-order]
+observed = "The inherited baseline verification instruction conflicts with the explicit bounded gate order."
+action = "Implement fully, format, then run hf-build and hf-done only."
+
+[gotcha.client-ownership-scope]
+observed = "The concrete online client's Bootstrap discards its grpc.ClientConn and exposes no Close method, in a file outside this task's allowed paths."
+action = "Retain closeable clients in Server and record the concrete client change as a wiring request without modifying the out-of-scope file."

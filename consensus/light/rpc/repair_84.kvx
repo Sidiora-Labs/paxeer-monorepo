@@ -1,0 +1,31 @@
+[task]
+id = "22.31.84"
+audit = "22.30.46"
+acceptance = "22998.1"
+verification = "hf-done: go test -count=1 -run '^TestRepair_84_' ./consensus/light/rpc/ plus graph checks; revision and private evidence are recorded by the runner."
+baseline = "Not run: the explicit allowed-gate order requires full implementation then hf-build then hf-done and prohibits running verify_cmd by hand; no baseline failures are claimed."
+wiring = "None: all six repairs and their producer/transport/consumer tests fit the declared paths."
+
+[finding.10]
+test = "TestRepair_84_ResultCommitment"
+proof = "Real ApplyBlock with kvstore writes transaction and empty-block results; node handler, light proxy and HTTP consumer agree with the following header commitment; mutated deterministic results are rejected with hash validation enabled."
+
+[finding.13]
+test = "TestRepair_84_QueryKeyAndSnapshot"
+proof = "Real memiavl versions, SDK commitment query handler and ICS23 store-root proofs traverse HTTP and light verification; other keys and snapshots with otherwise valid proofs are rejected, while membership, absence and latest snapshot queries verify."
+
+[finding.14]
+test = "TestRepair_84_TransactionBindings"
+proof = "Real transaction index and node Tx handler emit inclusion proofs from an executed block; substituted requested transaction, returned transaction, hash, position and proof transaction are rejected through the light proxy."
+
+[finding.22]
+test = "TestRepair_84_Status"
+proof = "A running production light proxy exposes configured chain identity and trusted state to the production HTTP client, including deferred batch decoding."
+
+[finding.23]
+test = "TestRepair_84_MissingHashes"
+proof = "Known, unknown, nil, empty, short and long hashes traverse the real node block store handlers, HTTP, light proxy and HTTP consumer with identical populated or empty-result semantics."
+
+[finding.33]
+test = "TestRepair_84_DescendingRangeReopenedSparseStore"
+proof = "A disk-backed trusted store is closed and reopened with only the trust root, then a real descending node range verifies; stopping the proxy and reopening the store recovers every intermediate trusted height and the same range."

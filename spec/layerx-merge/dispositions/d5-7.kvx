@@ -1,0 +1,4 @@
+[disposition.5.16.1]
+finding = "5.16.1"
+status = "resolved"
+evidence = "Commit 4f6627f11677c5ccfddf435f3d1cdc04bf6df154 overlaps primary WAL sync with standby replication at node/sequencer/standby.go:318 and standby persistence with ordered execution at node/sequencer/standby.go:881 on main, joining both operations before acknowledging success. The 500-transfer receipt latency assertion remains strictly below 50 ms at node/sequencer/receipt_latency_test.go:222, introduced by commit 9e17f48365dc88c09aa63cc0c58b7cab971e988f."

@@ -7,8 +7,8 @@
     "dependency-tree": "10.0.9"
   },
   "resolutions": {
-    "brace-expansion": "1.1.21",
-    "minimatch": "3.1.4",
+    "brace-expansion": "5.0.12",
+    "minimatch": "11.0.1",
     "nanoid": "3.3.18",
     "picomatch": "2.3.2",
     "postcss": "8.5.23",

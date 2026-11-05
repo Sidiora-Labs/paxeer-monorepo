@@ -328,9 +328,29 @@ func CheckBalance(t *testing.T, app *SimApp, addr sdk.AccAddress, balances sdk.C
 
 // SignAndDeliver signs and delivers a transaction. No simulation occurs as the
 // ibc testing package causes checkState and deliverState to diverge in block time.
+// It commits the block even when delivery is refused and returns the delivery outcome.
 func SignAndDeliver(
 	t *testing.T, txCfg client.TxConfig, app *bam.BaseApp, ibcKeeper *ibckeeper.Keeper, stakingKeeper stakingkeeper.Keeper, capabilityKeeper *capabilitykeeper.Keeper, distrKeeper *distrkeeper.Keeper, slashingKeeper *slashingkeeper.Keeper, evidenceKeeper *evidencekeeper.Keeper, header tmproto.Header, msgs []sdk.Msg,
 	chainID string, accNums, accSeqs []uint64, expSimPass, expPass bool, priv ...cryptotypes.PrivKey,
+) (sdk.GasInfo, *sdk.Result, error) {
+	gInfo, res, err := SignAndDeliverResult(t, txCfg, app, ibcKeeper, stakingKeeper, capabilityKeeper, distrKeeper, slashingKeeper, evidenceKeeper, header, msgs, chainID, accNums, accSeqs, priv...)
+
+	if expPass {
+		require.NoError(t, err)
+		require.NotNil(t, res)
+	} else {
+		require.Error(t, err)
+		require.Nil(t, res)
+	}
+
+	return gInfo, res, err
+}
+
+// SignAndDeliverResult delivers a signed transaction and commits its block, returning
+// the transaction error separately from commit errors. Callers assert the expected outcome.
+func SignAndDeliverResult(
+	t *testing.T, txCfg client.TxConfig, app *bam.BaseApp, ibcKeeper *ibckeeper.Keeper, stakingKeeper stakingkeeper.Keeper, capabilityKeeper *capabilitykeeper.Keeper, distrKeeper *distrkeeper.Keeper, slashingKeeper *slashingkeeper.Keeper, evidenceKeeper *evidencekeeper.Keeper, header tmproto.Header, msgs []sdk.Msg,
+	chainID string, accNums, accSeqs []uint64, priv ...cryptotypes.PrivKey,
 ) (sdk.GasInfo, *sdk.Result, error) {
 	tx, err := helpers.GenTx(
 		txCfg,
@@ -352,22 +372,14 @@ func SignAndDeliver(
 	evidence.BeginBlocker(ctx, []abci.Misbehavior{}, *evidenceKeeper)
 	staking.BeginBlocker(ctx, stakingKeeper)
 	ibcclient.BeginBlocker(ctx, ibcKeeper.ClientKeeper)
-	gInfo, res, err := app.Deliver(txCfg.TxEncoder(), tx)
-
-	if expPass {
-		require.NoError(t, err)
-		require.NotNil(t, res)
-	} else {
-		require.Error(t, err)
-		require.Nil(t, res)
-	}
+	gInfo, res, deliveryErr := app.Deliver(txCfg.TxEncoder(), tx)
 
 	app.EndBlock(app.GetContextForDeliverTx([]byte{}), abci.RequestEndBlock{})
 	app.SetDeliverStateToCommit()
-	_, err = app.Commit(context.Background())
-	require.NoError(t, err)
+	_, commitErr := app.Commit(context.Background())
+	require.NoError(t, commitErr)
 
-	return gInfo, res, err
+	return gInfo, res, deliveryErr
 }
 
 // GenSequenceOfTxs generates a set of signed transactions of messages, such

@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	v2 "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
@@ -21,9 +23,11 @@ func RuleFromV2AlertCreate(raw []byte, ownerAccountID string) (AlertRule, error)
 	if err := decoder.Decode(&body); err != nil {
 		return AlertRule{}, fmt.Errorf("%w: alert create body: %v", ErrInvalid, err)
 	}
+	body.Threshold = normalizePrice(body.Threshold)
 	rule := AlertRule{
 		ID: uuid.NewString(), OwnerAccountID: ownerAccountID,
-		PoolAddress: body.PoolAddress, Metric: "price", Direction: body.Direction,
+		PoolAddress: strings.ToLower(body.PoolAddress), Metric: "price", Direction: body.Direction,
+		Price:      &body.Threshold,
 		Threshold:  string(body.Threshold.Numerator) + "/" + string(body.Threshold.Denominator),
 		Hysteresis: "0", Cooldown: time.Duration(body.CooldownSeconds) * time.Second,
 		Channels: []string{"inapp"}, Revision: 1,
@@ -34,6 +38,8 @@ func RuleFromV2AlertCreate(raw []byte, ownerAccountID string) (AlertRule, error)
 	return rule, nil
 }
 
+// AdaptV2AlertCreate returns the typed frozen response. threshold must equal
+// rule.Price, including persisted asset identity and price provenance.
 func AdaptV2AlertCreate(rule AlertRule, wallet string, threshold v2.InputPrice, requestID string, generatedAt time.Time) (v2.AlertCreateResponse, error) {
 	if err := rule.Validate(); err != nil {
 		return v2.AlertCreateResponse{}, err
@@ -41,7 +47,10 @@ func AdaptV2AlertCreate(rule AlertRule, wallet string, threshold v2.InputPrice, 
 	if generatedAt.IsZero() || rule.Metric != "price" || rule.Cooldown%time.Second != 0 {
 		return v2.AlertCreateResponse{}, ErrInvalid
 	}
-	raw, err := json.Marshal(threshold)
+	if rule.Price == nil || validatePrice(threshold, rule.Threshold) != nil || !reflect.DeepEqual(normalizePrice(threshold), normalizePrice(*rule.Price)) {
+		return v2.AlertCreateResponse{}, ErrInvalid
+	}
+	raw, err := json.Marshal(rule.Price)
 	if err != nil {
 		return v2.AlertCreateResponse{}, fmt.Errorf("%w: threshold: %v", ErrInvalid, err)
 	}
@@ -82,4 +91,47 @@ func AdaptV2AlertCreate(rule AlertRule, wallet string, threshold v2.InputPrice, 
 		return v2.AlertCreateResponse{}, fmt.Errorf("%w: alert create response: %v", ErrInvalid, err)
 	}
 	return response, nil
+}
+
+// Normalize only identity fields; retain the exact ratio and provenance for readback.
+func normalizePrice(p v2.InputPrice) v2.InputPrice {
+	normalizeAsset := func(a v2.InputAssetRef) v2.InputAssetRef {
+		if a.Address != nil {
+			value := strings.ToLower(*a.Address)
+			a.Address = &value
+		}
+		return a
+	}
+	p.BaseAsset, p.QuoteAsset = normalizeAsset(p.BaseAsset), normalizeAsset(p.QuoteAsset)
+	return p
+}
+
+func validatePrice(p v2.InputPrice, value string) error {
+	raw, err := json.Marshal(p)
+	if err != nil || v2.ValidateJSON("InputPrice", raw) != nil {
+		return ErrInvalid
+	}
+	price, err := exact(string(p.Numerator) + "/" + string(p.Denominator))
+	expected, e := exact(value)
+	if err != nil || e != nil || price.Cmp(expected) != 0 {
+		return ErrInvalid
+	}
+	for _, asset := range []v2.InputAssetRef{p.BaseAsset, p.QuoteAsset} {
+		if asset.Kind == "erc20" && (asset.Address == nil || asset.ChainId == nil || *asset.ChainId != "125" || asset.Decimals == nil) {
+			return ErrInvalid
+		}
+	}
+	if reflect.DeepEqual(normalizePrice(p).BaseAsset, normalizePrice(p).QuoteAsset) {
+		return ErrInvalid
+	}
+	return nil
+}
+
+func samePriceIdentity(a, b v2.InputPrice) bool {
+	a, b = normalizePrice(a), normalizePrice(b)
+	// Observation times, event IDs and block positions identify observations,
+	// while these fields identify the denomination and pricing authority.
+	return reflect.DeepEqual(a.BaseAsset, b.BaseAsset) && reflect.DeepEqual(a.QuoteAsset, b.QuoteAsset) &&
+		a.Source.Kind == b.Source.Kind && a.Source.AmountBasis == b.Source.AmountBasis &&
+		reflect.DeepEqual(a.Source.ProviderId, b.Source.ProviderId) && reflect.DeepEqual(a.Source.SourceReference, b.Source.SourceReference)
 }

@@ -431,7 +431,99 @@ func TestMultiMsgDeliverTx(t *testing.T) {
 // that there is no cross-talk. Check sees results of the previous Check calls
 // and Deliver sees that of the previous Deliver calls, but they don't see eachother.
 func TestConcurrentCheckDeliver(t *testing.T) {
-	// TODO
+	entered := make(chan bool, 2)
+	release := make(chan struct{})
+	var releaseOnce sync.Once
+	unblock := func() { releaseOnce.Do(func() { close(release) }) }
+	defer unblock()
+	anteKey, messageKey := []byte("concurrent-ante"), []byte("concurrent-message")
+	app := setupBaseApp(t, func(app *BaseApp) {
+		app.SetAnteHandler(func(ctx sdk.Context, tx sdk.Tx, _ bool) (sdk.Context, error) {
+			counter := tx.(txTest)
+			kv := ctx.KVStore(capKey1)
+			if got := getIntFromStore(kv, anteKey); got != counter.Counter {
+				return ctx, sdkerrors.Wrapf(sdkerrors.ErrInvalidSequence, "got %d, want %d", counter.Counter, got)
+			}
+			setIntOnStore(kv, anteKey, counter.Counter+1)
+			if counter.Counter == 0 && !counter.FailOnAnte {
+				entered <- ctx.IsCheckTx()
+				<-release
+			}
+			if counter.FailOnAnte {
+				return ctx, sdkerrors.Wrap(sdkerrors.ErrUnauthorized, "reject after writing ante cache")
+			}
+			return ctx, nil
+		})
+		app.Router().AddRoute(sdk.NewRoute(routeMsgCounter, handlerMsgCounter(t, capKey1, messageKey)))
+	})
+	app.setDeliverState(tmproto.Header{Height: 1})
+	checkDone, deliverDone := make(chan error, 1), make(chan error, 1)
+	go func() {
+		_, _, err := app.Check(aminoTxEncoder(), *newTxCounter(0, 0))
+		checkDone <- err
+	}()
+	go func() {
+		_, _, err := app.Deliver(aminoTxEncoder(), newTxCounter(0, 0))
+		deliverDone <- err
+	}()
+	seen := map[bool]bool{}
+	for i := 0; i < 2; i++ {
+		select {
+		case check := <-entered:
+			seen[check] = true
+		case <-time.After(5 * time.Second):
+			t.Fatal("check and delivery did not overlap in their ante caches")
+		}
+	}
+	require.Len(t, seen, 2)
+	require.Zero(t, getIntFromStore(app.checkState.ctx.KVStore(capKey1), anteKey))
+	require.Zero(t, getIntFromStore(app.deliverState.ctx.KVStore(capKey1), anteKey))
+	unblock()
+	for _, done := range []chan error{checkDone, deliverDone} {
+		select {
+		case err := <-done:
+			require.NoError(t, err)
+		case <-time.After(5 * time.Second):
+			t.Fatal("transaction did not finish after releasing the overlap barrier")
+		}
+	}
+	assertState := func(checkAnte, deliverAnte, messages int64) {
+		require.Equal(t, checkAnte, getIntFromStore(app.checkState.ctx.KVStore(capKey1), anteKey))
+		require.Zero(t, getIntFromStore(app.checkState.ctx.KVStore(capKey1), messageKey))
+		require.Equal(t, deliverAnte, getIntFromStore(app.deliverState.ctx.KVStore(capKey1), anteKey))
+		require.Equal(t, messages, getIntFromStore(app.deliverState.ctx.KVStore(capKey1), messageKey))
+		require.Nil(t, app.cms.GetKVStore(capKey1).Get(anteKey))
+		require.Nil(t, app.cms.GetKVStore(capKey1).Get(messageKey))
+	}
+	assertState(1, 1, 1)
+	_, _, err := app.Check(aminoTxEncoder(), *newTxCounter(1, 0))
+	require.NoError(t, err)
+	rejected := newTxCounter(2, 0)
+	rejected.FailOnAnte = true
+	_, _, err = app.Check(aminoTxEncoder(), *rejected)
+	require.ErrorIs(t, err, sdkerrors.ErrUnauthorized)
+	assertState(2, 1, 1)
+	rejected.Counter = 1
+	_, _, err = app.Deliver(aminoTxEncoder(), rejected)
+	require.ErrorIs(t, err, sdkerrors.ErrUnauthorized)
+	assertState(2, 1, 1)
+	rejected = newTxCounter(1, 1)
+	rejected.setFailOnHandler(true)
+	_, _, err = app.Deliver(aminoTxEncoder(), rejected)
+	require.ErrorIs(t, err, sdkerrors.ErrInvalidRequest)
+	assertState(2, 2, 1)
+	_, _, err = app.Deliver(aminoTxEncoder(), newTxCounter(2, 1))
+	require.NoError(t, err)
+	assertState(2, 3, 2)
+	app.SetDeliverStateToCommit()
+	_, err = app.Commit(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, int64(1), app.LastBlockHeight())
+	require.Equal(t, int64(3), getIntFromStore(app.cms.GetKVStore(capKey1), anteKey))
+	require.Equal(t, int64(2), getIntFromStore(app.cms.GetKVStore(capKey1), messageKey))
+	require.Equal(t, int64(3), getIntFromStore(app.checkState.ctx.KVStore(capKey1), anteKey))
+	require.Equal(t, int64(2), getIntFromStore(app.checkState.ctx.KVStore(capKey1), messageKey))
+	require.Nil(t, app.deliverState)
 }
 
 // Simulate a transaction that uses gas to compute the gas.
@@ -714,107 +806,89 @@ func TestTxGasLimits(t *testing.T) {
 	}
 }
 
-// Test that transactions exceeding gas limits fail
-// func TestMaxBlockGasLimits(t *testing.T) {
-// 	gasGranted := uint64(10)
-// 	anteOpt := func(bapp *BaseApp) {
-// 		bapp.SetAnteHandler(func(ctx sdk.Context, tx sdk.Tx, simulate bool) (newCtx sdk.Context, err error) {
-// 			newCtx = ctx.WithGasMeter(sdk.NewGasMeterWithMultiplier(ctx, gasGranted))
-
-// 			defer func() {
-// 				if r := recover(); r != nil {
-// 					switch rType := r.(type) {
-// 					case sdk.ErrorOutOfGas:
-// 						err = sdkerrors.Wrapf(sdkerrors.ErrOutOfGas, "out of gas in location: %v", rType.Descriptor)
-// 					default:
-// 						panic(r)
-// 					}
-// 				}
-// 			}()
-
-// 			count := tx.(txTest).Counter
-// 			newCtx.GasMeter().ConsumeGas(uint64(count), "counter-ante")
-
-// 			return
-// 		})
-// 	}
-
-// 	routerOpt := func(bapp *BaseApp) {
-// 		r := sdk.NewRoute(routeMsgCounter, func(ctx sdk.Context, msg sdk.Msg) (*sdk.Result, error) {
-// 			count := msg.(*msgCounter).Counter
-// 			ctx.GasMeter().ConsumeGas(uint64(count), "counter-handler")
-// 			return &sdk.Result{}, nil
-// 		})
-// 		bapp.Router().AddRoute(r)
-// 	}
-
-// 	app := setupBaseApp(t, anteOpt, routerOpt)
-// 	app.InitChain(context.Background(), &abci.RequestInitChain{
-// 		ConsensusParams: &tmproto.ConsensusParams{
-// 			Block: &tmproto.BlockParams{
-// 				MaxGas: 100,
-// 			},
-// 		},
-// 	})
-
-// 	testCases := []struct {
-// 		tx                *txTest
-// 		numDelivers       int
-// 		gasUsedPerDeliver uint64
-// 		fail              bool
-// 		failAfterDeliver  int
-// 	}{
-// 		{newTxCounter(0, 0), 0, 0, false, 0},
-// 		{newTxCounter(9, 1), 2, 10, false, 0},
-// 		{newTxCounter(10, 0), 3, 10, false, 0},
-// 		{newTxCounter(10, 0), 10, 10, false, 0},
-// 		{newTxCounter(2, 7), 11, 9, false, 0},
-// 		{newTxCounter(10, 0), 10, 10, false, 0}, // hit the limit but pass
-
-// 		{newTxCounter(10, 0), 11, 10, true, 10},
-// 		{newTxCounter(10, 0), 15, 10, true, 10},
-// 		{newTxCounter(9, 0), 12, 9, true, 11}, // fly past the limit
-// 	}
-
-// 	for i, tc := range testCases {
-// 		tx := tc.tx
-
-// 		// reset the block gas
-// 		header := tmproto.Header{Height: app.LastBlockHeight() + 1}
-// 		app.setDeliverState(header)
-// 		app.deliverState.ctx = app.deliverState.ctx.WithBlockGasMeter(sdk.NewGasMeter(app.getMaximumBlockGas(app.deliverState.ctx), 1, 1))
-// 		app.BeginBlock(app.deliverState.ctx, abci.RequestBeginBlock{Header: header})
-
-// 		// execute the transaction multiple times
-// 		for j := 0; j < tc.numDelivers; j++ {
-// 			_, result, err := app.Deliver(aminoTxEncoder(), tx)
-
-// 			ctx := app.getState(runTxModeDeliver).ctx
-
-// 			// check for failed transactions
-// 			if tc.fail && (j+1) > tc.failAfterDeliver {
-// 				require.Error(t, err, fmt.Sprintf("tc #%d; result: %v, err: %s", i, result, err))
-// 				require.Nil(t, result, fmt.Sprintf("tc #%d; result: %v, err: %s", i, result, err))
-
-// 				space, code, _ := sdkerrors.ABCIInfo(err, false)
-// 				require.EqualValues(t, sdkerrors.ErrOutOfGas.Codespace(), space, err)
-// 				require.EqualValues(t, sdkerrors.ErrOutOfGas.ABCICode(), code, err)
-// 				require.True(t, ctx.BlockGasMeter().IsOutOfGas())
-// 			} else {
-// 				// check gas used and wanted
-// 				blockGasUsed := ctx.BlockGasMeter().GasConsumed()
-// 				expBlockGasUsed := tc.gasUsedPerDeliver * uint64(j+1)
-// 				require.Equal(
-// 					t, expBlockGasUsed, blockGasUsed,
-// 					fmt.Sprintf("%d,%d: %v, %v, %v, %v", i, j, tc, expBlockGasUsed, blockGasUsed, result),
-// 				)
-
-// 				require.NotNil(t, result, fmt.Sprintf("tc #%d; currDeliver: %d, result: %v, err: %s", i, j, result, err))
-// 				require.False(t, ctx.BlockGasMeter().IsPastLimit())
-// 			}
-// 		}
-// 	}
-// }
+// Test that transactions exceeding gas limits fail.
+func TestMaxBlockGasLimits(t *testing.T) {
+	testCases := []struct {
+		tx        *txTest
+		delivers  int
+		gas       uint64
+		successes int
+	}{
+		{newTxCounter(0, 0), 0, 0, 0},
+		{newTxCounter(9, 1), 2, 10, 2},
+		{newTxCounter(10, 0), 3, 10, 3},
+		{newTxCounter(10, 0), 10, 10, 10},
+		{newTxCounter(2, 7), 11, 9, 11},
+		{newTxCounter(10, 0), 11, 10, 10},
+		{newTxCounter(10, 0), 15, 10, 10},
+		{newTxCounter(9, 0), 12, 9, 11},
+		{newTxCounter(9, 2), 1, 11, 0},
+	}
+	for i, tc := range testCases {
+		t.Run(fmt.Sprint(i), func(t *testing.T) {
+			key := []byte("gas-successes")
+			app := setupBaseApp(t, func(app *BaseApp) {
+				app.SetAnteHandler(func(ctx sdk.Context, tx sdk.Tx, _ bool) (sdk.Context, error) {
+					ctx = ctx.WithGasMeter(sdk.NewGasMeterWithMultiplier(ctx, 10))
+					ctx.GasMeter().ConsumeGas(uint64(tx.(txTest).Counter), "counter-ante")
+					return ctx, nil
+				})
+				app.Router().AddRoute(sdk.NewRoute(routeMsgCounter, func(ctx sdk.Context, msg sdk.Msg) (*sdk.Result, error) {
+					ctx.GasMeter().ConsumeGas(uint64(msg.(*msgCounter).Counter), "counter-handler")
+					// Keep the fixture's state bookkeeping separate from the compute gas under test.
+					kv := ctx.MultiStore().GetKVStore(capKey1)
+					setIntOnStore(kv, key, getIntFromStore(kv, key)+1)
+					return &sdk.Result{}, nil
+				}))
+			})
+			_, err := app.InitChain(context.Background(), &abci.RequestInitChain{
+				ConsensusParams: &tmproto.ConsensusParams{Block: &tmproto.BlockParams{MaxGas: 100}},
+			})
+			require.NoError(t, err)
+			app.setDeliverState(tmproto.Header{Height: 1})
+			params := app.GetConsensusParams(app.deliverState.ctx)
+			require.Equal(t, int64(100), params.Block.MaxGas)
+			blockMeter := sdk.NewGasMeter(uint64(params.Block.MaxGas), 1, 1)
+			app.deliverState.ctx = app.deliverState.ctx.WithGasMeter(blockMeter)
+			for j := 0; j < tc.delivers; j++ {
+				gas, result, err := app.Deliver(aminoTxEncoder(), tc.tx)
+				if j < tc.successes {
+					require.NoError(t, err)
+					require.NotNil(t, result)
+					require.Equal(t, uint64(10), gas.GasWanted)
+					require.Equal(t, tc.gas, gas.GasUsed)
+					require.Equal(t, uint64(j+1)*tc.gas, blockMeter.GasConsumed())
+					require.False(t, blockMeter.IsPastLimit())
+				} else {
+					require.ErrorIs(t, err, sdkerrors.ErrOutOfGas)
+					require.Nil(t, result)
+					if tc.gas <= 10 {
+						require.True(t, blockMeter.IsOutOfGas())
+					} else {
+						require.Equal(t, tc.gas, gas.GasUsed)
+					}
+				}
+				require.Equal(t, int64(min(j+1, tc.successes)), getIntFromStore(app.deliverState.ms.GetKVStore(capKey1), key))
+				require.Nil(t, app.cms.GetKVStore(capKey1).Get(key))
+			}
+			if tc.delivers >= 10 && tc.gas == 10 {
+				require.Equal(t, uint64(100), blockMeter.GasConsumed())
+				require.True(t, blockMeter.IsOutOfGas())
+				require.False(t, blockMeter.IsPastLimit())
+			}
+			if tc.gas == 9 && tc.delivers == 12 {
+				require.Equal(t, uint64(108), blockMeter.GasConsumed())
+				require.True(t, blockMeter.IsPastLimit())
+			}
+			app.SetDeliverStateToCommit()
+			_, err = app.Commit(context.Background())
+			require.NoError(t, err)
+			require.Equal(t, int64(1), app.LastBlockHeight())
+			require.Equal(t, int64(tc.successes), getIntFromStore(app.cms.GetKVStore(capKey1), key))
+			require.Equal(t, int64(tc.successes), getIntFromStore(app.checkState.ms.GetKVStore(capKey1), key))
+		})
+	}
+}
 
 // Test custom panic handling within app.DeliverTx method
 func TestCustomRunTxPanicHandler(t *testing.T) {
@@ -1695,7 +1769,7 @@ func setupBaseAppWithSnapshots(t *testing.T, blocks uint, blockTxs int, options 
 	routerOpt := func(bapp *BaseApp) {
 		bapp.Router().AddRoute(sdk.NewRoute(routeMsgKeyValue, func(ctx sdk.Context, msg sdk.Msg) (*sdk.Result, error) {
 			kv := msg.(*msgKeyValue)
-			bapp.cms.GetCommitKVStore(capKey2).Set(kv.Key, kv.Value)
+			ctx.KVStore(capKey2).Set(kv.Key, kv.Value)
 			return &sdk.Result{}, nil
 		}))
 	}
@@ -1709,7 +1783,8 @@ func setupBaseAppWithSnapshots(t *testing.T, blocks uint, blockTxs int, options 
 	scConfig.MemIAVLConfig.SnapshotInterval = 1
 	scConfig.MemIAVLConfig.SnapshotMinTimeInterval = 0
 	scConfig.MemIAVLConfig.AsyncCommitBuffer = 0
-	ssConfig := paxdbconfig.StateStoreConfig{}
+	ssConfig := paxdbconfig.DefaultStateStoreConfig()
+	ssConfig.AsyncWriteBuffer = 0
 	cms := storev2rootmulti.NewStore(t.TempDir(), scConfig, ssConfig, nil)
 
 	cmsOpt := func(bapp *BaseApp) { bapp.SetCMS(cms) }
@@ -1742,10 +1817,31 @@ func setupBaseAppWithSnapshots(t *testing.T, blocks uint, blockTxs int, options 
 			resp := app.DeliverTx(app.deliverState.ctx, abci.RequestDeliverTxV2{Tx: txBytes}, tx, sha256.Sum256(txBytes))
 			require.True(t, resp.IsOK(), "%v", resp.String())
 		}
+		rollbackKey := []byte(fmt.Sprintf("rollback-%d", height))
+		before := app.deliverState.ctx.KVStore(capKey2).Get([]byte("0"))
+		beforeCommit := app.cms.GetKVStore(capKey2).Get([]byte("0"))
+		failed := txTest{Msgs: []sdk.Msg{
+			&msgKeyValue{Key: rollbackKey, Value: []byte("must roll back")},
+			&msgKeyValue{Key: []byte("0"), Value: []byte("must not overwrite")},
+			&msgNoRoute{},
+		}}
+		failedBytes, err := codec.Marshal(failed)
+		require.NoError(t, err)
+		decoded, err := app.txDecoder(failedBytes)
+		require.NoError(t, err)
+		failedRes := app.DeliverTx(app.deliverState.ctx, abci.RequestDeliverTxV2{Tx: failedBytes}, decoded, sha256.Sum256(failedBytes))
+		require.Equal(t, sdkerrors.ErrUnknownRequest.ABCICode(), failedRes.Code)
+		require.Nil(t, app.deliverState.ctx.KVStore(capKey2).Get(rollbackKey))
+		require.Equal(t, before, app.deliverState.ctx.KVStore(capKey2).Get([]byte("0")))
+		require.Nil(t, app.cms.GetKVStore(capKey2).Get(rollbackKey))
+		require.Equal(t, beforeCommit, app.cms.GetKVStore(capKey2).Get([]byte("0")))
 		app.EndBlock(app.deliverState.ctx, abci.RequestEndBlock{Height: height})
 
 		app.SetDeliverStateToCommit()
-		app.Commit(context.Background())
+		_, err = app.Commit(context.Background())
+		require.NoError(t, err)
+		require.Nil(t, app.cms.GetKVStore(capKey2).Get(rollbackKey))
+		require.Equal(t, before, app.cms.GetKVStore(capKey2).Get([]byte("0")))
 
 		// Wait for snapshot to be taken, since it happens asynchronously.
 		if uint64(height)%snapshotInterval == 0 {

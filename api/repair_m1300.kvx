@@ -1,0 +1,12 @@
+[task.22.33.1300]
+finding = "descriptor-shape-blind-spots"
+base_revision = "9d1a06c7f3635f5556023760af7a75ee9755efdd"
+tests = ["TestRepairM_1300_JSONNames", "TestRepairM_1300_OneofStructure", "TestRepairM_1300_OptionalPresence", "TestRepairM_1300_MessageReservations", "TestRepairM_1300_EnumReservations", "TestRepairM_1300_NestedDescriptors", "TestRepairM_1300_RegisteredDescriptors"]
+proof = "Committed source fixtures compile in-process, pass through the real protobuf/gzip descriptor codec, and reach shapeOf/compareShapes with exact changed-key assertions in both directions; committed oracle source descriptors also compare against the real gogo registry."
+regeneration = "TestBufGenerateMatchesCheckedInGo retains its separate byte-for-byte generation check unchanged; it is outside this task's focused gate."
+baseline_verification = "Not run: explicit execution order requires complete implementation before formatting/build/testing and verification only via hf-done after hf-build; initial gate ledger had no runs and repair_m1300_test.go did not exist, so no pre-change failures are claimed."
+gotcha = "Older generated descriptors may omit default JSON names; compare their effective protobuf JSON names while preserving explicit overrides, and distinguish absent oneof membership from index zero."
+repair_gotcha = "ParseFilesButDoNotLink leaves message and RPC type references unresolved; full shape parity requires ParseFiles with committed dependency sources, not unlinked descriptors."
+first_verification = "revision b597afdfacaab571c16888ea63cec263a4a98cf6; command cg spec done 22.33.1300 -f layerx-merge --root /work/paxeer-monorepo; exit 1; log /out/logs/verify-1.log; descriptor pairs passed but registry proof used unlinked source descriptors."
+wiring_request = "None: the finding's proposed implementation and proofs are entirely within api."
+qualification = "The private hf-build/hf-done runner ledger records the exact candidate revision, command, exit code and evidence location; no gate result is claimed in advance."

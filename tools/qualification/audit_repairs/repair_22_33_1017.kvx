@@ -1,0 +1,21 @@
+[repair.22.33.1017]
+audit = "22.30.36"
+base_revision = "b664b08b724ec5b190920b99ba70b283c8a796c9"
+finding_ids = ["coverage-module-inventory"]
+verification = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1017.py"
+verified_revision_source = "The final hf-done JSON evidence line and /out/run/gates.jsonl name the exact verified candidate revision; retained privately by the task runner."
+build_evidence = "/out/logs/build-1.log (bash -n tools/launchpad/coverage-gate.sh); repair reruns use the next numbered log."
+verify_evidence = "/out/logs/verify-1.log (hf-done and its declared pytest gate); repair reruns use the next numbered log."
+baseline_not_run = "The test module did not exist on the unchanged tree; the explicit gate order forbids verification before implementation, overriding step 5's baseline request. No baseline failures are claimed."
+
+[finding.coverage-module-inventory]
+test = "test_coverage_module_inventory_rejects_missing_money_module"
+additional_tests = ["test_real_manifest_producer_transport_consumer", "test_stale_profile_is_rejected_at_production_recording", "test_prior_complete_manifest_cannot_substitute_for_new_run", "test_empty_modules_require_explicit_results", "test_complete_manifest_rejects_invalid_consumption", "test_shell_guards_measurement_with_complete_inventory", "test_makefile_boundary_and_wiring_request_are_explicit"]
+implementation = "The shell requires MODULES, RUN_MANIFEST and COVER_RUN_ID and rejects invalid inventories before measuring coverage. The production Python writer emits per-run manifests with exact module results and profile hashes, sizes and timestamps; the consumer rejects incomplete, mismatched, stale, missing, changed or unrecorded results and reports explicit empty modules."
+proved = "In-process tests drive the real production begin/record/finish CLI through persisted JSON into the production check consumer with committed coverage-format inputs, including omission of a money module while another fully covered money profile is present. They check shell command tokens and ordering, threshold and generated-file guards, and parsed Makefile module/money inventories and coverage keys. The declared build parses the shell with bash -n."
+review_only = "Go coverage generation, go tool cover percentages, generated-source filtering and the future Makefile recipe are not executed by this Python gate; it needs no Go, make, shell subprocess, environment variable, service or credential. Current Makefile integration intentionally fails closed until the out-of-scope wiring is implemented."
+
+[wiring.coverage-producer]
+path = "services/launchpad/Makefile"
+owner_domain = 4
+request = "Use python3 ../../tools/launchpad/coverage_inventory.py: begin .cover .cover/run.json --modules '$(MODULES)' before any discovery to capture a fresh COVER_RUN_ID; propagate go list failures; after successful discovery/tests, record each module with --run-id and --module (use --empty no-packages only after successful empty discovery, or --empty no-statements for a fresh header-only profile); remove retained profiles before generating results; finish the manifest only after every result; pass MODULES, RUN_MANIFEST=.cover/run.json and that invocation's COVER_RUN_ID to coverage-gate.sh, sharing the token across cover/cover-check without reusing an old completed run."

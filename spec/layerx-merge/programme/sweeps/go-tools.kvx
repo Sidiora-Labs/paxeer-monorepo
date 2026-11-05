@@ -1,9 +1,9 @@
 [sweep.go-tools]
-revision = "03e2d849d7f3e9ca51cada79f6d3cfe90938a0fb"
+revision = "aad55ff559a3c54df2a7c39827bc1793129e3e6f"
 command = "CGO_ENABLED=1 go vet ./TARGET/ && CGO_ENABLED=1 go test -count=1 ./TARGET/"
 targets_total = 21
-targets_passed = 18
-targets_failed = 3
+targets_passed = 20
+targets_failed = 1
 targets_not_run = 0
 enumeration_command = "CGO_ENABLED=1 go list ./tools/..."
 native_libraries_command = "make paxd-native-libs"
@@ -63,8 +63,8 @@ exit_code = 0
 target = "tools/qualification/localnode"
 result = "failed"
 exit_code = 1
-observed = "TestLocalPerpsGatewayServesMarkets at tools/qualification/localnode/perps_gateway_test.go:29 fails because NEXT_PUBLIC_PERPS_GATEWAY_URL is empty and must name the running loopback gateway."
-assumption = "This is an environmental failure: the sandbox lacks the running local perps gateway and node environment, including the RPC, Comet, key and node-home settings required by the other failing tests."
+observed = "runLocalNodeTests at tools/qualification/localnode/main_test.go:23 aborts the suite because PERPS_DATA_TEST_DATABASE_URL must name a disposable loopback Postgres database."
+assumption = "This is an environmental failure: PERPS_DATA_TEST_DATABASE_URL is unset, so the repaired suite cannot start its disposable node and gateway without the required PostgreSQL database."
 
 [target.go-tools.12]
 target = "tools/release/upgradeinfo"
@@ -73,17 +73,13 @@ exit_code = 0
 
 [target.go-tools.13]
 target = "tools/repotest"
-result = "failed"
-exit_code = 1
-observed = "TestEveryCTestMainHasBuildReference at tools/repotest/reachability_test.go:81 first reports tests/proof/lxp_proof_b_error_code_registry_d6.c defining int main without a whole-word path or stem build reference in Makefile, chain.mk, tools/, scripts/ or tests/."
-assumption = "The existing C proof sources appear to be missing build references in the searched build files and script trees."
+result = "passed"
+exit_code = 0
 
 [target.go-tools.14]
 target = "tools/specgen"
-result = "failed"
-exit_code = 1
-observed = "TestRepositorySpecIsValidAndCurrent at tools/specgen/validate_test.go:82 reports nine validation errors, beginning with task 9.24.5 referencing unknown requirement 9275.1."
-assumption = "The existing active feature specification appears to contain stale requirement references, including 9275.1, 9283.1 and 13306.1."
+result = "passed"
+exit_code = 0
 
 [target.go-tools.15]
 target = "tools/tx-scanner/client"

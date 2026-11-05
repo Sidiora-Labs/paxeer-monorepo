@@ -1,0 +1,7 @@
+[repair.22.31.11]
+finding = "22.30.13/003"
+implementation = "Migrate5To6 counts completed MidBlock observations before the upgrade block, applies the EndBlock reset convention across every historical period/window interval, rejects incomplete history and inconsistent penalties, and commits atomically."
+tests = ["TestRepair_11_RestartBoundaries", "TestRepair_11_HistoricalPeriodAndWindowRecovery", "TestRepair_11_DefaultWindowRecoveryAndSlashing", "TestRepair_11_RejectsUnreconstructableHistoryAfterRestart", "TestRepair_11_RejectsInvalidCountersAtomically"]
+baseline = "Not run: the task's explicit gate order prohibits verification before implementation and direct invocation of verify_cmd; no baseline failures are claimed."
+evidence = "The private hf-done ledger records the verified candidate revision, exact command, exit code and log location."
+wiring_request = "modules/oracle/module.go, owning domain 3 (markets): pass the authoritative complete legacy VotePeriodHistory policy to keeper.NewMigrator at migration registration; the current-value-only parameter store cannot supply this history, and absent history is rejected for retained counters."

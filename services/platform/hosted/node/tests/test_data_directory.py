@@ -1,10 +1,18 @@
 import importlib.util
+import json
 import os
 from pathlib import Path
+import signal
 import subprocess
 import sys
 import tempfile
 import unittest
+
+import pytest
+from test_repair_22_31_355 import (
+    broker, client, directory as generation_directory, native, paths, prepared,
+    receive, staged_store, tls, traced_activation, reset as native_reset,
+)
 
 SCRIPT = Path(__file__).resolve().parents[1] / 'data_directory.py'
 
@@ -137,6 +145,60 @@ class DataDirectoryTests(unittest.TestCase):
             self.assertEqual(rollback.stdout.strip(), 'rolled_back')
             self.assertFalse(stage.exists())
             self.assertEqual(sentinel.read_text(), 'retained')
+
+
+
+
+@pytest.mark.parametrize('failure', [None, ('kill', 0), ('kill', 1)])
+def test_native_activation_exchange_and_post_rename_reopen(tmp_path, tls, failure):
+    data, state, run = paths(tmp_path)
+    store, stage, binding, _ = prepared(data, state, run, tls)
+    sentinel = data / 'retained-economic-generation'
+    sentinel.write_bytes(b'previous selected native generation')
+    original_inode = data.stat().st_ino
+    staged_inode = stage.stat().st_ino
+    code, synced, injected = traced_activation(data, stage, binding, failure)
+    assert code == (0 if failure is None else -signal.SIGKILL)
+    assert injected is (failure is not None)
+    assert data.stat().st_ino == staged_inode
+    assert stage.stat().st_ino == original_inode
+    assert (stage / sentinel.name).read_bytes() == b'previous selected native generation'
+    assert not sentinel.exists()
+    assert synced[:1] == [str(data.parent)]
+    assert native.generation_binding(data) == binding
+    if failure is not None:
+        assert not (data / generation_directory.ACTIVATION_MARKER).exists()
+        with broker(data, state, run) as socket_path:
+            with pytest.raises(native_reset.StoreError):
+                receive(socket_path, 2)
+    # A new interpreter reopens production code with no inherited directory handles.
+    command = [sys.executable, str(SCRIPT), 'activate-generation', str(data), str(stage),
+               'a' * 32, '2', json.dumps(binding)]
+    reopened = subprocess.run(command, capture_output=True, text=True, timeout=10)
+    assert reopened.returncode == 0, reopened.stderr
+    assert json.loads(reopened.stdout) == 'active'
+    marker = json.loads((data / generation_directory.GENERATION_MARKER).read_bytes())
+    assert json.loads((data / generation_directory.ACTIVATION_MARKER).read_bytes()) == marker
+    assert marker['genesis'] == binding and marker['generation'] == 2
+    assert data.stat().st_ino == staged_inode
+    assert (stage / sentinel.name).read_bytes() == b'previous selected native generation'
+    retained = {name: (data / name).read_bytes() for name in binding}
+    with broker(data, state, run) as socket_path:
+        result, descriptors = receive(socket_path, 2)
+        try:
+            adopted = client.child_environment(result, descriptors, 'core')
+            view, adopted = client.materialize(result, descriptors, 'core', adopted)
+            try:
+                assert result['reset_id'] == 'a' * 32
+                assert adopted['LAYERX_GENERATION_NUMBER'] == '2'
+                for name, raw in retained.items():
+                    assert (Path(view.name) / name.rsplit('/', 1)[-1]).read_bytes() == raw
+            finally:
+                view.cleanup()
+        finally:
+            client.close_descriptors(descriptors)
+    assert staged_store(data, state, run).active()['phase'] == 'activating'
+    assert native.generation_binding(data) == binding
 
 
 if __name__ == '__main__':

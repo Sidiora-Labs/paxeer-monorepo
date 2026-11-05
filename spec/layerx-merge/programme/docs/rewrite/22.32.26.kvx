@@ -1,0 +1,35 @@
+[manifest]
+task = "22.32.26"
+domain = 4
+owner_role = "fm-launchpad"
+pages = 5
+
+[page.1]
+path = "tools/launchpad/production/bootstrap/README.md"
+status = "stale"
+bytes = 1954
+source_1 = "record 22.30.23 [doc.13] (stale): Lines 3-23 retain former client/tools/deploy paths, sibling contracts and thirteen modules; the spec and evidence paths also need reconciliation with current qualification tooling."
+
+[page.2]
+path = "tools/launchpad/production/bootstrap/security/GAPS.md"
+status = "stale"
+bytes = 5143
+source_1 = "record 22.30.23 [doc.14] (stale): Lines 3 and 17 give a moved generator command and obsolete permissive scanner behavior. Current ScanBuffer fails closed; listed inventory is still not execution evidence."
+
+[page.3]
+path = "tools/launchpad/production/dispatcher/README.md"
+status = "stale"
+bytes = 8922
+source_1 = "record 22.30.20 [doc.13] (stale): Read all 80 lines. Commands at 14-23,29,35-41,62-66 and 72-76 still use tools/production and spec/production-system. Actual monorepo command and document roots include launchpad."
+
+[page.4]
+path = "tools/launchpad/production/integration/README.md"
+status = "stale"
+bytes = 4441
+source_1 = "record 22.30.22 [doc.14] (stale): Lines 3 and 13 omit environment-bound phases and the implemented exact named-volume recovery extension; qualification limitations remain valid; see integration-readme-drift."
+
+[page.5]
+path = "tools/launchpad/production/load/README.md"
+status = "misleading"
+bytes = 1940
+source_1 = "record 22.30.29 [doc.13] (misleading): Line3 broad unittest discovery includes live phase2 through phase4 provider gates despite the following loopback-only claim; the capacity limitations elsewhere are explicit and accurate."

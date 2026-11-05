@@ -210,19 +210,69 @@ fn unavailable<T>(_: T) -> ClockError {
 }
 
 #[cfg(test)]
+#[path = "../../../../platform/hosted/runtime-clock/src/server.rs"]
+mod clock_server;
+
+#[cfg(test)]
 mod tests {
+    use std::sync::atomic::AtomicBool;
+    use std::thread::{self, JoinHandle};
+
     use super::*;
+
+    struct RunningClock {
+        binding: ClockBinding,
+        shutdown: Arc<AtomicBool>,
+        worker: Option<JoinHandle<std::io::Result<()>>>,
+    }
+
+    impl RunningClock {
+        fn start() -> std::io::Result<Self> {
+            let mut server = clock_server::Server::bind(&std::env::temp_dir())?;
+            let binding = ClockBinding {
+                socket: server.socket().to_path_buf(),
+                process: std::process::id(),
+                user: rustix::process::geteuid().as_raw(),
+            };
+            let shutdown = Arc::new(AtomicBool::new(false));
+            let stop = Arc::clone(&shutdown);
+            let worker = thread::Builder::new()
+                .name("test-runtime-clock".into())
+                .spawn(move || {
+                    while !stop.load(Ordering::Acquire) {
+                        server.poll()?;
+                        thread::sleep(Duration::from_millis(1));
+                    }
+                    Ok(())
+                })?;
+            Ok(Self {
+                binding,
+                shutdown,
+                worker: Some(worker),
+            })
+        }
+    }
+
+    impl Drop for RunningClock {
+        fn drop(&mut self) {
+            self.shutdown.store(true, Ordering::Release);
+            if let Some(worker) = self.worker.take() {
+                assert!(worker.join().is_ok_and(|result| result.is_ok()));
+            }
+        }
+    }
 
     #[test]
     fn unavailable_clock_and_regressing_readings_refuse() -> Result<(), ClockError> {
-        let clock = RuntimeClock::from_environment()?;
+        let authority = RunningClock::start().map_err(unavailable)?;
+        let clock = RuntimeClock::connect(authority.binding.clone())?;
         let first = clock.sample(Duration::from_secs(1))?;
         let next = clock.wait(Duration::from_millis(2))?;
         assert!(next.follows(first).is_ok());
         let mut regressed = next;
         regressed.monotonic_nanoseconds = first.monotonic_nanoseconds;
         assert_eq!(regressed.follows(next), Err(ClockError::Regression));
-        let mut missing = ClockBinding::from_environment()?;
+        let mut missing = authority.binding.clone();
         missing.socket = missing.socket.with_extension("absent");
         assert!(RuntimeClock::connect(missing).is_err());
         assert!(clock.sample(Duration::from_secs(1)).is_ok());
@@ -231,13 +281,14 @@ mod tests {
 
     #[test]
     fn exhausted_client_counter_refuses_without_disabling_authority() -> Result<(), ClockError> {
-        let client = RuntimeClock::from_environment()?;
+        let authority = RunningClock::start().map_err(unavailable)?;
+        let client = RuntimeClock::connect(authority.binding.clone())?;
         client.observations.lock().map_err(unavailable)?.counter = u64::MAX;
         assert_eq!(
             client.sample(Duration::from_secs(1)),
             Err(ClockError::Overflow)
         );
-        assert!(RuntimeClock::from_environment()?
+        assert!(RuntimeClock::connect(authority.binding.clone())?
             .sample(Duration::from_secs(1))
             .is_ok());
         Ok(())
@@ -246,7 +297,8 @@ mod tests {
     #[test]
     fn mismatched_client_generation_refuses_without_disabling_authority() -> Result<(), ClockError>
     {
-        let client = RuntimeClock::from_environment()?;
+        let authority = RunningClock::start().map_err(unavailable)?;
+        let client = RuntimeClock::connect(authority.binding.clone())?;
         let mut previous = client.sample(Duration::from_secs(1))?;
         previous.generation[0] ^= 1;
         client.observations.lock().map_err(unavailable)?.previous = Some(previous);
@@ -254,7 +306,7 @@ mod tests {
             client.sample(Duration::from_secs(1)),
             Err(ClockError::Regression)
         );
-        assert!(RuntimeClock::from_environment()?
+        assert!(RuntimeClock::connect(authority.binding.clone())?
             .sample(Duration::from_secs(1))
             .is_ok());
         Ok(())

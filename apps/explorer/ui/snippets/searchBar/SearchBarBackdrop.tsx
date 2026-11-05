@@ -13,7 +13,8 @@ const SearchBarBackdrop = ({ isOpen }: Props) => {
       left={ 0 }
       w="100vw"
       h="100vh"
-      bgColor={{ _light: 'blackAlpha.400', _dark: 'blackAlpha.600' }}
+      bgColor="canvas"
+      opacity={ 0.6 }
       zIndex="overlay"
       display={{ base: 'none', lg: isOpen ? 'block' : 'none' }}
     />

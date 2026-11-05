@@ -11,6 +11,7 @@
 #   LAYERX_SOLANA_MIRROR_DEPLOYMENT_RECORD output path of the deployment record
 #   LAYERX_SOLANA_MIRROR_TOOLCHAIN_BIN     directory holding the pinned solana, solana-keygen and
 #                                          cargo-build-sbf (the toolchain solana-devnet-2026-08-31.json pins)
+#   LAYERX_SOLANA_MIRROR_FINALIZE          must be YES: authorizes irrevocably removing upgrade authority
 #   LAYERX_SOLANA_MIRROR_PROGRAM_KEYPAIR_FILE  optional program keypair, so a redeploy keeps its program id
 #
 # The Solana CLI addresses an endpoint by URL alone: it has no option for an
@@ -30,6 +31,8 @@ for variable in LAYERX_SOLANA_MIRROR_RPC_URL LAYERX_SOLANA_MIRROR_KEYPAIR_FILE \
     LAYERX_SOLANA_MIRROR_DEPLOYMENT_RECORD LAYERX_SOLANA_MIRROR_TOOLCHAIN_BIN; do
     [ -n "${!variable:-}" ] || fail "$variable is required"
 done
+[ "${LAYERX_SOLANA_MIRROR_FINALIZE:-}" = YES ] \
+    || fail "LAYERX_SOLANA_MIRROR_FINALIZE=YES is required to authorize irreversible program finalization"
 [ -r "$LAYERX_SOLANA_MIRROR_KEYPAIR_FILE" ] || fail "LAYERX_SOLANA_MIRROR_KEYPAIR_FILE is not readable"
 [[ $LAYERX_SOLANA_MIRROR_RPC_URL =~ ^https:// ]] \
     || fail "LAYERX_SOLANA_MIRROR_RPC_URL must be an https endpoint"
@@ -60,7 +63,8 @@ elf_bytes=$(wc -c < "$elf" | tr -d ' ')
 
 deploy=("$SOLANA" program deploy "$elf" --url "$LAYERX_SOLANA_MIRROR_RPC_URL"
     --keypair "$LAYERX_SOLANA_MIRROR_KEYPAIR_FILE"
-    --upgrade-authority "$LAYERX_SOLANA_MIRROR_KEYPAIR_FILE" --output json)
+    --upgrade-authority "$LAYERX_SOLANA_MIRROR_KEYPAIR_FILE" --max-len "$elf_bytes"
+    --commitment finalized --output json)
 if [ -n "${LAYERX_SOLANA_MIRROR_PROGRAM_KEYPAIR_FILE:-}" ]; then
     [ -r "$LAYERX_SOLANA_MIRROR_PROGRAM_KEYPAIR_FILE" ] \
         || fail "LAYERX_SOLANA_MIRROR_PROGRAM_KEYPAIR_FILE is not readable"
@@ -75,7 +79,7 @@ deployment_signature=$(jq -r '.signature // empty' "$work/deploy.json")
 [ -n "$deployment_signature" ] \
     || fail "solana program deploy reported no deployment signature, which solana-deployment.json records: $(cat "$work/deploy.json")"
 
-"$SOLANA" program show "$program_id" --url "$LAYERX_SOLANA_MIRROR_RPC_URL" --output json \
+"$SOLANA" program show "$program_id" --url "$LAYERX_SOLANA_MIRROR_RPC_URL" --commitment finalized --output json \
     > "$work/show.json" 2> "$work/show.log" \
     || { cat "$work/show.log" >&2; fail "solana program show $program_id failed"; }
 program_data=$(jq -r '.programdataAddress // empty' "$work/show.json")
@@ -86,14 +90,25 @@ deployed_slot=$(jq -r '.lastDeploySlot // empty' "$work/show.json")
     || fail "the deployed program upgrade authority $authority is not the publisher $publisher"
 [[ $deployed_slot =~ ^[0-9]+$ ]] || fail "solana program show reported no deploy slot for $program_id"
 
-rooted_slot=$("$SOLANA" slot --url "$LAYERX_SOLANA_MIRROR_RPC_URL" --commitment finalized) \
-    || fail "the RPC endpoint did not answer getSlot at the finalized commitment"
-[[ $rooted_slot =~ ^[0-9]+$ ]] || fail "the endpoint reported no finalized slot"
-[ "$rooted_slot" -ge "$deployed_slot" ] \
-    || fail "the finalized slot $rooted_slot is behind the deploy slot $deployed_slot; the deployment is not rooted yet"
+verify=(python3 "$SCRIPT_DIR/verify-solana-deployment.py"
+    --rpc-url "$LAYERX_SOLANA_MIRROR_RPC_URL" --genesis-hash "$genesis_hash"
+    --program-id "$program_id" --program-data "$program_data"
+    --deployment-signature "$deployment_signature" --elf "$elf")
+"${verify[@]}" --expected-authority "$publisher" > "$work/before-finalization.json" \
+    || fail "rooted program identity verification failed before finalization"
+
+"$SOLANA" program set-upgrade-authority "$program_id" \
+    --url "$LAYERX_SOLANA_MIRROR_RPC_URL" --keypair "$LAYERX_SOLANA_MIRROR_KEYPAIR_FILE" \
+    --upgrade-authority "$LAYERX_SOLANA_MIRROR_KEYPAIR_FILE" --final \
+    --commitment finalized --output json > "$work/finalize.json" 2> "$work/finalize.log" \
+    || { cat "$work/finalize.log" >&2; fail "authorized program finalization failed"; }
+
+"${verify[@]}" > "$work/ready.json" \
+    || fail "rooted immutable program identity verification failed after finalization"
+rooted_slot=$(jq -r '.rooted_slot' "$work/ready.json")
 
 umask 077
-jq -n --arg program layerx-solana-mirror-program \
+jq --arg program layerx-solana-mirror-program \
     --arg source services/interop/contracts/solana-mirror \
     --arg genesis_hash "$genesis_hash" \
     --arg program_id "$program_id" \
@@ -103,15 +118,11 @@ jq -n --arg program layerx-solana-mirror-program \
     --arg program_elf_sha256 "$elf_sha256" \
     --argjson program_elf_bytes "$elf_bytes" \
     --arg deployment_signature "$deployment_signature" \
-    --argjson deployment_finalized_slot "$deployed_slot" \
-    --argjson rooted_slot "$rooted_slot" \
-    --arg upgrade_authority "$authority" \
-    '{program: $program, source: $source, genesis_hash: $genesis_hash, program_id: $program_id,
+    '. + {program: $program, source: $source, genesis_hash: $genesis_hash, program_id: $program_id,
       publisher_ed25519_public_key: $publisher, program_data_account: $program_data_account,
       upgradeable_loader_id: $upgradeable_loader_id, program_elf_sha256: $program_elf_sha256,
-      program_elf_bytes: $program_elf_bytes, deployment_signature: $deployment_signature,
-      deployment_finalized_slot: $deployment_finalized_slot, rooted_slot: $rooted_slot,
-      upgrade_authority: $upgrade_authority}' > "$LAYERX_SOLANA_MIRROR_DEPLOYMENT_RECORD"
+      program_elf_bytes: $program_elf_bytes, deployment_signature: $deployment_signature}' \
+    "$work/ready.json" > "$LAYERX_SOLANA_MIRROR_DEPLOYMENT_RECORD"
 
 printf 'deploy-solana-mirror: %s (program data %s) deployed by %s, rooted at slot %s\n' \
     "$program_id" "$program_data" "$publisher" "$rooted_slot" >&2

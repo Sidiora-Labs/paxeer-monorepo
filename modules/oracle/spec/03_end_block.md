@@ -4,30 +4,38 @@ order: 3
 
 # End Block
 
-## Tally Exchange Rate Votes
+Oracle work is divided between `MidBlocker` and `EndBlocker` in [`abci.go`](../abci.go). [`module.go`](../module.go) exposes both hooks. In the current node path, [`node/app.go`](../../../node/app.go) executes transactions, then calls `MidBlock` from `CompleteBlock`, then performs EndBlock processing. Oracle precedes `pricefeed` in the registered MidBlock order. The tally therefore does not provide newly calculated prices to transactions that already executed in that block.
 
-At the end of every block, the `Oracle` module checks whether it's the last block of the `VotePeriod`. If it is, it runs the [Voting Procedure](./01_concepts.md#Voting_Procedure):
+Both period checks use [`utils.IsPeriodLastBlock`](../utils/period.go):
 
-1. All current active Pax exchange rates are purged from the store
+```text
+(blockHeight + 1) % blocksPerPeriod == 0
+```
 
-2. Received votes are organized into ballots by denomination. Abstained votes, as well as votes by inactive or jailed validators are ignored
+## Tally Exchange Rate Votes in MidBlock
 
-3. Denominations not meeting the following requirements will be dropped:
+When the current block ends a `VotePeriod`, `MidBlocker` runs the [voting procedure](01_concepts.md#voting-procedure):
 
-    - Must appear in the permitted denominations in `Whitelist`
-    - Ballot for denomination must have at least `VoteThreshold` total vote power
+1. Build a claim map from selected bonded validators, up to staking's `MaxValidators`, with their consensus voting power. Capture the current vote-target set and its size. Genesis initializes that set from the validated whitelist before any recovered ballot is processed.
+2. Organize stored aggregate votes into sorted denom ballots. Only validators present in the claim map participate; non-positive rates carry zero power.
+3. Discard non-target ballots. Separate target ballots that have zero power or power below the rounded threshold `VoteThreshold * totalBondedPower`. They will contribute participation wins without updating rates.
+4. Choose the passing target with the highest turnout as the reference denom, using ascending denom name to break ties. Calculate its weighted median. For every passing ballot, in sorted denom order, run `Tally`; non-reference ballots are first converted to sorted cross rates against each validator's reference vote.
+5. Skip zero median results. Convert other cross-rate medians back with `referenceMedian / crossRateMedian`, then call `SetBaseExchangeRateWithEvent`. This stores the rate with the current block height and millisecond timestamp and emits [exchange_rate_update](05_events.md#midblocker).
+6. Run `UpdateDidVote` for each below-threshold target ballot, recording one win and participation for every tuple in it.
+7. For each validator claim, increment success if its wins equal the original target count; otherwise increment abstain if `DidVote` is false, or miss if it is true. See [counter rules](01_concepts.md#slashing).
+8. Delete all aggregate votes with `ClearBallots`. Run `ApplyWhitelist` to synchronize vote targets with the whitelist and register missing bank denom metadata when rebuilding targets.
 
-4. For each remaining `denom` with a passing ballot:
+If no target ballot passes, no exchange rate is updated, but participation accounting, vote deletion, and target synchronization still run. Existing exchange rates are retained with their original source height and Unix millisecond timestamp until replaced or removed by the feed cleanup below; running a tally without a replacement does not refresh either field. There are no current prevotes to preserve and no ballot-winner token distribution or snapshot creation in this hook.
 
-    - Tally up votes and find the weighted median exchange rate and winners with `tally()`
-    - Iterate through winners of the ballot and add their weight to their running total
-    - Set the Pax exchange rate on the blockchain for that Pax<>`denom` with `k.SetPaxExchangeRate()`
-   - Emit a `exchange_rate_update` event
+The tally and cross-rate helpers are in [`tally.go`](../tally.go), [`keeper/ballot.go`](../keeper/ballot.go), and [`types/ballot.go`](../types/ballot.go).
 
-5. Count up the validators who [missed](./01_concepts.md#Slashing) the Oracle vote and increase the appropriate miss counters
+## Slash-Window Processing in EndBlock
 
-6. If at the end of a `SlashWindow`, penalize validators who have missed more than the penalty threshold (submitted fewer valid votes than `MinValidPerWindow`)
+When the current block ends a `SlashWindow`, `EndBlocker` performs two operations:
 
-7. Distribute rewards to ballot winners with `k.RewardBallotWinners()`
+1. `SlashAndResetCounters` evaluates each stored penalty counter. If its total is nonzero, it computes `success / (success + abstain + miss)` and compares it with `MinValidPerWindow`. A strictly lower rate causes a bonded, unjailed validator to be slashed by `SlashFraction` and jailed. The slash uses `blockHeight - sdk.ValidatorUpdateDelay - 1` as its distribution height. It then emits [end_slash_window](05_events.md#endblocker) with the counts and deletes the counter. An all-zero counter is skipped without an event or deletion.
+2. `RemoveExcessFeeds` deletes stored exchange rates whose denoms are absent from the current vote-target set. This cleanup does not emit `exchange_rate_update`.
 
-8. Clear all prevotes (except ones for the next `VotePeriod`) and votes from the store
+If both boundaries occur in the same block, MidBlock has already accounted for the period before EndBlock evaluates the counters. Default `MinValidPerWindow = 0` and `SlashFraction = 0` do not trigger penalties; the window still reports and resets nonempty counters and removes excess feeds. See [`keeper/slash.go`](../keeper/slash.go), [`keeper/keeper.go`](../keeper/keeper.go), and the [default parameters](../README.md#parameters).
+
+Outside a slash-window boundary, the oracle EndBlock hook does not tally prices or reset counters. See [State](02_state.md) for retained rates and [Messages](04_messages.md) for how votes enter the store.

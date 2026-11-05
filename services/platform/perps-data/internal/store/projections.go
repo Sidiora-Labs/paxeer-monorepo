@@ -59,7 +59,7 @@ const (
 // positions_current, orders and spot_orders follow their events in row order;
 // account_margin, user_stats, user_pnl_daily and market_stats_rolling are
 // recomputed from the stored facts for every key the rows touch. Market stats
-// are also refreshed when their previous window is more than 24 hours old, and
+// are also refreshed as fills cross any rolling-window boundary, and
 // keeper_cycles and spot_token_seen are written from the rows of the block,
 // and perps.leaderboard refolds touched and expired accounts and ranks each
 // window as of the block time
@@ -106,17 +106,22 @@ func Project(ctx context.Context, tx *sql.Tx, rows []decode.Row) error {
 }
 
 func expiredLeaderboardAccounts(ctx context.Context, tx *sql.Tx, at time.Time) ([]common.Address, error) {
-	rows, err := tx.QueryContext(ctx, `WITH windows ("window", since) AS (
-    VALUES ('7d', $1::timestamptz - interval '168 hours'),
-           ('30d', $1::timestamptz - interval '720 hours')
+	rows, err := tx.QueryContext(ctx, `WITH previous AS (
+    SELECT time FROM perps.blocks ORDER BY number DESC OFFSET 1 LIMIT 1
+), windows ("window", span) AS (
+    VALUES ('7d', interval '168 hours'), ('30d', interval '720 hours')
 )
 SELECT DISTINCT b.account FROM perps.leaderboard b JOIN windows w USING ("window")
-WHERE NOT EXISTS (
+WHERE EXISTS (
     SELECT 1 FROM perps.position_events c
-    WHERE c.account = b.account AND c.kind = 'closed' AND c.block_time > w.since AND c.block_time <= $1
-) AND NOT EXISTS (
+    WHERE c.account = b.account AND c.kind = 'closed'
+      AND c.block_time <= $1::timestamptz - w.span
+      AND c.block_time > coalesce((SELECT time FROM previous), '-infinity'::timestamptz) - w.span
+) OR EXISTS (
     SELECT 1 FROM perps.trade_settlements s
-    WHERE s.account = b.account AND s.block_time > w.since AND s.block_time <= $1
+    WHERE s.account = b.account
+      AND s.block_time <= $1::timestamptz - w.span
+      AND s.block_time > coalesce((SELECT time FROM previous), '-infinity'::timestamptz) - w.span
 )
 ORDER BY b.account`, at.UTC())
 	if err != nil {
@@ -767,7 +772,13 @@ const staleMarketStatsSQL = `SELECT s.market_id
 FROM perps.market_stats_rolling s
 JOIN perps.markets m ON m.market_id = s.market_id
 JOIN perps.blocks b ON b.number = s.updated_block
-WHERE b.time < $1::timestamptz - interval '24 hours'
+WHERE EXISTS (
+    SELECT 1 FROM perps.fills f
+    CROSS JOIN (VALUES (interval '24 hours'), (interval '168 hours'), (interval '720 hours')) w(span)
+    WHERE f.market_id = s.market_id
+      AND f.block_time > b.time - w.span
+      AND f.block_time <= $1::timestamptz - w.span
+)
 ORDER BY s.market_id`
 
 const marketStatsSQL = `INSERT INTO perps.market_stats_rolling (market_id, volume_24h, volume_7d, volume_30d, trades_count,

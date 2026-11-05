@@ -175,24 +175,17 @@ fn closed_endpoint() -> Result<(std::os::fd::OwnedFd, NodeRpcConfig), Box<dyn Er
 }
 
 #[test]
-fn startup_checks_node_json_rpc_before_the_human_lni_variable() -> Result<(), Box<dyn Error>> {
+fn startup_checks_node_json_rpc_before_the_human_service_variable() -> Result<(), Box<dyn Error>> {
     let (_socket, config) = closed_endpoint()?;
-    let unserved_socket = std::env::temp_dir().join(format!(
-        "layerx-agentd-unserved-node-{}.sock",
-        std::process::id()
-    ));
-    assert!(unserved_socket.is_absolute());
-    assert!(!unserved_socket.exists());
+    let (_human_socket, human_config) = closed_endpoint()?;
+    assert_ne!(config.url, human_config.url);
     let output = startup_output(
-        node_integration(&config).env("LAYERX_AGENT_HUMAN_NODE_LNI", &unserved_socket),
+        node_integration(&config).env("LAYERX_AGENT_HUMAN_AUTHORITY_ENDPOINT", &human_config.url),
     )?;
     let stderr = String::from_utf8(output.stderr.clone())?;
     refused(output, "node JSON-RPC is unavailable")?;
-    assert!(
-        !stderr.contains(&*unserved_socket.to_string_lossy()),
-        "{stderr}"
-    );
-    assert!(!stderr.contains("LNI"), "{stderr}");
+    assert!(!stderr.contains(&human_config.url), "{stderr}");
+    assert!(!stderr.contains("human authority"), "{stderr}");
     Ok(())
 }
 
@@ -202,7 +195,7 @@ fn startup_reports_node_json_rpc_unavailable_for_a_closed_endpoint() -> Result<(
     let output = startup_output(&mut node_integration(&config))?;
     let stderr = String::from_utf8(output.stderr.clone())?;
     refused(output, "node JSON-RPC is unavailable")?;
-    assert!(!stderr.contains("LNI"), "{stderr}");
+    assert!(!stderr.contains("human authority"), "{stderr}");
     Ok(())
 }
 
@@ -226,7 +219,7 @@ fn startup_refuses_a_chain_id_mismatch() -> Result<(), Box<dyn Error>> {
     let output = startup_output(&mut node_integration(&config))?;
     let stderr = String::from_utf8(output.stderr.clone())?;
     refused(output, "node chain id mismatch")?;
-    assert!(!stderr.contains("LNI"), "{stderr}");
+    assert!(!stderr.contains("human authority"), "{stderr}");
     assert!(!stderr.contains("node JSON-RPC is unavailable"), "{stderr}");
     Ok(())
 }

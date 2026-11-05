@@ -350,6 +350,11 @@ func blockResultsRoot(height int64, results *coretypes.ResultBlockResults) (comm
 // pendingBlock encodes the open block on the sequencer and standby: its height,
 // its open time and the hashes of its receipted EVM transactions in receipt
 // order. It has no hash and no state root until it is sealed and committed.
+// fullTx is deliberately rejected, rather than projecting mined transactions
+// into an open block. Explorer's block_importer_import_1_pending.json cassette
+// is historical Parity evidence, not a capture of this producer. Conformance
+// evidence must capture this path separately, including the fullTx error and
+// the committed block identity before and after a producer restart.
 func (a *BlockAPI) pendingBlock(fullTx bool) (map[string]interface{}, error) {
 	if fullTx {
 		return nil, &ErrEVMNotSupported{Msg: "pending block lists transaction hashes only"}
@@ -769,25 +774,29 @@ func EncodeTmBlock(
 		return nil, fmt.Errorf("block %d: %w", block.Block.Height, err)
 	}
 	result := map[string]interface{}{
-		"number":           (*hexutil.Big)(number),
-		"hash":             blockhash,
-		"parentHash":       lastHash,
-		"nonce":            ethtypes.BlockNonce{},   // inapplicable to Pax
-		"mixHash":          common.Hash{},           // inapplicable to Pax
-		"sha3Uncles":       ethtypes.EmptyUncleHash, // inapplicable to Pax
-		"logsBloom":        ethtypes.BytesToBloom(blockBloom),
-		"stateRoot":        appHash,
-		"miner":            miner,
-		"difficulty":       (*hexutil.Big)(big.NewInt(0)), // inapplicable to Pax
-		"extraData":        hexutil.Bytes{},               // inapplicable to Pax
-		"gasLimit":         gasLimit,
-		"gasUsed":          hexutil.Uint64(blockGasUsed),
-		"timestamp":        hexutil.Uint64(block.Block.Time.Unix()), //nolint:gosec
-		"transactionsRoot": txHash,
-		"size":             hexutil.Uint64(block.Block.Size()), //nolint:gosec
-		"uncles":           []common.Hash{},                    // inapplicable to Pax
-		"transactions":     transactions,
-		"baseFeePerGas":    (*hexutil.Big)(baseFeePerGas),
+		"number":                (*hexutil.Big)(number),
+		"hash":                  blockhash,
+		"parentHash":            lastHash,
+		"nonce":                 ethtypes.BlockNonce{},   // inapplicable to Pax
+		"mixHash":               common.Hash{},           // inapplicable to Pax
+		"sha3Uncles":            ethtypes.EmptyUncleHash, // inapplicable to Pax
+		"logsBloom":             ethtypes.BytesToBloom(blockBloom),
+		"stateRoot":             appHash,
+		"miner":                 miner,
+		"difficulty":            (*hexutil.Big)(big.NewInt(0)), // inapplicable to Pax
+		"extraData":             hexutil.Bytes{},               // inapplicable to Pax
+		"gasLimit":              gasLimit,
+		"gasUsed":               hexutil.Uint64(blockGasUsed),
+		"timestamp":             hexutil.Uint64(block.Block.Time.Unix()), //nolint:gosec
+		"transactionsRoot":      txHash,
+		"size":                  hexutil.Uint64(block.Block.Size()), //nolint:gosec
+		"uncles":                []common.Hash{},                    // inapplicable to Pax
+		"transactions":          transactions,
+		"baseFeePerGas":         (*hexutil.Big)(baseFeePerGas),
+		"withdrawalsRoot":       ethtypes.EmptyWithdrawalsHash,
+		"blobGasUsed":           hexutil.Uint64(0),
+		"excessBlobGas":         hexutil.Uint64(0),
+		"parentBeaconBlockRoot": common.Hash{},
 	}
 	if fullTx {
 		result["totalDifficulty"] = (*hexutil.Big)(big.NewInt(0)) // inapplicable to Pax

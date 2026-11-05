@@ -1,0 +1,59 @@
+[disposition.17.5.1.6]
+finding = "17.5.1.6"
+status = "open"
+evidence = "Commit ed1b9b302 ports the MCP scope test to GrantRevokedOnChain at services/agent/crates/layerx-mcp/tests/scope.rs:525, but budget_record_wire still declares an unused level at services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs:1738 under the agent-lint deny-warnings command at Makefile:1886, requiring programme task 22.94.12.1 to remove that binding."
+follow_up = "22.94.12.1"
+
+[disposition.17.5.2.5]
+finding = "17.5.2.5"
+status = "open"
+evidence = "scripts/gates/wave-1.sh:22 still defaults step logs to logs/waves/1, matching spec/layerx-merge/programme/data/wave-gates.kvx:12, while origin/main at 488c5b2f8 contains no spec/layerx-merge/programme/tests/test_wave_1_gate.py and the corrected passing-branch lookup remains unlanded under task 17.5.2 do_6."
+follow_up = "17.5.2"
+
+[disposition.17.5.2.6]
+finding = "17.5.2.6"
+status = "resolved"
+evidence = "Commit ed1b9b302 replaces CapabilityGrantRevoked with the declared GrantRevokedOnChain variant at services/agent/crates/layerx-mcp/tests/scope.rs:525, removing the reported scope-test compilation error."
+follow_up = "closure"
+
+[disposition.17.5.3.2]
+finding = "17.5.3.2"
+status = "resolved"
+evidence = "Commit 37888aa9c ports the payer off current_height and prepare_budget to signed ledger grants, retained at services/agent/crates/layerx-agentd-host/src/payer.rs:341, with sequence-aware draws now using draw_from_sequence_result at services/agent/crates/layerx-agentd-host/src/payer.rs:388 instead of the obsolete one-argument prepare_draw."
+follow_up = "closure"
+
+[disposition.17.5.4.1]
+finding = "17.5.4.1"
+status = "resolved"
+evidence = "Commit 37888aa9c removes the payer's stale current_height, prepare_budget and one-argument prepare_draw calls, with the current signed-grant path at services/agent/crates/layerx-agentd-host/src/payer.rs:341 and sequence-result draw path at services/agent/crates/layerx-agentd-host/src/payer.rs:388 preserving that port."
+follow_up = "closure"
+
+[disposition.17.5.1.7]
+finding = "17.5.1.7"
+status = "resolved"
+evidence = "Commit 096e161e1 replaces load_registry's obsolete one-argument verify_historical_deployment call with reader.verify_journal_admission, retained at services/agent/crates/layerx-agentd/src/main.rs:1564, removing the reported E0061 call."
+follow_up = "closure"
+
+[disposition.17.5.2.7]
+finding = "17.5.2.7"
+status = "resolved"
+evidence = "Commit 096e161e1 ports load_registry to the chain-head-aware reader.verify_journal_admission call at services/agent/crates/layerx-agentd/src/main.rs:1564, replacing the one-argument historical verifier that caused the wave-1 E0061 error."
+follow_up = "closure"
+
+[disposition.17.5.3.3]
+finding = "17.5.3.3"
+status = "resolved"
+evidence = "Commit 096e161e1 replaces the obsolete historical-verifier invocation in load_registry with reader.verify_journal_admission at services/agent/crates/layerx-agentd/src/main.rs:1564, removing the reported wave-2 E0061 call."
+follow_up = "closure"
+
+[disposition.17.5.4.2]
+finding = "17.5.4.2"
+status = "resolved"
+evidence = "Commit 096e161e1 removes load_registry's one-argument verify_historical_deployment invocation and the current path calls reader.verify_journal_admission at services/agent/crates/layerx-agentd/src/main.rs:1564, removing the reported wave-3 E0061 call."
+follow_up = "closure"
+
+[disposition.17.5.1.8]
+finding = "17.5.1.8"
+status = "resolved"
+evidence = "Commit 453ee8152 partitions live and retired schema operations in generated_client_covers_every_schema_declaration at services/human/tools/api-gen/tests/generation.rs:219 and separately asserts live, retired and total counts at services/human/tools/api-gen/tests/generation.rs:222, eliminating the 84-versus-95 comparison and aligning the companion retirement tests."
+follow_up = "closure"

@@ -126,15 +126,12 @@ func MoveDelta(ctx context.Context, o Options) (DeltaReport, error) {
 	if err != nil {
 		return report, err
 	}
-	for _, t := range src.Tables {
-		if !present[t.Name] {
-			report.Dropped = append(report.Dropped, DroppedTable{Table: t.Name, SourceRows: counts[t.Name]})
-		}
-	}
-	var kept []rehearsal.Table
-	for _, t := range src.Tables {
-		if present[t.Name] {
-			kept = append(kept, t)
+	kept := make([]rehearsal.Table, 0, len(src.Tables))
+	for _, table := range src.Tables {
+		if present[table.Name] {
+			kept = append(kept, table)
+		} else {
+			report.Dropped = append(report.Dropped, DroppedTable{Table: table.Name, SourceRows: counts[table.Name]})
 		}
 	}
 	if err := rehearsal.CheckCounterparts(ctx, tgt, kept); err != nil {
@@ -174,51 +171,82 @@ func MoveDelta(ctx context.Context, o Options) (DeltaReport, error) {
 	return report, nil
 }
 
-func checkMoved(ctx context.Context, q rehearsal.Querier, ledger []string) (int, error) {
+func checkMoved(ctx context.Context, q rehearsal.Querier, ledger []string) ([]string, error) {
 	var exists bool
 	if err := q.QueryRow(ctx, "select to_regclass($1) is not null", rehearsal.LedgerTable).Scan(&exists); err != nil {
-		return 0, fmt.Errorf("%w: inspect ledger: %v", rehearsal.ErrTarget, err)
+		return nil, fmt.Errorf("%w: inspect ledger: %v", rehearsal.ErrTarget, err)
 	}
 	if !exists {
-		return 0, fmt.Errorf("%w: no ledger", ErrNotMoved)
+		return nil, fmt.Errorf("%w: no ledger", ErrNotMoved)
 	}
 	rows, err := q.Query(ctx, "select filename from "+pgx.Identifier{rehearsal.LedgerTable}.Sanitize())
 	if err != nil {
-		return 0, fmt.Errorf("%w: read ledger: %v", rehearsal.ErrTarget, err)
+		return nil, fmt.Errorf("%w: read ledger: %v", rehearsal.ErrTarget, err)
 	}
 	have, err := pgx.CollectRows(rows, pgx.RowTo[string])
 	if err != nil {
-		return 0, fmt.Errorf("%w: read ledger: %v", rehearsal.ErrTarget, err)
+		return nil, fmt.Errorf("%w: read ledger: %v", rehearsal.ErrTarget, err)
 	}
-	set := make(map[string]bool, len(have))
-	for _, f := range have {
-		set[f] = true
-	}
-	for _, f := range ledger {
-		if !set[f] {
-			return 0, fmt.Errorf("%w: %s missing", ErrNotMoved, f)
-		}
-	}
-	return len(have) - len(ledger), nil
+	return migrationDifference(ledger, have)
 }
 
-func targetTables(ctx context.Context, q rehearsal.Querier, tables []rehearsal.Table, laterMigrations int) (map[string]bool, error) {
+func migrationDifference(source, target []string) ([]string, error) {
+	set := make(map[string]bool, len(target))
+	for _, f := range target {
+		set[f] = true
+	}
+	for _, f := range source {
+		if !set[f] {
+			return nil, fmt.Errorf("%w: %s missing", ErrNotMoved, f)
+		}
+	}
+	for _, f := range source {
+		delete(set, f)
+	}
+	var later []string
+	for _, f := range target {
+		if set[f] {
+			later = append(later, f)
+		}
+	}
+	return later, nil
+}
+
+func targetTables(ctx context.Context, q rehearsal.Querier, tables []rehearsal.Table, laterMigrations []string) (map[string]bool, error) {
 	target, err := rehearsal.ReadTables(ctx, q)
 	if err != nil {
 		return nil, err
+	}
+	return checkTargetTables(tables, target, laterMigrations)
+}
+
+func checkTargetTables(source, target []rehearsal.Table, laterMigrations []string) (map[string]bool, error) {
+	applied := make(map[string]bool, len(laterMigrations))
+	for _, f := range laterMigrations {
+		applied[f] = true
 	}
 	present := make(map[string]bool, len(target))
 	for _, t := range target {
 		present[t.Name] = true
 	}
-	var gone []string
-	for _, t := range tables {
-		if !present[t.Name] {
-			gone = append(gone, t.Name)
+	var unexplained []string
+	for _, t := range source {
+		if present[t.Name] {
+			continue
+		}
+		var retirement string
+		switch t.Name {
+		case "whitelist_entries", "funded_tiers":
+			retirement = "006_archive_funded.sql"
+		case "layerx_accounts", "wallet_custody_submissions", "wallet_custody_authorizations":
+			retirement = "019_drop_retired_layerx_custody.sql"
+		}
+		if retirement == "" || !applied[retirement] {
+			unexplained = append(unexplained, t.Name)
 		}
 	}
-	if len(gone) > 0 && laterMigrations == 0 {
-		return nil, fmt.Errorf("%w: no counterpart for %s and no later migration dropped it", rehearsal.ErrSchema, strings.Join(gone, ", "))
+	if len(unexplained) > 0 {
+		return nil, fmt.Errorf("%w: no counterpart for %s and no applied gateway migration retires it", rehearsal.ErrSchema, strings.Join(unexplained, ", "))
 	}
 	return present, nil
 }

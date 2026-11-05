@@ -1,0 +1,9 @@
+[repair.go-services.29]
+target = "services/platform/perps-data/internal/publish"
+command = "cd services/platform/perps-data && go vet ./internal/publish/ && go test -count=1 ./internal/publish/"
+revision = "cea04b0a20fed9621b2f2580398024b38b76ff2e"
+result = "already-passing"
+change = "services/platform/perps-data/internal/publish/publisher_test.go identifies the PostgreSQL input and CREATE DATABASE permission in its prerequisite failure; no product code changed."
+verification_command = "test -s spec/layerx-merge/programme/sweeps/repairs/go-services.29.kvx && cd services/platform/perps-data && go vet ./internal/publish/ && go test -count=1 -run NoTestMatchesThisName ./internal/publish/"
+verification_basis = "Decision 2496 qualifies this target through vet and compilation of every test with no matching test name; the recorded unfiltered sweep failure requires the PostgreSQL input."
+producer_input_tests = ["TestPublisher (including all subtests): PostgreSQL via PERPS_DATA_TEST_DATABASE_URL with CREATE DATABASE permission"]

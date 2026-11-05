@@ -51,6 +51,7 @@ typedef struct lxphost_node {
     lx_programs_transfer_runtime programs_runtime;
     uint64_t parameters;
     uint64_t epoch;
+    uint16_t programs_guest_abi;
     int store_ready;
     uint8_t arena_bytes[LXPHOST_ARENA_BYTES];
     lxp_verified_receipt_index verified_receipts;
@@ -92,6 +93,39 @@ typedef struct lxphost_outcome {
     size_t encoded_length;
 } lxphost_outcome;
 
+static int32_t lxphost_receipt_authority_add(lxphost_node *node,
+    lxp_byte_span encoded, uint64_t height)
+{
+    lxp_receipt receipt;
+    lxp_verified_receipt_facts facts = {0};
+    lxp_verified_receipt_index *index = &node->verified_receipts;
+    size_t at;
+    int32_t status = lxp_verified_receipt_index_add_height_authority(
+        index, encoded, height, &node->arena);
+    if (status != LXP_OK) return status;
+    status = lxp_receipt_decode(encoded.bytes, encoded.length, false, &receipt);
+    if (status == LXP_OK)
+        status = lxp_receipt_digest(&receipt, &node->arena, facts.receipt_digest);
+    if (status != LXP_OK) return status;
+    facts.result_code = receipt.result_code;
+    facts.global_sequence = receipt.global_sequence;
+    facts.timestamp = receipt.timestamp;
+    memcpy(facts.asset, receipt.asset, 32);
+    facts.amount = receipt.amount;
+    memcpy(facts.resulting_state_root, receipt.resulting_state_root, 32);
+    for (at = 0; at < index->count; ++at) {
+        int order = memcmp(index->entries[at].receipt_digest, facts.receipt_digest, 32);
+        if (order == 0) return LXP_OK;
+        if (order > 0) break;
+    }
+    if (index->count == LXP_VERIFIED_RECEIPT_INDEX_MAX) return LXP_ERR_LENGTH_LIMIT;
+    memmove(&index->entries[at + 1], &index->entries[at],
+        (index->count - at) * sizeof(index->entries[0]));
+    index->entries[at] = facts;
+    ++index->count;
+    return LXP_OK;
+}
+
 static void lxphost_release_blobs(lxp_kernel *kernel)
 {
     size_t i;
@@ -102,7 +136,9 @@ static void lxphost_release_blobs(lxp_kernel *kernel)
     kernel->blob_count = 0U;
 }
 
-static lxphost_node *lxphost_node_new(uint64_t epoch, int32_t *status)
+static lxphost_node *lxphost_node_new(uint64_t epoch,
+                                       uint16_t programs_guest_abi,
+                                       int32_t *status)
 {
     lxphost_node *node = (lxphost_node *)calloc(1U, sizeof(lxphost_service_node));
     if (node == NULL) {
@@ -110,6 +146,7 @@ static lxphost_node *lxphost_node_new(uint64_t epoch, int32_t *status)
         return NULL;
     }
     node->epoch = epoch;
+    node->programs_guest_abi = programs_guest_abi;
     node->parameters = 1U;
     *status = lxp_kernel_create(&node->kernel, &node->store, &node->journal,
                                 &node->parameters, epoch);
@@ -137,6 +174,7 @@ static lxphost_envelope *lxphost_node_envelope(lxphost_node *node)
 static int32_t lxphost_reset(lxphost_node *node, uint64_t first_sequence)
 {
     uint64_t epoch = node->epoch;
+    uint16_t programs_guest_abi = node->programs_guest_abi;
     int32_t status;
     lxphost_release_blobs(&node->kernel);
     if (node->store_ready != 0) {
@@ -147,6 +185,7 @@ static int32_t lxphost_reset(lxphost_node *node, uint64_t first_sequence)
     lx_account_registry_release(&node->accounts);
     (void)memset(node, 0, sizeof(*node));
     node->epoch = epoch;
+    node->programs_guest_abi = programs_guest_abi;
     node->parameters = 1U;
     status = lxp_verified_receipt_index_init(&node->verified_receipts);
     if (status != LXP_OK) return status;
@@ -172,7 +211,9 @@ static int32_t lxphost_reset(lxphost_node *node, uint64_t first_sequence)
                                             lxp_governance_module_iface());
     if (status == LXP_OK)
         status = lxp_kernel_register_module(&node->kernel,
-                                            programs_module_registration_v4_storage_retirement());
+                                            programs_guest_abi == LX_PROGRAMS_GUEST_ABI_V5_VERSION ?
+                                                programs_module_registration_v5() :
+                                                programs_module_registration_v4_storage_retirement());
     if (status == LXP_OK)
         status = lxp_kernel_register_module(&node->kernel,
                                             lx_asset_module_iface());
@@ -266,8 +307,8 @@ static int32_t lxphost_bind_assets(lxphost_node *node, uint32_t network_id,
     node->programs_runtime.resolve_occupancy_parameters =
         lxp_programs_fee_governance_resolve_runtime;
     node->programs_runtime.occupancy_parameter_context = &node->kernel;
-    node->kernel.module_runtime[LXP_MODULE_PROGRAMS] = &node->programs_runtime;
-    return LXP_OK;
+    return lxp_kernel_bind_module_runtime(&node->kernel, LXP_MODULE_PROGRAMS,
+                                          &node->programs_runtime);
 }
 
 static int32_t lxphost_envelope_write(
@@ -859,7 +900,7 @@ func lxphost_bind_assets(node *C.lxphost_node, networkID uint32, bindingAuthorit
 	return result(C.lxphost_bind_assets(node, C.uint32_t(networkID), C.bool(bindingAuthority)))
 }
 
-func lxphost_execute(node *C.lxphost_node, cfg Config, branch *branchCtx, bindingAuthority bool, authorities ...ReceiptAuthority) error {
+func prepareReceiptAuthorities(node *C.lxphost_node, cfg Config, branch *branchCtx, authorities []ReceiptAuthority) error {
 	if err := result(C.lxp_verified_receipt_index_bind_authority_network(&node.verified_receipts, C.uint32_t(cfg.NetworkID))); err != nil {
 		return err
 	}
@@ -868,10 +909,16 @@ func lxphost_execute(node *C.lxphost_node, cfg Config, branch *branchCtx, bindin
 			return codeNonCanonical
 		}
 		encoded := C.lxp_byte_span{bytes: bytesPtr(authority.CanonicalReceipt), length: C.size_t(len(authority.CanonicalReceipt))}
-		if err := result(C.lxp_verified_receipt_index_add_height_authority(&node.verified_receipts, encoded,
-			C.uint64_t(authority.BlockHeight), &node.arena)); err != nil {
+		if err := result(C.lxphost_receipt_authority_add(node, encoded, C.uint64_t(authority.BlockHeight))); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func lxphost_execute(node *C.lxphost_node, cfg Config, branch *branchCtx, bindingAuthority bool, authorities ...ReceiptAuthority) error {
+	if err := prepareReceiptAuthorities(node, cfg, branch, authorities); err != nil {
+		return err
 	}
 	balance, err := fee_balance(node)
 	if err != nil {
@@ -913,6 +960,7 @@ type Config struct {
 	NetworkID         uint32
 	Epoch             uint64
 	ParameterVersion  uint32
+	ProgramsGuestABI  uint16
 	TimestampWindowMs uint64
 	GasLimit          uint64
 }
@@ -1003,6 +1051,9 @@ type kvEntry struct {
 }
 
 func NewHost(cfg Config) (*Host, error) {
+	if cfg.ProgramsGuestABI != 0 && cfg.ProgramsGuestABI != 4 && cfg.ProgramsGuestABI != 5 {
+		return nil, codeNonCanonical
+	}
 	if cfg.StoreKey == nil || cfg.NetworkID == 0 || cfg.ParameterVersion == 0 || cfg.GasLimit == 0 || cfg.Workers < 0 || cfg.Workers > 16 {
 		return nil, codeNonCanonical
 	}
@@ -1012,7 +1063,7 @@ func NewHost(cfg Config) (*Host, error) {
 	h := &Host{cfg: cfg, nodes: make(chan *C.lxphost_node, cfg.Workers)}
 	for i := 0; i < cfg.Workers; i++ {
 		var status C.int32_t
-		node := C.lxphost_node_new(C.uint64_t(cfg.Epoch), &status)
+		node := C.lxphost_node_new(C.uint64_t(cfg.Epoch), C.uint16_t(cfg.ProgramsGuestABI), &status)
 		if node == nil {
 			for len(h.nodes) != 0 {
 				C.lxphost_node_free(<-h.nodes)
@@ -1154,17 +1205,16 @@ func (h *Host) HostExecute(ctx sdk.Context, activity Activity, authority KernelA
 		return Receipt{}, err
 	}
 	modules := activityModules(module)
-	if module == C.LXP_MODULE_GOVERNANCE {
-		active := branch.store.Get(moduleKVKey(C.LXP_MODULE_PROGRAMS, []byte("progfee/active/v1")))
-		if len(active) >= 9 && string(active[:5]) == "LXFR1" {
-			modules = append(modules, C.LXP_MODULE_PROGRAMS)
-		}
-	}
 	if err := lxphost_authority_write(h.node, authority); err != nil {
 		return Receipt{}, err
 	}
 	if err := branch.load(h, modules); err != nil {
 		return Receipt{}, err
+	}
+	if module == C.LXP_MODULE_GOVERNANCE {
+		if err := branch.loadProgramsFeeRecords(h); err != nil {
+			return Receipt{}, err
+		}
 	}
 	loadedBlobs, err := h.loadBlobs(branch.store, modules)
 	if err != nil {
@@ -1192,6 +1242,24 @@ func (h *Host) HostExecute(ctx sdk.Context, activity Activity, authority KernelA
 	if err := lxphost_outcome_read(h.node, &outcome); err != nil {
 		return Receipt{}, err
 	}
+	receipt := receiptFromOutcome(module, &outcome)
+	stagedBlobs, err := h.moduleBlobs()
+	if err != nil {
+		return Receipt{}, err
+	}
+	if err := branch.commit(h, did); err != nil {
+		return Receipt{}, err
+	}
+	commitBlobs(branch.store, loadedBlobs, stagedBlobs)
+	branch.commitPaymentReference(activity, receipt)
+	return receipt, nil
+}
+
+func releaseOutcome(outcome *lxphost_outcome) {
+	C.lxphost_outcome_release(outcome)
+}
+
+func receiptFromOutcome(module uint16, outcome *lxphost_outcome) Receipt {
 	receipt := Receipt{
 		FeeCharged:         readAmount(C.struct_lxp_u128{hi: outcome.fee_hi, lo: outcome.fee_lo}),
 		ResultCode:         Code(outcome.result_code),
@@ -1236,16 +1304,7 @@ func (h *Host) HostExecute(ctx sdk.Context, activity Activity, authority KernelA
 			Events:                  C.GoBytes(unsafe.Pointer(program.event_envelope_payload.bytes), C.int(program.event_envelope_payload.length)),
 		}
 	}
-	stagedBlobs, err := h.moduleBlobs()
-	if err != nil {
-		return Receipt{}, err
-	}
-	if err := branch.commit(h, did); err != nil {
-		return Receipt{}, err
-	}
-	commitBlobs(branch.store, loadedBlobs, stagedBlobs)
-	branch.commitPaymentReference(activity, receipt)
-	return receipt, nil
+	return receipt
 }
 
 func (h *Host) ServiceApplyDefaultOutcomes(ctx sdk.Context) (Receipt, error) {

@@ -1,0 +1,6 @@
+[repair.python-pytest-collect.7]
+target = "deploy/launchpad/production/observability"
+command = "python3 -m pytest -q --collect-only deploy/launchpad/production/observability"
+revision = "c69af8b6706e55a243bc0f3a0e184b872b900e14"
+result = "repaired"
+change = "Added deploy/launchpad/production/observability/requirements.txt to include the pinned phase2 dependencies and documented installation in deploy/launchpad/production/observability/README.md."

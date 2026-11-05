@@ -681,7 +681,7 @@ pub struct ManagedReceiptExport {
     pub digest: [u8; 32],
     pub activity_id: [u8; 32],
     pub global_sequence: u64,
-    pub verification: u8,
+    pub verification: Rung,
 }
 pub struct AgentApprovalPage {
     pub approvals: Vec<crate::approvals::AgentApprovalRecord>,
@@ -857,7 +857,7 @@ pub struct AgentCapabilityInstall {
 pub struct ManagedAgentEvidence {
     pub evidence_id: String,
     pub class: String,
-    pub verification: u8,
+    pub verification: Rung,
 }
 pub struct ManagedAgentView {
     pub agent_id: String,
@@ -871,11 +871,48 @@ pub struct ManagedAgentView {
     pub period_end: String,
     pub spent: u128,
     pub remaining: u128,
-    pub spend_verification: u8,
+    pub spend_verification: Rung,
     pub created_at: String,
     pub updated_at: String,
     pub evidence: Vec<ManagedAgentEvidence>,
 }
+impl ManagedAgentView {
+    /// Versioned peer producer codec shared with managed-state adapters.
+    pub fn encode_peer_response(&self) -> Result<Vec<u8>, AgentBoundaryError> {
+        let mut out = Writer::new(0);
+        out.text(&self.agent_id)?;
+        out.text(&self.name)?;
+        out.text(&self.purpose)?;
+        out.u8(self.state);
+        out.u128(self.monthly_limit);
+        out.text(&self.currency)?;
+        out.u8(self.limit_enforcement);
+        out.text(&self.period_start)?;
+        out.text(&self.period_end)?;
+        out.u128(self.spent);
+        out.u128(self.remaining);
+        out.u8(0xa3);
+        out.u8(self.spend_verification.wire_rank());
+        out.text(&self.created_at)?;
+        out.text(&self.updated_at)?;
+        if self.evidence.len() > MAX_EVIDENCE {
+            return Err(AgentBoundaryError::Refused);
+        }
+        out.u8(u8::try_from(self.evidence.len()).map_err(|_| AgentBoundaryError::Refused)?);
+        for evidence in &self.evidence {
+            out.text(&evidence.evidence_id)?;
+            out.text(&evidence.class)?;
+            out.u8(0xa3);
+            out.u8(evidence.verification.wire_rank());
+        }
+        Ok(out.finish())
+    }
+
+    pub fn project(&self) -> Result<serde_json::Value, super::backend::ApiFailure> {
+        super::projection::managed_agent(self)
+    }
+}
+
 pub struct ManagedAgentPage {
     pub agents: Vec<ManagedAgentView>,
     pub next_cursor: Option<[u8; 32]>,
@@ -1345,7 +1382,7 @@ impl AgentRuntime {
         if value.active_budget_id != active_budget_id
             || value.revocation_sequence == 0
             || value.observed_head_sequence < value.revocation_sequence
-            || !(4..=5).contains(&value.verification)
+            || crate::agents::rung_from_rank(value.verification).is_err()
             || value.evidence_digest == [0; 32]
             || value.receipt_digest == [0; 32]
             || value.checkpoint_digest == [0; 32]
@@ -1448,7 +1485,7 @@ impl AgentRuntime {
             || value.required_delay_seconds > value.maximum_delay_seconds
             || value.effective_sequence == 0
             || value.observed_head_sequence < value.effective_sequence
-            || !(4..=5).contains(&value.verification)
+            || crate::agents::rung_from_rank(value.verification).is_err()
             || value.evidence_digest == [0; 32]
             || value.checkpoint_digest == [0; 32]
             || value.maximum_age_sequences == 0
@@ -3090,14 +3127,14 @@ impl AgentRuntime {
         writer.text(agent_id)?;
         writer.fixed(&digest);
         let mut reader = self.exchange(&writer.finish())?;
-        if reader.u16()? != 2 {
+        if reader.u16()? != 3 {
             return Err(AgentBoundaryError::CorruptResponse);
         };
         let value = ManagedReceiptExport {
             digest: reader.fixed()?,
             activity_id: reader.fixed()?,
             global_sequence: reader.u64()?,
-            verification: reader.u8()?,
+            verification: decode_rung(reader.u8()?)?,
             canonical_bytes: reader.bytes()?,
         };
         reader.finish()?;
@@ -3111,7 +3148,6 @@ impl AgentRuntime {
             || actual_digest != digest
             || value.activity_id != protocol.activity_id()
             || value.global_sequence != protocol.global_sequence()
-            || !(1..=5).contains(&value.verification)
             || layerx_wire::receipt::encode(&receipt)
                 .map_err(|_| AgentBoundaryError::CorruptResponse)?
                 != value.canonical_bytes
@@ -3227,7 +3263,7 @@ fn encode_finalization(
         || value.activity_id == [0; 32]
         || value.receipt_digest == [0; 32]
         || value.observed_sequence == 0
-        || !(4..=5).contains(&value.verification)
+        || !super::finalization::committed(value.verification)
         || value.finalized_at == 0
     {
         return Err(AgentBoundaryError::Refused);
@@ -3473,9 +3509,9 @@ fn decode_managed_evidence(
         let value = ManagedAgentEvidence {
             evidence_id: reader.text()?,
             class: reader.text()?,
-            verification: reader.u8()?,
+            verification: reader.managed_rung()?,
         };
-        if value.evidence_id.is_empty() || value.class.is_empty() || value.verification > 5 {
+        if value.evidence_id.is_empty() || value.class.is_empty() {
             return Err(AgentBoundaryError::CorruptResponse);
         }
         evidence.push(value);
@@ -3495,7 +3531,7 @@ fn decode_managed_agent(reader: &mut Reader) -> Result<ManagedAgentView, AgentBo
         period_end: reader.text()?,
         spent: reader.u128()?,
         remaining: reader.u128()?,
-        spend_verification: reader.u8()?,
+        spend_verification: reader.managed_rung()?,
         created_at: reader.text()?,
         updated_at: reader.text()?,
         evidence: decode_managed_evidence(reader)?,
@@ -3509,7 +3545,6 @@ fn decode_managed_agent(reader: &mut Reader) -> Result<ManagedAgentView, AgentBo
         || value.limit_enforcement > 1
         || value.period_start.is_empty()
         || value.period_end.is_empty()
-        || value.spend_verification > 5
         || value.created_at.is_empty()
         || value.updated_at.is_empty()
         || value.spent.checked_add(value.remaining).is_none()
@@ -4599,6 +4634,12 @@ impl Reader {
             .ok_or(AgentBoundaryError::CorruptResponse)?;
         self.offset = end;
         Ok(value)
+    }
+    fn managed_rung(&mut self) -> Result<Rung, AgentBoundaryError> {
+        if self.u8()? != 0xa3 {
+            return Err(AgentBoundaryError::CorruptResponse);
+        }
+        decode_rung(self.u8()?)
     }
     fn u8(&mut self) -> Result<u8, AgentBoundaryError> {
         Ok(self.take(1)?[0])

@@ -362,8 +362,16 @@ fn recording_with_sequencer_receipts(name: &str, directory: &Path) -> Recording 
                 .expect("block quantity");
                 answer["blockNumber"] = json!(format!("{:#x}", 1003 + block - 0x10));
             }
-            SequencerReceipt::decode(&answer)
-                .expect("bound receipt answer")
+            let decoded = SequencerReceipt::decode(&answer).expect("bound receipt answer");
+            assert_eq!(
+                decoded
+                    .view
+                    .as_ref()
+                    .expect("bound receipt view")
+                    .payment_denom,
+                "uhpx"
+            );
+            decoded
                 .verify(&support::receipt_keys())
                 .expect("bound receipt verifies");
             rule["result"] = answer;

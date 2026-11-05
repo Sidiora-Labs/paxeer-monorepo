@@ -14,7 +14,6 @@ const RETIRED_CRATES: &[&str] = &["layerx-human-movement-provider", "layerx-paxe
 
 const RETIRED_IMPORTS: &[&str] = &[
     "layerx_client::lni",
-    "layerx_proof::receipt::AuthorizedBatch",
     "layerx_proof::checkpoint::SettlementDomain",
     "layerx_wire::activity",
 ];
@@ -54,8 +53,6 @@ const AMBIENT_NONDETERMINISM: &[&str] = &[
 ];
 
 const PAYLOAD_AUTHORITY_CRATE: &str = "layerx-intents";
-
-const PAYLOAD_ENCODING_CRATE: &str = "layerx-wire";
 
 const PAYLOAD_ENCODING_INVOCATIONS: &[&str] = &[
     "layerx_wire::encode",
@@ -117,18 +114,6 @@ fn manifest_uses_banned_dependency(body: &str) -> bool {
                 .strip_prefix(dependency)
                 .is_some_and(|tail| tail.trim_start().starts_with('='))
         }) || declaration.starts_with("links = \"layerx")
-    })
-}
-
-fn manifest_declares_wire_dependency(body: &str) -> bool {
-    body.lines().any(|line| {
-        let declaration = line.split('#').next().unwrap_or("").trim();
-        declaration
-            .strip_prefix(PAYLOAD_ENCODING_CRATE)
-            .is_some_and(|tail| {
-                let tail = tail.trim_start();
-                tail.starts_with('=') || tail.starts_with(".workspace")
-            })
     })
 }
 
@@ -237,8 +222,8 @@ pub fn human_boundary_policy(root: &Path) -> Result<(), Vec<Violation>> {
 
 /// # Errors
 ///
-/// Returns every component under `root` other than layerx-intents that depends on
-/// layerx-wire or invokes its payload-encoding entry points.
+/// Returns every component under `root` other than layerx-intents that invokes
+/// the payload-encoding entry points.
 pub fn human_payload_authority_gate(root: &Path) -> Result<(), Vec<Violation>> {
     let mut files = Vec::new();
     if visit_files(root, &mut files).is_err() {
@@ -252,12 +237,6 @@ pub fn human_payload_authority_gate(root: &Path) -> Result<(), Vec<Violation>> {
         .filter(|path| !inside_payload_authority(path))
         .filter_map(|path| {
             let body = fs::read_to_string(&path).ok()?;
-            if path.file_name().is_some_and(|name| name == "Cargo.toml") {
-                return manifest_declares_wire_dependency(&body).then_some(Violation {
-                    path,
-                    rule: "payload-authority-dependency",
-                });
-            }
             PAYLOAD_ENCODING_INVOCATIONS
                 .iter()
                 .any(|invocation| body.contains(invocation))

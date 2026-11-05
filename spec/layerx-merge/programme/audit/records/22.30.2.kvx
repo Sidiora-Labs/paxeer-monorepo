@@ -1,0 +1,847 @@
+[audit.22.30.2]
+task = "22.30.2"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 107
+findings = 17
+docs_reviewed = 3
+upgrade_ready = false
+blocking = ["abi-registration", "migration-accounting-version", "bound-migration-signature", "migration-fee-binding", "sandbox-live-blob-references", "sandbox-cleanup-delete-budget", "native-block-maintenance", "payment-reference-genesis"]
+
+[file.001]
+path = "modules/lxphost/account_codec_conformance_test.go"
+lines = 172
+verdict = "clean"
+note = "Full file reviewed: Actual onboarding and minted account rows are compared with the canonical account codec, including malformed encodings."
+
+[file.002]
+path = "modules/lxphost/accountmap.go"
+lines = 101
+verdict = "clean"
+note = "Full file reviewed: C and Go account identifiers, namespace parsing and bank address mapping agree on canonical bytes."
+
+[file.003]
+path = "modules/lxphost/accountmap_test.go"
+lines = 111
+verdict = "clean"
+note = "Full file reviewed: C and Go account derivation, namespaces and bank addresses have matching assertions and invalid-input boundaries."
+
+[file.004]
+path = "modules/lxphost/activity_fields_test.go"
+lines = 74
+verdict = "clean"
+note = "Full file reviewed: Assertions cover signed FeeLimit propagation and bound-authority reset between activities."
+
+[file.005]
+path = "modules/lxphost/archive_symbols_test.go"
+lines = 126
+verdict = "clean"
+note = "Full file reviewed: Real archive ELF inspection has retained positive controls and retired-symbol absence checks."
+
+[file.006]
+path = "modules/lxphost/authority_test.go"
+lines = 315
+verdict = "clean"
+note = "Full file reviewed: Authority scopes, action bounds and spending and escrow budget restrictions agree with consumers."
+
+[file.007]
+path = "modules/lxphost/binding_test.go"
+lines = 143
+verdict = "clean"
+note = "Full file reviewed: Unsigned bound execution and forged-authority and payload-hash refusal assertions use the actual host."
+
+[file.008]
+path = "modules/lxphost/code.go"
+lines = 10
+verdict = "clean"
+note = "Full file reviewed: Pure Go naming and result conversion preserve kernel codes and unknown-code behavior."
+
+[file.009]
+path = "modules/lxphost/code_names.go"
+lines = 136
+verdict = "generated"
+note = "Generated Go kernel error-name table; inspected as generated output with exhaustive C/Go naming assertions in code_test.go."
+
+[file.010]
+path = "modules/lxphost/code_test.go"
+lines = 13
+verdict = "clean"
+note = "Full file reviewed: Exhaustive code-name comparisons cover the declared kernel error range."
+
+[file.011]
+path = "modules/lxphost/codec_conformance_test.go"
+lines = 77
+verdict = "clean"
+note = "Full file reviewed: Actual emitted receipts are decoded and compared, including truncation refusal."
+
+[file.012]
+path = "modules/lxphost/ctx.go"
+lines = 366
+verdict = "issues"
+note = "Full file reviewed: Scoped persistence and successful-send payment references are consistent locally; genesis recovery gap is recorded."
+
+[file.013]
+path = "modules/lxphost/ed25519_conformance_test.go"
+lines = 72
+verdict = "clean"
+note = "Full file reviewed: Kernel verification is compared over 64 real signing seeds and noncanonical scalar rejection."
+
+[file.014]
+path = "modules/lxphost/execute.go"
+lines = 51
+verdict = "clean"
+note = "Full file reviewed: Bound activity construction and result conversion preserve native authority and payload semantics."
+
+[file.015]
+path = "modules/lxphost/execute_fuzz_test.go"
+lines = 71
+verdict = "clean"
+note = "Full file reviewed: Malformed register and mint payload assertions check error isolation through actual execution."
+
+[file.016]
+path = "modules/lxphost/execute_test.go"
+lines = 123
+verdict = "clean"
+note = "Full file reviewed: Bound asset execution, replay refusal and result conversion use the shared host."
+
+[file.017]
+path = "modules/lxphost/fee_balance_test.go"
+lines = 148
+verdict = "clean"
+note = "Full file reviewed: Main-account fee balance bounds, native authority and simulation binding have concrete assertions."
+
+[file.018]
+path = "modules/lxphost/fee_record_load_test.go"
+lines = 274
+verdict = "clean"
+note = "Full file reviewed: Scoped fee loading, persisted fee records and reopen are covered for governance, separately from successful-send references."
+
+[file.019]
+path = "modules/lxphost/headers_guarantor_test.go"
+lines = 36
+verdict = "clean"
+note = "Full file reviewed: Retired guarantor headers are negative assertions; retained headers provide positive controls."
+
+[file.020]
+path = "modules/lxphost/headers_test.go"
+lines = 50
+verdict = "clean"
+note = "Full file reviewed: Standalone retained-header checks and retired include exclusions agree with the native boundary."
+
+[file.021]
+path = "modules/lxphost/host.go"
+lines = 1491
+verdict = "issues"
+note = "Full file reviewed: Full registration, runtime, authority, receipt and persistence paths reviewed; native ABI and migration fee gaps recorded."
+
+[file.022]
+path = "modules/lxphost/host_test.go"
+lines = 715
+verdict = "clean"
+note = "Full file reviewed: C execution and IAVL fixtures check committed state, sequences, blobs, deterministic results and rollback."
+
+[file.023]
+path = "modules/lxphost/idempotency_restart_test.go"
+lines = 147
+verdict = "clean"
+note = "Full file reviewed: Actual successful sends and disk-backed LevelDB reopen assert payment-reference persistence."
+
+[file.024]
+path = "modules/lxphost/idempotency_test.go"
+lines = 75
+verdict = "clean"
+note = "Full file reviewed: Governance ignores retired generic kernel idempotency rows; the successful-send reference set is distinct."
+
+[file.025]
+path = "modules/lxphost/load_bound_test.go"
+lines = 94
+verdict = "clean"
+note = "Full file reviewed: Assertions bound execution work independently of unrelated module and legacy idempotency rows."
+
+[file.026]
+path = "modules/lxphost/modules_test.go"
+lines = 142
+verdict = "clean"
+note = "Full file reviewed: Registered module decoding and execution are exercised, including emitted service events."
+
+[file.027]
+path = "modules/lxphost/next_sequence_test.go"
+lines = 59
+verdict = "clean"
+note = "Full file reviewed: Fresh, ordinary and corrupt counters are covered; no claim of maximal-counter coverage."
+
+[file.028]
+path = "modules/lxphost/occ_test.go"
+lines = 259
+verdict = "clean"
+note = "Full file reviewed: Real scheduler conflicts and aborts are compared with sequential execution."
+
+[file.029]
+path = "modules/lxphost/oracle_codec_test.go"
+lines = 26
+verdict = "clean"
+note = "Full file reviewed: Retained oracle codec archive symbols agree with the transport boundary."
+
+[file.030]
+path = "modules/lxphost/pool_read_test.go"
+lines = 118
+verdict = "clean"
+note = "Full file reviewed: Concurrent independent-store reads and closed-host behavior have concrete assertions."
+
+[file.031]
+path = "modules/lxphost/pool_test.go"
+lines = 150
+verdict = "clean"
+note = "Full file reviewed: Sequential and pooled execution, worker bounds and Close waiting for borrowed nodes agree with the pool lifecycle."
+
+[file.032]
+path = "modules/lxphost/programs_registration_test.go"
+lines = 47
+verdict = "clean"
+note = "Full file reviewed: Retained Programs ordinals route malformed payloads to real decoders; unknown ordinals are refused."
+
+[file.033]
+path = "modules/lxphost/proof_lxphost_host_test.go"
+lines = 271
+verdict = "clean"
+note = "Full file reviewed: Real kernel errors reach EVM revert and receipt boundaries, with reads after reopen."
+
+[file.034]
+path = "modules/lxphost/read.go"
+lines = 906
+verdict = "clean"
+note = "Full file reviewed: Scoped read restoration and retained account, asset, authority and sequence projections preserve state without writes."
+
+[file.035]
+path = "modules/lxphost/read_authority_test.go"
+lines = 230
+verdict = "clean"
+note = "Full file reviewed: Real grant and revoke producers support assertions of read results, branch isolation and unchanged storage."
+
+[file.036]
+path = "modules/lxphost/read_exports_test.go"
+lines = 40
+verdict = "clean"
+note = "Full file reviewed: Compiled read exports and explicit retired-export omissions agree with current declarations."
+
+[file.037]
+path = "modules/lxphost/read_program.go"
+lines = 410
+verdict = "clean"
+note = "Full file reviewed: Fixed-field Programs projections validate canonical shapes and copy opaque sandbox bytes without writes; missing producer proof is recorded on the test."
+
+[file.038]
+path = "modules/lxphost/read_program_test.go"
+lines = 303
+verdict = "issues"
+note = "Full file reviewed: Manual lifecycle fixtures include nonproducer sandbox shapes; missing producer-to-reopened-reader proof recorded."
+
+[file.039]
+path = "modules/lxphost/read_scope_test.go"
+lines = 81
+verdict = "clean"
+note = "Full file reviewed: Read restoration ignores unrelated modules instead of loading the full store."
+
+[file.040]
+path = "modules/lxphost/read_sequence_stream_test.go"
+lines = 240
+verdict = "clean"
+note = "Full file reviewed: Counter boundaries, hand-built canonical stream decoding, fee copies and opaque web record copying have consistent assertions."
+
+[file.041]
+path = "modules/lxphost/read_test.go"
+lines = 328
+verdict = "clean"
+note = "Full file reviewed: Actual asset, account and session producers support reads and corrupt-record refusal cases."
+
+[file.042]
+path = "modules/lxphost/receipt_authority_test.go"
+lines = 82
+verdict = "clean"
+note = "Full file reviewed: A produced receipt supplies past-height facts; assertions cover network, index reset, reopen and future-height refusal."
+
+[file.043]
+path = "modules/lxphost/receipt_fee_test.go"
+lines = 97
+verdict = "clean"
+note = "Full file reviewed: Emitted fee, effects and transfer legs are compared with canonical receipt decoding."
+
+[file.044]
+path = "modules/lxphost/resolution_test.go"
+lines = 354
+verdict = "clean"
+note = "Full file reviewed: Real deployment and guest imports check account derivation and committed block-time resolution."
+
+[file.045]
+path = "modules/lxphost/retired_admission_queue_test.go"
+lines = 26
+verdict = "clean"
+note = "Full file reviewed: admission queue references are negative retirement assertions over source or archive symbols with retained positive controls, not an active dependency on the retired component."
+
+[file.046]
+path = "modules/lxphost/retired_batch_eligibility_test.go"
+lines = 25
+verdict = "clean"
+note = "Full file reviewed: batch eligibility references are negative retirement assertions over source or archive symbols with retained positive controls, not an active dependency on the retired component."
+
+[file.047]
+path = "modules/lxphost/retired_batch_publish_test.go"
+lines = 24
+verdict = "clean"
+note = "Full file reviewed: batch publish references are negative retirement assertions over source or archive symbols with retained positive controls, not an active dependency on the retired component."
+
+[file.048]
+path = "modules/lxphost/retired_batch_seal_test.go"
+lines = 27
+verdict = "clean"
+note = "Full file reviewed: batch seal references are negative retirement assertions over source or archive symbols with retained positive controls, not an active dependency on the retired component."
+
+[file.049]
+path = "modules/lxphost/retired_batch_time_test.go"
+lines = 20
+verdict = "clean"
+note = "Full file reviewed: batch time references are negative retirement assertions over source or archive symbols with retained positive controls, not an active dependency on the retired component."
+
+[file.050]
+path = "modules/lxphost/retired_bond_client_test.go"
+lines = 33
+verdict = "clean"
+note = "Full file reviewed: bond client references are negative retirement assertions over source or archive symbols with retained positive controls, not an active dependency on the retired component."
+
+[file.051]
+path = "modules/lxphost/retired_checkpoint_cert_test.go"
+lines = 26
+verdict = "clean"
+note = "Full file reviewed: checkpoint cert references are negative retirement assertions over source or archive symbols with retained positive controls, not an active dependency on the retired component."
+
+[file.052]
+path = "modules/lxphost/retired_da_bundle_test.go"
+lines = 26
+verdict = "clean"
+note = "Full file reviewed: da bundle references are negative retirement assertions over source or archive symbols with retained positive controls, not an active dependency on the retired component."
+
+[file.053]
+path = "modules/lxphost/retired_da_challenge_test.go"
+lines = 22
+verdict = "clean"
+note = "Full file reviewed: da challenge references are negative retirement assertions over source or archive symbols with retained positive controls, not an active dependency on the retired component."
+
+[file.054]
+path = "modules/lxphost/retired_da_kernel_test.go"
+lines = 25
+verdict = "clean"
+note = "Full file reviewed: da kernel references are negative retirement assertions over source or archive symbols with retained positive controls, not an active dependency on the retired component."
+
+[file.055]
+path = "modules/lxphost/retired_da_possession_test.go"
+lines = 27
+verdict = "clean"
+note = "Full file reviewed: da possession references are negative retirement assertions over source or archive symbols with retained positive controls, not an active dependency on the retired component."
+
+[file.056]
+path = "modules/lxphost/retired_da_service_test.go"
+lines = 23
+verdict = "clean"
+note = "Full file reviewed: da service references are negative retirement assertions over source or archive symbols with retained positive controls, not an active dependency on the retired component."
+
+[file.057]
+path = "modules/lxphost/retired_da_verified_test.go"
+lines = 26
+verdict = "clean"
+note = "Full file reviewed: da verified references are negative retirement assertions over source or archive symbols with retained positive controls, not an active dependency on the retired component."
+
+[file.058]
+path = "modules/lxphost/retired_finalisation_test.go"
+lines = 25
+verdict = "clean"
+note = "Full file reviewed: finalisation references are negative retirement assertions over source or archive symbols with retained positive controls, not an active dependency on the retired component."
+
+[file.059]
+path = "modules/lxphost/retired_gateway_test.go"
+lines = 28
+verdict = "clean"
+note = "Full file reviewed: gateway references are negative retirement assertions over source or archive symbols with retained positive controls, not an active dependency on the retired component."
+
+[file.060]
+path = "modules/lxphost/retired_guarantor_attestation_test.go"
+lines = 29
+verdict = "clean"
+note = "Full file reviewed: guarantor attestation references are negative retirement assertions over source or archive symbols with retained positive controls, not an active dependency on the retired component."
+
+[file.061]
+path = "modules/lxphost/retired_guarantor_bond_state_test.go"
+lines = 38
+verdict = "clean"
+note = "Full file reviewed: guarantor bond state references are negative retirement assertions over source or archive symbols with retained positive controls, not an active dependency on the retired component."
+
+[file.062]
+path = "modules/lxphost/retired_guarantor_dissent_test.go"
+lines = 25
+verdict = "clean"
+note = "Full file reviewed: guarantor dissent references are negative retirement assertions over source or archive symbols with retained positive controls, not an active dependency on the retired component."
+
+[file.063]
+path = "modules/lxphost/retired_guarantor_equivocation_test.go"
+lines = 24
+verdict = "clean"
+note = "Full file reviewed: guarantor equivocation references are negative retirement assertions over source or archive symbols with retained positive controls, not an active dependency on the retired component."
+
+[file.064]
+path = "modules/lxphost/retired_guarantor_process_test.go"
+lines = 25
+verdict = "clean"
+note = "Full file reviewed: guarantor process references are negative retirement assertions over source or archive symbols with retained positive controls, not an active dependency on the retired component."
+
+[file.065]
+path = "modules/lxphost/retired_history_test.go"
+lines = 30
+verdict = "clean"
+note = "Full file reviewed: history references are negative retirement assertions over source or archive symbols with retained positive controls, not an active dependency on the retired component."
+
+[file.066]
+path = "modules/lxphost/retired_oracle_adapter_test.go"
+lines = 28
+verdict = "clean"
+note = "Full file reviewed: oracle adapter references are negative retirement assertions over source or archive symbols with retained positive controls, not an active dependency on the retired component."
+
+[file.067]
+path = "modules/lxphost/retired_oracle_root_test.go"
+lines = 28
+verdict = "clean"
+note = "Full file reviewed: oracle root references are negative retirement assertions over source or archive symbols with retained positive controls, not an active dependency on the retired component."
+
+[file.068]
+path = "modules/lxphost/retired_paxeer_client_test.go"
+lines = 30
+verdict = "clean"
+note = "Full file reviewed: paxeer client references are negative retirement assertions over source or archive symbols with retained positive controls, not an active dependency on the retired component."
+
+[file.069]
+path = "modules/lxphost/retired_replay_engine_test.go"
+lines = 32
+verdict = "clean"
+note = "Full file reviewed: replay engine references are negative retirement assertions over source or archive symbols with retained positive controls, not an active dependency on the retired component."
+
+[file.070]
+path = "modules/lxphost/retired_replay_fixture_test.go"
+lines = 24
+verdict = "clean"
+note = "Full file reviewed: replay fixture references are negative retirement assertions over source or archive symbols with retained positive controls, not an active dependency on the retired component."
+
+[file.071]
+path = "modules/lxphost/retired_replay_sections_test.go"
+lines = 29
+verdict = "clean"
+note = "Full file reviewed: replay sections references are negative retirement assertions over source or archive symbols with retained positive controls, not an active dependency on the retired component."
+
+[file.072]
+path = "modules/lxphost/retired_replica_divergence_test.go"
+lines = 22
+verdict = "clean"
+note = "Full file reviewed: replica divergence references are negative retirement assertions over source or archive symbols with retained positive controls, not an active dependency on the retired component."
+
+[file.073]
+path = "modules/lxphost/retired_replica_ingest_test.go"
+lines = 29
+verdict = "clean"
+note = "Full file reviewed: replica ingest references are negative retirement assertions over source or archive symbols with retained positive controls, not an active dependency on the retired component."
+
+[file.074]
+path = "modules/lxphost/retired_sequence_allocator_test.go"
+lines = 21
+verdict = "clean"
+note = "Full file reviewed: sequence allocator references are negative retirement assertions over source or archive symbols with retained positive controls, not an active dependency on the retired component."
+
+[file.075]
+path = "modules/lxphost/retired_sequencer_recovery_test.go"
+lines = 28
+verdict = "clean"
+note = "Full file reviewed: sequencer recovery references are negative retirement assertions over source or archive symbols with retained positive controls, not an active dependency on the retired component."
+
+[file.076]
+path = "modules/lxphost/retired_slashing_test.go"
+lines = 29
+verdict = "clean"
+note = "Full file reviewed: slashing references are negative retirement assertions over source or archive symbols with retained positive controls, not an active dependency on the retired component."
+
+[file.077]
+path = "modules/lxphost/retired_web_adapter_test.go"
+lines = 25
+verdict = "clean"
+note = "Full file reviewed: web adapter references are negative retirement assertions over source or archive symbols with retained positive controls, not an active dependency on the retired component."
+
+[file.078]
+path = "modules/lxphost/retired_web_root_test.go"
+lines = 23
+verdict = "clean"
+note = "Full file reviewed: web root references are negative retirement assertions over source or archive symbols with retained positive controls, not an active dependency on the retired component."
+
+[file.079]
+path = "modules/lxphost/scope_test.go"
+lines = 123
+verdict = "clean"
+note = "Full file reviewed: Scoped module and blob restoration preserves unrelated modules through commit."
+
+[file.080]
+path = "modules/lxphost/simulate.go"
+lines = 268
+verdict = "issues"
+note = "Full file reviewed: Private cached execution reviewed; receipt authority, fee restoration, duplicate payment admission and transfer projection differences recorded."
+
+[file.081]
+path = "modules/lxphost/simulate_test.go"
+lines = 301
+verdict = "issues"
+note = "Full file reviewed: Refusal parity is checked, but successful funded guest, receipt authority and transfer paths lack proof."
+
+[file.082]
+path = "modules/lxphost/store_keys_vector_test.go"
+lines = 100
+verdict = "clean"
+note = "Full file reviewed: Exact store-key prefixes agree with the canonical byte vectors."
+
+[file.083]
+path = "src/modules/programs/accounts.c"
+lines = 1108
+verdict = "clean"
+note = "Full file reviewed: Canonical bindings, profile admission, owner authorization and duplicate account detection agree with consumers."
+
+[file.084]
+path = "src/modules/programs/artifact.c"
+lines = 169
+verdict = "clean"
+note = "Full file reviewed: Hash-checked 38-byte manifests, persistent catalog enumeration and Wasm retrieval agree with declarations."
+
+[file.085]
+path = "src/modules/programs/artifact.h"
+lines = 32
+verdict = "clean"
+note = "Full file reviewed: Manifest constant and artifact store, open and catalog prototypes agree with implementation."
+
+[file.086]
+path = "src/modules/programs/blob_lifecycle.c"
+lines = 890
+verdict = "clean"
+note = "Full file reviewed: Canonical blob requests, authorization, provenance and live-reference restrictions agree with lifecycle consumers."
+
+[file.087]
+path = "src/modules/programs/blob_lifecycle.h"
+lines = 15
+verdict = "clean"
+note = "Full file reviewed: Validation and execution declarations agree with lifecycle implementations."
+
+[file.088]
+path = "src/modules/programs/call.c"
+lines = 3026
+verdict = "clean"
+note = "Full file reviewed: Full call decoding, guest dispatch, imports, payment authorization and outcome publication reviewed; local ABI upper-bound enforcement is consistent and the incompatible native registration is recorded on host.go."
+
+[file.089]
+path = "src/modules/programs/deploy.c"
+lines = 834
+verdict = "issues"
+note = "Full file reviewed: Deployment, upgrade and migration reviewed; accounting ABI round-trip and bound migration findings recorded."
+
+[file.090]
+path = "src/modules/programs/event.c"
+lines = 321
+verdict = "clean"
+note = "Full file reviewed: Guest-event and call-outcome frames, digests and projections agree with canonical consumers."
+
+[file.091]
+path = "src/modules/programs/event.h"
+lines = 61
+verdict = "clean"
+note = "Full file reviewed: Event version and event/outcome prototypes agree with frame producers."
+
+[file.092]
+path = "src/modules/programs/fee.c"
+lines = 251
+verdict = "clean"
+note = "Full file reviewed: Migration fee arithmetic and rollback agree locally; missing production host fee binding is recorded on host.go."
+
+[file.093]
+path = "src/modules/programs/fees.c"
+lines = 1688
+verdict = "clean"
+note = "Full file reviewed: Governance schedules, activation and demand calculations match explicit retained registry overrides; no retired fee relay is restored."
+
+[file.094]
+path = "src/modules/programs/metering.c"
+lines = 562
+verdict = "clean"
+note = "Full file reviewed: Schedule lineage, activation and canonical field order agree with runtime resolution."
+
+[file.095]
+path = "src/modules/programs/occupancy.c"
+lines = 1240
+verdict = "issues"
+note = "Full file reviewed: FFI, evidence and settlement reviewed; missing native block maintenance invocation recorded."
+
+[file.096]
+path = "src/modules/programs/occupancy.h"
+lines = 119
+verdict = "clean"
+note = "Full file reviewed: Bridge layouts, bounds and scalar FFI argument ordering agree with Rust."
+
+[file.097]
+path = "src/modules/programs/occupancy_evidence.c"
+lines = 723
+verdict = "clean"
+note = "Full file reviewed: Namespace and payer evidence, arithmetic bounds and fee-evidence validation agree with consumers."
+
+[file.098]
+path = "src/modules/programs/occupancy_evidence.h"
+lines = 11
+verdict = "clean"
+note = "Full file reviewed: Receipt-evidence prototypes agree with canonical evidence validation."
+
+[file.099]
+path = "src/modules/programs/registration.c"
+lines = 338
+verdict = "clean"
+note = "Full file reviewed: Dispatch ordinals, registration type lists and relay refusal agree locally; native ABI 4 selection is recorded on host.go."
+
+[file.100]
+path = "src/modules/programs/sandbox.h"
+lines = 34
+verdict = "clean"
+note = "Full file reviewed: Internal sandbox activity and destroy/sweep declarations agree with implementation signatures."
+
+[file.101]
+path = "src/modules/programs/sandbox_expiry.c"
+lines = 461
+verdict = "issues"
+note = "Full file reviewed: Reclamation, archival, settlement and refund reviewed; live-reference and final deletion-budget findings recorded."
+
+[file.102]
+path = "src/modules/programs/state_record.c"
+lines = 584
+verdict = "clean"
+note = "Full file reviewed: Canonical state-feed notices, key derivation, bounded records and state-head projection agree with readers."
+
+[file.103]
+path = "src/modules/programs/storage.c"
+lines = 213
+verdict = "clean"
+note = "Full file reviewed: Sorted namespaced manifests, value lengths, content hashes and staged final heads agree with guest storage."
+
+[file.104]
+path = "src/modules/programs/storage.h"
+lines = 51
+verdict = "clean"
+note = "Full file reviewed: Key limits, import callback and stage-final declarations agree with implementation."
+
+[file.105]
+path = "src/modules/programs/winddown.c"
+lines = 943
+verdict = "clean"
+note = "Full file reviewed: Authorization, exit-route settlement, history and tombstones agree with the explicit no-kernel-deadline-check ruling."
+
+[file.106]
+path = "tools/ci/tests/test_makefile_wave1.py"
+lines = 104
+verdict = "clean"
+note = "Full file reviewed: Actual Makefile graph exclusions have retained positive controls for wave-one retirement."
+
+[file.107]
+path = "tools/ci/tests/test_makefile_wave2.py"
+lines = 109
+verdict = "clean"
+note = "Full file reviewed: Exact wave-two retirement exclusions and retained aggregate dry-run commands agree with the Makefile."
+
+[finding.abi-registration]
+file = "modules/lxphost/host.go"
+line = 175
+class = "interface-mismatch"
+severity = "high"
+observed = "Native node reset selects programs_module_registration_v4_storage_retirement, while programs/sdk/rust/src/abi_policy.rs admits ABI 5 for deployment and upgrade. src/modules/programs/call.c:2437 rejects a call whose ABI exceeds that registration, so an admitted ABI 5 program cannot be called through the native host."
+expected = "Brief network fact 6 requires host and guest ABI agreement on every registration path, including the ABI 5 AI market guest; an admitted deployment must remain callable after commit and reopen."
+proposal = "In modules/lxphost/host.go and src/modules/programs/registration.c select the registration matching the canonical admitted ABI policy; prove a real ABI 5 guest deployment, committed call and reopened call through the Programs precompile, including unsupported-version refusal."
+owner_domain = 1
+interface = "1.c-programs-module-registration"
+
+[finding.migration-accounting-version]
+file = "src/modules/programs/deploy.c"
+line = 124
+class = "interface-mismatch"
+severity = "high"
+observed = "migration_accounting_stage writes request->abi_version into LXMA1 offset 11 at line 155, but lxp_programs_migration_accounting_read rejects values above 4. The Rust migration runtime and ABI admission policy accept version 5, making an admitted ABI 5 migration accounting record unreadable with LXP_FATAL_REPLAY_DIVERGENCE."
+expected = "The stable migration accounting reader must accept the canonical record emitted by every admitted migration ABI, with the same version policy before and after persistence and recovery."
+proposal = "In src/modules/programs/deploy.c replace the divergent ABI bound with the shared admitted-version policy while preserving canonical validation; execute a real ABI 5 migration, persist its accounting record, reopen the store and read back all 613 bytes through the declared reader."
+owner_domain = 1
+interface = "1.c-lxp-programs-migration-accounting-read"
+
+[finding.bound-migration-signature]
+file = "src/modules/programs/deploy.c"
+line = 644
+class = "wiring-gap"
+severity = "high"
+observed = "The native bound-authority path accepts an unsigned EVM activity, but migration admission depends on src/protocol/lxp_kernel.c:377 unconditionally running lxp_activity_verify_signature after checking execution->signature_valid. It ignores execution->binding_authority there, so an authenticated unsigned migration upgrade is refused as a bad signature before the hook can execute."
+expected = "Programs migration must honor the same verified native authority as other EVM-bound activities, while preserving envelope, payload hash, activity binding and principal authorization checks."
+proposal = "In src/protocol/lxp_kernel.c migration-admission binding carry verified native authority through the unsigned path and retain Ed25519 verification for signed envelopes; prove an actual Programs precompile migration succeeds, with forged authority and altered-payload cases refused."
+owner_domain = 1
+interface = "1.c-lxp-programs-migration-admit"
+
+[finding.migration-fee-binding]
+file = "modules/lxphost/host.go"
+line = 269
+class = "wiring-gap"
+severity = "high"
+observed = "lxphost_bind_assets assigns kernel.module_runtime directly and never binds the Programs fee transaction. The automatic lxp_programs_bind_fee_transaction call lives in lxp_kernel_bind_module_runtime at src/protocol/lxp_kernel.c:1670, which this path bypasses. Direct charged migration reaches the NULL prepare check at kernel line 6389 and returns LXP_FATAL_INVARIANT; CALL snapshot setup has a separate binding."
+expected = "A charged native migration must atomically debit its actual payer, credit the fee treasury and commit or roll back the migration through the production fee transaction, without depending on standalone lifecycle-test setup."
+proposal = "In modules/lxphost/host.go bind the Programs runtime through the checked kernel API or explicitly install its production fee transaction after restoring accounts and assets; prove a funded native migration charges the real balances, rolls back failures and retains correct balances after reopen."
+owner_domain = 1
+interface = "1.c-lxp-kernel-fee-transaction"
+
+[finding.sandbox-live-blob-references]
+file = "src/modules/programs/sandbox_expiry.c"
+line = 60
+class = "runtime-risk"
+severity = "high"
+observed = "blob_referenced_elsewhere only visits 73-byte progstor heads. Shared program storage uses a 41-byte head key in storage.c, so a live shared head cannot protect a content-addressed value or manifest also used by a destroyed sandbox. The deletions at lines 128 and 142 can remove bytes still referenced by the shared program."
+expected = "Sandbox reclamation must delete only blobs with no remaining live Programs reference, including shared storage namespaces, so teardown cannot corrupt another program or its recovered state."
+proposal = "In src/modules/programs/sandbox_expiry.c account for every supported live storage-head shape and other Programs blob roots, including staged updates, before deleting a digest; create real shared and sandbox storage with equal content, destroy the sandbox, then reopen and verify the shared values and manifests."
+owner_domain = 1
+interface = "1.c-lxp-programs-sandbox-destroy-execute"
+
+[finding.sandbox-cleanup-delete-budget]
+file = "src/modules/programs/sandbox_expiry.c"
+line = 285
+class = "runtime-risk"
+severity = "high"
+observed = "The final snapshot cleanup can delete three distinct value blobs and then two distinct namespace and snapshot manifests in one activity. lxp_ctx_blob_del at src/protocol/lxp_module_ctx.c:1561 permits only LXP_KERNEL_MAX_STAGED_BLOBS = 4 staged blobs. The fifth deletion returns LXP_ERR_ARENA_EXHAUSTED before a cleanup cursor is committed, so retrying the same state repeats the refusal and leaves settlement and refund stuck."
+expected = "Every valid sandbox must eventually complete bounded reclamation and its atomic final occupancy settlement and refund, including the largest final cleanup step and restart between steps."
+proposal = "In src/modules/programs/sandbox_expiry.c budget value and manifest deletions together and persist deterministic progress before the final atomic settlement; prove destruction with three unique final snapshot values and two different manifests progresses through repeated calls and a reopened store without exceeding the kernel deletion limit."
+owner_domain = 1
+interface = "1.c-lxp-programs-sandbox-destroy-execute"
+
+[finding.native-block-maintenance]
+file = "src/modules/programs/occupancy.c"
+line = 880
+class = "wiring-gap"
+severity = "high"
+observed = "The occupancy finalizer invokes sandbox expiry, Rust occupancy settlement and fee-demand observation at lines 880, 888 and 896. Its kernel callers are batch-snapshot finalization at src/protocol/lxp_kernel.c:4764 and 4769. The native host executes activities and exposes no block-boundary invocation of this finalizer, and the node module/precompile path does not connect it, leaving expiry and occupancy charging inactive on that path."
+expected = "The merged BFT node must run Programs maintenance once for each committed block with the authoritative accounts, module records and blobs; lease expiry, occupancy fees and demand observation must advance deterministically across restart."
+proposal = "In modules/lxphost and the native node block lifecycle add a production maintenance bridge that restores committed state, executes the Programs finalizer and publishes its records, blobs and transfer legs at the block boundary; prove actual node block advancement, expiry, charging, replay refusal and restart continuation."
+owner_domain = 1
+interface = "1.c-lxp-programs-sandbox-finalize-expiry-batch"
+
+[finding.simulation-receipt-authorities]
+file = "modules/lxphost/simulate.go"
+line = 120
+class = "runtime-risk"
+severity = "medium"
+observed = "Host.Simulate never imports Activity.ReceiptAuthorities. lxphost_simulate zeroes execution and passes execution->verified_receipts, still NULL, to the CALL snapshot. Host.Execute instead binds the authority network, imports canonical receipts and rejects current or future heights at host.go:862-874. Receipt-consuming behavior and even invalid-height rejection therefore differ between the two paths."
+expected = "Requirement 1965.1 requires simulation and execution of the same activity to return the same result code and effects, including verified receipt facts and their network and past-height restrictions."
+proposal = "In modules/lxphost/simulate.go share the execution authority-index preparation and bind that index into the simulation snapshot; compare real receipt-consuming guest results and effects with Execute, including a prior committed receipt after reopen and wrong-network, current-height and future-height refusals."
+owner_domain = 1
+interface = "1.c-lxp-kernel-execution"
+
+[finding.simulation-fee-record-loading]
+file = "modules/lxphost/simulate.go"
+line = 198
+class = "runtime-risk"
+severity = "medium"
+observed = "Simulation loads activityModules(module) but omits the governance-only branch.loadProgramsFeeRecords step used by HostExecute at host.go:1163. A version 2 governance grant that requires the active Programs fee schedule sees no restored schedule in simulation, although the same stored schedule permits execution; fee_record_load_test.go covers only the execution side."
+expected = "Requirement 1965.1 requires the hypothetical execution to resolve the same committed fee policy and return the same grant result and effects as the native execution path."
+proposal = "In modules/lxphost/simulate.go reuse the same scoped Programs fee-record restoration as HostExecute for governance activities; produce a fee schedule and fee-bearing grant through their real paths, compare simulation and execution, and repeat after persistence and reopen."
+owner_domain = 1
+interface = "1.go-lxphost-host-execute-j22"
+
+[finding.simulation-transfer-projection]
+file = "modules/lxphost/simulate.go"
+line = 249
+class = "runtime-risk"
+severity = "medium"
+observed = "The simulated receipt constructs Transfers only from outcome.amount as one leg. It neither configures execution applied-transfer output in its C setup nor converts outcome.applied_legs. HostExecute at host.go:1218 converts those applied legs for non-asset modules, so a successful Programs transfer can be missing from the simulated Go receipt even when represented by execution effects."
+expected = "The hypothetical receipt promised by Host.Simulate and requirement 1965.1 must preserve successful execution effects and their transfer projection, including all Programs payment legs."
+proposal = "In modules/lxphost/simulate.go capture the prepared simulation transfer legs and use the same receipt conversion as HostExecute; execute a real funded guest that emits multiple legs and compare the complete Go receipt and canonical effects from equal initial state, also after reopen."
+owner_domain = 1
+interface = "1.go-lxphost-receipt-j22"
+
+[finding.payment-reference-genesis]
+file = "modules/lxphost/ctx.go"
+line = 364
+class = "restart-recovery"
+severity = "high"
+observed = "commitPaymentReference persists each successful LX_ASSET_SEND under host prefix 0x04 and checkPaymentReference makes it authoritative. However ExportStoreGenesis in modules/lxphost/genesis.go:88 exports only asset module rows, identity sequences and accounts, while StoreGenesis.Validate rejects 0x04 at line 75. Export/import therefore loses consumed payment references; a payment using a new account sequence can reuse an already consumed reference."
+expected = "Decision 2337 requires the authoritative successful-send reference set to survive recovery; native genesis export/import must preserve duplicate-payment protection as well as balances and sequences."
+proposal = "In modules/lxphost/genesis.go and its StoreAppModule export/import integration include and validate versioned successful-send reference records without restoring the retired generic kernel idempotency table; prove an actual payment, native genesis export/import and refusal of the same reference at the next otherwise valid sequence."
+owner_domain = 1
+interface = "1.key-lxphost-idempotency-j22"
+
+[finding.simulation-success-proof]
+file = "modules/lxphost/simulate_test.go"
+line = 145
+class = "test-gap"
+severity = "medium"
+observed = "The CALL parity cases expect only program refusal -207 or refused -7 and assert zero fees at line 164. They do not demonstrate a successful guest with funded settlement, receipt authority consumption or non-asset applied transfer legs, so the divergent simulation setup and receipt conversion are outside these comparisons."
+expected = "Brief check 7 and requirement 1965.1 require proof on the real successful producer, transport and consumer path, including nonzero fees and effects rather than only refusal outcomes."
+proposal = "Extend modules/lxphost/simulate_test.go with a genuinely executed funded guest, a receipt-consuming guest and multiple real transfer legs; compare the complete canonical receipt and Go projection against Execute from sibling state, including reopened state and unchanged simulation root and sequences."
+owner_domain = 1
+
+[finding.program-read-producer-proof]
+file = "modules/lxphost/read_program_test.go"
+line = 249
+class = "test-gap"
+severity = "medium"
+observed = "The lifecycle read test seeds sandbox records as three- and five-byte arbitrary slices and compares them with opaque ReadSandbox results. These are not the lease-state/v3, escrow-state/v1 and usage records emitted by the sandbox activity. Program account, wind-down and retirement fixtures are also written directly, so reopen checks prove storage copying without demonstrating agreement with their producers."
+expected = "Requirement 1964.2-3 requires reads of a created program account and records after the matching lifecycle activity; brief fact 7 requires the persisted producer shape to reach its real consumer."
+proposal = "In modules/lxphost/read_program_test.go create account, sandbox, wind-down and retirement state through real Programs activities, commit and reopen, then assert their read projections and actual sandbox encodings; retain arbitrary bytes only in separately identified corruption or opaque-copy tests."
+owner_domain = 1
+
+[finding.module-catalog-retirement]
+file = "docs/system/chain-modules.md"
+line = 213
+class = "doc-drift"
+severity = "medium"
+observed = "The module catalog presents layerxcustody withdrawal, forced-exit and checkpoint messages at lines 213-218 and sequencer_authorizations at line 208 as ordinary active module surfaces. The anchor and bridge sections likewise list pre-merge controls without indicating retirement, so the catalog does not distinguish retained node functions from retired finality and custody machinery."
+expected = "The merged-network documentation must describe one BFT network with block-commit finality and identify retired custody, checkpoint, sequencer and settlement interfaces rather than offering them as current integration choices."
+proposal = "Update the catalog inputs and tools/docs/gen-system-docs.sh to render merged-node module surfaces and explicit retired status, then regenerate docs/system/chain-modules.md and compare the advertised messages and parameters with active native registrations."
+owner_domain = 16
+
+[finding.kernel-contract-current-guidance]
+file = "spec/layerx-merge/contracts/kernel.md"
+line = 6680
+class = "doc-drift"
+severity = "medium"
+observed = "This page explicitly freezes revision 2a1033aa2, but its lxphost guidance still describes loading every module row with signature_valid forced true at line 6680, a single serialized node at 6681, 0x04 reserved at 6696 and stable legacy payer-grant reads at 6884-6890. Those historical details do not describe the current scoped node pool, verified bound authority, retired payer grants and decision 2337 payment references."
+expected = "An integrator following the kernel contract for the merged upgrade needs current host authority, pooling, scoped storage and payment-reference rules, with historical pinned behavior clearly separated from the active contract."
+proposal = "Regenerate or supplement spec/layerx-merge/contracts/kernel.md from the latest interface decisions and native host implementation, preserving its pinned history as historical material and linking current host, recovery and retired-read contracts from the affected sections."
+owner_domain = 1
+
+[finding.ledger-auth-payment-reference-doc]
+file = "spec/layerx-merge/contracts/ledger-auth.md"
+line = 726
+class = "doc-drift"
+severity = "medium"
+observed = "The idempotency section says the host store holds nothing under prefix 0x04. Decision 2337 and modules/lxphost/ctx.go:351-365 instead make 0x04 the authoritative set of successful asset-send payment references; only the generic kernel idempotency mechanism and keeper-level entries are retired."
+expected = "Ledger and auth documentation must distinguish retired generic idempotency from retained successful-send reference protection and state the recovery behavior of the active payment interface."
+proposal = "In spec/layerx-merge/contracts/ledger-auth.md revise the idempotency section to describe the decision 2337 successful-send reference set, duplicate refusal at a new sequence, rollback and persistence, and its genesis recovery contract; reconcile the linked host registry row with that decision."
+owner_domain = 2
+
+[finding.simulation-payment-reference]
+file = "modules/lxphost/simulate.go"
+line = 167
+class = "runtime-risk"
+severity = "medium"
+observed = "Host.Simulate creates its cached branch and enters kernel execution without calling branch.checkPaymentReference. HostExecute at host.go:1141 checks the authoritative 0x04 successful-send reference set first. A repeated LX_ASSET_SEND reference with a fresh sequence can therefore receive a successful simulated receipt while actual execution refuses LXP_ERR_IDEMPOTENT_REPLAY before entering the kernel."
+expected = "Requirement 1965.1 requires simulation to reflect the native execution result for the same activity and state, including decision 2337 duplicate-payment protection outside the retired generic kernel idempotency mechanism."
+proposal = "In modules/lxphost/simulate.go apply the same authoritative payment-reference admission check as HostExecute to the cached branch; perform a real successful send, commit and reopen, then assert matching simulation and execution refusal when its reference is reused with a fresh account sequence, without writing simulation state."
+owner_domain = 1
+interface = "1.key-lxphost-idempotency-j22"
+
+[doc.001]
+path = "docs/system/chain-modules.md"
+status = "misleading"
+notes = "Entire package-listed page reviewed. Lines 130-158 and 197-225 advertise pre-merge anchor, sequencer and custody controls without retirement status; see module-catalog-retirement."
+
+[doc.002]
+path = "spec/layerx-merge/contracts/kernel.md"
+status = "stale"
+notes = "Relevant Programs, native host, authority, receipt, storage and recovery sections reviewed against package interfaces. The page pins revision 2a1033aa2; lines 6680-6696, 6884-6890 and 6963-6973 need current integration guidance while preserving historical context."
+
+[doc.003]
+path = "spec/layerx-merge/contracts/ledger-auth.md"
+status = "stale"
+notes = "Ledger/auth integration and payment-reference sections consulted. Line 726 contradicts the active successful-send 0x04 reference set restored by decision 2337; see ledger-auth-payment-reference-doc."

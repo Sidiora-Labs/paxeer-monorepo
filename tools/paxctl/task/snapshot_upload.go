@@ -67,7 +67,7 @@ func snapshotUploadAction(ctx context.Context, c *cli.Command) error {
 		fmt.Fprintf(os.Stderr, "seictl: discovered snapshot-publish node %s for chain %s\n", node, chain)
 	}
 
-	sc, err := newSidecarClient(cfg, ns, node, int32(c.Int("port")))
+	sc, err := newSidecarClient(cfg, ns, node, int32(c.Int("port")), c.String("proxy-ca-file"))
 	if err != nil {
 		cliutil.EmitStatus(os.Stderr, err)
 		return cli.Exit("", 1)

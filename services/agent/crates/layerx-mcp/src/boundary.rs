@@ -1,8 +1,8 @@
 //! Execution boundary reached only after the daemon has authorized an invocation.
 
 use std::io::{Read as _, Write as _};
-use std::net::TcpStream;
-use std::time::Duration;
+use std::net::{SocketAddr, TcpStream};
+use std::time::{Duration, Instant};
 
 use serde_json::{json, Map, Value};
 use zeroize::Zeroizing;
@@ -76,6 +76,18 @@ impl BoundaryRefusal {
 
 /// The only surface an authorized invocation may reach.
 pub trait ToolBoundary {
+    /// Checks local prerequisites before the durable invocation begins.
+    ///
+    /// This check must not perform network, payment, hold or other external effects. Its
+    /// refusals can therefore be retained as refused outcomes even when the dependency
+    /// is unavailable. Boundaries without local prerequisites need no check.
+    ///
+    /// # Errors
+    /// Returns a typed refusal when a local prerequisite is unavailable.
+    fn preflight(&mut self, _tool: ToolDefinition) -> Result<(), BoundaryRefusal> {
+        Ok(())
+    }
+
     /// Executes one already authorized tool invocation.
     ///
     /// # Errors
@@ -97,7 +109,7 @@ pub trait ToolBoundary {
 
 /// Authenticated loopback client for the agent daemon's verified program read surface.
 pub struct AgentSurface {
-    endpoint: String,
+    endpoint: SocketAddr,
     bearer: Zeroizing<String>,
     probe_program: String,
     deadline: Duration,
@@ -116,7 +128,10 @@ impl AgentSurface {
         probe_program: &str,
         deadline: Duration,
     ) -> Result<Self, BoundaryRefusal> {
-        if !endpoint.starts_with("127.0.0.1:") {
+        let endpoint = endpoint.parse::<SocketAddr>().map_err(|_| {
+            BoundaryRefusal::Malformed("the agent daemon endpoint is not loopback".to_owned())
+        })?;
+        if endpoint.ip() != std::net::Ipv4Addr::LOCALHOST {
             return Err(BoundaryRefusal::Malformed(
                 "the agent daemon endpoint is not loopback".to_owned(),
             ));
@@ -137,7 +152,7 @@ impl AgentSurface {
             ));
         }
         Ok(Self {
-            endpoint: endpoint.to_owned(),
+            endpoint,
             bearer: Zeroizing::new(bearer),
             probe_program: probe_program.to_ascii_lowercase(),
             deadline,
@@ -185,12 +200,14 @@ impl AgentSurface {
         }
         let (status, body) = self.get(path)?;
         match status {
-            200 => serde_json::from_str(&body)
-                .map_err(|_| BoundaryRefusal::Malformed("invalid native read result".to_owned())),
+            200 => decode_native_read_result(&body),
             401 => Err(BoundaryRefusal::Unauthorized),
             404 | 405 | 501 => Err(BoundaryRefusal::UnsupportedRead),
             400 | 413 => Err(BoundaryRefusal::Malformed(
                 "the daemon refused the read selector or result bound".to_owned(),
+            )),
+            503 if path.starts_with("/v1/reads/history/") => Err(BoundaryRefusal::Unavailable(
+                "history.list evidence from px_getHistory is unavailable".to_owned(),
             )),
             _ => Err(BoundaryRefusal::Unavailable(
                 "verified native evidence is unavailable".to_owned(),
@@ -199,24 +216,41 @@ impl AgentSurface {
     }
 
     fn get(&self, path: &str) -> Result<(u16, String), BoundaryRefusal> {
-        let mut stream = TcpStream::connect(&self.endpoint)
-            .map_err(|error| BoundaryRefusal::Unavailable(error.kind().to_string()))?;
-        stream
-            .set_read_timeout(Some(self.deadline))
-            .and_then(|()| stream.set_write_timeout(Some(self.deadline)))
-            .map_err(|error| BoundaryRefusal::Unavailable(error.kind().to_string()))?;
+        let started = Instant::now();
+        let remaining = || {
+            self.deadline
+                .checked_sub(started.elapsed())
+                .filter(|duration| !duration.is_zero())
+                .ok_or_else(|| BoundaryRefusal::Unavailable("request deadline elapsed".to_owned()))
+        };
+        let unavailable =
+            |error: std::io::Error| BoundaryRefusal::Unavailable(error.kind().to_string());
+        let mut stream =
+            TcpStream::connect_timeout(&self.endpoint, remaining()?).map_err(unavailable)?;
         let request = format!(
             "GET {path} HTTP/1.1\r\nHost: {}\r\nAuthorization: Bearer {}\r\nAccept: application/json\r\nConnection: close\r\n\r\n",
             self.endpoint,
             self.bearer.as_str()
         );
-        stream
-            .write_all(request.as_bytes())
-            .and_then(|()| stream.flush())
-            .map_err(|error| BoundaryRefusal::Unavailable(error.kind().to_string()))?;
+        let mut pending = request.as_bytes();
+        while !pending.is_empty() {
+            stream
+                .set_write_timeout(Some(remaining()?))
+                .map_err(unavailable)?;
+            let written = stream.write(pending).map_err(unavailable)?;
+            if written == 0 {
+                return Err(BoundaryRefusal::Unavailable(
+                    "request write stopped".to_owned(),
+                ));
+            }
+            pending = &pending[written..];
+        }
         let mut bytes = Vec::with_capacity(4_096);
         let mut chunk = [0_u8; 4_096];
         loop {
+            stream
+                .set_read_timeout(Some(remaining()?))
+                .map_err(unavailable)?;
             let read = stream
                 .read(&mut chunk)
                 .map_err(|error| BoundaryRefusal::Unavailable(error.kind().to_string()))?;
@@ -232,6 +266,22 @@ impl AgentSurface {
         }
         decode_response(&bytes)
     }
+}
+
+/// Decodes the object envelope emitted by the daemon's native read routes.
+///
+/// # Errors
+/// Refuses invalid JSON and non-object results instead of presenting a scalar,
+/// array or null as native evidence.
+pub fn decode_native_read_result(body: &str) -> Result<Value, BoundaryRefusal> {
+    let value: Value = serde_json::from_str(body)
+        .map_err(|_| BoundaryRefusal::Malformed("invalid native read result".to_owned()))?;
+    if !value.is_object() {
+        return Err(BoundaryRefusal::Malformed(
+            "native read result is not an object".to_owned(),
+        ));
+    }
+    Ok(value)
 }
 
 fn decode_response(bytes: &[u8]) -> Result<(u16, String), BoundaryRefusal> {

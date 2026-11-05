@@ -679,7 +679,7 @@
         "method": "POST",
         "path": "/v1/agents",
         "request": "AgentCreateRequest",
-        "response": "Journey",
+        "response": "AgentCreationJourney",
         "idempotency": true,
         "bodyless": false
       },
@@ -1079,7 +1079,7 @@
         "method": "POST",
         "path": "/v1/onboarding/resume",
         "request": "Empty",
-        "response": "Journey",
+        "response": "OnboardingJourney",
         "idempotency": false,
         "bodyless": true
       },
@@ -1089,7 +1089,7 @@
         "method": "GET",
         "path": "/v1/onboarding",
         "request": "Empty",
-        "response": "Journey",
+        "response": "OnboardingJourney",
         "idempotency": false,
         "bodyless": true
       },

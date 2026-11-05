@@ -138,7 +138,7 @@ impl Corpus {
     pub fn load(repository_root: &Path) -> Result<Self, CorpusError> {
         let valid_path = repository_root.join("tests/vectors/codec/valid.lxv");
         let adversarial_path = repository_root.join("tests/vectors/codec/adversarial.lxv");
-        let replay_path = repository_root.join("tests/vectors/replay_corpus.lxb");
+        let replay_path = repository_root.join("tests/vectors/codec/replay_corpus.lxb");
         let digest_path = repository_root.join("tests/vectors/qualification_replay_10m.digest");
         let (valid_codec, valid_classes) = load_codec(&valid_path)?;
         let (adversarial_codec, adversarial_classes) = load_codec(&adversarial_path)?;

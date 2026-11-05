@@ -1,0 +1,485 @@
+[reconcile.r12-80]
+revision = "0b17e0748b8a5c1506383faf11209f4f35235885"
+rows = 60
+
+[row.r12-80.1]
+interface = "interface.12.go-att-server-lxreview-response"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/sign.go"
+line = 704
+symbol = "LXReviewResponse"
+evidence = "type LXReviewResponse struct remains at line 704 with Kind, Activity, SigningPreimage, Disclosure and AuditSequence fields. Its name is unchanged, but doLXReview now restricts requests to lx_send_authorization; EVMReviewResponse is a separate type in server/evm_review.go:21."
+
+[row.r12-80.2]
+interface = "interface.12.go-att-server-server-handle-lxreview"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/sign.go"
+line = 719
+symbol = "HandleLXReview"
+evidence = "func (s *Server) HandleLXReview(w http.ResponseWriter, r *http.Request) retains its signature at line 719. doLXReview now accepts only lx_send_authorization, defaulting an empty kind to it; the EVM review handler is separately registered in server/server.go:153."
+
+[row.r12-80.3]
+interface = "interface.12.go-att-server-kind-operator-verification"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/verification.go"
+line = 27
+symbol = "KindOperatorVerification"
+evidence = "KindOperatorVerification = policy.KindOperatorVerification remains declared in the server constant block at line 27; the package qualifier in the registry signature is not part of the identifier."
+
+[row.r12-80.4]
+interface = "interface.12.go-att-store-snapshot-version"
+verdict = "served"
+path = "services/wallet/attestor/internal/store/backup.go"
+line = 20
+symbol = "SnapshotVersion"
+evidence = "SnapshotVersion byte = 2 remains declared at line 20 and is written into snapshot headers and checked on reads in backup.go."
+
+[row.r12-80.5]
+interface = "interface.12.go-att-store-key-size"
+verdict = "served"
+path = "services/wallet/attestor/internal/store/store.go"
+line = 25
+symbol = "KeySize"
+evidence = "KeySize = 32 remains declared at line 25; store key validation and HKDF key derivation still use this constant."
+
+[row.r12-80.6]
+interface = "interface.12.go-att-store-nonce-size"
+verdict = "served"
+path = "services/wallet/attestor/internal/store/store.go"
+line = 26
+symbol = "NonceSize"
+evidence = "NonceSize = 12 remains declared at line 26; share encryption allocates this nonce length and decryption checks the same bound."
+
+[row.r12-80.7]
+interface = "interface.12.go-att-transport-kind-keygen-secp256k1"
+verdict = "served"
+path = "services/wallet/attestor/internal/transport/session.go"
+line = 24
+symbol = "KindKeygenSecp256k1"
+evidence = "KindKeygenSecp256k1 remains an implicitly valued SessionKind constant at line 24 in the block beginning KindGeneric SessionKind = iota; its identifier is unchanged."
+
+[row.r12-80.8]
+interface = "interface.12.go-att-transport-kind-keygen-ed25519"
+verdict = "served"
+path = "services/wallet/attestor/internal/transport/session.go"
+line = 25
+symbol = "KindKeygenEd25519"
+evidence = "KindKeygenEd25519 remains an implicitly valued SessionKind constant at line 25 in the block beginning KindGeneric SessionKind = iota; its identifier is unchanged."
+
+[row.r12-80.9]
+interface = "interface.12.go-att-transport-kind-sign-secp256k1"
+verdict = "served"
+path = "services/wallet/attestor/internal/transport/session.go"
+line = 26
+symbol = "KindSignSecp256k1"
+evidence = "KindSignSecp256k1 remains an implicitly valued SessionKind constant at line 26 in the block beginning KindGeneric SessionKind = iota; its identifier is unchanged."
+
+[row.r12-80.10]
+interface = "interface.12.go-att-transport-kind-sign-ed25519"
+verdict = "served"
+path = "services/wallet/attestor/internal/transport/session.go"
+line = 27
+symbol = "KindSignEd25519"
+evidence = "KindSignEd25519 remains an implicitly valued SessionKind constant at line 27 in the block beginning KindGeneric SessionKind = iota; its identifier is unchanged."
+
+[row.r12-80.11]
+interface = "interface.12.go-att-transport-kind-refresh-secp256k1"
+verdict = "served"
+path = "services/wallet/attestor/internal/transport/session.go"
+line = 28
+symbol = "KindRefreshSecp256k1"
+evidence = "KindRefreshSecp256k1 remains an implicitly valued SessionKind constant at line 28 in the block beginning KindGeneric SessionKind = iota; its identifier is unchanged."
+
+[row.r12-80.12]
+interface = "interface.12.go-att-transport-kind-refresh-ed25519"
+verdict = "served"
+path = "services/wallet/attestor/internal/transport/session.go"
+line = 29
+symbol = "KindRefreshEd25519"
+evidence = "KindRefreshEd25519 remains an implicitly valued SessionKind constant at line 29 in the block beginning KindGeneric SessionKind = iota; its identifier is unchanged."
+
+[row.r12-80.13]
+interface = "interface.12.go-att-transport-kind-add-share"
+verdict = "served"
+path = "services/wallet/attestor/internal/transport/session.go"
+line = 30
+symbol = "KindAddShare"
+evidence = "KindAddShare remains an implicitly valued SessionKind constant at line 30 in the block beginning KindGeneric SessionKind = iota; its identifier is unchanged."
+
+[row.r12-80.14]
+interface = "interface.12.go-att-transport-identity-peer"
+verdict = "served"
+path = "services/wallet/attestor/internal/transport/tls.go"
+line = 18
+symbol = "IdentityPeer"
+evidence = "IdentityPeer IdentityKind = iota + 1 remains the first identity constant at line 18; String and certificate identity parsing still use it."
+
+[row.r12-80.15]
+interface = "interface.12.go-att-dealer-participants"
+verdict = "served"
+path = "services/wallet/attestor/internal/tss/dealer/dealer.go"
+line = 18
+symbol = "Participants"
+evidence = "Participants = 5 remains declared at line 18 in the dealer constant block; the participant-set length check still uses it."
+
+[row.r12-80.16]
+interface = "interface.12.go-att-dealer-threshold"
+verdict = "served"
+path = "services/wallet/attestor/internal/tss/dealer/dealer.go"
+line = 19
+symbol = "Threshold"
+evidence = "Threshold uint32 = 3 remains declared at line 19 in the dealer constant block, distinct from the bundle field of the same name."
+
+[row.r12-80.17]
+interface = "interface.12.go-att-dealer-secp256k1-2"
+verdict = "served"
+path = "services/wallet/attestor/internal/tss/dealer/dealer.go"
+line = 25
+symbol = "Secp256k1"
+evidence = "Secp256k1 Curve = iota + 1 remains declared at line 25; the dealer curve switches still select secp256k1 implementations."
+
+[row.r12-80.18]
+interface = "interface.12.go-att-dealer-ed25519-2"
+verdict = "served"
+path = "services/wallet/attestor/internal/tss/dealer/dealer.go"
+line = 26
+symbol = "Ed25519"
+evidence = "Ed25519 remains the second Curve constant at line 26, inheriting the preceding typed iota expression; dealer curve switches still handle it."
+
+[row.r12-80.19]
+interface = "interface.12.go-att-tss-eddsa-receipt-test-j49"
+verdict = "retired"
+path = "services/wallet/attestor/internal/tss/eddsa/eddsa_test.go"
+line = 265
+symbol = "Ed25519Domain"
+evidence = "Ed25519Domain is absent from the registered eddsa_test.go. Receipt verification now calls verify.Ed25519Digest at lines 265 and 268 after codec.DomainHash. Repository-wide word search excluding spec and docs found two other files: an export-absence test and a C interface inventory entry, not an implementation."
+remaining_refs = 2
+remaining = ["layerxproof/exportcheck/inclusion_exports_test.go:22", "tests/codec/lxp_test_kernel_complete.c:1439"]
+
+[row.r12-80.20]
+interface = "interface.12.ts-demo-supported-wallet-panel"
+verdict = "served"
+path = "services/wallet/demo/src/components/FundedAccountPanel.tsx"
+line = 22
+symbol = "SupportedWalletPanel"
+evidence = "export function SupportedWalletPanel({ paxeer, origin, injected }: { paxeer: PaxeerWallet; origin: string; injected?: Eip6963ProviderDetail; }) remains at line 22. The parameter signature is retained; the UI now sends transactions and typed data through WalletInterface, removes retained custody storage, and no longer invokes prepare/recover/status custody RPCs."
+
+[row.r12-80.21]
+interface = "interface.12.fmt-dep-attestor-1-env-example"
+verdict = "served"
+path = "services/wallet/deploy/attestor-1.env.example"
+line = 22
+symbol = "ATTESTOR_ACTIVITY_TYPES"
+evidence = "Attestor node 1 environment format remains present, including ATTESTOR_NODE_ID=1, ATTESTOR_ACTIVITY_TYPES=0x10005 at line 22 and the identity/inventory file-secret names. The registered ATTESTOR_* naming scheme is retained; this template currently allows the asset send activity type rather than naming lx_activity as a signing kind."
+
+[row.r12-80.22]
+interface = "interface.12.fmt-dep-attestor-2-env-example"
+verdict = "served"
+path = "services/wallet/deploy/attestor-2.env.example"
+line = 22
+symbol = "ATTESTOR_ACTIVITY_TYPES"
+evidence = "Attestor node 2 environment format remains present, including ATTESTOR_NODE_ID=2, ATTESTOR_ACTIVITY_TYPES=0x10005 at line 22 and the identity/inventory file-secret names. The registered ATTESTOR_* naming scheme is retained; this template currently allows the asset send activity type rather than naming lx_activity as a signing kind."
+
+[row.r12-80.23]
+interface = "interface.12.fmt-dep-attestor-3-env-example"
+verdict = "served"
+path = "services/wallet/deploy/attestor-3.env.example"
+line = 22
+symbol = "ATTESTOR_ACTIVITY_TYPES"
+evidence = "Attestor node 3 environment format remains present, including ATTESTOR_NODE_ID=3, ATTESTOR_ACTIVITY_TYPES=0x10005 at line 22 and the identity/inventory file-secret names. The registered ATTESTOR_* naming scheme is retained; this template currently allows the asset send activity type rather than naming lx_activity as a signing kind."
+
+[row.r12-80.24]
+interface = "interface.12.fmt-dep-attestor-4-env-example"
+verdict = "served"
+path = "services/wallet/deploy/attestor-4.env.example"
+line = 22
+symbol = "ATTESTOR_ACTIVITY_TYPES"
+evidence = "Attestor node 4 environment format remains present, including ATTESTOR_NODE_ID=4, ATTESTOR_ACTIVITY_TYPES=0x10005 at line 22 and the identity/inventory file-secret names. The registered ATTESTOR_* naming scheme is retained; this template currently allows the asset send activity type rather than naming lx_activity as a signing kind."
+
+[row.r12-80.25]
+interface = "interface.12.fmt-dep-attestor-5-env-example"
+verdict = "served"
+path = "services/wallet/deploy/attestor-5.env.example"
+line = 22
+symbol = "ATTESTOR_ACTIVITY_TYPES"
+evidence = "Attestor node 5 environment format remains present, including ATTESTOR_NODE_ID=5, ATTESTOR_ACTIVITY_TYPES=0x10005 at line 22 and the identity/inventory file-secret names. The registered ATTESTOR_* naming scheme is retained; this template currently allows the asset send activity type rather than naming lx_activity as a signing kind."
+
+[row.r12-80.26]
+interface = "interface.12.fmt-dep-attestor-kernel-policy-json"
+verdict = "served"
+path = "services/wallet/deploy/attestor-kernel-policy.json"
+line = 2
+symbol = "version"
+evidence = "The document still declares version 1 at line 2 with defaults.modules.asset = [5], native per_operation/daily caps and native per_grant/daily grants. The format remains present; LX review is now send-authorization-only in server/sign.go:740, while EVM review has its own handler rather than replacing this policy file."
+
+[row.r12-80.27]
+interface = "interface.12.fmt-dep-attestor-policy-json"
+verdict = "served"
+path = "services/wallet/deploy/attestor-policy.json"
+line = 5
+symbol = "kinds"
+evidence = "The version-1 signing policy retains defaults.kinds at line 5; the current list replaces lx_activity with lx_send_authorization and omits custody. selectors now includes addresses 0x101a through 0x101d; fee_sponsors remains an empty deployment input list."
+
+[row.r12-80.28]
+interface = "interface.12.fmt-dep-env-catalog"
+verdict = "served"
+path = "services/wallet/deploy/env"
+line = 177
+symbol = "WALLET_GAS_STATION_URL"
+evidence = "The NAME - description catalog remains and now has 384 lines rather than the registered 381. WALLET_GAS_STATION_URL at line 180 replaces the sponsor-private-key entries; LAYER_X_DB_URI, LAYERX_SYNC_INTERVAL_MS and LAYERX_VAULT_ADDRESS are absent. LAYERX_USDL_DECIMALS and some legacy explanatory references remain."
+
+[row.r12-80.29]
+interface = "interface.12.fmt-dep-railway-env-example"
+verdict = "served"
+path = "services/wallet/deploy/railway.env.example"
+line = 16
+symbol = "WALLET_GAS_STATION_URL"
+evidence = "The gateway environment template now declares WALLET_GAS_STATION_URL= at line 16 instead of the retired sponsor key file entry. SPONSOR_PRIVATE_KEY and SPONSOR_PRIVATE_KEY_FILE are absent; gateway runtime names and base64 file-secret comments remain."
+
+[row.r12-80.30]
+interface = "interface.12.key-gw-table-wallets"
+verdict = "served"
+path = "services/wallet/gateway/migrations/001_init.sql"
+line = 24
+symbol = "wallets"
+evidence = "create table if not exists wallets ( remains the table declaration at line 24 of the registered migration; the exact storage identifier is wallets."
+
+[row.r12-80.31]
+interface = "interface.12.key-gw-table-wallet-signatures"
+verdict = "served"
+path = "services/wallet/gateway/migrations/001_init.sql"
+line = 44
+symbol = "wallet_signatures"
+evidence = "create table if not exists wallet_signatures ( remains the table declaration at line 44 of the registered migration; the exact storage identifier is wallet_signatures."
+
+[row.r12-80.32]
+interface = "interface.12.key-gw-table-funded-tiers"
+verdict = "served"
+path = "services/wallet/gateway/migrations/002_funded_accounts.sql"
+line = 65
+symbol = "funded_tiers"
+evidence = "create table if not exists funded_tiers ( remains at line 65 as applied migration history. migrations/006_archive_funded.sql:18 drops the table; this declaration is not proof of a live funded-tier service."
+
+[row.r12-80.33]
+interface = "interface.12.key-gw-table-funded-accounts"
+verdict = "served"
+path = "services/wallet/gateway/migrations/002_funded_accounts.sql"
+line = 102
+symbol = "funded_accounts"
+evidence = "create table if not exists funded_accounts ( remains at line 102. migrations/006_archive_funded.sql archives associated wallets and drops the tier foreign key, preserving this historical account table."
+
+[row.r12-80.34]
+interface = "interface.12.key-gw-table-whitelist-entries"
+verdict = "served"
+path = "services/wallet/gateway/migrations/002_funded_accounts.sql"
+line = 152
+symbol = "whitelist_entries"
+evidence = "create table if not exists whitelist_entries ( remains at line 152 as applied migration history. migrations/006_archive_funded.sql:17 drops the table; the historical declaration still exists in its registered path."
+
+[row.r12-80.35]
+interface = "interface.12.key-gw-table-agent-principals"
+verdict = "served"
+path = "services/wallet/gateway/migrations/004_agent_native.sql"
+line = 65
+symbol = "agent_principals"
+evidence = "create table if not exists agent_principals ( remains the table declaration at line 65 of the registered migration; the exact storage identifier is agent_principals."
+
+[row.r12-80.36]
+interface = "interface.12.key-gw-table-agent-policies"
+verdict = "served"
+path = "services/wallet/gateway/migrations/004_agent_native.sql"
+line = 88
+symbol = "agent_policies"
+evidence = "create table if not exists agent_policies ( remains the table declaration at line 88 of the registered migration; the exact storage identifier is agent_policies."
+
+[row.r12-80.37]
+interface = "interface.12.key-gw-table-agent-policy-rules"
+verdict = "served"
+path = "services/wallet/gateway/migrations/004_agent_native.sql"
+line = 120
+symbol = "agent_policy_rules"
+evidence = "create table if not exists agent_policy_rules ( remains the table declaration at line 120 of the registered migration; the exact storage identifier is agent_policy_rules."
+
+[row.r12-80.38]
+interface = "interface.12.key-gw-table-agent-budgets"
+verdict = "served"
+path = "services/wallet/gateway/migrations/004_agent_native.sql"
+line = 143
+symbol = "agent_budgets"
+evidence = "create table if not exists agent_budgets ( remains the table declaration at line 143 of the registered migration; the exact storage identifier is agent_budgets."
+
+[row.r12-80.39]
+interface = "interface.12.key-gw-table-agent-auth-challenges"
+verdict = "served"
+path = "services/wallet/gateway/migrations/004_agent_native.sql"
+line = 163
+symbol = "agent_auth_challenges"
+evidence = "create table if not exists agent_auth_challenges ( remains the table declaration at line 163 of the registered migration; the exact storage identifier is agent_auth_challenges."
+
+[row.r12-80.40]
+interface = "interface.12.fmt-gw-migration-005-agent-actions"
+verdict = "served"
+path = "services/wallet/gateway/migrations/005_agent_actions.sql"
+line = 115
+symbol = "layerx_accounts"
+evidence = "Migration 005 still declares create table if not exists layerx_accounts ( at line 115 and agent_actions at line 28. Its applied SQL format is retained; migrations/019_drop_retired_layerx_custody.sql:11 drops the mirror table, so the old migration does not imply a live mirror worker."
+
+[row.r12-80.41]
+interface = "interface.12.key-gw-table-agent-actions"
+verdict = "served"
+path = "services/wallet/gateway/migrations/005_agent_actions.sql"
+line = 28
+symbol = "agent_actions"
+evidence = "create table if not exists agent_actions ( remains at line 28, with the historical kind constraint still listing layerx_deposit and allowance_and_call. migrations/019_drop_retired_layerx_custody.sql:1 adds a no-layerx-deposit constraint and removes terminal deposit rows; the durable action table survives for supported actions."
+
+[row.r12-80.42]
+interface = "interface.12.key-gw-table-agent-request-nonces"
+verdict = "served"
+path = "services/wallet/gateway/migrations/006_agent_request_nonces.sql"
+line = 1
+symbol = "agent_request_nonces"
+evidence = "create table if not exists agent_request_nonces ( remains the table declaration at line 1 of the registered migration; the exact storage identifier is agent_request_nonces."
+
+[row.r12-80.43]
+interface = "interface.12.key-gw-table-nonce-allocations"
+verdict = "served"
+path = "services/wallet/gateway/migrations/006_attestor_signing.sql"
+line = 19
+symbol = "nonce_allocations"
+evidence = "create table if not exists nonce_allocations ( remains the table declaration at line 19 of the registered migration; the exact storage identifier is nonce_allocations."
+
+[row.r12-80.44]
+interface = "interface.12.key-gw-table-rate-limit-windows"
+verdict = "served"
+path = "services/wallet/gateway/migrations/006_attestor_signing.sql"
+line = 28
+symbol = "rate_limit_windows"
+evidence = "create table if not exists rate_limit_windows ( remains the table declaration at line 28 of the registered migration; the exact storage identifier is rate_limit_windows."
+
+[row.r12-80.45]
+interface = "interface.12.key-gw-table-signing-audit"
+verdict = "served"
+path = "services/wallet/gateway/migrations/006_attestor_signing.sql"
+line = 38
+symbol = "signing_audit"
+evidence = "create table if not exists signing_audit ( remains the table declaration at line 38 of the registered migration; the exact storage identifier is signing_audit."
+
+[row.r12-80.46]
+interface = "interface.12.key-gw-table-account-provisioning"
+verdict = "served"
+path = "services/wallet/gateway/migrations/007_unified_account.sql"
+line = 28
+symbol = "account_provisioning"
+evidence = "create table if not exists account_provisioning ( remains the table declaration at line 28 of the registered migration; the exact storage identifier is account_provisioning."
+
+[row.r12-80.47]
+interface = "interface.12.key-gw-table-account-setup-audit"
+verdict = "served"
+path = "services/wallet/gateway/migrations/007_unified_account.sql"
+line = 57
+symbol = "account_setup_audit"
+evidence = "create table if not exists account_setup_audit ( remains the table declaration at line 57 of the registered migration; the exact storage identifier is account_setup_audit."
+
+[row.r12-80.48]
+interface = "interface.12.key-gw-table-account-backfill-cursor"
+verdict = "served"
+path = "services/wallet/gateway/migrations/007_unified_account.sql"
+line = 74
+symbol = "account_backfill_cursor"
+evidence = "create table if not exists account_backfill_cursor ( remains the table declaration at line 74 of the registered migration; the exact storage identifier is account_backfill_cursor."
+
+[row.r12-80.49]
+interface = "interface.12.key-gw-table-wallet-custody-authority"
+verdict = "served"
+path = "services/wallet/gateway/migrations/008_custody_authority.sql"
+line = 1
+symbol = "wallet_custody_authority"
+evidence = "create table wallet_custody_authority ( remains the table declaration at line 1 of the registered migration; the exact storage identifier is wallet_custody_authority."
+
+[row.r12-80.50]
+interface = "interface.12.key-gw-table-custody-budget-reservations"
+verdict = "served"
+path = "services/wallet/gateway/migrations/008_custody_authority.sql"
+line = 12
+symbol = "custody_budget_reservations"
+evidence = "create table custody_budget_reservations ( remains the table declaration at line 12 of the registered migration; the exact storage identifier is custody_budget_reservations."
+
+[row.r12-80.51]
+interface = "interface.12.key-gw-table-custody-signing-reservations"
+verdict = "served"
+path = "services/wallet/gateway/migrations/009_custody_signing_reservations.sql"
+line = 1
+symbol = "custody_signing_reservations"
+evidence = "create table if not exists custody_signing_reservations ( remains the table declaration at line 1 of the registered migration; the exact storage identifier is custody_signing_reservations."
+
+[row.r12-80.52]
+interface = "interface.12.key-gw-table-agent-signing-authorizations"
+verdict = "served"
+path = "services/wallet/gateway/migrations/010_custody_authorizations.sql"
+line = 1
+symbol = "agent_signing_authorizations"
+evidence = "create table if not exists agent_signing_authorizations ( remains the table declaration at line 1 of the registered migration; the exact storage identifier is agent_signing_authorizations."
+
+[row.r12-80.53]
+interface = "interface.12.fmt-gw-migration-011-wallet-custody-submissions"
+verdict = "served"
+path = "services/wallet/gateway/migrations/011_wallet_custody_submissions.sql"
+line = 1
+symbol = "wallet_custody_submissions"
+evidence = "create table if not exists wallet_custody_submissions ( remains at line 1 in the applied migration. The SQL format is preserved for ordered migration history; migrations/019_drop_retired_layerx_custody.sql:12 drops this table, so this served file is not an active custody route."
+
+[row.r12-80.54]
+interface = "interface.12.key-gw-table-wallet-lx-approvals"
+verdict = "served"
+path = "services/wallet/gateway/migrations/012_wallet_lx_approvals.sql"
+line = 1
+symbol = "wallet_lx_approvals"
+evidence = "create table if not exists wallet_lx_approvals ( remains at line 1 with its state, artifact and review_evidence columns. Its initial table signature is retained; migrations/018_wallet_lx_approvals_send_only.sql adds the send-only artifact constraint and removes unsigned lx_activity approvals."
+
+[row.r12-80.55]
+interface = "interface.12.fmt-gw-migration-013-wallet-custody-authorizations"
+verdict = "served"
+path = "services/wallet/gateway/migrations/013_wallet_custody_authorizations.sql"
+line = 1
+symbol = "wallet_custody_authorizations"
+evidence = "create table if not exists wallet_custody_authorizations ( remains at line 1, with the signed-proof immutability trigger later in the same file. This historical SQL format is retained; migrations/019_drop_retired_layerx_custody.sql:13 drops the table after custody-route retirement."
+
+[row.r12-80.56]
+interface = "interface.12.key-gw-table-nonce-outstanding"
+verdict = "served"
+path = "services/wallet/gateway/migrations/014_nonce_outstanding.sql"
+line = 1
+symbol = "nonce_outstanding"
+evidence = "create table if not exists nonce_outstanding ( remains the table declaration at line 1 of the registered migration; the exact storage identifier is nonce_outstanding."
+
+[row.r12-80.57]
+interface = "interface.12.ts-gw-action-submit-retained-j49"
+verdict = "served"
+path = "services/wallet/gateway/src/agent/actions/orchestrator.ts"
+line = 419
+symbol = "submitRetained"
+evidence = "export async function submitRetained(row: ActionRow, signed: ActionSignedTransaction, lease: NonceLease): Promise<unknown> is now exported at line 419. It checks retained-byte integrity and broadcasts via sharedRpcPool().sendRawTransactionVia inside broadcastReserved, replacing direct publicClient sending."
+
+[row.r12-80.58]
+interface = "interface.12.ts-gw-sign-kind"
+verdict = "served"
+path = "services/wallet/gateway/src/attestor/client.ts"
+line = 47
+symbol = "SignKind"
+evidence = "export type SignKind = remains at line 47. The current union removes custody and lx_activity, includes eth_sign_digest and lx_send_authorization, and retains evm_tx, eip712, personal_message, eip7702_authorization, lx_bind and lx_grant."
+
+[row.r12-80.59]
+interface = "interface.12.ts-gw-kind-curves"
+verdict = "served"
+path = "services/wallet/gateway/src/attestor/client.ts"
+line = 59
+symbol = "KIND_CURVES"
+evidence = "export const KIND_CURVES: Record<SignKind, Curve> = { now starts at line 59. The mapping removes custody and lx_activity; eth_sign_digest maps to secp256k1 and lx_send_authorization to ed25519, alongside the retained signing kinds."
+
+[row.r12-80.60]
+interface = "interface.12.ts-gw-sign-payload"
+verdict = "served"
+path = "services/wallet/gateway/src/attestor/client.ts"
+line = 147
+symbol = "SignPayload"
+evidence = "export type SignPayload = now starts at line 147. The union removes custody and lx_activity branches and carries eth_sign_digest with digest/construction and lx_send_authorization with activity/disclosure/approval, alongside the retained EVM, typed-data, message, authorization, binding and grant payloads."

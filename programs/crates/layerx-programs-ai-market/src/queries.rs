@@ -1,12 +1,14 @@
 //! F10 read-only selectors, exact snapshot binding and bounded off-chain page framing.
 //! Selectors read one captured common state value; they never write, emit, pay or stage blobs.
 //! Host `ProgramRead` facts and finality evidence are inputs; nothing here establishes them.
+#[cfg(target_arch = "wasm32")]
+use crate::codec::Sha256State as Sha256;
 use crate::{
     codec::{self, ChunkResponse, ReadHeader, Reader, RosterView, Writer},
     dispatch,
     errors::{
         ApplicationError, CodecResult, ARITHMETIC, BAD_VERSION, CAPACITY, CONFLICT, NON_CANONICAL,
-        NOT_FOUND, WRONG_DOMAIN, WRONG_MARKET, WRONG_PROGRAM,
+        NOT_FOUND, WRONG_DOMAIN, WRONG_MARKET, WRONG_PROGRAM, WRONG_ROSTER,
     },
     evaluators::authority::split_identity_section,
     registry_ops::PolicySection,
@@ -18,6 +20,7 @@ use crate::{
     workers::{WorkerState, WorkerTable},
     MAX_CHUNK_BYTES, MAX_STATE_BYTES, SCHEMA_VERSION,
 };
+#[cfg(not(target_arch = "wasm32"))]
 use sha2::{Digest, Sha256};
 
 pub const FULL_CAPTURE_CHUNKS: usize = MAX_STATE_BYTES / MAX_CHUNK_BYTES;
@@ -38,7 +41,8 @@ pub const BINDING_MAX_BYTES: usize = BINDING_PREFIX_MAX_BYTES + 8 + 32 + 32 + 32
 const HEX: &[u8; 16] = b"0123456789abcdef";
 
 /// Off-chain view failures keep their own names, separate from on-chain application codes.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum QueryError {
     Application(ApplicationError),
     BindingMismatch,
@@ -75,6 +79,7 @@ fn policy_of<'s>(shared: &'s SharedState<'_>) -> CodecResult<PolicySection<'s>> 
 /// # Errors
 /// Refuses a noncanonical state, an uncreated market (`NOT_FOUND`) and a chain or program
 /// other than the market's own (`WRONG_DOMAIN`, `WRONG_PROGRAM`).
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn read_header(
     state_bytes: &[u8],
     chain: ChainDomain,
@@ -88,6 +93,7 @@ pub fn read_header(
     if header.program_id != program {
         return Err(WRONG_PROGRAM);
     }
+    let opened = crate::epoch::captured_roster(&shared)?;
     Ok(ReadHeader {
         revision: shared.revision,
         digest: codec::state_digest(state_bytes)?,
@@ -95,9 +101,13 @@ pub fn read_header(
         chain,
         program,
         market: header.market_id,
-        epoch: Presence::Absent,
+        epoch: opened
+            .as_ref()
+            .map_or(Presence::Absent, |r| Presence::Present(r.binding.epoch)),
         config: Version::new(header.active_config_version)?,
-        roster: Presence::Absent,
+        roster: opened
+            .as_ref()
+            .map_or(Presence::Absent, |r| Presence::Present(r.binding.roster)),
     })
 }
 
@@ -116,6 +126,7 @@ pub fn policy_digest(state_bytes: &[u8]) -> CodecResult<PolicyDigest> {
 /// # Errors
 /// `NON_CANONICAL` for a malformed payload or an offset outside the state, `CONFLICT` for a
 /// pin that no longer matches the captured state, `CAPACITY` for an oversized state or `out`.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn read_state_chunk(state_bytes: &[u8], payload: &[u8], out: &mut [u8]) -> CodecResult<usize> {
     dispatch::READ_STATE_CHUNK.validate_payload_length(payload.len())?;
     let request = codec::decode_chunk_request(payload)?;
@@ -160,7 +171,8 @@ pub fn frame_read_result(
 }
 
 /// Outer `ProgramRead` facts returned with each chunk by the host read interface.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct ReadProof {
     pub chain: ChainDomain,
     pub program: ProgramId,
@@ -171,7 +183,8 @@ pub struct ReadProof {
 }
 
 /// Facts of one complete capture: every chunk proved the same root and state identity.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct CaptureFacts {
     pub proof: ReadProof,
     pub revision: u64,
@@ -271,7 +284,8 @@ impl<'a> StateCapture<'a> {
 }
 
 /// Finality evidence supplied by the native block-commit verifier for one root.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct FinalityEvidence {
     pub native_state_root: Digest32,
     pub block_height: u64,
@@ -282,7 +296,8 @@ pub struct FinalityEvidence {
 }
 
 /// `SnapshotBindingV2` in canonical field order.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct SnapshotBinding {
     pub chain: ChainDomain,
     pub program: ProgramId,
@@ -361,6 +376,7 @@ impl SnapshotBinding {
     /// # Errors
     /// `BAD_VERSION` for another schema; codec refusals for malformed, oversized,
     /// trailing or reserved bytes, revision zero, or a rank above finalized.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(bytes: &[u8]) -> CodecResult<Self> {
         let mut input = Reader::new(bytes);
         if input.u16()? != 1 {
@@ -370,23 +386,23 @@ impl SnapshotBinding {
             return Err(NON_CANONICAL);
         }
         let binding = SnapshotBinding {
-            chain: ChainDomain::new(input.fixed()?)?,
-            program: ProgramId::new(input.fixed()?)?,
-            market: MarketId::new(input.fixed()?)?,
+            chain: input.chain_domain()?,
+            program: input.program_id()?,
+            market: input.market_id()?,
             observed_sequence: input.u64()?,
             execution_height: input.u64()?,
-            batch_id: Digest32::new(input.fixed()?)?,
-            native_state_root: Digest32::new(input.fixed()?)?,
+            batch_id: input.digest32()?,
+            native_state_root: input.digest32()?,
             revision: input.u64()?,
-            state_digest: StateDigest::new(input.fixed()?)?,
+            state_digest: input.state_digest()?,
             epoch: input.presence(Reader::u64)?,
-            config: Version::new(input.u64()?)?,
-            policy: PolicyDigest::new(input.fixed()?)?,
-            roster: input.presence(|reader| RosterDigest::new(reader.fixed()?))?,
+            config: input.version()?,
+            policy: input.policy_digest()?,
+            roster: input.presence(|reader| reader.roster_digest())?,
             block_height: input.u64()?,
-            block_hash: Digest32::new(input.fixed()?)?,
-            app_hash: Digest32::new(input.fixed()?)?,
-            store_proof_digest: Digest32::new(input.fixed()?)?,
+            block_hash: input.digest32()?,
+            app_hash: input.digest32()?,
+            store_proof_digest: input.digest32()?,
             rank: input.u8()?,
             publication_time_ms: input.u64()?,
         };
@@ -435,6 +451,7 @@ impl SnapshotBinding {
         Ok((self.block_height, self.block_hash))
     }
 
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn write_prefix(&self, w: &mut Writer<'_>) -> CodecResult<()> {
         w.u16(SCHEMA_VERSION)?;
         w.put(self.chain.as_bytes())?;
@@ -455,6 +472,7 @@ impl SnapshotBinding {
     ///
     /// # Errors
     /// `NON_CANONICAL` for revision 0 or a rank above 4, `CAPACITY` for a short `out`.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encode(&self, out: &mut [u8]) -> CodecResult<usize> {
         if self.revision == 0 || self.rank > FINALIZED_RANK {
             return Err(NON_CANONICAL);
@@ -497,7 +515,8 @@ impl SnapshotBinding {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 #[repr(u8)]
 pub enum Availability {
     Available = 1,
@@ -507,34 +526,94 @@ pub enum Availability {
     UnsupportedVersion = 5,
 }
 
-/// F01..F10 order. Only the F01 policy/header and F02 worker declarations are projected here;
-/// F06 rewards are not enabled and other producers have not yet produced view content.
-///
-/// # Errors
-/// Refuses a noncanonical state, policy section or worker table.
+/// Availability of content actually decoded from the exact capture, in F01..F10 order.
+/// Unknown codec versions and malformed content remain explicit to consumers.
 pub fn feature_availability(state_bytes: &[u8]) -> CodecResult<[Availability; 10]> {
+    fn decoded<T>(result: CodecResult<T>, produced: bool) -> Availability {
+        match result {
+            Ok(_) if produced => Availability::Available,
+            Ok(_) => Availability::NotYetProduced,
+            Err(BAD_VERSION) => Availability::UnsupportedVersion,
+            Err(_) => Availability::ContentUnavailable,
+        }
+    }
     let shared = state::decode_shared_state(state_bytes)?;
     let mut out = [Availability::NotYetProduced; 10];
-    out[0] = match policy_of(&shared) {
-        Ok(_) => Availability::Available,
-        Err(NOT_FOUND) => Availability::NotYetProduced,
-        Err(e) => return Err(e),
+    out[0] = decoded(policy_of(&shared), !shared.feature_sections[0].is_empty());
+    out[1] = decoded(
+        worker_table(&shared),
+        !shared.feature_sections[1].is_empty(),
+    );
+    let identity = split_identity_section(shared.section(Section::IdentityRoster)?);
+    out[2] = match identity {
+        Ok((_, bytes)) => decoded(
+            crate::evaluators::authority::EvaluatorRegion::decode(bytes),
+            !bytes.is_empty(),
+        ),
+        Err(_) => Availability::ContentUnavailable,
     };
-    worker_table(&shared)?;
-    out[1] = Availability::Available;
-    out[5] = Availability::NotEnabled;
+    let reports = crate::evaluators::admission::ReportRegion::decode(
+        shared.section(Section::CurrentReports)?,
+    );
+    out[3] = match reports {
+        Ok(reports) => decoded(
+            crate::commit_reveal::CommitRegion::decode(reports.rest()),
+            !reports.rest().is_empty(),
+        ),
+        Err(_) => Availability::ContentUnavailable,
+    };
+    let settlement = shared.section(Section::SettlementClaims)?;
+    if !settlement.is_empty() {
+        out[5] = decoded(
+            settlement
+                .get(..crate::rewards::REWARD_STATE_BYTES)
+                .ok_or(NON_CANONICAL)
+                .and_then(crate::rewards::decode_reward_state),
+            true,
+        );
+        if settlement.len() > crate::rewards::REWARD_STATE_BYTES {
+            out[4] = decoded(crate::aggregation::progress(state_bytes), true);
+        }
+    }
+    match crate::reputation_transition::split_joint(shared.section(Section::ReputationAdmission)?) {
+        Ok((region, table)) => {
+            out[6] = if region.is_some() {
+                Availability::Available
+            } else {
+                Availability::NotYetProduced
+            };
+            out[7] = decoded(
+                crate::admission::AdmissionTable::decode(table),
+                !table.is_empty(),
+            );
+        }
+        Err(BAD_VERSION) => {
+            out[6] = Availability::UnsupportedVersion;
+            out[7] = Availability::ContentUnavailable;
+        }
+        Err(_) => {
+            out[6] = Availability::ContentUnavailable;
+            out[7] = Availability::ContentUnavailable;
+        }
+    }
+    out[8] = decoded(
+        crate::evidence::SealRegion::decode(shared.control.feature_bytes),
+        !shared.control.feature_bytes.is_empty(),
+    );
     out[9] = Availability::Available;
     Ok(out)
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 #[repr(u8)]
 pub enum ParticipantKind {
     Worker = 1,
     Evaluator = 2,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 #[repr(u8)]
 pub enum ScoreStatus {
     Present = 1,
@@ -546,7 +625,8 @@ pub enum ScoreStatus {
 }
 
 /// Present carries an actual number (zero included); every other status carries none.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct ScoreField {
     epoch: Presence<u64>,
     status: ScoreStatus,
@@ -592,7 +672,8 @@ impl ScoreField {
 }
 
 /// F06-backed entitlement. Only an F06 producer may supply available values.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct RewardField {
     status: Availability,
     asset: Presence<AssetId>,
@@ -650,7 +731,8 @@ pub const ELIGIBLE_NEW_WORK: u8 = 2;
 pub const IDENTITY_STATE_UNAVAILABLE: u8 = 0;
 
 /// One participant row. For evaluators, `generation` is the frozen grant version.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct ParticipantRow {
     pub kind: ParticipantKind,
     pub id: [u8; 32],
@@ -670,6 +752,7 @@ pub struct ParticipantRow {
 impl ParticipantRow {
     /// # Errors
     /// `CAPACITY` when the writer is full.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encode(&self, w: &mut Writer<'_>) -> CodecResult<()> {
         w.u8(self.kind as u8)?;
         w.put(&self.id)?;
@@ -696,92 +779,187 @@ impl ParticipantRow {
     }
 }
 
-fn frozen_worker_generation(
-    frozen: Option<&RosterView<'_>>,
-    id: [u8; 32],
-) -> CodecResult<Presence<u64>> {
-    if let Some(view) = frozen {
-        for i in 0..view.worker_count() {
-            let entry = view.worker(i)?;
-            if entry.worker.bytes() == id {
-                return Ok(Presence::Present(entry.generation.get()));
-            }
-        }
-    }
-    Ok(Presence::Absent)
-}
-
-/// Canonical participant rows: F02 current workers in ascending `WorkerId`, then frozen-roster
-/// evaluators in ascending `EvaluatorId`. Scores and rewards stay explicitly not produced /
-/// not enabled until their producers exist.
-///
-/// # Errors
-/// `WRONG_MARKET` for a roster of another market, `CAPACITY` when `out` is too small, and
-/// refusals of a noncanonical state, policy section or worker table.
+/// Complete projection from the captured F02/F03/F05/F06/F07/F08 producers.
+/// An optional transported roster must bind exactly to the persisted opening.
 pub fn participant_rows(
     state_bytes: &[u8],
-    frozen: Option<&RosterView<'_>>,
+    supplied: Option<&RosterView<'_>>,
     out: &mut [ParticipantRow],
 ) -> CodecResult<usize> {
     let shared = state::decode_shared_state(state_bytes)?;
-    let market = policy_of(&shared)?.header.market_id;
-    if frozen.is_some_and(|view| view.market != market) {
-        return Err(WRONG_MARKET);
+    let policy = policy_of(&shared)?;
+    let opened = crate::epoch::captured_roster(&shared)?;
+    if let Some(view) = supplied {
+        if view.market != policy.header.market_id {
+            return Err(WRONG_MARKET);
+        }
+        let captured = opened.as_ref().ok_or(WRONG_ROSTER)?;
+        if view.epoch != captured.binding.epoch
+            || view.config != captured.binding.config
+            || view.digest()? != captured.binding.roster
+        {
+            return Err(WRONG_ROSTER);
+        }
     }
-    let table = worker_table(&shared)?;
-    let evaluators = frozen.map_or(0, RosterView::evaluator_count);
-    let total = table.len() + evaluators;
+    let workers = worker_table(&shared)?;
+    let evaluators =
+        crate::evaluators::authority::evaluator_region(shared.section(Section::IdentityRoster)?)?;
+    let (history, _) =
+        crate::reputation_transition::split_joint(shared.section(Section::ReputationAdmission)?)?;
+    let settlement = shared.section(Section::SettlementClaims)?;
+    let rewards = if settlement.is_empty() {
+        None
+    } else {
+        Some(crate::rewards::decode_reward_state(
+            settlement
+                .get(..crate::rewards::REWARD_STATE_BYTES)
+                .ok_or(NON_CANONICAL)?,
+        )?)
+    };
+    let aggregate = if opened.is_some() {
+        crate::aggregation::captured_aggregation(state_bytes)?
+    } else {
+        None
+    };
+    let total = workers.len() + evaluators.len();
     let slots = out.get_mut(..total).ok_or(CAPACITY)?;
-    let (worker_slots, evaluator_slots) = slots.split_at_mut(table.len());
-    for (slot, r) in worker_slots.iter_mut().zip(table.iter()) {
-        let frozen_generation = frozen_worker_generation(frozen, r.worker.bytes())?;
-        let eligibility = match r.state {
-            WorkerState::Available => ELIGIBLE_SERVING | ELIGIBLE_NEW_WORK,
-            WorkerState::Enrolled | WorkerState::Draining => ELIGIBLE_SERVING,
-            WorkerState::Revoked | WorkerState::Retired | WorkerState::PendingOwner => 0,
-        };
+    let (worker_slots, evaluator_slots) = slots.split_at_mut(workers.len());
+    for (slot, record) in worker_slots.iter_mut().zip(workers.iter()) {
+        let frozen = opened
+            .as_ref()
+            .and_then(|r| r.workers().iter().find(|w| w.worker == record.worker));
+        let epoch = opened
+            .as_ref()
+            .map_or(Presence::Absent, |r| Presence::Present(r.binding.epoch));
+        let mut score = ScoreField::absent(epoch, ScoreStatus::NotProduced)?;
+        if let (Some(roster), Some(aggregate)) = (&opened, &aggregate) {
+            if aggregate.phase() == crate::aggregation_codec::AggregationPhase::Terminal {
+                for i in 0..aggregate.output_count() {
+                    let output = aggregate.output(i)?;
+                    if output.worker() == record.worker {
+                        score = match output.quality() {
+                            Presence::Present(value) => {
+                                ScoreField::present(roster.binding.epoch, value.get())?
+                            }
+                            Presence::Absent => {
+                                ScoreField::absent(epoch, ScoreStatus::InsufficientCoverage)?
+                            }
+                        };
+                    }
+                }
+            }
+        }
+        let mut reward = RewardField::unavailable(Availability::NotYetProduced)?;
+        if let (Some(roster), Some(rewards)) = (&opened, &rewards) {
+            let row = rewards.row(roster.binding.epoch)?;
+            if matches!(
+                row.status,
+                crate::rewards::EpochStatus::Terminal | crate::rewards::EpochStatus::Expired
+            ) {
+                if row.outcome == crate::rewards::RewardOutcome::NoEligibleScore && frozen.is_some()
+                {
+                    reward = RewardField::entitlement(rewards.ledger()?.asset, 0, 0)?;
+                }
+                let dictionary = rewards.dictionary();
+                for entry in row.entries() {
+                    if dictionary.slot(entry.slot)?.worker == record.worker {
+                        let claimed = if entry.disposition == crate::rewards::Disposition::Claimed {
+                            entry.entitlement
+                        } else {
+                            0
+                        };
+                        reward = RewardField::entitlement(
+                            rewards.ledger()?.asset,
+                            entry.entitlement,
+                            claimed,
+                        )?;
+                    }
+                }
+            }
+        }
+        let standing = history
+            .as_ref()
+            .and_then(|region| region.state.records().find(|r| r.worker == record.worker));
         *slot = ParticipantRow {
             kind: ParticipantKind::Worker,
-            id: r.worker.bytes(),
-            owner: r.owner,
-            generation: r.generation,
-            identity_state: r.state as u8,
-            frozen_member: frozen_generation != Presence::Absent,
-            frozen_generation,
-            eligibility,
-            metadata: Presence::Present(r.metadata),
-            metadata_revision: r.metadata_revision,
-            score: ScoreField::absent(Presence::Absent, ScoreStatus::NotProduced)?,
-            reward: RewardField::unavailable(Availability::NotEnabled)?,
-            history_status: Availability::NotYetProduced,
-            history: Presence::Absent,
+            id: record.worker.bytes(),
+            owner: record.owner,
+            generation: record.generation,
+            identity_state: record.state as u8,
+            frozen_member: frozen.is_some(),
+            frozen_generation: frozen
+                .map_or(Presence::Absent, |w| Presence::Present(w.generation.get())),
+            eligibility: match record.state {
+                WorkerState::Available => ELIGIBLE_SERVING | ELIGIBLE_NEW_WORK,
+                WorkerState::Enrolled | WorkerState::Draining => ELIGIBLE_SERVING,
+                _ => 0,
+            },
+            metadata: Presence::Present(record.metadata),
+            metadata_revision: record.metadata_revision,
+            score,
+            reward,
+            history_status: if standing.is_some() {
+                Availability::Available
+            } else {
+                Availability::NotYetProduced
+            },
+            history: standing.map_or(Presence::Absent, |r| Presence::Present(r.segment)),
         };
     }
-    if let Some(view) = frozen {
-        for (i, slot) in evaluator_slots.iter_mut().enumerate() {
-            let e = view.evaluator(i)?;
-            *slot = ParticipantRow {
-                kind: ParticipantKind::Evaluator,
-                id: e.evaluator.bytes(),
-                owner: e.owner,
-                generation: e.grant.get(),
-                identity_state: IDENTITY_STATE_UNAVAILABLE,
-                frozen_member: true,
-                frozen_generation: Presence::Present(e.grant.get()),
-                eligibility: 0,
-                metadata: Presence::Absent,
-                metadata_revision: 0,
-                score: ScoreField::absent(Presence::Absent, ScoreStatus::Unsupported)?,
-                reward: RewardField::unavailable(Availability::NotEnabled)?,
-                history_status: Availability::NotYetProduced,
-                history: Presence::Absent,
-            };
-        }
+    for (slot, record) in evaluator_slots.iter_mut().zip(evaluators.records()) {
+        let grant = &record.grant;
+        let frozen = opened.as_ref().and_then(|r| {
+            r.evaluators()
+                .iter()
+                .find(|e| e.evaluator == grant.evaluator)
+        });
+        *slot = ParticipantRow {
+            kind: ParticipantKind::Evaluator,
+            id: grant.evaluator.bytes(),
+            owner: grant.principal,
+            generation: grant.grant_version.get(),
+            identity_state: grant.status as u8,
+            frozen_member: frozen.is_some(),
+            frozen_generation: frozen
+                .map_or(Presence::Absent, |e| Presence::Present(e.grant.get())),
+            eligibility: 0,
+            metadata: Presence::Absent,
+            metadata_revision: 0,
+            score: ScoreField::absent(Presence::Absent, ScoreStatus::NotProduced)?,
+            reward: RewardField::unavailable(Availability::NotEnabled)?,
+            history_status: Availability::NotEnabled,
+            history: Presence::Absent,
+        };
     }
     Ok(total)
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+/// The indexer's complete projection, pinned to the transported captured binding.
+/// Used both when observing content and when serving a reopened persisted capture.
+pub fn project_capture(
+    state_bytes: &[u8],
+    binding: &SnapshotBinding,
+    out: &mut [ParticipantRow],
+) -> QueryResult<([Availability; 10], usize)> {
+    let header = read_header(state_bytes, binding.chain, binding.program)?;
+    if header.market != binding.market
+        || header.revision != binding.revision
+        || header.digest != binding.state_digest
+        || policy_digest(state_bytes)? != binding.policy
+        || header.config != binding.config
+        || header.epoch != binding.epoch
+        || header.roster != binding.roster
+    {
+        return Err(QueryError::BindingMismatch);
+    }
+    Ok((
+        feature_availability(state_bytes)?,
+        participant_rows(state_bytes, None, out)?,
+    ))
+}
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 #[repr(u8)]
 pub enum KindFilter {
     All = 0,
@@ -857,7 +1035,8 @@ pub struct CursorKey<'k> {
     pub generation: u32,
 }
 /// Visibility scope, snapshot and exact normalized filters a cursor is bound to.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct CursorScope {
     pub visibility: Digest32,
     pub market: MarketId,
@@ -872,16 +1051,14 @@ fn hmac(secret: &[u8; 32], payload: &[u8]) -> [u8; 32] {
         *i ^= k;
         *o ^= k;
     }
-    let inner: [u8; 32] = Sha256::new()
-        .chain_update(ipad)
-        .chain_update(payload)
-        .finalize()
-        .into();
-    Sha256::new()
-        .chain_update(opad)
-        .chain_update(inner)
-        .finalize()
-        .into()
+    let mut inner = Sha256::new();
+    inner.update(&ipad);
+    inner.update(payload);
+    let inner = inner.finalize();
+    let mut outer = Sha256::new();
+    outer.update(&opad);
+    outer.update(&inner);
+    outer.finalize().into()
 }
 fn cursor_payload(
     key: &CursorKey<'_>,
@@ -1026,6 +1203,7 @@ pub fn bound_response(length: usize) -> QueryResult<usize> {
 /// # Errors
 /// `ResponseTooLarge` above 32 rows, a cursor above 1024 bytes or a frame above 65536 bytes;
 /// `CAPACITY` for a short `out`.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_page(
     snapshot: Digest32,
     rows: &[ParticipantRow],

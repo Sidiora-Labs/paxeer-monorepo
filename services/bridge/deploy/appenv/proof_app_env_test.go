@@ -95,7 +95,15 @@ func TestProofAppEnv(t *testing.T) {
 			record := appenv.Record{Chain: identity.chain, ChainID: identity.id, Kind: "evm"}
 			value := fmt.Sprintf("0x%040x", identity.id+uint64(generation+1)*100000)
 			if identity.chain == "solana" {
-				record.Kind = "solana"
+				raw, err := os.ReadFile("../tests/fixtures/records/solana.json")
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := json.Unmarshal(raw, &record); err != nil {
+					t.Fatal(err)
+				}
+				record.Version = appenv.SolanaRecordVersion
+				record.Phase = appenv.SolanaPhaseReady
 				programs := []string{"A7SZbByPYuHpunZ9pyMDMrhMYvK44ANT1AVqb8U1FpM9", "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"}
 				value = programs[generation]
 				record.ProgramID = value
@@ -108,9 +116,15 @@ func TestProofAppEnv(t *testing.T) {
 			}
 			// Reverse file order independently of the registry's output order.
 			path := filepath.Join(dir, fmt.Sprintf("%02d-%s.json", len(identities)-i, identity.chain))
-			proofAppEnvWrite(t, path, raw)
+			if record.Kind == "solana" {
+				if err := appenv.WriteSolanaRecord(path, record); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				proofAppEnvWrite(t, path, raw)
+			}
 			loaded, err := appenv.LoadRecord(path)
-			if err != nil || loaded != record {
+			if err != nil || !reflect.DeepEqual(loaded, record) {
 				t.Fatalf("LoadRecord(%s) = %+v, %v; want %+v", path, loaded, err, record)
 			}
 			records = append(records, loaded)
@@ -191,7 +205,7 @@ func TestProofAppEnv(t *testing.T) {
 			t.Cleanup(func() { proofAppEnvWrite(t, path, original) })
 			proofAppEnvWrite(t, path, raw)
 			loaded, err := appenv.LoadRecord(path)
-			if err == nil || loaded != (appenv.Record{}) || !strings.Contains(err.Error(), path) || !strings.Contains(err.Error(), tc.field) {
+			if err == nil || !reflect.DeepEqual(loaded, appenv.Record{}) || !strings.Contains(err.Error(), path) || !strings.Contains(err.Error(), tc.field) {
 				t.Fatalf("LoadRecord must refuse %s without a partial record: %+v, %v", tc.field, loaded, err)
 			}
 			for _, args := range [][]string{{dir}, {"--check", envPath, dir}} {

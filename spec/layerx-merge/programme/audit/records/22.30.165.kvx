@@ -1,0 +1,1992 @@
+[audit.22.30.165]
+task = "22.30.165"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 202
+findings = 66
+docs_reviewed = 15
+upgrade_ready = false
+blocking = ["persistent-cache-bulk-invalidation","cache-unbounded-end","validation-removed-version","prefix-enumeration-keyspace","legacy-history-current-state","normalized-coins-invalid-set","stream-reader-error-loss","stream-import-invalid-lines","filtered-pagination-false-end","rest-sanitize-timeout","canonical-json-number-loss","stream-validator-premature-success","gentx-rest-codec-mismatch","mnemonic-validator-key-not-saved"]
+review_method = "Every one of the 202 member files was read in full. Findings are source inspection conclusions, with producer/caller tracing; source tests were read but not executed. This audit changes only the record and proposes every repair."
+requirements_reviewed = ["7288.1","15019.1","15019.2","15020.1","15020.2","15043.1","15049.1","15049.2","15044.1","15050.1","15961.1"]
+requirement_assessment = "7288 custom proto types and alias paths inspected; OTel gas/cache/MidBlock source and absence tests inspected for 15019/15020/15043/15044/15049/15050; real storev2 existence+absence marshal/decoder vector inspected for 15961. No source requirement gate or inventory repair test is claimed by this record."
+interface_coverage = "Reviewed all 400 listed produces, all 164 consumes, and the additional 175 registry declarations whose path belongs to the members (575 produced declarations total). Reviewed names, signatures, caller paths, byte/string/Any encodings, codes, bounds and lifecycle. Related row IDs are attached to interface disagreements; source locations and concrete caller compositions are in findings."
+coverage_limits = "contracts/cosmos-fork.md is absent, preventing confirmation against its linked normative prose. The consumes list includes 10.err-human-api-conflict with callers outside this slice; it is not a live SDK error consumer. Five stable legacy metrics rows describe removed calls. No HTTP request, source build, source test or live recovery was executed; only the declared record qualification gates are authorized."
+runtime_boundary = "paxd requires SetupPaxDB and installs sdk/storev2/rootmulti; legacy sdk/store/rootmulti and CommitKVStoreCache behavior must not be generalized to PaxDB. SDK in-process routers and task batches are not retired public routers/sequencer services."
+doc_coverage = "All twelve package pages were read in full, plus both member README pages. Missing normative SDK contract is listed separately. Workflow/spec/registry/retirement/checker inputs are audit control inputs, not product documentation pages."
+
+[file.001]
+path = "sdk/store/README.md"
+lines = 157
+verdict = "issues"
+note = "PaxDB runtime boundary and wrapper composition match node/paxdb.go; external normative contract gap is separately recorded."
+
+[file.002]
+path = "sdk/store/cache/cache.go"
+lines = 166
+verdict = "issues"
+note = "Reviewed persistent write-through cache, manager/reset/locking and cache branches; bulk invalidation disagreement recorded."
+
+[file.003]
+path = "sdk/store/cachekv/bench_helper_test.go"
+lines = 44
+verdict = "clean"
+note = "Read benchmark random/ordered key construction and in-memory backing setup; helpers produce the byte-key shapes consumed by benchmarks."
+
+[file.004]
+path = "sdk/store/cachekv/memiterator.go"
+lines = 65
+verdict = "clean"
+note = "Read sorted-cache iterator construction and parent fallback; direction, byte keys and close ownership match the cache merge caller."
+
+[file.005]
+path = "sdk/store/cachekv/mergeiterator.go"
+lines = 262
+verdict = "issues"
+note = "Read merge ordering, tombstones, parent/cache advancement and close paths; Error semantics disagreement recorded."
+
+[file.006]
+path = "sdk/store/cachekv/mergeiterator_test.go"
+lines = 39
+verdict = "clean"
+note = "Read merge iterator assertions for forward/reverse ordering, overridden/deleted values and bounds; inspected only, not executed."
+
+[file.007]
+path = "sdk/store/cachekv/search_test.go"
+lines = 141
+verdict = "clean"
+note = "Read range-search cases for dirty cache keys and range boundaries; fixtures match the cache sorted-key representation."
+
+[file.008]
+path = "sdk/store/cachekv/store.go"
+lines = 385
+verdict = "issues"
+note = "Read pending-write lifecycle, flush order, cache branches, iterator merge and bulk enumeration; findings cover nil bounds and ineffective sizing."
+
+[file.009]
+path = "sdk/store/cachekv/store_bench_test.go"
+lines = 145
+verdict = "issues"
+note = "Read all benchmark setup and timed operations; fixed dataset/b.N bounds issue recorded."
+
+[file.010]
+path = "sdk/store/cachekv/store_test.go"
+lines = 560
+verdict = "clean"
+note = "Read store mutation/flush, cache branching and bounded DeleteAll tests; source nil-end defect is recorded on the implementation."
+
+[file.011]
+path = "sdk/store/cachemulti/store.go"
+lines = 329
+verdict = "clean"
+note = "Read lazy substore materialization, synchronization, giga-store separation, write/close/tracing lifecycle and transformation methods."
+
+[file.012]
+path = "sdk/store/cachemulti/store_test.go"
+lines = 117
+verdict = "clean"
+note = "Read lazy branch/materialization and cache write assertions including store lookup paths; fixtures use real wrapper-compatible keys."
+
+[file.013]
+path = "sdk/store/dbadapter/store.go"
+lines = 121
+verdict = "clean"
+note = "Read DB adapter key/value guards, nil range handling, iterator construction, bulk deletes and explicitly non-committing wrapper methods."
+
+[file.014]
+path = "sdk/store/dbadapter/store_test.go"
+lines = 99
+verdict = "clean"
+note = "Read DB-backed mutation, iteration and full-range deletion tests; fixtures preserve nil-versus-empty range semantics."
+
+[file.015]
+path = "sdk/store/firstlast.go"
+lines = 41
+verdict = "issues"
+note = "Read First and Last entirely; Last uses incompatible range arguments and incomplete close ownership as recorded."
+
+[file.016]
+path = "sdk/store/gaskv/legacy_metrics_test.go"
+lines = 82
+verdict = "clean"
+note = "Read test forbidding legacy Has/Delete timing observations; matches requirements 15019.1/15019.2 and current source."
+
+[file.017]
+path = "sdk/store/gaskv/store.go"
+lines = 259
+verdict = "issues"
+note = "Read gas charges, iterator charging, tracer calls and wrapper methods; bulk bypass finding recorded; legacy timing remains absent."
+
+[file.018]
+path = "sdk/store/gaskv/store_test.go"
+lines = 170
+verdict = "clean"
+note = "Read finite-gas boundary, read/write/iterator charging and forwarding tests; no test execution claimed."
+
+[file.019]
+path = "sdk/store/internal/maps/bench_test.go"
+lines = 13
+verdict = "clean"
+note = "Read deterministic proof benchmark datasets and measured map proof construction; no runtime component or endpoint configured."
+
+[file.020]
+path = "sdk/store/internal/maps/maps.go"
+lines = 215
+verdict = "clean"
+note = "Read sorted map hashing and proof construction; byte-slice key/value transport matches consensus Merkle helpers."
+
+[file.021]
+path = "sdk/store/internal/maps/maps_test.go"
+lines = 102
+verdict = "clean"
+note = "Read map/root/proof assertions and key ordering fixtures; match actual map proof production."
+
+[file.022]
+path = "sdk/store/internal/proofs/convert.go"
+lines = 98
+verdict = "clean"
+note = "Read leaf hashing, split-tree path conversion and aunt orientation against consensus proof types and ICS23 inner operations."
+
+[file.023]
+path = "sdk/store/internal/proofs/convert_test.go"
+lines = 105
+verdict = "clean"
+note = "Read proof conversion tests with real consensus paths and proof roots; fixtures use the producer leaf/key/value encoding."
+
+[file.024]
+path = "sdk/store/internal/proofs/create.go"
+lines = 121
+verdict = "clean"
+note = "Read existence/nonexistence proof production and neighbor/root construction; encodings agree with registered commitment operations."
+
+[file.025]
+path = "sdk/store/internal/proofs/create_test.go"
+lines = 112
+verdict = "clean"
+note = "Read existence/absence and range cases against ICS23 operations; this inspection is not proof of a gate execution."
+
+[file.026]
+path = "sdk/store/internal/proofs/helpers.go"
+lines = 106
+verdict = "clean"
+note = "Read proof test support generators, key/value lengths and consensus proof assembly; only test helpers, no live service wiring."
+
+[file.027]
+path = "sdk/store/mem/mem_test.go"
+lines = 47
+verdict = "clean"
+note = "Read memory store lifecycle and mutation/iteration assertions; matches transient in-memory wrapper behavior."
+
+[file.028]
+path = "sdk/store/mem/store.go"
+lines = 57
+verdict = "clean"
+note = "Read MemDB-backed memory store and commit/version behavior; no durable-recovery promise is implied for the memory store."
+
+[file.029]
+path = "sdk/store/multiversion/data_structures.go"
+lines = 199
+verdict = "clean"
+note = "Read version B-tree locking, estimate/deletion encoding and predecessor lookup; absence is explicitly represented as nil,false."
+
+[file.030]
+path = "sdk/store/multiversion/data_structures_test.go"
+lines = 228
+verdict = "clean"
+note = "Read incarnation ordering, predecessor selection, estimates, removal and delete assertions; expected shapes match B-tree items."
+
+[file.031]
+path = "sdk/store/multiversion/memiterator.go"
+lines = 126
+verdict = "issues"
+note = "Read iterator parent reads and validation snapshot/cache flow; absent-version panic finding recorded."
+
+[file.032]
+path = "sdk/store/multiversion/mergeiterator.go"
+lines = 263
+verdict = "issues"
+note = "Read optimistic merge ordering, overwritten/deleted filtering, handler callbacks and close paths; Error disagreement recorded."
+
+[file.033]
+path = "sdk/store/multiversion/mvkv.go"
+lines = 422
+verdict = "issues"
+note = "Read read/write sets, abort propagation, branches, iteration tracking and bulk operations; nil-value Set disagreement recorded."
+
+[file.034]
+path = "sdk/store/multiversion/mvkv_test.go"
+lines = 524
+verdict = "clean"
+note = "Read real versioned reads, estimates, write sets, unsupported branches and bulk enumeration tests; no test run claimed."
+
+[file.035]
+path = "sdk/store/multiversion/store.go"
+lines = 445
+verdict = "issues"
+note = "Read concurrent version maps, re-execution removal, snapshot key collection and validation; abort-worker lifecycle finding recorded."
+
+[file.036]
+path = "sdk/store/multiversion/store_test.go"
+lines = 825
+verdict = "clean"
+note = "Read optimistic store validation fixtures and read/write/iterator consistency assertions; removal race is recorded on implementation."
+
+[file.037]
+path = "sdk/store/multiversion/trackediterator.go"
+lines = 56
+verdict = "clean"
+note = "Read tracked iterator handlers, early-stop tracking and key snapshots; tracking representation agrees with validation caller."
+
+[file.038]
+path = "sdk/store/prefix/store.go"
+lines = 245
+verdict = "issues"
+note = "Read relative-key transformation, bounded proofs, bulk methods and prefix iterators; keyspace and Error findings recorded."
+
+[file.039]
+path = "sdk/store/reexport.go"
+lines = 31
+verdict = "clean"
+note = "Read reexports: store errors/types are aliases to the local SDK contract, not separate wire encodings."
+
+[file.040]
+path = "sdk/store/rootmulti/chain_proof_vector_test.go"
+lines = 111
+verdict = "clean"
+note = "Read full real storev2 commit/query/proof marshal/decode existence/absence vector and wrong-root rejection for 15961.1; not run."
+
+[file.041]
+path = "sdk/store/rootmulti/dbadapter.go"
+lines = 65
+verdict = "clean"
+note = "Read dbAdapter changeset forwarding and registered module key routing for legacy rootmulti; not the mandatory PaxDB runtime backend."
+
+[file.042]
+path = "sdk/store/rootmulti/proof.go"
+lines = 27
+verdict = "clean"
+note = "Read commitment-op runtime registration and path proof requirement; matches real proof vector decoder/transport."
+
+[file.043]
+path = "sdk/store/rootmulti/store.go"
+lines = 916
+verdict = "issues"
+note = "Read complete legacy rootmulti mounting, query, commit, metadata, pruning/export and recovery lifecycle; history/rollback findings recorded."
+
+[file.044]
+path = "sdk/store/store.go"
+lines = 21
+verdict = "clean"
+note = "Read legacy constructor/reexport entry points; paxd explicitly replaces this default CMS through SetupPaxDB."
+
+[file.045]
+path = "sdk/store/tracekv/store.go"
+lines = 220
+verdict = "clean"
+note = "Read JSON/base64 trace operations, metadata and parent forwarding; trace output is diagnostic and not a consensus value encoding."
+
+[file.046]
+path = "sdk/store/tracekv/store_test.go"
+lines = 293
+verdict = "clean"
+note = "Read trace operation expected JSON and actual writer behavior for get/set/delete/iteration; producer and fixture fields agree."
+
+[file.047]
+path = "sdk/store/transient/store.go"
+lines = 44
+verdict = "clean"
+note = "Read transient store reset-on-commit behavior and memory backing; durable state is intentionally outside this store lifecycle."
+
+[file.048]
+path = "sdk/store/transient/store_test.go"
+lines = 35
+verdict = "clean"
+note = "Read transient commit/reset and cache interaction assertions; expected state loss is intentional transient-store behavior."
+
+[file.049]
+path = "sdk/store/types/cache.go"
+lines = 117
+verdict = "clean"
+note = "Read bounded cache locking, dirty retention, eviction and OTel gauge emission; all-dirty excess is an explicit soft-bound behavior."
+
+[file.050]
+path = "sdk/store/types/cache_test.go"
+lines = 72
+verdict = "clean"
+note = "Read cache value cloning/dirty handling and soft-limit eviction fixtures; do not reinterpret dirty retention as eviction permission."
+
+[file.051]
+path = "sdk/store/types/commit_info.go"
+lines = 73
+verdict = "clean"
+note = "Read sorted store commit-info map hashing and latest commit ID construction; protobuf field/value shapes match reexports."
+
+[file.052]
+path = "sdk/store/types/errors.go"
+lines = 11
+verdict = "clean"
+note = "Read ErrInvalidProof declaration and use boundary; stable error identity is retained."
+
+[file.053]
+path = "sdk/store/types/gas.go"
+lines = 363
+verdict = "issues"
+note = "Read finite/infinite gas accounting, locks, overflow saturation, refund and OTel error labels; multiplier arithmetic finding recorded."
+
+[file.054]
+path = "sdk/store/types/gas_overflow_test.go"
+lines = 52
+verdict = "clean"
+note = "Read overflow regressions asserting saturated infinite-meter behavior under 15020; no gate or test run claimed."
+
+[file.055]
+path = "sdk/store/types/gas_test.go"
+lines = 193
+verdict = "issues"
+note = "Read complete gas test table; stale wrapped over-refund input contradicts saturation and is recorded."
+
+[file.056]
+path = "sdk/store/types/iterator.go"
+lines = 61
+verdict = "clean"
+note = "Read prefix iterator bound helpers; prefix end arithmetic matches bytewise half-open store range conventions."
+
+[file.057]
+path = "sdk/store/types/legacy_metrics_test.go"
+lines = 80
+verdict = "clean"
+note = "Read legacy gas/cache metric absence assertions required by 15050; source has no matching legacy producer calls."
+
+[file.058]
+path = "sdk/store/types/metrics.go"
+lines = 33
+verdict = "issues"
+note = "Read OTel meter/instrument names and units; registry legacy-producer drift recorded without proposing source telemetry restoration."
+
+[file.059]
+path = "sdk/store/types/otel_metrics_test.go"
+lines = 66
+verdict = "clean"
+note = "Read actual OTel metric reader assertions for gas error labels and bounded-cache eviction count under 15049; inspected, not run."
+
+[file.060]
+path = "sdk/store/types/proof.go"
+lines = 131
+verdict = "clean"
+note = "Read ICS23 proof-op constants, decoder, Run and keypath interfaces; same operation tags used by real chain vector."
+
+[file.061]
+path = "sdk/store/types/pruning.go"
+lines = 78
+verdict = "clean"
+note = "Read pruning strategies, interval/keep constraints and option validation; policy values agree with pruning tests."
+
+[file.062]
+path = "sdk/store/types/pruning_test.go"
+lines = 29
+verdict = "clean"
+note = "Read pruning option validation boundaries and strategy fixtures; no altered or skipped assertions proposed."
+
+[file.063]
+path = "sdk/store/types/store.go"
+lines = 461
+verdict = "clean"
+note = "Read all Store/MultiStore/KVStore/cache/commit interfaces including nil values, half-open bounds and historical methods; implementation disagreements recorded elsewhere."
+
+[file.064]
+path = "sdk/store/types/store_test.go"
+lines = 92
+verdict = "clean"
+note = "Read store key/capability and upgrade-rename validation assertions; names and identity semantics match type declarations."
+
+[file.065]
+path = "sdk/store/types/utils.go"
+lines = 97
+verdict = "clean"
+note = "Read store comparison/diff and range helper implementations; encoded keys remain bytewise and prefix-compatible."
+
+[file.066]
+path = "sdk/store/types/utils_test.go"
+lines = 88
+verdict = "clean"
+note = "Read diff/equality helper assertions for missing and differing values; fixtures match actual Pair shapes."
+
+[file.067]
+path = "sdk/store/types/validity.go"
+lines = 15
+verdict = "clean"
+note = "Read key/value validity guards; nil rejection is the common contract used to assess optimistic Set."
+
+[file.068]
+path = "sdk/store/types/validity_test.go"
+lines = 23
+verdict = "clean"
+note = "Read valid/invalid key and nil/empty value assertions; empty value is distinct from prohibited nil."
+
+[file.069]
+path = "sdk/store/whitelist/cachemulti/store.go"
+lines = 37
+verdict = "issues"
+note = "Read cachemultistore whitelist wrapping and promoted methods; alternate-accessor bypass finding recorded."
+
+[file.070]
+path = "sdk/store/whitelist/cachemulti/store_test.go"
+lines = 55
+verdict = "clean"
+note = "Read whitelist GetKVStore/cache branch allowed/denied assertions; alternate inherited accessor risk recorded on source."
+
+[file.071]
+path = "sdk/store/whitelist/kv/store.go"
+lines = 47
+verdict = "issues"
+note = "Read whitelist prefix policy, Set/Delete validation and embedded interface; promoted mutation bypass recorded."
+
+[file.072]
+path = "sdk/store/whitelist/kv/store_test.go"
+lines = 61
+verdict = "clean"
+note = "Read allowed/forbidden prefix write assertions and panic expectations; policy must extend to inherited bulk/cache paths."
+
+[file.073]
+path = "sdk/store/whitelist/multi/store.go"
+lines = 33
+verdict = "issues"
+note = "Read multistore whitelist/cache wrapping and embedded methods; raw-accessor bypass recorded."
+
+[file.074]
+path = "sdk/store/whitelist/multi/store_test.go"
+lines = 55
+verdict = "clean"
+note = "Read multistore allowed/denied store-key and prefix write tests; no supported live endpoint exploit asserted."
+
+[file.075]
+path = "sdk/store/whitelist/testutils.go"
+lines = 19
+verdict = "clean"
+note = "Read whitelist test-store setup and key construction; helpers create actual SDK multistore/byte-key fixtures."
+
+[file.076]
+path = "sdk/types/abci.go"
+lines = 30
+verdict = "clean"
+note = "Read ABCI handler aliases and request/response shapes; process/finalize hooks match consensus plain types."
+
+[file.077]
+path = "sdk/types/address.go"
+lines = 671
+verdict = "issues"
+note = "Read all account/validator/consensus bytes, hex, Bech32, JSON/YAML and caches; mutable-prefix cache drift recorded."
+
+[file.078]
+path = "sdk/types/address/README.md"
+lines = 11
+verdict = "clean"
+note = "Read complete address derivation/composition guide against hash and length-prefix helpers; no retired deployment contract."
+
+[file.079]
+path = "sdk/types/address/hash.go"
+lines = 71
+verdict = "clean"
+note = "Read SHA-based address derivation and composite/module address construction; domain separation and encoded lengths agree with address guide."
+
+[file.080]
+path = "sdk/types/address/hash_test.go"
+lines = 105
+verdict = "clean"
+note = "Read address hash derivation vectors and composition/order assertions; fixtures match actual byte concatenation and hashing."
+
+[file.081]
+path = "sdk/types/address/store_key.go"
+lines = 33
+verdict = "clean"
+note = "Read length-prefixed address key construction and max-length guard; bank key consumers expect this prefix format."
+
+[file.082]
+path = "sdk/types/address/store_key_test.go"
+lines = 46
+verdict = "clean"
+note = "Read zero/max/excess length-prefix cases and round-trip expected bytes; no executed result claimed."
+
+[file.083]
+path = "sdk/types/address_race_test.go"
+lines = 56
+verdict = "clean"
+note = "Read concurrent address String coverage and configured address shapes; locks protect individual caches."
+
+[file.084]
+path = "sdk/types/address_test.go"
+lines = 498
+verdict = "clean"
+note = "Read address encoding/decoding/configured-prefix cases; existing fresh-address fixtures do not disprove same-bytes prefix-cache finding."
+
+[file.085]
+path = "sdk/types/bech32/bech32.go"
+lines = 32
+verdict = "clean"
+note = "Read Bech32 bit conversion/encoding and prefix decoding; error and byte transport agree with address consumers."
+
+[file.086]
+path = "sdk/types/bech32/bech32_test.go"
+lines = 25
+verdict = "clean"
+note = "Read conversion/Bech32 valid-invalid vectors, checksums and prefix handling; fixture bytes match producer representation."
+
+[file.087]
+path = "sdk/types/bech32/legacybech32/pk.go"
+lines = 68
+verdict = "clean"
+note = "Read legacy public-key Amino/Bech32 adaptation and prefix selection; explicitly legacy codec compatibility, not a retired network router."
+
+[file.088]
+path = "sdk/types/bech32/legacybech32/pk_bench_test.go"
+lines = 70
+verdict = "clean"
+note = "Read public-key serialization benchmarks; use actual key codecs and no production credentials."
+
+[file.089]
+path = "sdk/types/bech32/legacybech32/pk_test.go"
+lines = 27
+verdict = "clean"
+note = "Read account/validator/consensus public-key Bech32 and ledger-compatible cases; no codec fixture disagreement found."
+
+[file.090]
+path = "sdk/types/bench_test.go"
+lines = 80
+verdict = "clean"
+note = "Read integer/address/basic SDK benchmark operations; no external interface is introduced by timing helpers."
+
+[file.091]
+path = "sdk/types/codec.go"
+lines = 22
+verdict = "clean"
+note = "Read Msg interface registration and public-key Any registration; protobuf interface name matches registry/proto consumers."
+
+[file.092]
+path = "sdk/types/coin.go"
+lines = 859
+verdict = "clean"
+note = "Read full Coin/Coins parsing, validation, sorted arithmetic and canonical set behavior; NormalizeCoins defect is tracked in denom.go."
+
+[file.093]
+path = "sdk/types/coin_benchmark_test.go"
+lines = 72
+verdict = "clean"
+note = "Read coin arithmetic/parse benchmark fixtures; amounts use SDK arbitrary-precision values rather than float wire numbers."
+
+[file.094]
+path = "sdk/types/coin_internal_test.go"
+lines = 37
+verdict = "clean"
+note = "Read internal coin zero/sort/duplicate and helper cases; canonical sorted unique-denom expectations inform normalization finding."
+
+[file.095]
+path = "sdk/types/coin_test.go"
+lines = 1069
+verdict = "clean"
+note = "Read complete Coin/Coins input, safe arithmetic, set and parse assertions; no tests executed."
+
+[file.096]
+path = "sdk/types/config.go"
+lines = 285
+verdict = "clean"
+note = "Read global configuration defaults, getters/setters and sealing, address verifier, encoding and keyring service settings."
+
+[file.097]
+path = "sdk/types/config_test.go"
+lines = 70
+verdict = "issues"
+note = "Read configuration and seal tests; actual encoder result assertion defect recorded."
+
+[file.098]
+path = "sdk/types/context.go"
+lines = 605
+verdict = "issues"
+note = "Read entire Context immutable-copy fields, stores/gas, tracing and cached state/events; shared EVM event pointer risk recorded."
+
+[file.099]
+path = "sdk/types/context_test.go"
+lines = 239
+verdict = "clean"
+note = "Read context field/getter/copy, cache/store/gas and event assertions; no executed gate claimed for speculative branches."
+
+[file.100]
+path = "sdk/types/dec_coin.go"
+lines = 680
+verdict = "issues"
+note = "Read full decimal coin conversion/arithmetic/parsing/set invariants; zero conversion and UnionMax ordering defects recorded."
+
+[file.101]
+path = "sdk/types/dec_coin_test.go"
+lines = 695
+verdict = "issues"
+note = "Read decimal coin conversion/set/arithmetic tests; UnionMax comparisons are discarded as recorded."
+
+[file.102]
+path = "sdk/types/decimal.go"
+lines = 828
+verdict = "clean"
+note = "Read bounded decimal parsing, fixed precision, rounding, arithmetic, range and serialization behavior; no floating JSON amounts emitted."
+
+[file.103]
+path = "sdk/types/decimal_internal_test.go"
+lines = 82
+verdict = "clean"
+note = "Read internal decimal mutability/range/precision assertions; supported internal range retained."
+
+[file.104]
+path = "sdk/types/decimal_test.go"
+lines = 720
+verdict = "issues"
+note = "Read complete decimal tests including overflow and ceiling boundary; conditional skip finding recorded."
+
+[file.105]
+path = "sdk/types/denom.go"
+lines = 155
+verdict = "issues"
+note = "Read denom registration, units, conversion and normalization; canonical Coins producer/consumer mismatch recorded."
+
+[file.106]
+path = "sdk/types/denom_internal_test.go"
+lines = 193
+verdict = "issues"
+note = "Read denom unit/conversion/normalization assertions; duplicate-denom fixture shape recorded."
+
+[file.107]
+path = "sdk/types/errors/abci.go"
+lines = 173
+verdict = "issues"
+note = "Read full ABCI code/codespace and log encoders, nil handling and response constructors; non-debug error disclosure recorded."
+
+[file.108]
+path = "sdk/types/errors/abci_test.go"
+lines = 198
+verdict = "clean"
+note = "Read response/error and debug stack assertions; actual panic/unknown-error redaction gap tracked on source."
+
+[file.109]
+path = "sdk/types/errors/doc.go"
+lines = 33
+verdict = "issues"
+note = "Read complete package error documentation and wrapping conventions; obsolete Register example documented in a separate finding."
+
+[file.110]
+path = "sdk/types/errors/errors.go"
+lines = 414
+verdict = "clean"
+note = "Read registered codes/codespaces, identity comparison, wrapping and ABCIError reconstruction; stable code identity preserved."
+
+[file.111]
+path = "sdk/types/errors/errors_test.go"
+lines = 267
+verdict = "clean"
+note = "Read error registration collision, wrapped identity, ABCI reconstruction and IsOf cases; no execution claimed."
+
+[file.112]
+path = "sdk/types/errors/handle.go"
+lines = 12
+verdict = "clean"
+note = "Read AssertNil panic contract and address hash caller boundary; only non-nil errors panic."
+
+[file.113]
+path = "sdk/types/errors/stacktrace.go"
+lines = 122
+verdict = "clean"
+note = "Read captured stack frames, formatting and wrapped cause handling; stack is diagnostic, not a consensus serialized field."
+
+[file.114]
+path = "sdk/types/errors/stacktrace_test.go"
+lines = 62
+verdict = "clean"
+note = "Read stack formatting and call-chain assertions; expected formatting agrees with local stack implementation."
+
+[file.115]
+path = "sdk/types/events.go"
+lines = 377
+verdict = "clean"
+note = "Read typed event JSON attributes, indexing and standard/EVM manager append semantics; shared context manager risk recorded on CacheContext."
+
+[file.116]
+path = "sdk/types/events_test.go"
+lines = 233
+verdict = "clean"
+note = "Read event marshal/parse/index attribute fixtures and typed event conversions; fields agree with protobuf/ABCI event declarations."
+
+[file.117]
+path = "sdk/types/genesis/genesis.go"
+lines = 69
+verdict = "issues"
+note = "Read complete line reader, partial-line buffering, EOF and failure paths; terminal error transport loss recorded."
+
+[file.118]
+path = "sdk/types/grpc/headers.go"
+lines = 6
+verdict = "clean"
+note = "Read x-cosmos-block-height header constant; matches client/server historical-height metadata contract."
+
+[file.119]
+path = "sdk/types/handler.go"
+lines = 72
+verdict = "clean"
+note = "Read Handler function signature using SDK Context/Msg/Result/error; internal routing is not a retired public network router."
+
+[file.120]
+path = "sdk/types/handler_test.go"
+lines = 50
+verdict = "clean"
+note = "Read handler chaining/result propagation assertions; middleware preserves actual Msg/Context types."
+
+[file.121]
+path = "sdk/types/int.go"
+lines = 452
+verdict = "clean"
+note = "Read full signed integer arithmetic, overflow, custom protobuf/JSON/Amino and receiver behavior; amounts use exact decimal strings."
+
+[file.122]
+path = "sdk/types/int_internal_test.go"
+lines = 155
+verdict = "clean"
+note = "Read internal integer boundary and arithmetic helper assertions; signed range behavior distinct from Uint sign enforcement."
+
+[file.123]
+path = "sdk/types/int_test.go"
+lines = 437
+verdict = "clean"
+note = "Read all integer operations and serialization tests including exact decimal values; no source test gate run."
+
+[file.124]
+path = "sdk/types/invariant.go"
+lines = 22
+verdict = "clean"
+note = "Read invariant function/registry declarations and human diagnostic formatting; matches module invariant registration."
+
+[file.125]
+path = "sdk/types/invariant_test.go"
+lines = 26
+verdict = "clean"
+note = "Read invariant formatting assertions; diagnostic representation not a consensus wire change."
+
+[file.126]
+path = "sdk/types/kv/helpers.go"
+lines = 17
+verdict = "clean"
+note = "Read fixed/minimum key-length assertions used by native module key decoders; malformed lengths are rejected before slicing."
+
+[file.127]
+path = "sdk/types/kv/kv.go"
+lines = 28
+verdict = "clean"
+note = "Read Pair/Pairs local type fields and sorting helpers; key/value bytes match protobuf KV declarations."
+
+[file.128]
+path = "sdk/types/kv/list.go"
+lines = 236
+verdict = "clean"
+note = "Read linked KV/list utility operations and traversal semantics; consumers use byte-key pairs consistently."
+
+[file.129]
+path = "sdk/types/legacytm/consensusparams.go"
+lines = 22
+verdict = "clean"
+note = "Read legacy consensus-param adapter; explicit copied fields match consensus ABCI legacy consumer shape."
+
+[file.130]
+path = "sdk/types/module/configurator.go"
+lines = 114
+verdict = "issues"
+note = "Read migration registration and sequential version advancement; unsupported downgrade acceptance recorded."
+
+[file.131]
+path = "sdk/types/module/legacy_metrics_test.go"
+lines = 51
+verdict = "clean"
+note = "Read MidBlock legacy metric absence assertions required by 15044; no legacy telemetry restoration proposed."
+
+[file.132]
+path = "sdk/types/module/metrics.go"
+lines = 40
+verdict = "clean"
+note = "Read MidBlock OTel scope, instrument names and seconds buckets/units; per-module label values come from configured module names."
+
+[file.133]
+path = "sdk/types/module/module.go"
+lines = 668
+verdict = "issues"
+note = "Read every module manager/basics hook, ordering, genesis, migrations and MidBlock metric path; streaming lifecycle findings recorded."
+
+[file.134]
+path = "sdk/types/module/module_int_test.go"
+lines = 57
+verdict = "clean"
+note = "Read module integration setup, migrations and hook ordering cases using actual interfaces; no gate execution claimed."
+
+[file.135]
+path = "sdk/types/module/module_test.go"
+lines = 322
+verdict = "clean"
+note = "Read module manager and streaming genesis fixtures, ordering and hook assertions; corruption/lifecycle gaps tracked on source."
+
+[file.136]
+path = "sdk/types/module/otel_metrics_test.go"
+lines = 47
+verdict = "clean"
+note = "Read OTel metric reader tests for total/per-module MidBlock duration and module labels under 15043; inspected, not run."
+
+[file.137]
+path = "sdk/types/module/simulation.go"
+lines = 145
+verdict = "clean"
+note = "Read simulation module ordering, operation/proposal collection and genesis setup; matches module simulation interfaces."
+
+[file.138]
+path = "sdk/types/module/testutil/codec.go"
+lines = 78
+verdict = "clean"
+note = "Read test encoding config creation and real Amino/proto/Any registration; no stub transport introduced."
+
+[file.139]
+path = "sdk/types/msgservice/msg_service.go"
+lines = 44
+verdict = "clean"
+note = "Read Msg service descriptor decoding and request/response interface registration; proto type names agree with service transport."
+
+[file.140]
+path = "sdk/types/occ/types.go"
+lines = 22
+verdict = "clean"
+note = "Read OCC Abort index/error type and constructor; scheduler consumers distinguish dependency index from transaction errors."
+
+[file.141]
+path = "sdk/types/proto.go"
+lines = 15
+verdict = "clean"
+note = "Read custom protobuf type interface and decimal/integer marshal hooks under 7288; generated protobuf source is outside this member list."
+
+[file.142]
+path = "sdk/types/query/filtered_pagination.go"
+lines = 325
+verdict = "issues"
+note = "Read both complete filtered pagination implementations and scan bound phases; false terminal continuation finding recorded."
+
+[file.143]
+path = "sdk/types/query/filtered_pagination_test.go"
+lines = 302
+verdict = "clean"
+note = "Read sparse/count-total/offset/key and scan-limit cases; source finding requires preserving limits while restoring truthful continuation."
+
+[file.144]
+path = "sdk/types/query/pagination.go"
+lines = 186
+verdict = "issues"
+note = "Read full pagination validation, limits, offset counting and reverse iterator construction; reverse boundary panic recorded."
+
+[file.145]
+path = "sdk/types/query/pagination_test.go"
+lines = 366
+verdict = "clean"
+note = "Read forward/reverse/key/offset pagination assertions and real bank-backed setup; maximum-key/missing-key defect tracked on source."
+
+[file.146]
+path = "sdk/types/queryable.go"
+lines = 9
+verdict = "clean"
+note = "Read legacy Querier signature and error transport; no public /rpc URL or standalone service wired by this alias."
+
+[file.147]
+path = "sdk/types/rest/rest.go"
+lines = 449
+verdict = "issues"
+note = "Read complete REST validation, decode/encode, query parameters and client helpers; timeout, fee and body-bound findings recorded."
+
+[file.148]
+path = "sdk/types/rest/rest_test.go"
+lines = 459
+verdict = "clean"
+note = "Read request sanitation/validation, parsing and response cases; missing timeout propagation tracked on source."
+
+[file.149]
+path = "sdk/types/result.go"
+lines = 270
+verdict = "clean"
+note = "Read transaction/query response conversions including ABCI event logs, committed result fields, gas and EVM result decoration."
+
+[file.150]
+path = "sdk/types/result_test.go"
+lines = 251
+verdict = "clean"
+note = "Read response format assertions using actual consensus structs and SDK TxResponse fields; no third-shape fixture disagreement found."
+
+[file.151]
+path = "sdk/types/router.go"
+lines = 65
+verdict = "clean"
+note = "Read internal message/query route declarations and name validation; this in-process router is distinct from the retired network router."
+
+[file.152]
+path = "sdk/types/router_test.go"
+lines = 58
+verdict = "clean"
+note = "Read alphanumeric route, duplicate/invalid route and handler assertions; source signatures agree."
+
+[file.153]
+path = "sdk/types/simulation/account.go"
+lines = 97
+verdict = "clean"
+note = "Read simulation account key/address generation, lookup and random fee selection; test-only seeded random inputs, no production signing secrets."
+
+[file.154]
+path = "sdk/types/simulation/account_test.go"
+lines = 79
+verdict = "clean"
+note = "Read account lookup/random generation and fee cases; fixtures use native address/coin shapes."
+
+[file.155]
+path = "sdk/types/simulation/config.go"
+lines = 24
+verdict = "clean"
+note = "Read all simulation configuration fields; these are simulation inputs, not public node deployment environment keys."
+
+[file.156]
+path = "sdk/types/simulation/rand_util.go"
+lines = 168
+verdict = "issues"
+note = "Read random string/amount/subset/range helpers; RandIntBetween documentation/boundary disagreement separately recorded."
+
+[file.157]
+path = "sdk/types/simulation/rand_util_test.go"
+lines = 64
+verdict = "clean"
+note = "Read random helper bounds/property checks; no production random source or credentials used."
+
+[file.158]
+path = "sdk/types/simulation/transition_matrix.go"
+lines = 12
+verdict = "clean"
+note = "Read transition matrix probability representation and validation; simulation-only transition lifecycle."
+
+[file.159]
+path = "sdk/types/simulation/types.go"
+lines = 175
+verdict = "clean"
+note = "Read complete operation/proposal/future-operation/app-params interfaces and JSON operation message encoding; matches simulation callers."
+
+[file.160]
+path = "sdk/types/staking.go"
+lines = 40
+verdict = "clean"
+note = "Read consensus voting-power token conversions and delay/default limits; raw amount and consensus power units remain distinct."
+
+[file.161]
+path = "sdk/types/staking_test.go"
+lines = 26
+verdict = "clean"
+note = "Read conversion boundaries and round-trip voting power tests; no network configuration mutation performed."
+
+[file.162]
+path = "sdk/types/store.go"
+lines = 213
+verdict = "clean"
+note = "Read store/gas reexports and constructors forwarding configured multiplier ratio and key names; arithmetic defect tracked in store/types/gas.go."
+
+[file.163]
+path = "sdk/types/store_internal_test.go"
+lines = 57
+verdict = "clean"
+note = "Read store-key collection and duplicate name internal assertions; pointer/name semantics match multistore maps."
+
+[file.164]
+path = "sdk/types/store_test.go"
+lines = 146
+verdict = "clean"
+note = "Read prefix end/inclusive end/key and gas constructor assertions; nil/empty prefix domains match byte ordering."
+
+[file.165]
+path = "sdk/types/tracer.go"
+lines = 364
+verdict = "issues"
+note = "Read entire tracer locking, access logs, iterator caps, summaries, wire dumps and prestate conversion; total-memory gap recorded."
+
+[file.166]
+path = "sdk/types/tx/signing/signature.go"
+lines = 107
+verdict = "clean"
+note = "Read recursive single/multi-signature conversion and interface unpacking; protobuf oneof shape matches transaction signature consumer."
+
+[file.167]
+path = "sdk/types/tx/signing/signature_data.go"
+lines = 36
+verdict = "clean"
+note = "Read signature-data interfaces, nested data and sign-mode fields; field types match generated descriptors consumed by auth."
+
+[file.168]
+path = "sdk/types/tx/types.go"
+lines = 205
+verdict = "clean"
+note = "Read Tx validation, fee gas limits, message/Any unpacking and signer/fee address selection; actual protobuf producer contract preserved."
+
+[file.169]
+path = "sdk/types/tx_batch.go"
+lines = 33
+verdict = "clean"
+note = "Read in-process DeliverTxBatch request/result structs; batch scheduling here does not imply a separate external sequencer service."
+
+[file.170]
+path = "sdk/types/tx_msg.go"
+lines = 84
+verdict = "clean"
+note = "Read Msg/Tx/fee/memo/timeout interfaces and type URL encoding; matches auth and transaction builder consumers."
+
+[file.171]
+path = "sdk/types/tx_msg_test.go"
+lines = 35
+verdict = "clean"
+note = "Read Msg type URL/interface assertions and tx test types; producer names agree with protobuf registry."
+
+[file.172]
+path = "sdk/types/tx_tracer.go"
+lines = 44
+verdict = "clean"
+note = "Read transaction tracing span abstraction and callbacks used by task schedulers; no network API created here."
+
+[file.173]
+path = "sdk/types/uint.go"
+lines = 281
+verdict = "issues"
+note = "Read full Uint arithmetic/constructors and JSON/protobuf/Amino wire paths; negative decode acceptance recorded."
+
+[file.174]
+path = "sdk/types/uint_internal_test.go"
+lines = 55
+verdict = "clean"
+note = "Read internal Uint overflow/underflow and arithmetic boundary cases; supported nonnegative range preserved."
+
+[file.175]
+path = "sdk/types/uint_test.go"
+lines = 336
+verdict = "clean"
+note = "Read complete unsigned integer arithmetic and wire tests; negative decode coverage gap is recorded on source."
+
+[file.176]
+path = "sdk/types/utils.go"
+lines = 106
+verdict = "issues"
+note = "Read JSON canonicalization, byte/integer/time and database helpers; arbitrary JSON numeric precision loss recorded."
+
+[file.177]
+path = "sdk/types/utils_test.go"
+lines = 111
+verdict = "clean"
+note = "Read JSON sorting, UTC time sorting, endian conversion and level database fixtures; missing numeric precision boundary tracked on source."
+
+[file.178]
+path = "sdk/x/genutil/client/cli/collect.go"
+lines = 70
+verdict = "clean"
+note = "Read collect CLI flags, config/context plumbing and GenAppStateFromConfig call; malformed input panic is in collection implementation."
+
+[file.179]
+path = "sdk/x/genutil/client/cli/gentx.go"
+lines = 253
+verdict = "clean"
+note = "Read real create-validator message building, account/balance checks, keyring signing and JSON gentx export; encoder source traced to consumers."
+
+[file.180]
+path = "sdk/x/genutil/client/cli/init.go"
+lines = 155
+verdict = "clean"
+note = "Read init flags/recovery/key generation/default genesis and file export; recovered key durability defect tracked in utils.go."
+
+[file.181]
+path = "sdk/x/genutil/client/cli/init_test.go"
+lines = 181
+verdict = "clean"
+note = "Read full init/recovery/export command tests with real configs and application codecs; restart identity gap tracked on implementation."
+
+[file.182]
+path = "sdk/x/genutil/client/cli/migrate.go"
+lines = 133
+verdict = "issues"
+note = "Read whole migrate command, target lookup and genesis output canonicalization; migration map is unwired as recorded."
+
+[file.183]
+path = "sdk/x/genutil/client/cli/validate_genesis.go"
+lines = 176
+verdict = "issues"
+note = "Read full standard/streaming validation command and lifecycle; final-module premature success recorded."
+
+[file.184]
+path = "sdk/x/genutil/client/rest/query.go"
+lines = 54
+verdict = "issues"
+note = "Read Genesis RPC fetch, app/genutil state decoding and REST response; Amino-versus-TxJSON codec mismatch recorded."
+
+[file.185]
+path = "sdk/x/genutil/client/testutil/cli_test.go"
+lines = 18
+verdict = "clean"
+note = "Read test suite entry and integration lifecycle registration; assertions call the intended real CLI helpers."
+
+[file.186]
+path = "sdk/x/genutil/client/testutil/helpers.go"
+lines = 52
+verdict = "clean"
+note = "Read command/config creation and server/client context setup; generated temp directories are test artifacts only."
+
+[file.187]
+path = "sdk/x/genutil/client/testutil/migrate.go"
+lines = 61
+verdict = "issues"
+note = "Read all migration CLI fixtures and target enumeration; unsupported success expectation/empty-loop gap recorded."
+
+[file.188]
+path = "sdk/x/genutil/client/testutil/suite.go"
+lines = 142
+verdict = "clean"
+note = "Read full gentx integration scenarios, keyring flags, fees and actual staking message shapes; no test execution claimed."
+
+[file.189]
+path = "sdk/x/genutil/client/testutil/validate_genesis.go"
+lines = 102
+verdict = "clean"
+note = "Read standard genesis validation integration cases and config/context setup; streaming lifecycle defects remain tracked on source."
+
+[file.190]
+path = "sdk/x/genutil/collect.go"
+lines = 185
+verdict = "issues"
+note = "Read full collection/config write, gentx decode, peer/address and balance validation paths; unsafe message indexing recorded."
+
+[file.191]
+path = "sdk/x/genutil/collect_test.go"
+lines = 62
+verdict = "clean"
+note = "Read collection fixtures and valid/invalid delegator/balance cases; malformed-message coverage proposal attached to source."
+
+[file.192]
+path = "sdk/x/genutil/doc.go"
+lines = 10
+verdict = "clean"
+note = "Read package genesis-utility purpose documentation; generic chain setup role remains valid without introducing a separate runtime."
+
+[file.193]
+path = "sdk/x/genutil/genesis.go"
+lines = 21
+verdict = "clean"
+note = "Read InitGenesis gentx delivery/validator updates and empty gentx export; module lifecycle consistent with genutil integration."
+
+[file.194]
+path = "sdk/x/genutil/gentx.go"
+lines = 129
+verdict = "clean"
+note = "Read genesis transaction encoding, balance/staking validation and DeliverTx result handling; producer TxJSON shape traced to REST mismatch."
+
+[file.195]
+path = "sdk/x/genutil/gentx_test.go"
+lines = 285
+verdict = "clean"
+note = "Read actual encoded/signed gentx creation, storage and delivery tests; no test-run claim made."
+
+[file.196]
+path = "sdk/x/genutil/module.go"
+lines = 141
+verdict = "clean"
+note = "Read genutil module defaults/validation/init and no-op export/hooks; auth module supplies the live genesis-tx REST caller."
+
+[file.197]
+path = "sdk/x/genutil/types/expected_keepers.go"
+lines = 41
+verdict = "clean"
+note = "Read AccountKeeper/StakingKeeper/GenesisBalancesIterator required interfaces; method types agree with actual keeper/module usage."
+
+[file.198]
+path = "sdk/x/genutil/types/genesis_state.go"
+lines = 120
+verdict = "clean"
+note = "Read genesis state raw JSON gentx construction, app-state extraction and single create-validator validation; collection does not call these guards."
+
+[file.199]
+path = "sdk/x/genutil/types/genesis_state_test.go"
+lines = 95
+verdict = "clean"
+note = "Read default/genesis gentx round-trip and validation cases using actual transaction codecs; expected state field matches proto."
+
+[file.200]
+path = "sdk/x/genutil/types/types.go"
+lines = 45
+verdict = "clean"
+note = "Read InitConfig/AppMap/MigrationMap callback declarations; callback registry absence tracked on command implementation."
+
+[file.201]
+path = "sdk/x/genutil/utils.go"
+lines = 100
+verdict = "issues"
+note = "Read full genesis export and node/validator key initialization lifecycle; recovered-key persistence and ignored-load-error findings recorded."
+
+[file.202]
+path = "sdk/x/genutil/utils_test.go"
+lines = 63
+verdict = "clean"
+note = "Read validator initialization and genesis export tests; no process restart equality assertion is claimed."
+
+[finding.persistent-cache-bulk-invalidation]
+file = "sdk/store/cache/cache.go"
+line = 30
+class = "interface-mismatch"
+severity = "high"
+observed = "CommitKVStoreCache embeds CommitKVStore.DeleteAll without invalidating its TwoQueueCache. After Get(k) caches a value, DeleteAll covering k deletes the parent value but Get(k) still returns the cached value. sdk/storev2/rootmulti.SetInterBlockCache is a no-op, so this concerns the exported legacy cache path rather than the production PaxDB cache."
+expected = "A write-through KVStore must expose the same post-deletion state through Get, Has and iteration; deleting a range must invalidate every cached key in that range."
+proposal = "In sdk/store/cache/cache.go implement range deletion with cache invalidation under the same mutation lock, propagate parent errors, and add a real parent-store round-trip covering cached hits, cached misses, partial ranges and Reset."
+owner_domain = 15
+interface = "15.go-store-cache-new-commit-kv-store-cache-manager-j76"
+
+[finding.cache-unbounded-end]
+file = "sdk/store/cachekv/store.go"
+line = 369
+class = "interface-mismatch"
+severity = "high"
+observed = "GetAllKeyStrsInRange compares every pending key against end even when end is nil. bytes.Compare(nonemptyKey,nil)>=0 excludes every cached insert and tombstone. Consequently Set(k,v) followed by DeleteAll(nil,nil) leaves the pending insert alive, and enumeration can resurrect a parent key deleted in the cache. engine/deps/store/cachekv.go repeats the comparison."
+expected = "The KVStore nil end denotes an unbounded upper range. Enumeration and DeleteAll must reflect the same pending writes and deletions as Get and Iterator."
+proposal = "In sdk/store/cachekv/store.go and engine/deps/store/cachekv.go apply upper-bound comparison only for non-nil end, merge tombstones consistently, and exercise Set/Delete/enumerate/DeleteAll/Write against the real parent for nil and bounded ranges. PrefixStore normally translates nil to a finite prefix end, so test the direct store path as well."
+owner_domain = 15
+interface = "15.go-store-cachekv-store-j76"
+
+[finding.cache-size-no-op]
+file = "sdk/store/cachekv/store.go"
+line = 25
+class = "config-drift"
+severity = "low"
+observed = "NewStore saves cacheSize and forwards it when branching, but no code reads it to size, limit or evict entries. A caller changing this parameter cannot change the cache behavior; pending mutations accumulate until Write."
+expected = "A cache-size configuration must have a documented, observable effect, with dirty state retained until it is durably propagated."
+proposal = "In sdk/store/cachekv/store.go and its constructors either implement a documented safe bound on clean read caching or remove the ineffective size control from callers and document transaction dirty-memory accounting; never evict uncommitted writes."
+owner_domain = 15
+
+[finding.cache-iterator-error]
+file = "sdk/store/cachekv/mergeiterator.go"
+line = 176
+class = "interface-mismatch"
+severity = "medium"
+observed = "cacheMergeIterator.Error returns invalid cacheMergeIterator whenever Valid is false and never forwards parent/cache backend errors. A normal exhausted iterator therefore looks like a failure, while a backend failure on a valid wrapper can be hidden."
+expected = "The declared tm-db Iterator interface distinguishes normal exhaustion from an underlying iteration error so consumers can use for Valid/Next followed by Error."
+proposal = "In sdk/store/cachekv/mergeiterator.go keep invalid-position panics in Key/Value/Next guards and have Error return underlying iterator errors. Add real empty, exhausted and failing-backend iterator cases without changing pagination limits."
+owner_domain = 15
+interface = "15.go-store-types-iterator-j76"
+
+[finding.benchmark-fixed-key-bound]
+file = "sdk/store/cachekv/store_bench_test.go"
+line = 122
+class = "test-gap"
+severity = "low"
+observed = "benchmarkIteratorOnParentWithManyDeletes indexes keys[b.N] although keys has the fixed numKeys length. Benchmark calibration can reach or exceed that length and panic before measuring iteration."
+expected = "A benchmark must remain valid for every iteration count selected by the Go benchmark runner and measure the intended fixed-size dataset."
+proposal = "In sdk/store/cachekv/store_bench_test.go derive iterator bounds from the dataset rather than b.N, and put the measured walk in a b.N loop with a fresh iterator and deterministic closing for each sample."
+owner_domain = 15
+
+[finding.last-range-and-close]
+file = "sdk/store/firstlast.go"
+line = 23
+class = "runtime-risk"
+severity = "medium"
+observed = "Last calls ReverseIterator(end,start), reversing the KVStore lower and upper bounds. For a nonempty bounded range this yields an invalid iterator; fallback Get(start) returns the first key instead of the last, and the invalid-iterator return occurs before Close is deferred."
+expected = "Last must return the greatest key in [start,end) and release its iterator for bounded, unbounded and empty ranges."
+proposal = "In sdk/store/firstlast.go pass start,end in the declared order, defer Close immediately, remove the first-key fallback, and verify last-key selection and closing with the same backing store used by First."
+owner_domain = 15
+
+[finding.bulk-gas-and-trace]
+file = "sdk/store/gaskv/store.go"
+line = 171
+class = "runtime-risk"
+severity = "medium"
+observed = "gaskv.Store.DeleteAll and GetAllKeyStrsInRange delegate directly to the parent without gas consumption or StoreTracer events. modules/evm/keeper.PurgePrefix and migrations/RemoveTxHashes reach this wrapper, so bulk work bypasses the accounting applied by Delete and iterator operations."
+expected = "State operations exposed by a gas-wrapped Context must have explicit bounded work and consistent metering/tracing; migration exemptions must be deliberate and separated from transaction execution."
+proposal = "In sdk/store/gaskv/store.go define metering for bulk range reads/deletes, preserve mutation safety while enumerating, and verify keeper PurgePrefix accounting through Context.KVStore with bounded gas and tracing. Keep removal of legacy Has/Delete timing required by 15019 unchanged."
+owner_domain = 15
+
+[finding.validation-removed-version]
+file = "sdk/store/multiversion/memiterator.go"
+line = 112
+class = "runtime-risk"
+severity = "high"
+observed = "validationIterator.Value dereferences GetLatestBeforeIndex without a nil check. CollectIteratorItems snapshots keys, but a predecessor re-execution can remove its old write before Value reads it; Store.GetLatestBeforeIndex explicitly returns nil in this case. The panic occurs in validateIterator own goroutine, outside transaction recovery."
+expected = "Optimistic validation must safely retry or fall back to the parent when a predecessor incarnation removes a snapshotted key; transaction conflicts must not crash the node."
+proposal = "In sdk/store/multiversion/memiterator.go and store.go handle absent versions using coherent parent/snapshot semantics or invalidate and retry; add a controlled real-store re-execution test that removes a predecessor key between key collection and value read and proves no goroutine panic or incorrect commit."
+owner_domain = 15
+interface = "15.go-store-multiversion-multi-version-store-j76"
+
+[finding.validation-abort-worker]
+file = "sdk/store/multiversion/store.go"
+line = 270
+class = "runtime-risk"
+severity = "medium"
+observed = "validateIterator returns on the first abortChannel receive, while its worker continues without cancellation or joining. validationIterator.Value performs a blocking send for each estimated value. A scan containing further estimates can fill the one-slot channel and strand the worker with open iterators."
+expected = "An aborted optimistic validation must stop all work and close its iterators before retry, so repeated transaction conflicts cannot accumulate blocked goroutines."
+proposal = "In sdk/store/multiversion/store.go and memiterator.go make abort terminal, cancel and join the validation worker, and test repeated aborts across multiple estimates using real multiversion entries and iterator close tracking."
+owner_domain = 15
+
+[finding.multiversion-nil-set]
+file = "sdk/store/multiversion/mvkv.go"
+line = 265
+class = "interface-mismatch"
+severity = "medium"
+observed = "VersionIndexedStore.Set validates only the key and stores a nil value through setValue. Store.SetWriteset interprets nil as deletion, so a Set(k,nil) accepted by this wrapper becomes a tombstone instead of the KVStore-required panic."
+expected = "All implementations of KVStore.Set must reject nil values; deletion must be explicit and behave consistently in serial and optimistic execution."
+proposal = "In sdk/store/multiversion/mvkv.go call AssertValidValue before modifying write/read sets and add a real versioned-store case proving nil Set fails without altering the existing value while explicit Delete still commits a tombstone."
+owner_domain = 15
+interface = "15.go-store-types-kv-store-j76"
+
+[finding.multiversion-iterator-error]
+file = "sdk/store/multiversion/mergeiterator.go"
+line = 177
+class = "interface-mismatch"
+severity = "medium"
+observed = "mvsMergeIterator.Error reports an error for ordinary exhaustion and suppresses underlying parent/cache iterator failures, mirroring the cache iterator disagreement."
+expected = "The exported tm-db Iterator error channel must report backend errors independently of whether the iterator has reached the end of its range."
+proposal = "In sdk/store/multiversion/mergeiterator.go separate validity assertions from Error and propagate backing errors; cover normal empty/exhausted scans and a backend failure through a version-indexed iterator."
+owner_domain = 15
+interface = "15.go-store-types-iterator-j76"
+
+[finding.prefix-enumeration-keyspace]
+file = "sdk/store/prefix/store.go"
+line = 114
+class = "interface-mismatch"
+severity = "high"
+observed = "PrefixStore.GetAllKeyStrsInRange prefixes the bounds but returns the parent keys without stripping the prefix. Get, Set, Delete and Iterator expose relative keys. A CacheWrap over this PrefixStore enumerates full keys in DeleteAll and passes them back to Delete, which adds the prefix again and leaves the intended values present."
+expected = "Every key emitted by a KVStore enumeration must be accepted unchanged by that same store Get/Delete. PrefixStore must keep its prefix private across cache and bulk-operation composition."
+proposal = "In sdk/store/prefix/store.go strip and validate the prefix on enumerated keys; add prefix->CacheWrap->DeleteAll->Write round-trips with sibling namespaces and nested prefixes, proving intended deletion and sibling preservation."
+owner_domain = 15
+interface = "15.go-store-prefix-store-j76"
+
+[finding.prefix-iterator-error]
+file = "sdk/store/prefix/store.go"
+line = 225
+class = "interface-mismatch"
+severity = "medium"
+observed = "prefixIterator.Error returns invalid prefixIterator for normal prefix exhaustion and does not propagate the parent iterator error. Crossing out of a prefix can therefore report a synthetic failure even when the backing iterator is healthy."
+expected = "The Iterator alias requires normal range completion to be distinct from an underlying storage failure, including completion at a prefix boundary."
+proposal = "In sdk/store/prefix/store.go keep positional guards separate and delegate Error to the parent; verify empty prefixes, prefix-boundary exhaustion, reverse traversal and backend failures with the real wrapper."
+owner_domain = 15
+interface = "15.go-store-types-iterator-j76"
+
+[finding.legacy-history-current-state]
+file = "sdk/store/rootmulti/store.go"
+line = 507
+class = "interface-mismatch"
+severity = "high"
+observed = "Legacy rootmulti.CacheMultiStoreWithVersion ignores version and wraps current substores, and CacheMultiStoreForExport delegates to it. A request for an old or unavailable height silently returns current values. node/paxdb.go installs sdk/storev2/rootmulti for paxd, so this is the declared legacy API/tooling defect, not evidence that PaxDB historical queries share it."
+expected = "MultiStore historical query/export must return exactly the requested committed height or a clear unsupported/unavailable error, never silently substitute the latest state."
+proposal = "In sdk/store/rootmulti/store.go reject unsupported historical versions or implement real versioned loading; migrate remaining supported tools to storev2. Verify two committed heights with different values and an unavailable height through the public historical query/export methods."
+owner_domain = 15
+interface = "15.go-store-types-multi-store-j76"
+
+[finding.legacy-rollback-metadata-only]
+file = "sdk/store/rootmulti/store.go"
+line = 726
+class = "restart-recovery"
+severity = "medium"
+observed = "Legacy rootmulti.RollbackToVersion rewrites LastCommitInfo/latest-version metadata then LoadLatestVersion without rolling its dbadapter-backed key/value state back. An older height can therefore label newer values after restart. This backend is not the PaxDB store installed by paxd."
+expected = "Rollback must atomically restore both data and version metadata or explicitly refuse an unsupported target before changing metadata."
+proposal = "In sdk/store/rootmulti/store.go disable unsupported legacy rollback with a typed error or implement durable per-version restoration; verify values, commit identity and reopen behavior after a two-height rollback, and direct operator tools to the supported storev2 recovery path."
+owner_domain = 15
+
+[finding.gas-multiplier-arithmetic]
+file = "sdk/store/types/gas.go"
+line = 181
+class = "runtime-risk"
+severity = "medium"
+observed = "Both multiplier adjustGas methods multiply uint64 amount*numerator before division with no overflow check; amount=2^63,numerator=2,denominator=2 becomes zero instead of 2^63. Constructors also accept denominator zero. Params validation guards zero denominators on the normal configured path but does not make the exported constructors or multiplication safe."
+expected = "Gas scaling must preserve the mathematical ratio within the representable range and explicitly reject invalid ratios or overflow before a wrapped value reaches the saturating meter required by 15020."
+proposal = "In sdk/store/types/gas.go use checked full-width multiplication/division and reject invalid denominators at construction; specify overflow saturation/panic consistently for finite and infinite meters and test overflow-before-division, zero denominator and legitimate fractional ratios through node ante setup."
+owner_domain = 15
+
+[finding.infinite-gas-refund-test-wrap]
+file = "sdk/store/types/gas_test.go"
+line = 25
+class = "test-gap"
+severity = "medium"
+observed = "TestInfiniteGasMeter first overflows ConsumeGas, which now saturates consumed at MaxUint64 under 15020, then expects RefundGas(GasConsumed()+1) to panic. The unsigned addition wraps to zero, and refunding zero cannot exercise over-refund rejection."
+expected = "The infinite-meter saturation requirement must remain enforced, while the refund regression must use a representable consumed+1 value and assert the actual invalid-refund behavior."
+proposal = "In sdk/store/types/gas_test.go keep the saturation and overflow panic assertions, assert MaxUint64 after overflow explicitly, and exercise refund-greater-than-consumed on a separate meter below MaxUint64. Do not change production saturation or skip the case."
+owner_domain = 15
+
+[finding.whitelist-kv-escape]
+file = "sdk/store/whitelist/kv/store.go"
+line = 10
+class = "security"
+severity = "medium"
+observed = "The whitelist KV wrapper overrides only Set and Delete. Its embedded parent supplies DeleteAll, CacheWrap and CacheWrapWithTrace directly, allowing callers to mutate disallowed keys through those methods. Located callers are tests; this is an exported authorization-wrapper gap, not a demonstrated live endpoint exploit."
+expected = "A store advertised as write-whitelisted must apply its policy to every mutation path and retain that policy when a caller creates a branch."
+proposal = "In sdk/store/whitelist/kv/store.go implement guarded range deletion and policy-preserving cache wrappers, prevent raw mutable-parent escape, and test forbidden and allowed writes through every KVStore and branching method using actual parent stores."
+owner_domain = 15
+
+[finding.whitelist-cachemulti-escape]
+file = "sdk/store/whitelist/cachemulti/store.go"
+line = 16
+class = "security"
+severity = "medium"
+observed = "The whitelist cachemulti wrapper guards GetKVStore and CacheMultiStore but inherits GetStore and SetKVStores from its embedded cache multistore. These alternate accessors can expose or replace a raw mutable store without the configured write policy."
+expected = "The multistore whitelist must enforce one policy regardless of the accessor used, including lazy materialization and branch creation."
+proposal = "In sdk/store/whitelist/cachemulti/store.go wrap alternate store access and transformations consistently, retain restrictions on every returned branch, and exercise forbidden writes through GetStore and SetKVStores as well as GetKVStore."
+owner_domain = 15
+
+[finding.whitelist-multi-escape]
+file = "sdk/store/whitelist/multi/store.go"
+line = 10
+class = "security"
+severity = "medium"
+observed = "The whitelist multi wrapper inherits raw GetStore and other branch/transformation accessors while only wrapping GetKVStore and CacheMultiStore. The embedded interface therefore provides mutation paths outside the declared per-store whitelist."
+expected = "A MultiStore write whitelist must remain effective through every supported store accessor and version/export branch, rather than depend on caller convention."
+proposal = "In sdk/store/whitelist/multi/store.go audit and wrap all interface methods that return mutable stores or branches; add actual-store denied-write checks for each accessor and preserve allowed-prefix behavior across cache writes."
+owner_domain = 15
+
+[finding.address-prefix-cache]
+file = "sdk/types/address.go"
+line = 279
+class = "config-drift"
+severity = "medium"
+observed = "AccAddress.String, ValAddress.String and ConsAddress.String cache their Bech32 representation by raw address bytes alone. Changing a permitted prefix before Config.Seal leaves prior entries under the old prefix; decoding the emitted cached string under the current configured prefix can then fail."
+expected = "An address string must use the currently configured prefix until configuration is sealed, and encoding/decoding the same address under that configuration must agree."
+proposal = "In sdk/types/address.go include the prefix in the cache key or invalidate the relevant caches when sdk/types/config.go changes prefixes. Add a same-bytes encode/change-prefix/encode/decode case for account, validator and consensus addresses."
+owner_domain = 15
+interface = "15.go-types-acc-address-j76"
+
+[finding.encoder-test-wrong-error]
+file = "sdk/types/config_test.go"
+line = 50
+class = "test-gap"
+severity = "medium"
+observed = "TestConfig_SetTxEncoder installs a callback returning nil,nil, captures err, then calls Require().Error(mockErr,err). The asserted error is the pre-created mockErr; the callback result is only a message argument, so encoder result propagation is untested."
+expected = "The configuration test must assert the actual installed encoder return values and error, as well as the seal restriction."
+proposal = "In sdk/types/config_test.go have the callback return a recognizable payload and sentinel error, invoke it through GetTxEncoder and assert both actual results with ErrorIs and payload equality; retain the sealed-setter panic assertion."
+owner_domain = 15
+
+[finding.cached-context-evm-events]
+file = "sdk/types/context.go"
+line = 573
+class = "runtime-risk"
+severity = "medium"
+observed = "Context.CacheContext replaces the standard EventManager but shares the EVMEventManager pointer with its parent. Emitting EVM logs through an abandoned child immediately modifies the parent events even if writeCache is never called. precompiles/spot/orders.go explicitly creates a fresh EVM manager for its atomic branches, showing that live callers must compensate manually."
+expected = "Discarding a cached state branch must also discard its observable EVM events; successful branch event propagation needs an explicit once-only commit contract consistent with normal events."
+proposal = "In sdk/types/context.go define and implement isolated EVM event behavior for cached contexts, update callers to merge committed child logs exactly once, and test nested commit/discard with real EVMEventManager logs and unchanged parent state after failure."
+owner_domain = 15
+interface = "15.go-types-context-j76"
+
+[finding.dec-coins-zero-conversion]
+file = "sdk/types/dec_coin.go"
+line = 185
+class = "runtime-risk"
+severity = "medium"
+observed = "NewDecCoinsFromCoins allocates len(input) before NewCoins removes zero coins. Converting a valid zero Coin leaves a trailing zero-value DecCoin with empty Denom and nil Amount; String/validation/arithmetic can panic or consume an invalid set. Allocation length disagrees with the actual normalized producer output."
+expected = "Converting Coins to DecCoins must return exactly the normalized nonzero entries with initialized amounts, stable order and no invalid trailing elements."
+proposal = "In sdk/types/dec_coin.go normalize input before allocating the output, size it from normalized entries, and prove zero-only, mixed zero/nonzero and sorted multi-denomination conversion through the actual legacy fee/distribution consumers."
+owner_domain = 15
+interface = "15.go-types-new-dec-coins-from-coins-j76"
+
+[finding.dec-coins-union-order]
+file = "sdk/types/dec_coin.go"
+line = 339
+class = "runtime-risk"
+severity = "medium"
+observed = "DecCoins.UnionMax builds a map and returns its iteration order without Sort. The result need not satisfy DecCoins sorted-denomination invariant, making IsValid, AmountOf binary search and subsequent arithmetic inconsistent even for valid inputs. Located direct usage is its test."
+expected = "A DecCoins set operation must return a valid sorted unique-denomination set, deterministically, including when the operands have disjoint denominations."
+proposal = "In sdk/types/dec_coin.go sort and validate the UnionMax result without changing amounts, and test deterministic ordering, IsValid, AmountOf and maximum selection using valid sorted operands."
+owner_domain = 15
+
+[finding.union-test-discarded-result]
+file = "sdk/types/dec_coin_test.go"
+line = 518
+class = "test-gap"
+severity = "medium"
+observed = "TestUnionMax calls res.IsEqual(tc.expected) and discards the boolean. Several fixtures also list foo before bar, violating the sorted DecCoins input invariant, so the cases do not establish valid output ordering or maximum selection."
+expected = "A set-union regression must fail on a wrong result and use valid producer-shaped sorted inputs, with separate explicit invalid-input cases if supported."
+proposal = "In sdk/types/dec_coin_test.go assert result equality, sortedness and validity using sorted operands; include overlapping and disjoint denoms and AmountOf checks so map-order defects cannot pass silently."
+owner_domain = 15
+
+[finding.ceil-overflow-test-skip]
+file = "sdk/types/decimal_test.go"
+line = 582
+class = "test-gap"
+severity = "medium"
+observed = "TestCeilOverflow skips when NewDecFromStr rejects its large fixture. That lets a stricter constructor or a stale boundary turn the claimed Ceil overflow regression into no coverage; adjacent tests declare a 315-bit internal decimal bound."
+expected = "Boundary regressions must unconditionally establish a valid input adjacent to the implemented bound and then assert the intended overflow behavior, without skipping the criterion."
+proposal = "In sdk/types/decimal_test.go derive a constructor-valid decimal at the actual Ceil overflow boundary, require successful construction and assert the panic; retain separate rejection coverage beyond the bound and execute both cases without conditional Skip."
+owner_domain = 15
+
+[finding.normalized-coins-invalid-set]
+file = "sdk/types/denom.go"
+line = 143
+class = "interface-mismatch"
+severity = "high"
+observed = "NormalizeCoins independently converts and truncates each entry and returns the unsanitized slice. ParseCoinsNormalized(\"1atom,1matom,1uatom\") after registering units returns three natom entries instead of one summed Coin; sub-base fractions can also leave zero entries. Downstream Coins.Validate requires sorted, unique, positive entries."
+expected = "ParseCoinsNormalized must emit a valid canonical Coins set that the bank/genesis/fee consumers accept, preserving the aggregate value under documented truncation semantics."
+proposal = "In sdk/types/denom.go aggregate normalized denominations with an explicit precision/truncation policy, remove zeros and sort. Test parsing through a real genesis-account/bank validation consumer with multiple units of one denom and fractional conversions."
+owner_domain = 15
+interface = "15.go-types-parse-coins-normalized-j76"
+
+[finding.normalization-test-duplicate-shape]
+file = "sdk/types/denom_internal_test.go"
+line = 65
+class = "test-gap"
+severity = "medium"
+observed = "The normalization test explicitly expects three natom Coin entries from ParseCoinsNormalized rather than one canonical summed entry. It validates the current producer defect but not the valid Coins shape required by bank/genesis consumers."
+expected = "Normalization fixtures must use the same sorted, unique-denomination shape accepted by real Coins consumers and verify aggregate value preservation."
+proposal = "In sdk/types/denom_internal_test.go require the canonical aggregated natom amount and Coins.Validate success, exercise fractions/zero removal, and pass the result into real genesis balance validation. Preserve precision and reject genuine malformed inputs."
+owner_domain = 15
+
+[finding.nondebug-internal-error-leak]
+file = "sdk/types/errors/abci.go"
+line = 110
+class = "security"
+severity = "medium"
+observed = "defaultErrEncoder returns err.Error for every error, despite ABCIInfo/ErrPanic comments promising generic internal errors outside debug mode. Unknown and recovered panic errors can therefore expose raw internal messages through QueryResult and ResponseDeliverTxWithEvents used by baseapp/node."
+expected = "Public non-debug responses must keep stable error codes/codespaces and safe known SDK messages while redacting unknown internal and panic details; diagnostic detail belongs in protected logs/debug output."
+proposal = "In sdk/types/errors/abci.go distinguish safe registered errors from unknown/ErrPanic causes and redact only the unsafe details. Verify an actual recovered panic and unknown internal error through query and transaction responses for debug=false and true without weakening code assertions."
+owner_domain = 15
+interface = "15.go-types-errors-abci-info-j76"
+
+[finding.stream-reader-error-loss]
+file = "sdk/types/genesis/genesis.go"
+line = 26
+class = "interface-mismatch"
+severity = "high"
+observed = "IngestGenesisFileLineByLine prints open/read errors and closes its string-only channel. module.Manager.InitGenesis and validateGenesisStream cannot distinguish a missing, unreadable or partially read genesis from successful EOF. InitGenesis sends nil success after the channel closes and may accept only a prefix of exported state."
+expected = "Genesis ingestion must carry terminal errors to every consumer and prevent initialization or validation success when the source could not be completely read."
+proposal = "In sdk/types/genesis/genesis.go introduce an error-bearing, cancellable stream and update sdk/types/module/module.go, sdk/server/start.go and genutil validation to await successful completion before committing initialization. Verify missing files, mid-read failure, truncated exports and restart with actual module state."
+owner_domain = 15
+interface = "15.go-types-genesis-ingest-genesis-file-line-by-line-j76"
+
+[finding.migration-downgrade-version]
+file = "sdk/types/module/configurator.go"
+line = 89
+class = "restart-recovery"
+severity = "medium"
+observed = "runModuleMigrations does not reject fromVersion>toVersion: toVersion<=1 returns success immediately, or an existing migration map yields an empty loop. Manager.RunMigrations then records the lower ConsensusVersion despite leaving the higher-version state layout untouched."
+expected = "A persisted module version must describe the actual data layout. Unsupported downgrades must fail before changing the version map or any module state."
+proposal = "In sdk/types/module/configurator.go and module.go reject version regression explicitly before no-op cases or migrations; test a real persisted higher-version map against a lower module ConsensusVersion and prove state/version metadata remain unchanged."
+owner_domain = 15
+
+[finding.stream-validation-forwarder]
+file = "sdk/types/module/module.go"
+line = 136
+class = "runtime-risk"
+severity = "medium"
+observed = "BasicManager.ValidateGenesisStream creates moduleDoneCh but never receives from it, and forwards to moduleGenesisCh with an uncancellable blocking send. A validator that returns early can strand the forwarder; the validator goroutine also blocks forever sending moduleDoneCh. Reads of a closed genesisCh ignore the ok flag."
+expected = "A streaming module validator must have explicit completion, cancellation and channel ownership, with no blocked forwarding after an error or consumer completion."
+proposal = "In sdk/types/module/module.go make module completion observable, select on cancellation while forwarding, handle channel closure and join workers. Test real modules that reject a chunk, finish at EOF and are cancelled between chunks; do not suppress their validation errors."
+owner_domain = 15
+interface = "15.go-types-module-basic-manager-j76"
+
+[finding.stream-import-invalid-lines]
+file = "sdk/types/module/module.go"
+line = 396
+class = "restart-recovery"
+severity = "high"
+observed = "Streaming InitGenesis treats every parseModule error as genesisDoc and skips it without validating a header, silently ignores unknown modules and never updates seenModules. ProcessGenesisPerModule intentionally emits multiple adjacent chunks for one module, yet the importer neither enforces contiguous groups/declared initialization order nor detects a later repeated group."
+expected = "A stream exported in OrderInitGenesis must be imported completely in that lifecycle order, with valid headers, valid known-module chunks and explicit rejection of corruption or out-of-order/repeated module groups. Legitimate adjacent chunks must remain supported."
+proposal = "In sdk/types/module/module.go model the header and ordered contiguous module groups explicitly, validate every record, distinguish adjacent chunks from repeated groups, require successful stream termination and initialize atomically. Round-trip ProcessGenesisPerModule output and reject malformed, reordered and repeated-group variants without dropping state."
+owner_domain = 15
+interface = "15.go-types-module-manager-j76"
+
+[finding.filtered-pagination-false-end]
+file = "sdk/types/query/filtered_pagination.go"
+line = 115
+class = "interface-mismatch"
+severity = "high"
+observed = "FilteredPaginate and GenericFilteredPaginate stop phase-two scanning at MaxScanLimit when count_total is false and return NextKey=nil even if the store has later matching records. For one early match, more than MaxScanLimit misses and another match, a full page is reported as final and the remaining result is unreachable to clients following NextKey."
+expected = "PageResponse.next_key is empty only when traversal has completed. Resource limits must yield an explicit limit error or a continuation that preserves access to every remaining match."
+proposal = "In sdk/types/query/filtered_pagination.go retain the scan bound and return a safe raw-key continuation or explicit limit error when the search window ends; cover both generic and callback paths through real filtered query consumers with a gap beyond the bound."
+owner_domain = 15
+interface = "7.proto-cosmos-base-query-v1beta1-pageresponse-j39"
+
+[finding.reverse-pagination-invalid-key]
+file = "sdk/types/query/pagination.go"
+line = 180
+class = "runtime-risk"
+severity = "medium"
+observed = "getIterator(reverse=true,start) opens a forward iterator, calls Next when valid, then reads Key without rechecking Valid. Resuming at the greatest existing key panics when Next exhausts it. A missing key between entries also uses the successor of the first greater key as the reverse bound, returning a key above the requested boundary."
+expected = "Reverse key pagination must include the requested resume key when present, respect the requested boundary when absent and handle the greatest key or an empty store without panic."
+proposal = "In sdk/types/query/pagination.go construct the reverse upper bound using inclusive-key semantics without reading an invalid iterator. Verify largest/exact/missing/beyond-range keys and empty stores through Paginate, FilteredPaginate and a real bank query."
+owner_domain = 15
+interface = "15.go-types-query-paginate-j76"
+
+[finding.rest-sanitize-timeout]
+file = "sdk/types/rest/rest.go"
+line = 100
+class = "interface-mismatch"
+severity = "high"
+observed = "BaseReq.Sanitize rebuilds the request with NewBaseReq, whose parameters and initializer omit TimeoutHeight. Any nonzero timeout_height becomes zero even though BaseReq declares that wire field and transaction handlers sanitize before building their transaction."
+expected = "Sanitization may normalize string whitespace but must preserve the transaction expiry selected by the producer, including the timeout_height carried by BaseReq."
+proposal = "In sdk/types/rest/rest.go preserve TimeoutHeight during Sanitize; sdk/client/tx/tx.go already consumes br.TimeoutHeight through WithTimeoutHeight. Verify a nonzero timeout through the registered bank send REST handler to the actual unsigned transaction, retaining all other numeric and fee fields."
+owner_domain = 15
+interface = "15.go-types-rest-base-req-j76"
+
+[finding.rest-invalid-fee-validation]
+file = "sdk/types/rest/rest.go"
+line = 119
+class = "runtime-risk"
+severity = "medium"
+observed = "BaseReq.ValidateBasic rejects fees only when both Fees.IsValid and GasPrices.IsValid are false. With a malformed selected fee list and the unused other list empty/valid, validation succeeds; the same holds for malformed gas prices with empty fees."
+expected = "Each provided fee representation must be independently valid, mutually exclusive with the other representation and rejected before transaction construction on invalid input."
+proposal = "In sdk/types/rest/rest.go validate the supplied representation independently and keep the existing exclusivity rule; exercise invalid denom, negative amount, nil amount and unsorted/duplicate fees through a real transaction REST handler without relying on a later panic."
+owner_domain = 15
+
+[finding.rest-unbounded-body]
+file = "sdk/types/rest/rest.go"
+line = 136
+class = "security"
+severity = "medium"
+observed = "ReadRESTReq uses io.ReadAll on the incoming request body without a local byte bound before Amino decoding. Registered legacy transaction handlers call this shared helper; the helper itself does not enforce a maximum accepted payload."
+expected = "Request decoding must enforce an explicit transaction payload limit before buffering, including for chunked bodies and deployments without a stricter reverse proxy."
+proposal = "In sdk/types/rest/rest.go enforce the documented body limit with MaxBytesReader or equivalent and return a stable too-large response; verify exact-bound and over-bound streamed requests through an actually registered legacy handler, preserving valid transaction decoding."
+owner_domain = 15
+
+[finding.trace-access-memory]
+file = "sdk/types/tracer.go"
+line = 239
+class = "security"
+severity = "medium"
+observed = "StoreTracer caps iterator summaries to 16 iterators and 64 sampled keys but recordAccess appends every access, cloning complete keys and values. Get/Set/IteratorNext/IteratorValue logs and dump Reads/Has can still grow with the entire scan. debug_traceTransactionProfile and debug_traceTransaction expose this collection on replay paths."
+expected = "The stated bounded-memory trace contract must apply to total recorded accesses, bytes and serialized output, while preserving honest counts and clear truncation metadata."
+proposal = "In sdk/types/tracer.go bound total access/byte retention before cloning, maintain summary counters separately, cap materialized wire maps and expose truncation. Verify a real trace replay containing repeated reads, large values and long scans respects both memory and response bounds."
+owner_domain = 15
+interface = "7.rpc-debug-tracetransactionprofile"
+
+[finding.uint-negative-wire]
+file = "sdk/types/uint.go"
+line = 148
+class = "security"
+severity = "medium"
+observed = "Uint.UnmarshalJSON uses the shared signed unmarshalJSON/unmarshalText helper and Uint.Unmarshal checks BitLen but not Sign. Both accept -1 although NewUintFromString/ParseUint use UintOverflow to reject negative values, producing an unsigned value outside its advertised domain through JSON, protobuf custom-type and Amino decoding."
+expected = "Every Uint decoding path must enforce the same nonnegative 256-bit domain as its constructors and reject malformed wire input before mutating the receiver."
+proposal = "In sdk/types/uint.go decode into a temporary big.Int and run UintOverflow before assignment for JSON, protobuf and Amino; verify negative, maximum, over-limit, empty and valid round-trips, including preservation of the old receiver on failure."
+owner_domain = 15
+interface = "15.go-types-uint-j76"
+
+[finding.canonical-json-number-loss]
+file = "sdk/types/utils.go"
+line = 31
+class = "interface-mismatch"
+severity = "high"
+observed = "SortJSON unmarshals arbitrary JSON into interface{}, converting numbers to float64. The valid integer 9007199254740993 is re-emitted as 9007199254740992. MustSortJSON inherits the loss; callers include GetSignBytes and genesis migration/initialization, where changing a numeric value changes the document being signed or exported."
+expected = "The declared canonical JSON function may reorder keys and remove whitespace but must preserve every input numeric value exactly across producer, signing transport and consumer."
+proposal = "In sdk/types/utils.go use a number-preserving decoder with strict trailing-input rejection and deterministic canonicalization. Add large positive/negative integers and precise decimals through real sign-byte and genesis serialization consumers, proving values do not change."
+owner_domain = 15
+interface = "15.go-types-sort-json-j76"
+
+[finding.empty-genesis-migration-registry]
+file = "sdk/x/genutil/client/cli/migrate.go"
+line = 24
+class = "wiring-gap"
+severity = "medium"
+observed = "migrationMap is initialized empty and has no exported registration path or other writes. paxd registers MigrateGenesisCmd, but every otherwise valid target reaches unknown migration function. The comment says applications can extend it, which the unexported map prevents."
+expected = "An advertised genesis-migration command must have supported registered migrations and a usable extension mechanism, or explicitly state that no migration targets are supported."
+proposal = "In sdk/x/genutil/client/cli/migrate.go wire the supported migration callbacks through an explicit registration/configuration API and list actual versions in command help; verify the intended old-genesis to current-genesis path with real application codecs."
+owner_domain = 15
+interface = "15.cli-x-genutil-client-cli-migrate-j76"
+
+[finding.stream-validator-premature-success]
+file = "sdk/x/genutil/client/cli/validate_genesis.go"
+line = 155
+class = "interface-mismatch"
+severity = "high"
+observed = "validateGenesisStream prints valid and sends nil when the input channel closes without signaling doneCh for the last module or waiting for its validation result. Modules validate until their input closes, so final validation may never finish; an error on the final chunk races with the nil success. An empty/missing source also reaches success without a genesis header."
+expected = "The validate-genesis command must return success only after a valid header, complete input and successful completion of every module validator, including the final module."
+proposal = "In sdk/x/genutil/client/cli/validate_genesis.go close/finish the final group, await all validation results and the reader completion error, require a validated header and cancel/join workers on error. Verify a real invalid final-module chunk, empty/missing input and valid multi-chunk export."
+owner_domain = 15
+interface = "15.cli-x-genutil-client-cli-validate-genesis-j76"
+
+[finding.gentx-rest-codec-mismatch]
+file = "sdk/x/genutil/client/rest/query.go"
+line = 43
+class = "interface-mismatch"
+severity = "high"
+observed = "SetGenTxsInAppGenesisState serializes transactions with TxConfig.TxJSONEncoder into protobuf transaction JSON with Any messages. QueryGenesisTxs instead LegacyAmino.UnmarshalAsJSONs each payload into sdk.Tx. auth REST registers /txs and dispatches height=0 to this helper, so the consumer cannot decode the producer-shaped gentx."
+expected = "Genesis transactions must round-trip through the configured transaction JSON encoder/decoder before being returned through the supported REST representation."
+proposal = "In sdk/x/genutil/client/rest/query.go decode with clientCtx.TxConfig.TxJSONDecoder and choose a response representation its configured codec can encode. Round-trip a real generated/signed gentx through genesis storage, node Genesis response and registered /txs?height=0 handler."
+owner_domain = 15
+interface = "15.go-x-genutil-client-rest-query-genesis-txs-j76"
+
+[finding.migration-fixture-unwired]
+file = "sdk/x/genutil/client/testutil/migrate.go"
+line = 39
+class = "test-gap"
+severity = "medium"
+observed = "IntegrationTestSuite.TestMigrateGenesis expects v0.43 migration success and weighted-vote output, but GetMigrationVersions returns no entries and GetMigrationCallback(v0.43) is nil. TestGetMigrationCallback loops over that empty list and proves no callback exists."
+expected = "Migration coverage must assert the supported target set is populated and execute the same registered callback path users invoke; fixtures must match real supported input/output versions."
+proposal = "In sdk/x/genutil/client/testutil/migrate.go assert that the intended target list includes v0.43 and run its real registered migration through the CLI/configured application. Wire the missing production callback and retain the weighted-vote value assertion and invalid-consensus-param rejection; do not skip or weaken the existing migration criterion."
+owner_domain = 15
+
+[finding.collect-unchecked-gentx-message]
+file = "sdk/x/genutil/collect.go"
+line = 140
+class = "runtime-risk"
+severity = "medium"
+observed = "CollectTxs obtains GetMsgs then directly uses msgs[0].(*MsgCreateValidator). A decoded zero-message transaction panics on indexing, a different message panics on assertion, and multiple messages are accepted at this point despite the single-message comment. types.ValidateGenesis has checks that this collection path does not apply."
+expected = "collect-gentxs must reject malformed ceremony inputs with a filename-qualified error and require exactly one valid create-validator message before inspecting addresses or balances."
+proposal = "In sdk/x/genutil/collect.go validate message count/type and basic transaction/message requirements before appending or accessing fields. Exercise actual encoded zero-message, wrong-message and multi-message gentxs and a valid generated gentx through CollectGenTxsCmd."
+owner_domain = 15
+interface = "15.go-x-genutil-collect-txs-j76"
+
+[finding.mnemonic-validator-key-not-saved]
+file = "sdk/x/genutil/utils.go"
+line = 86
+class = "restart-recovery"
+severity = "high"
+observed = "InitializeNodeValidatorFilesFromMnemonic builds privval.NewFilePV for a mnemonic but never calls Save. NewFilePV only constructs in-memory Key and LastSignState; it does not persist either file. The returned validator pubkey can differ from the file subsequently loaded/generated on startup, including when an old key file already exists."
+expected = "Recover/init must durably establish the same validator identity returned to the caller and subsequently loaded by consensus, while preserving existing anti-double-sign history for an already-used key."
+proposal = "In sdk/x/genutil/utils.go persist recovered keys using an explicit fresh/recovery policy, refuse mismatches with existing validator files and preserve signing history rather than resetting it. Verify returned pubkey equals the key loaded after process restart for fresh mnemonic recovery and safe existing-key recovery."
+owner_domain = 15
+interface = "15.go-x-genutil-initialize-node-validator-files-from-mnemonic-j76"
+
+[finding.validator-key-load-error-ignored]
+file = "sdk/x/genutil/utils.go"
+line = 83
+class = "runtime-risk"
+severity = "medium"
+observed = "InitializeNodeValidatorFilesFromMnemonic discards the error returned by privval.LoadOrGenFilePV. That producer returns nil,error for malformed existing files or save failure, after which filePV.GetPubKey dereferences the nil receiver instead of returning the actionable filesystem/key error."
+expected = "Initialization must return the original load/save error without nil dereference, reporting that no usable validator identity was established."
+proposal = "In sdk/x/genutil/utils.go check and return LoadOrGenFilePV errors before accessing the key; verify malformed key/state files and an actual write failure through the initializer and CLI, asserting no success output and no partial identity replacement."
+owner_domain = 15
+interface = "15.go-consensus-privval-load-or-gen-file-pv-j57"
+
+[finding.legacy-metrics-registry-drift]
+file = "sdk/store/types/metrics.go"
+line = 9
+class = "config-drift"
+severity = "low"
+observed = "The registry still marks 15.met-legacy-store-gaskv-has-delete-j56, 15.met-legacy-store-types-cache-73-j56, 15.met-legacy-store-types-gas-124-j56 and both 15.met-legacy-types-module-module rows stable with removed telemetry call signatures. The reviewed implementations emit OTel gas/cache/MidBlock metrics and do not emit those legacy observations."
+expected = "Requirements 15019/15043/15044/15049/15050 retire these legacy observations and require the registry/observability contract to describe only the actual OTel producers, labels and units."
+proposal = "The cosmos-fork owner should update spec/layerx-merge/interfaces.kvx to mark the five legacy rows retired and link their OTel replacements where present; remove obsolete package consumes and verify dashboards/readers use seconds and current instrument names. Preserve the source tests forbidding legacy emissions."
+owner_domain = 15
+
+[finding.missing-sdk-api-contract]
+file = "sdk/store/README.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "SDK registry rows repeatedly link contracts/cosmos-fork.md#go-api, #cli or #errors, but contracts/cosmos-fork.md is absent. sdk/store/README.md correctly identifies PaxDB versus legacy wrappers but does not supply the missing registry contract for errors, wire shapes, bulk key namespaces or recovery behavior."
+expected = "Every stable registry interface needs an existing normative contract that specifies the producer/transport/consumer behavior and any legacy or unsupported lifecycle boundary."
+proposal = "The cosmos-fork owner should publish contracts/cosmos-fork.md with actual SDK API, CLI, error, historical-store and genesis-stream contracts, update registry anchors and distinguish live PaxDB from legacy backends. Reconcile each disagreement in this record before asserting upgrade readiness."
+owner_domain = 15
+
+[finding.doc-fork-runbook]
+file = "docs/runbooks/paxeer-x-fork.md"
+line = 7
+class = "doc-drift"
+severity = "medium"
+observed = "The upgrade runbook opens with live v6.6 custody/anchor precompile claims, later invokes retired hosted/paxeer scripts and ends with success probes at retired 0x1013/0x1014, while its v7 section says those surfaces are retired."
+expected = "An operator following the current upgrade path must start the single paxd network, use its supported native interfaces and verify committed state on chain ID 125."
+proposal = "In docs/runbooks/paxeer-x-fork.md separate historical release notes from the executable v7 procedure, replace retired deploy/probe instructions with native module and root JSON-RPC checks and link current proof/recovery evidence."
+owner_domain = 16
+
+[finding.doc-signing-state-reset]
+file = "docs/runbooks/paxeer-x-fork.md"
+line = 355
+class = "doc-drift"
+severity = "medium"
+observed = "The lagging-node procedure says to retain priv_validator_key.json but reset priv_validator_state.json to height zero. This conflicts with its earlier instruction never to move signing state backwards and can erase anti-double-sign history if followed on a previously signing key."
+expected = "Recovery instructions must distinguish non-signing full nodes from validators and preserve a validator key signing high-water mark across snapshot/state-sync recovery."
+proposal = "In docs/runbooks/paxeer-x-fork.md forbid resetting an existing signing key history, give separate non-validator and validator recovery procedures and require identity/high-water-mark verification before enabling consensus signing."
+owner_domain = 16
+
+[finding.doc-quickstart]
+file = "docs/site/docs/overview/quickstart.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "The quickstart retains /rpc endpoints, activity execution/batch/sequencer receipt flows, a custody 0x1013 example and toolset/boundary instructions for retired components. These describe incompatible entry points to the merged chain."
+expected = "New integrators must use the current native chain interfaces, root node RPC endpoints, chain ID 125 and committed-block finality, with px_ methods confined to the hosted gateway."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md around a real native transaction from submission through committed receipt and proof, using api1..api14 or api-mainnet-beta root URLs; label archival pre-merge examples and keep private control authentication distinct."
+owner_domain = 16
+
+[finding.doc-getting-started]
+file = "docs/site/docs/overview/getting-started.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction and transaction walkthrough describe a router /rpc and lx_sendActivity result with executed/batched states and a sequencer signature as the running network contract."
+expected = "The merged network has one paxd BFT chain and finality at block commit; it has no separate LayerX router or sequencer service."
+proposal = "Rewrite docs/site/docs/overview/getting-started.md to show the supported native submission and committed receipt on chain 125, explicitly document gateway-only px_ methods, and replace retired topology and state diagrams."
+owner_domain = 16
+
+[finding.doc-payments]
+file = "docs/site/docs/overview/payments.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The payments page tells clients to use a router /rpc and lx_sendActivity, then explains batch-relative finality and old grant ordinals as the payment path."
+expected = "Payment documentation must agree with native account/bank authorization, supported hosted gateway methods and committed-block receipt finality in the merged network."
+proposal = "In docs/site/docs/overview/payments.md document one real supported payment producer-to-ledger-to-receipt flow, using current authorization shapes and errors, and move old grant/activity/batch examples into clearly historical material."
+owner_domain = 2
+
+[finding.doc-accounts]
+file = "docs/site/docs/concepts/accounts.md"
+line = 19
+class = "doc-drift"
+severity = "medium"
+observed = "The accounts page describes named kernel account namespaces, reserved/withdrawal balances and kernel hash/counter behavior as the current account model without mapping these claims to native bank/EVM accounts."
+expected = "Account and balance semantics must match the merged network native account, bank and EVM address/nonce interfaces and explicitly distinguish hosted identifiers from chain state."
+proposal = "Rewrite docs/site/docs/concepts/accounts.md against the native account/bank and address-binding producers, document actual balance units and nonce sources and remove unsupported standalone namespace balance claims."
+owner_domain = 2
+
+[finding.doc-assets]
+file = "docs/site/docs/concepts/assets.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The assets page locates the current asset subsystem in src/modules/asset and explains named hash identifiers, ordinal grants, LXGB/network-fee and LNI activity paths inherited from the standalone kernel design."
+expected = "Current asset creation, balances, authorization and fees must be described using the native bank/tokenfactory and merged gateway interfaces actually serving the product."
+proposal = "In docs/site/docs/concepts/assets.md replace the old module/path/API walkthrough with actual native denom/tokenfactory transactions, bank balances, supported EVM mappings and explicit errors/units; preserve only documented historical compatibility facts."
+owner_domain = 2
+
+[finding.doc-one-account-chain]
+file = "docs/site/docs/concepts/one-account.md"
+line = 87
+class = "doc-drift"
+severity = "medium"
+observed = "The EIP-712 domain example sets chainId to 713714, whereas the specified merged EVM network is chain ID 125. A wallet copying this domain signs for a different chain."
+expected = "Signing examples must use the deployed chain ID and actual binding verifier domain, while retaining any deliberately versioned account-derivation rules."
+proposal = "In docs/site/docs/concepts/one-account.md replace the chain domain with 125 and verify the complete example against the native binding verifier; explain derivation-version compatibility separately so an endpoint correction does not silently change account identities."
+owner_domain = 2
+
+[finding.doc-boundary]
+file = "docs/site/docs/concepts/paxeer-boundary.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The page presents services/platform/hosted/paxeer, its TLS boundary, standalone node/LNI relay and settlement contract suite as current infrastructure and lists their typed refusals."
+expected = "There is one network with native node root RPC and supported hosted gateway responsibilities; retired standalone boundary services must not remain deployment or integration instructions."
+proposal = "In docs/site/docs/concepts/paxeer-boundary.md mark the old boundary contract archival and replace active guidance with the native node/gateway trust boundary, current authentication and proof/error transport; remove obsolete environment and deployment dependencies."
+owner_domain = 8
+
+[finding.doc-identity]
+file = "docs/site/docs/concepts/identity.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Identity is documented in terms of standalone kernel-state named activities, batch timestamps/challenge windows and old numeric capability ordinals, while status text claims the described flow is implemented."
+expected = "Identity lifecycle, authority and recovery semantics must agree with native layerxauth/hosted identity producers and committed chain time/height, with actual names and encodings."
+proposal = "In docs/site/docs/concepts/identity.md trace the current native identity/binding operations and hosted authentication path, document exact authority and recovery contracts and replace unsupported batch/ordinal examples without assuming all identity functionality is retired."
+owner_domain = 2
+
+[finding.doc-settlement-evidence]
+file = "docs/site/docs/operators/settlement-evidence.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The evidence page specifies retired settlement contracts, checkpoint/guarantor publication and confirmation-depth decisions as the way operators establish current chain finality."
+expected = "Merged-chain receipts are final at BFT block commit, and state evidence must follow the native committed-root proof producer, encoding, verifier and historical recovery lifecycle."
+proposal = "Rewrite docs/site/docs/operators/settlement-evidence.md around current custodyproof/storev2 proof and committed receipt transport, including verification at the correct height/root and unavailable-proof errors; label the retired EVM settlement-suite material archival."
+owner_domain = 11
+
+[finding.doc-hosted-topology]
+file = "docs/site/docs/operators/hosted-internal.md"
+line = 74
+class = "doc-drift"
+severity = "medium"
+observed = "The hosted-internal topology still depends on standalone hosted node/paxeer services and later payment facts use old protocol receipt assumptions. Its KMS/journal access-control principles do not resolve these retired deployment dependencies."
+expected = "Hosted operations must identify the native network and current gateway/control dependencies accurately, keeping private KMS/control credentials outside public node interfaces."
+proposal = "In docs/site/docs/operators/hosted-internal.md update topology and receipt/payment evidence to native committed transactions and current hosted services, retain applicable KMS/journal protections and replace obsolete readiness/dependency checks."
+owner_domain = 8
+
+[finding.doc-beta-control]
+file = "docs/site/docs/operators/beta-control.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The beta-control page correctly labels testnet control private but directs public deposits through custody credit submitted to a router at line 5. Later readiness and journey examples retain standalone core/paxeer/receipt-authority/LNI dependencies, obscuring the current service boundary."
+expected = "Private operator controls must be documented separately from native public root RPC and the hosted gateway, with current authentication and no retired router or standalone LayerX runtime dependency."
+proposal = "In docs/site/docs/operators/beta-control.md map every active control to its current producer and private authentication boundary, replace old node/authority/LNI examples and link public native transaction/finality documentation."
+owner_domain = 8
+
+[finding.errors-doc-register-signature]
+file = "sdk/types/errors/doc.go"
+line = 14
+class = "doc-drift"
+severity = "low"
+observed = "The package error documentation example calls Register(9241,\"zero division\"), but the actual exported function is Register(codespace string,code uint32,description string). Copying the example cannot compile against this SDK."
+expected = "Public error examples must demonstrate the current codespace/code/message registration contract so modules produce stable reconstructable ABCI errors."
+proposal = "In sdk/types/errors/doc.go update examples to use an explicit module codespace and valid code/description arguments, then verify the example against the real Register/ABCIError round-trip."
+owner_domain = 15
+
+[finding.simulation-inclusive-range]
+file = "sdk/types/simulation/rand_util.go"
+line = 95
+class = "runtime-risk"
+severity = "low"
+observed = "RandIntBetween documents an inclusive [min,max] range but computes r.Intn(max-min)+min, excluding max and panicking when min equals max. Consumers using a fixed range cannot generate the sole valid value."
+expected = "Simulation range helpers must agree with their documented boundary semantics, including equal endpoints and invalid reversed ranges."
+proposal = "In sdk/types/simulation/rand_util.go implement the declared inclusive contract with checked width arithmetic and explicit reversed-range handling; add deterministic equal-endpoint and endpoint-coverage cases without biasing distribution or hiding invalid inputs."
+owner_domain = 15
+interface = "15.go-types-simulation-rand-int-between-j76"
+
+[doc.001]
+path = "docs/runbooks/paxeer-x-fork.md"
+status = "stale"
+notes = "Lines 3-8, 126-130, 183-186 and 313-318 describe pre-merge custody/anchor or hosted components; 353-355 gives signing-state reset advice. PaxDB backend context elsewhere is useful."
+
+[doc.002]
+path = "docs/site/docs/overview/quickstart.md"
+status = "stale"
+notes = "Lines 20, 167-219, 299, 490-529 and later receipt/boundary sections retain /rpc, old activity/sequencer flows and retired hosted boundaries."
+
+[doc.003]
+path = "docs/site/docs/overview/getting-started.md"
+status = "stale"
+notes = "Lines 3-10 and 43-190 retain router /rpc and lx_sendActivity/batched sequencer receipt instructions instead of native committed transactions."
+
+[doc.004]
+path = "docs/site/docs/overview/payments.md"
+status = "stale"
+notes = "Lines 18-36, 138-153 and 224-247 describe router /rpc, legacy activities, grant ordinals and batch finality."
+
+[doc.005]
+path = "docs/site/docs/concepts/accounts.md"
+status = "stale"
+notes = "Lines 19-27 and 47-63 describe pre-merge named namespace balances and kernel counters rather than the current native account/bank contract."
+
+[doc.006]
+path = "docs/site/docs/concepts/assets.md"
+status = "stale"
+notes = "Lines 3-8 and subsequent identity/grants/LXGB/network-fee sections present the standalone kernel asset/LNI activity model as current."
+
+[doc.007]
+path = "docs/site/docs/concepts/one-account.md"
+status = "stale"
+notes = "Line 87 uses EIP-712 chainId 713714; the merged network chain ID is 125. Preserve valid derivation-version semantics when rewriting binding examples."
+
+[doc.008]
+path = "docs/site/docs/concepts/paxeer-boundary.md"
+status = "stale"
+notes = "Lines 3 onward document services/platform/hosted/paxeer, standalone node/LNI, settlement suite and boundary credentials as an active topology."
+
+[doc.009]
+path = "docs/site/docs/concepts/identity.md"
+status = "stale"
+notes = "Lines 3, 18 onward and 33-37 describe kernel-state named activities and batch-relative identity lifecycle; native module and gateway responsibility need reconciliation."
+
+[doc.010]
+path = "docs/site/docs/operators/settlement-evidence.md"
+status = "stale"
+notes = "Lines 3 onward use retired settlement suite, checkpoint/guarantor publication and confirmation-depth finality rather than committed BFT state/proofs."
+
+[doc.011]
+path = "docs/site/docs/operators/hosted-internal.md"
+status = "stale"
+notes = "Topology at lines 70-84 and payment/receipt descriptions later retain retired standalone hosted node/paxeer and old protocol assumptions; KMS and journal principles remain useful."
+
+[doc.012]
+path = "docs/site/docs/operators/beta-control.md"
+status = "stale"
+notes = "Lines 3-9 and authority/LNI dependencies conflate a public router/custody boundary with private control; access-control principles need mapping onto the current network."
+
+[doc.013]
+path = "sdk/store/README.md"
+status = "accurate"
+notes = "Read in full: correctly distinguishes mandatory paxd storev2/PaxDB from reusable legacy wrappers; describes Get/Set/iterator composition. Missing external SDK API contract is recorded separately."
+
+[doc.014]
+path = "sdk/types/address/README.md"
+status = "accurate"
+notes = "Read in full: address hashing/composition and length-prefixed key conventions match the local address helpers; no public router or chain endpoint is introduced."
+
+[doc.015]
+path = "contracts/cosmos-fork.md"
+status = "missing"
+notes = "Registry Go/CLI/error contract target does not exist. Signatures and actual source/caller paths were reviewed, but prose agreement with this absent contract cannot be certified."

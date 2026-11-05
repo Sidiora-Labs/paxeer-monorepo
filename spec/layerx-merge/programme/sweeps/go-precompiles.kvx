@@ -1,37 +1,43 @@
 [sweep.go-precompiles]
-revision = "03e2d849d7f3e9ca51cada79f6d3cfe90938a0fb"
+revision = "7478907943b4655b9831bc5605093828ecb974df"
 command = "CGO_ENABLED=1 go vet ./TARGET/ && CGO_ENABLED=1 go test -count=1 ./TARGET/"
 enumeration_command = "CGO_ENABLED=1 go list ./precompiles/..."
 enumeration_exit_code = 0
 prerequisite_command = "make paxd-native-libs"
 prerequisite_exit_code = 0
-environment = "CGO_ENABLED=1 GOMAXPROCS=4"
-targets_total = 222
-targets_passed = 198
-targets_failed = 24
-targets_not_run = 0
+environment = "CGO_ENABLED=1 GOMAXPROCS=2"
+parallel_targets = 4
+per_target_time_limit_seconds = 300
+source = "Task closure checkout after all eight prerequisite repair merges; the sandbox main reference remains at the earlier task base."
+qualification_record = "/out/logs/go-precompiles/qualification.json"
+targets_total = 223
+targets_passed = 210
+targets_failed = 6
+targets_not_run = 7
 
 [target.go-precompiles.1]
 target = "precompiles"
-result = "failed"
-exit_code = 1
-observed = "TestMissingMergeConstructorsInTableOrder at precompiles/missing_merge_test.go:42 expected 10 constructors but received 11, including layerxchains."
-assumption = "The constructor-list expectation likely predates registration of layerxchains."
+result = "not_run"
+exit_code = 124
+reason = "Target exceeded its 300-second execution budget before completing both vet and tests."
 
 [target.go-precompiles.2]
 target = "precompiles/addr"
-result = "passed"
-exit_code = 0
+result = "not_run"
+exit_code = 124
+reason = "Target exceeded its 300-second execution budget before completing both vet and tests."
 
 [target.go-precompiles.3]
 target = "precompiles/addr/legacy/v552"
-result = "passed"
-exit_code = 0
+result = "not_run"
+exit_code = 124
+reason = "Target exceeded its 300-second execution budget before completing both vet and tests."
 
 [target.go-precompiles.4]
 target = "precompiles/addr/legacy/v555"
-result = "passed"
-exit_code = 0
+result = "not_run"
+exit_code = 124
+reason = "Target exceeded its 300-second execution budget before completing both vet and tests."
 
 [target.go-precompiles.5]
 target = "precompiles/addr/legacy/v562"
@@ -100,10 +106,9 @@ exit_code = 0
 
 [target.go-precompiles.18]
 target = "precompiles/bank"
-result = "failed"
-exit_code = 1
-observed = "TestResolutionBankReason at precompiles/bank/resolution_reason_test.go:75 expected the old staticcall message but received LXP_BANK_STATICCALL: cannot call <method> from staticcall; sendNative."
-assumption = "The test likely retains an error-message expectation from before the registered LXP bank reasons."
+result = "not_run"
+exit_code = 124
+reason = "Target exceeded its 300-second execution budget before completing both vet and tests."
 
 [target.go-precompiles.19]
 target = "precompiles/bank/legacy/v552"
@@ -182,10 +187,9 @@ exit_code = 0
 
 [target.go-precompiles.34]
 target = "precompiles/common"
-result = "failed"
-exit_code = 1
-observed = "TestLXPAgentRowsRegistered/LXP_AGENT_NOT_ACTIVE at precompiles/common/lxp_agent_pay_rows_test.go:22 expected merge-plan not active but received agent function not active."
-assumption = "The test and the shared agent error registry likely disagree on the current message."
+result = "not_run"
+exit_code = 124
+reason = "Target exceeded its 300-second execution budget before completing both vet and tests."
 
 [target.go-precompiles.35]
 target = "precompiles/common/legacy/v552"
@@ -399,10 +403,8 @@ exit_code = 0
 
 [target.go-precompiles.77]
 target = "precompiles/ibc"
-result = "failed"
-exit_code = 1
-observed = "TestPrecompile_GetAdjustedTimestamp at precompiles/ibc/ibc_test.go:724 received consensus state for client at height 0-0 not found while wantErr was false."
-assumption = "The missing-consensus-state test likely expects a default-time fallback that the current implementation rejects."
+result = "passed"
+exit_code = 0
 
 [target.go-precompiles.78]
 target = "precompiles/ibc/legacy/v552"
@@ -543,15 +545,13 @@ exit_code = 0
 target = "precompiles/launchpad"
 result = "failed"
 exit_code = 1
-observed = "TestOpticalHooksSeeTheContractCallers at precompiles/launchpad/optical_test.go:70 failed because solc was not found in PATH."
-assumption = "This first failure is environmental because the Solidity compiler executable is missing."
+observed = "TestOpticalHooksSeeTheContractCallers at precompiles/launchpad/optical_test.go:57 failed because solc was not found in PATH."
+assumption = "This failure is environmental because the Solidity compiler executable is not installed."
 
 [target.go-precompiles.106]
 target = "precompiles/launchpad/legacy/v610"
-result = "failed"
-exit_code = 1
-observed = "TestClaimAirdropForEpochThroughThePrecompile at precompiles/launchpad/legacy/v610/launchpad_test.go:493 failed because the claimAirdropForEpoch result was empty."
-assumption = "The legacy airdrop test likely expects return data that the current execution path does not produce."
+result = "passed"
+exit_code = 0
 
 [target.go-precompiles.107]
 target = "precompiles/layerxagent/clearing"
@@ -567,15 +567,13 @@ exit_code = 0
 target = "precompiles/layerxagent/eip712"
 result = "failed"
 exit_code = 1
-observed = "TestProofEip7120x0908 at precompiles/layerxagent/eip712/proof_eip712_0x0908_test.go:187 failed because the real gateway consumer could not import the tsx package."
-assumption = "This first failure is environmental because the wallet gateway Node dependencies are not installed."
+observed = "TestProofEip7120x0908 at precompiles/layerxagent/eip712/proof_eip712_0x0908_test.go:187 failed because the real gateway consumer could not find the tsx package."
+assumption = "This failure is environmental because the wallet gateway Node dependencies are not installed."
 
 [target.go-precompiles.110]
 target = "precompiles/layerxagent/oracle"
-result = "failed"
-exit_code = 1
-observed = "TestOracleMergeConstructorCaps at precompiles/layerxagent/oracle/merge_test.go:61 received LXP_PRECOMPILE_NO_CONTEXT because the layerxchains keeper was unavailable."
-assumption = "The merge-constructor test setup likely does not supply the newly required layerxchains keeper."
+result = "passed"
+exit_code = 0
 
 [target.go-precompiles.111]
 target = "precompiles/layerxagent/orob"
@@ -591,43 +589,37 @@ exit_code = 0
 target = "precompiles/layerxagent/scheduler"
 result = "failed"
 exit_code = 1
-observed = "TestSchedulerMergeConstructorNeedsAgentKeeper at precompiles/layerxagent/scheduler/merge_test.go:67 received LXP_PRECOMPILE_NO_CONTEXT because the layerxchains keeper was unavailable."
-assumption = "The merge-constructor test setup likely does not supply the newly required layerxchains keeper."
+observed = "TestProofScheduler0x0905ProducerTransportConsumer at precompiles/layerxagent/scheduler/proof_scheduler_0x0905_test.go:257 failed because the real wallet consumer could not find @noble/hashes imported by services/agent/sdk/typescript/src/exchange.ts."
+assumption = "This failure is environmental because the agent TypeScript SDK dependencies are not installed."
 
 [target.go-precompiles.114]
 target = "precompiles/layerxagent/served"
-result = "failed"
-exit_code = 1
-observed = "TestAgentMergeAddressesServedAfterUpgrade at precompiles/layerxagent/served/served_test.go:65 rejected the unaccounted merge address 0x000000000000000000000000000000000000101e."
-assumption = "The served-address expectation likely predates the layerxchains merge address."
+result = "passed"
+exit_code = 0
 
 [target.go-precompiles.115]
 target = "precompiles/layerxagent/streams"
 result = "failed"
 exit_code = 1
-observed = "TestStreamsMergeConstructorNeedsPayKeeper at precompiles/layerxagent/streams/merge_test.go:65 received LXP_PRECOMPILE_NO_CONTEXT because the layerxchains keeper was unavailable."
-assumption = "The merge-constructor test setup likely does not supply the newly required layerxchains keeper."
+observed = "TestProofStreams0x0906 at precompiles/layerxagent/streams/proof_streams_0x0906_test.go:180 failed because the real wallet consumer could not find the tsx package."
+assumption = "This failure is environmental because the wallet gateway Node dependencies are not installed."
 
 [target.go-precompiles.116]
 target = "precompiles/layerxagent/teeattestor"
 result = "failed"
 exit_code = 1
-observed = "TestResolutionRegistered at precompiles/layerxagent/teeattestor/resolution_test.go:77 expected two registry entries but found only v7.0."
-assumption = "The test likely retains a two-plan expectation while the current registry exposes one plan."
+observed = "TestProofTeeAttestor0x0907 at precompiles/layerxagent/teeattestor/proof_tee_attestor_0x0907_test.go:213 failed because the gateway precompile consumer could not find the tsx package."
+assumption = "This failure is environmental because the wallet gateway Node dependencies are not installed."
 
 [target.go-precompiles.117]
 target = "precompiles/layerxanchor"
-result = "failed"
-exit_code = 1
-observed = "go vet failed at precompiles/layerxanchor/retire_read_gate_test.go:117:31 because testvectors.LoadAnchor is undefined."
-assumption = "The test likely still references a retired or relocated anchor-vector loader."
+result = "passed"
+exit_code = 0
 
 [target.go-precompiles.118]
 target = "precompiles/layerxauth"
-result = "failed"
-exit_code = 1
-observed = "TestAuthRevertReasons/kernelRegistry/LXP_DA_MISSING at precompiles/layerxauth/errors_test.go:119 expected LXP_DA_MISSING but received LXP_UNKNOWN."
-assumption = "The kernel-code expectation likely includes a code absent from the current error registry."
+result = "passed"
+exit_code = 0
 
 [target.go-precompiles.119]
 target = "precompiles/layerxbridge"
@@ -641,31 +633,25 @@ exit_code = 0
 
 [target.go-precompiles.121]
 target = "precompiles/layerxcustody"
-result = "failed"
-exit_code = 1
-observed = "TestWithdrawalPaysOnceThroughThePrecompile at precompiles/layerxcustody/layerxcustody_test.go:289 received execution reverted."
-assumption = "The withdrawal test setup likely does not satisfy a current custody precondition."
+result = "passed"
+exit_code = 0
 
 [target.go-precompiles.122]
 target = "precompiles/layerxexchange"
 result = "failed"
 exit_code = 1
-observed = "TestRevertReasonIsLxpCode/exchangeRegistry/LXP_EXCHANGE_RETIRED at precompiles/layerxexchange/errors_test.go:72 expected exchange is retired from v6.12.0 but received layerxexchange is retired from v6.12.0."
-assumption = "The exchange test likely retains an error-message expectation from before the registry named layerxexchange explicitly."
+observed = "TestDepositMarginCustodiesNativeValue at precompiles/layerxexchange/layerxexchange_test.go:295 expected the LXP_EXCHANGE_RETIRED prefix but received the bare v6.12.0 retirement error."
+assumption = "The legacy retirement path appears to preserve bare revert text while these tests still expect the prefixed error after the decision 2505 repair."
 
 [target.go-precompiles.123]
 target = "precompiles/layerxledger"
-result = "failed"
-exit_code = 1
-observed = "go vet failed at precompiles/layerxledger/pause_test.go:158:20 because Keeper.GetPayerGrant is undefined."
-assumption = "The ledger test likely still references a removed or renamed keeper API."
+result = "passed"
+exit_code = 0
 
 [target.go-precompiles.124]
 target = "precompiles/layerxpay"
-result = "failed"
-exit_code = 1
-observed = "TestPayChargedGasCoversHostStoreWork/budget at precompiles/layerxpay/gas_bound_test.go:131 received LXP_ERR_UNKNOWN_ACTIVITY."
-assumption = "The budget test likely sends an activity encoding or kind no longer accepted by the current kernel."
+result = "passed"
+exit_code = 0
 
 [target.go-precompiles.125]
 target = "precompiles/layerxpay/served"
@@ -674,10 +660,12 @@ exit_code = 0
 
 [target.go-precompiles.126]
 target = "precompiles/layerxprograms"
-result = "failed"
-exit_code = 1
-observed = "TestProgramsSandboxActivateLease at precompiles/layerxprograms/method_sandbox_activate_test.go:170 received LXP_ERR_VERSION_UNSUPPORTED."
-assumption = "The sandbox activation test likely uses a protocol version unsupported by the current native kernel."
+result = "not_run"
+exit_code = 124
+reason = "Target exceeded its 300-second execution budget before completing both vet and tests."
+command = "CGO_ENABLED=1 go vet ./precompiles/layerxprograms/ && CGO_ENABLED=1 go test -count=1 ./precompiles/layerxprograms/ -skip '^TestProofLayerxprograms0x101d$'"
+producer_input_tests = ["TestProofLayerxprograms0x101d"]
+exclusion_reason = "Decision 2509 permits excluding only TestProofLayerxprograms0x101d, named in repair.go-precompiles.126 as requiring external Python and TypeScript producer inputs; every other test and fuzz seed remains included."
 
 [target.go-precompiles.127]
 target = "precompiles/layerxprograms/types"
@@ -686,10 +674,8 @@ exit_code = 0
 
 [target.go-precompiles.128]
 target = "precompiles/layerxverify"
-result = "failed"
-exit_code = 1
-observed = "TestVerifyEd25519 at precompiles/layerxverify/layerxverify_test.go:114 expected a successful nil error result but received an encoded LXP_MODULE_DISABLED retirement reason."
-assumption = "The test likely still expects active verification after the precompile retirement gate."
+result = "passed"
+exit_code = 0
 
 [target.go-precompiles.129]
 target = "precompiles/oracle"
@@ -803,10 +789,8 @@ exit_code = 0
 
 [target.go-precompiles.151]
 target = "precompiles/perps"
-result = "failed"
-exit_code = 1
-observed = "TestVersionSwitchV69Vectors/legacy/TestDepositMarginCustodiesNativeValue/00_depositMargin at precompiles/perps/switch_test.go:638 received a byte vector whose second 32-byte word was zero instead of the expected value."
-assumption = "The stored legacy vector likely disagrees with the current margin-deposit result encoding."
+result = "passed"
+exit_code = 0
 
 [target.go-precompiles.152]
 target = "precompiles/perps/abi"
@@ -815,10 +799,8 @@ exit_code = 0
 
 [target.go-precompiles.153]
 target = "precompiles/pointer"
-result = "failed"
-exit_code = 1
-observed = "TestAddNative at precompiles/pointer/pointer_test.go:59 expected 0x879c12 but received 0x8786ad."
-assumption = "The pointer gas-value expectation likely predates changes to the native pointer registration path."
+result = "passed"
+exit_code = 0
 
 [target.go-precompiles.154]
 target = "precompiles/pointer/legacy/v552"
@@ -992,10 +974,8 @@ exit_code = 0
 
 [target.go-precompiles.188]
 target = "precompiles/spot"
-result = "failed"
-exit_code = 1
-observed = "TestErrorTokenAlreadyRegistered at precompiles/spot/errors_test.go:363 expected TokenAlreadyRegistered() but received invalid spot params because a non-stablecoin token had a zero marketID."
-assumption = "The spot error-test setup likely predates validation requiring a nonzero marketID for non-stablecoins."
+result = "passed"
+exit_code = 0
 
 [target.go-precompiles.189]
 target = "precompiles/spot/abi"
@@ -1068,103 +1048,106 @@ result = "passed"
 exit_code = 0
 
 [target.go-precompiles.203]
-target = "precompiles/utils"
+target = "precompiles/testutil"
 result = "passed"
 exit_code = 0
 
 [target.go-precompiles.204]
-target = "precompiles/wasmd"
+target = "precompiles/utils"
 result = "passed"
 exit_code = 0
 
 [target.go-precompiles.205]
-target = "precompiles/wasmd/legacy/v552"
+target = "precompiles/wasmd"
 result = "passed"
 exit_code = 0
 
 [target.go-precompiles.206]
-target = "precompiles/wasmd/legacy/v555"
+target = "precompiles/wasmd/legacy/v552"
 result = "passed"
 exit_code = 0
 
 [target.go-precompiles.207]
-target = "precompiles/wasmd/legacy/v562"
+target = "precompiles/wasmd/legacy/v555"
 result = "passed"
 exit_code = 0
 
 [target.go-precompiles.208]
-target = "precompiles/wasmd/legacy/v575"
+target = "precompiles/wasmd/legacy/v562"
 result = "passed"
 exit_code = 0
 
 [target.go-precompiles.209]
-target = "precompiles/wasmd/legacy/v580"
+target = "precompiles/wasmd/legacy/v575"
 result = "passed"
 exit_code = 0
 
 [target.go-precompiles.210]
-target = "precompiles/wasmd/legacy/v600"
+target = "precompiles/wasmd/legacy/v580"
 result = "passed"
 exit_code = 0
 
 [target.go-precompiles.211]
-target = "precompiles/wasmd/legacy/v601"
+target = "precompiles/wasmd/legacy/v600"
 result = "passed"
 exit_code = 0
 
 [target.go-precompiles.212]
-target = "precompiles/wasmd/legacy/v603"
+target = "precompiles/wasmd/legacy/v601"
 result = "passed"
 exit_code = 0
 
 [target.go-precompiles.213]
-target = "precompiles/wasmd/legacy/v605"
+target = "precompiles/wasmd/legacy/v603"
 result = "passed"
 exit_code = 0
 
 [target.go-precompiles.214]
-target = "precompiles/wasmd/legacy/v606"
+target = "precompiles/wasmd/legacy/v605"
 result = "passed"
 exit_code = 0
 
 [target.go-precompiles.215]
-target = "precompiles/wasmd/legacy/v610"
+target = "precompiles/wasmd/legacy/v606"
 result = "passed"
 exit_code = 0
 
 [target.go-precompiles.216]
-target = "precompiles/wasmd/legacy/v614"
+target = "precompiles/wasmd/legacy/v610"
 result = "passed"
 exit_code = 0
 
 [target.go-precompiles.217]
-target = "precompiles/wasmd/legacy/v620"
+target = "precompiles/wasmd/legacy/v614"
 result = "passed"
 exit_code = 0
 
 [target.go-precompiles.218]
-target = "precompiles/wasmd/legacy/v630"
+target = "precompiles/wasmd/legacy/v620"
 result = "passed"
 exit_code = 0
 
 [target.go-precompiles.219]
-target = "precompiles/wasmd/legacy/v640"
+target = "precompiles/wasmd/legacy/v630"
 result = "passed"
 exit_code = 0
 
 [target.go-precompiles.220]
-target = "precompiles/wasmd/legacy/v65"
+target = "precompiles/wasmd/legacy/v640"
 result = "passed"
 exit_code = 0
 
 [target.go-precompiles.221]
-target = "precompiles/xweb"
-result = "failed"
-exit_code = 1
-observed = "TestABIMatchesTheSolidityInterface at precompiles/xweb/xweb_test.go:746 expected three ABI events but found four, including XWebProgramRequested."
-assumption = "The ABI event-count expectation likely predates addition of program-request events."
+target = "precompiles/wasmd/legacy/v65"
+result = "passed"
+exit_code = 0
 
 [target.go-precompiles.222]
+target = "precompiles/xweb"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.223]
 target = "precompiles/xweb/legacy/v68"
 result = "passed"
 exit_code = 0

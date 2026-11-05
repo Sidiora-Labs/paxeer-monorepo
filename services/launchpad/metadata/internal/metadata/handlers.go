@@ -1,15 +1,14 @@
 // Package metadata implements the media/metadata HTTP handlers, porting the TS
-// index.ts monolith into discrete routes: single + batch reads (Redis-cached),
+// index.ts monolith into discrete routes: single + batch reads (database snapshots),
 // the creator-gated multipart upsert (v2 identity session + indexer.pools
 // creator; metadata JSON + logo/banner -> byte sniffing -> virus scan -> bucket),
 // and public byte-serving of logos/banners proxied from the bucket.
 //
 // Storage is BUCKET-PRIMARY (R2): uploads stream to the bucket and reads are
-// served back from it with immutable CDN cache headers.
+// served back through mutable aliases with no-store cache headers.
 package metadata
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -22,11 +21,11 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 	goredis "github.com/redis/go-redis/v9"
 
 	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 	sharedhttp "github.com/Sidiora-Technologies/KindleLaunch/shared/http"
-	sharedredis "github.com/Sidiora-Technologies/KindleLaunch/shared/redis"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/storage"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/media/metadata/internal/db/sqlcdb"
@@ -71,7 +70,10 @@ type Scanner func(ctx context.Context, data []byte) sharedhttp.ScanResult
 
 // Deps are the handler dependencies.
 type Deps struct {
-	Queries     sqlcdb.Querier
+	Queries sqlcdb.Querier
+	// LegacyDB supplies atomic publication and consistent read snapshots.
+	// The migration owner applies LegacyPublicationDDL before enabling writes.
+	LegacyDB    *pgxpool.Pool
 	Redis       *goredis.Client
 	Store       ObjectStore
 	PublicURL   string
@@ -97,6 +99,7 @@ type Deps struct {
 // Handlers serves the metadata routes.
 type Handlers struct {
 	q         sqlcdb.Querier
+	db        *pgxpool.Pool
 	redis     *goredis.Client
 	store     ObjectStore
 	publicURL string
@@ -145,6 +148,7 @@ func New(d Deps) *Handlers {
 	}
 	return &Handlers{
 		q:         d.Queries,
+		db:        d.LegacyDB,
 		redis:     d.Redis,
 		store:     d.Store,
 		publicURL: strings.TrimRight(d.PublicURL, "/"),
@@ -176,41 +180,41 @@ func (h *Handlers) single(w http.ResponseWriter, r *http.Request) {
 	addr := normalizeAddr(strings.TrimSuffix(chi.URLParam(r, "tokenAddress"), ".json"))
 	ctx := r.Context()
 
-	cacheKey := cacheKeyPrefix + addr
-	if cached, found, err := sharedredis.CacheGet[types.PublicMetadata](ctx, h.redis, cacheKey); err == nil && found {
-		w.Header().Set("Cache-Control", "public, max-age=60")
-		sharedhttp.WriteJSON(w, http.StatusOK, cached)
-		return
-	}
-
 	out, err := h.buildOne(ctx, addr, baseURL(h.publicURL, r))
 	if err != nil {
 		h.fail(w, "build metadata", err)
 		return
 	}
-	if err := sharedredis.CacheSet(ctx, h.redis, cacheKey, out, jsonCacheTTL); err != nil {
-		h.logErr("cache set", err)
-	}
-	w.Header().Set("Cache-Control", "public, max-age=60")
+	w.Header().Set("Cache-Control", "no-store")
 	sharedhttp.WriteJSON(w, http.StatusOK, out)
 }
 
 // buildOne assembles the public metadata for one token from pool + metadata +
 // images. Absent rows yield null fields rather than an error (parity).
 func (h *Handlers) buildOne(ctx context.Context, addr, base string) (types.PublicMetadata, error) {
-	pool, err := h.q.GetPoolByToken(ctx, addr)
+	q := h.q
+	if h.db != nil {
+		tx, err := h.db.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+		if err != nil {
+			return types.PublicMetadata{}, err
+		}
+		defer rollbackV2(ctx, tx)
+		q = sqlcdb.New(tx)
+	}
+
+	pool, err := q.GetPoolByToken(ctx, addr)
 	hasPool := err == nil
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return types.PublicMetadata{}, err
 	}
 
-	meta, err := h.q.GetTokenMetadata(ctx, addr)
+	meta, err := q.GetTokenMetadata(ctx, addr)
 	hasMeta := err == nil
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return types.PublicMetadata{}, err
 	}
 
-	images, err := h.q.GetTokenImages(ctx, addr)
+	images, err := q.GetTokenImages(ctx, addr)
 	if err != nil {
 		return types.PublicMetadata{}, err
 	}
@@ -251,37 +255,34 @@ func (h *Handlers) batch(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	requested := parseBatchAddresses(r.URL.Query()["addresses"])
 	if len(requested) == 0 {
-		w.Header().Set("Cache-Control", "public, max-age=10")
+		w.Header().Set("Cache-Control", "no-store")
 		sharedhttp.WriteJSON(w, http.StatusOK, map[string]types.PublicMetadata{})
 		return
 	}
 
 	out := make(map[string]types.PublicMetadata, len(requested))
-	var misses []string
-	for _, addr := range requested {
-		if cached, found, err := sharedredis.CacheGet[types.PublicMetadata](ctx, h.redis, cacheKeyPrefix+addr); err == nil && found {
-			out[addr] = cached
-		} else {
-			misses = append(misses, addr)
+	misses := requested
+	q := h.q
+	if h.db != nil {
+		tx, err := h.db.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+		if err != nil {
+			h.fail(w, "batch snapshot", err)
+			return
 		}
+		defer rollbackV2(ctx, tx)
+		q = sqlcdb.New(tx)
 	}
-	if len(misses) == 0 {
-		w.Header().Set("Cache-Control", "public, max-age=30")
-		sharedhttp.WriteJSON(w, http.StatusOK, out)
-		return
-	}
-
-	pools, err := h.q.ListPoolsByTokenAddrs(ctx, misses)
+	pools, err := q.ListPoolsByTokenAddrs(ctx, misses)
 	if err != nil {
 		h.fail(w, "batch pools", err)
 		return
 	}
-	metas, err := h.q.ListTokenMetadataByAddrs(ctx, misses)
+	metas, err := q.ListTokenMetadataByAddrs(ctx, misses)
 	if err != nil {
 		h.fail(w, "batch metadata", err)
 		return
 	}
-	images, err := h.q.ListTokenImagesByAddrs(ctx, misses)
+	images, err := q.ListTokenImagesByAddrs(ctx, misses)
 	if err != nil {
 		h.fail(w, "batch images", err)
 		return
@@ -305,12 +306,9 @@ func (h *Handlers) batch(w http.ResponseWriter, r *http.Request) {
 	for _, addr := range misses {
 		entry := h.assemble(addr, poolByAddr, metaByAddr, imagesByAddr, base)
 		out[addr] = entry
-		if err := sharedredis.CacheSet(ctx, h.redis, cacheKeyPrefix+addr, entry, jsonCacheTTL); err != nil {
-			h.logErr("batch cache set", err)
-		}
 	}
 
-	w.Header().Set("Cache-Control", "public, max-age=30")
+	w.Header().Set("Cache-Control", "no-store")
 	sharedhttp.WriteJSON(w, http.StatusOK, out)
 }
 
@@ -382,7 +380,7 @@ type uploadError struct {
 }
 
 func (h *Handlers) upload(w http.ResponseWriter, r *http.Request) {
-	if h.identity == nil || h.store == nil || h.q == nil {
+	if h.identity == nil || h.store == nil || h.q == nil || h.db == nil {
 		sharedhttp.WriteError(w, http.StatusServiceUnavailable, "Unavailable", "creator session authority is not configured")
 		return
 	}
@@ -473,29 +471,10 @@ func (h *Handlers) upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	now := h.clock().UnixMilli()
-	resp := types.UploadResponse{Success: true}
-	base := baseURL(h.publicURL, r)
-	for _, up := range uploads {
-		url, err := h.storeImage(ctx, addr, up, now, base)
-		if err != nil {
-			h.fail(w, "store "+up.imageType, err)
-			return
-		}
-		if up.imageType == image.TypeLogo {
-			resp.LogoURL = strPtr(url)
-		} else {
-			resp.BannerURL = strPtr(url)
-		}
-	}
-	if err := h.recordMetadata(ctx, addr, pool.PoolAddress, strings.ToLower(principal.Wallet), meta, now); err != nil {
-		h.fail(w, "upsert metadata", err)
+	resp, err := h.publishLegacy(ctx, addr, pool.PoolAddress, strings.ToLower(principal.Wallet), meta, uploads, baseURL(h.publicURL, r))
+	if err != nil {
+		h.fail(w, "publish metadata", err)
 		return
-	}
-	resp.MetadataUpdated = meta != nil
-
-	if err := sharedredis.CacheInvalidate(ctx, h.redis, cacheKeyPrefix+addr); err != nil {
-		h.logErr("cache invalidate", err)
 	}
 	sharedhttp.WriteJSON(w, http.StatusOK, resp)
 }
@@ -623,38 +602,6 @@ func (h *Handlers) validateImage(ctx context.Context, r *http.Request, imageType
 	return imageUpload{imageType: imageType, mime: sniffed.MIME, data: buf}, true, nil
 }
 
-// storeImage writes one validated image to the bucket and records its key in
-// metadata.token_images (the legacy read + /logo|/banner serve source),
-// removing the previous object when the extension changed.
-func (h *Handlers) storeImage(ctx context.Context, addr string, up imageUpload, now int64, base string) (string, error) {
-	ext := image.ExtForMime(up.mime)
-	storageKey := up.imageType + "s/" + up.imageType + "-" + addr + "." + ext
-	previous, err := h.q.GetImageByType(ctx, sqlcdb.GetImageByTypeParams{TokenAddress: addr, ImageType: up.imageType})
-	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		return "", err
-	}
-	if err := h.store.Put(ctx, storageKey, bytes.NewReader(up.data), int64(len(up.data)), up.mime); err != nil {
-		return "", err
-	}
-	if err := h.q.UpsertTokenImage(ctx, sqlcdb.UpsertTokenImageParams{
-		ID:           addr + "-" + up.imageType,
-		TokenAddress: addr,
-		ImageType:    up.imageType,
-		StorageKey:   storageKey,
-		MimeType:     up.mime,
-		SizeBytes:    int32(len(up.data)),
-		UploadedAt:   now,
-	}); err != nil {
-		return "", err
-	}
-	if previous.StorageKey != "" && previous.StorageKey != storageKey {
-		if err := h.store.Delete(ctx, previous.StorageKey); err != nil && !errors.Is(err, storage.ErrNotFound) {
-			h.logErr("delete replaced object", err)
-		}
-	}
-	return base + "/" + up.imageType + "/" + addr + "." + ext, nil
-}
-
 // lookupPool reads indexer.pools with bounded retries (create-wizard race).
 func (h *Handlers) lookupPool(ctx context.Context, addr string) (sqlcdb.IndexerPool, bool, error) {
 	for attempt := 1; attempt <= h.poolTries; attempt++ {
@@ -715,7 +662,7 @@ func (h *Handlers) serveImage(imageType string) http.HandlerFunc {
 
 		w.Header().Set("Content-Type", img.MimeType)
 		w.Header().Set("X-Content-Type-Options", "nosniff")
-		w.Header().Set("Cache-Control", "public, max-age=300")
+		w.Header().Set("Cache-Control", "no-store")
 		if img.SizeBytes > 0 {
 			w.Header().Set("Content-Length", itoa64(int64(img.SizeBytes)))
 		}

@@ -1,9 +1,9 @@
 [sweep.rust-build-programs]
-revision = "03e2d849d7f3e9ca51cada79f6d3cfe90938a0fb"
+revision = "ace3608260f2ec826292dab08cd058031efe2f46"
 command = "cargo build --locked --manifest-path programs/Cargo.toml -p TARGET --all-targets"
 targets_total = 20
-targets_passed = 19
-targets_failed = 1
+targets_passed = 20
+targets_failed = 0
 targets_not_run = 0
 
 [target.rust-build-programs.1]
@@ -98,10 +98,8 @@ exit_code = 0
 
 [target.rust-build-programs.19]
 target = "wasm-instrument"
-result = "failed"
-exit_code = 101
-observed = "cmake-0.1.58/src/lib.rs:1132:5: the binaryen-sys v0.12.0 build script panicked because executing cmake failed with No such file or directory (os error 2)."
-assumption = "This is an environmental failure caused by CMake being unavailable on the sandbox PATH."
+result = "passed"
+exit_code = 0
 
 [target.rust-build-programs.20]
 target = "wasmi"

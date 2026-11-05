@@ -1,0 +1,243 @@
+[reconcile.r8-144]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r8-144.1]
+interface = "interface.8.go-sdkswift-platformclient-humannativesendaccessconfirm"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 727
+symbol = "humanNativeSendAccessConfirm"
+evidence = "Public PlatformClient extension declares func humanNativeSendAccessConfirm(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue; the signature is unchanged from the registry and the declaration moved from line 631 to 727. The body delegates to read(.humanNativeSendAccessConfirm); enum cases and transport/descriptor switches are not the function declaration."
+
+[row.r8-144.2]
+interface = "interface.8.go-sdkswift-platformclient-humannotificationlist"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 730
+symbol = "humanNotificationList"
+evidence = "Public PlatformClient extension declares func humanNotificationList(_ request: JSONValue = .object([:]), pathParameters: [String: String] = [:]) async throws -> JSONValue; the signature is unchanged from the registry and the declaration moved from line 634 to 730. The body delegates to read(.humanNotificationList); enum cases and transport/descriptor switches are not the function declaration."
+
+[row.r8-144.3]
+interface = "interface.8.go-sdkswift-platformclient-humannotificationpreferencesget"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 733
+symbol = "humanNotificationPreferencesGet"
+evidence = "Public PlatformClient extension declares func humanNotificationPreferencesGet(_ request: JSONValue = .object([:]), pathParameters: [String: String] = [:]) async throws -> JSONValue; the signature is unchanged from the registry and the declaration moved from line 637 to 733. The body delegates to read(.humanNotificationPreferencesGet); enum cases and transport/descriptor switches are not the function declaration."
+
+[row.r8-144.4]
+interface = "interface.8.go-sdkswift-platformclient-humannotificationpreferencesset"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 736
+symbol = "humanNotificationPreferencesSet"
+evidence = "Public PlatformClient extension declares func humanNotificationPreferencesSet(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue; the signature is unchanged from the registry and the declaration moved from line 640 to 736. The body delegates to read(.humanNotificationPreferencesSet); enum cases and transport/descriptor switches are not the function declaration."
+
+[row.r8-144.5]
+interface = "interface.8.go-sdkswift-platformclient-humannotificationread"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 739
+symbol = "humanNotificationRead"
+evidence = "Public PlatformClient extension declares func humanNotificationRead(_ request: JSONValue = .object([:]), pathParameters: [String: String] = [:]) async throws -> JSONValue; the signature is unchanged from the registry and the declaration moved from line 643 to 739. The body delegates to read(.humanNotificationRead); enum cases and transport/descriptor switches are not the function declaration."
+
+[row.r8-144.6]
+interface = "interface.8.go-sdkswift-platformclient-humanonboardingresume"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 742
+symbol = "humanOnboardingResume"
+evidence = "Public PlatformClient extension declares func humanOnboardingResume(_ request: JSONValue = .object([:]), pathParameters: [String: String] = [:]) async throws -> JSONValue; the signature is unchanged from the registry and the declaration moved from line 646 to 742. The body delegates to read(.humanOnboardingResume); enum cases and transport/descriptor switches are not the function declaration."
+
+[row.r8-144.7]
+interface = "interface.8.go-sdkswift-platformclient-humanonboardingstatus"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 745
+symbol = "humanOnboardingStatus"
+evidence = "Public PlatformClient extension declares func humanOnboardingStatus(_ request: JSONValue = .object([:]), pathParameters: [String: String] = [:]) async throws -> JSONValue; the signature is unchanged from the registry and the declaration moved from line 649 to 745. The body delegates to read(.humanOnboardingStatus); enum cases and transport/descriptor switches are not the function declaration."
+
+[row.r8-144.8]
+interface = "interface.8.go-sdkswift-platformclient-humanpasskeyassertbegin"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 748
+symbol = "humanPasskeyAssertBegin"
+evidence = "Public PlatformClient extension declares func humanPasskeyAssertBegin(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue; the signature is unchanged from the registry and the declaration moved from line 652 to 748. The body delegates to read(.humanPasskeyAssertBegin); enum cases and transport/descriptor switches are not the function declaration."
+
+[row.r8-144.9]
+interface = "interface.8.go-sdkswift-platformclient-humanpasskeyassertfinish"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 751
+symbol = "humanPasskeyAssertFinish"
+evidence = "Public PlatformClient extension declares func humanPasskeyAssertFinish(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue; the signature is unchanged from the registry and the declaration moved from line 655 to 751. The body delegates to read(.humanPasskeyAssertFinish); enum cases and transport/descriptor switches are not the function declaration."
+
+[row.r8-144.10]
+interface = "interface.8.go-sdkswift-platformclient-humanpasskeyregisterbegin"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 754
+symbol = "humanPasskeyRegisterBegin"
+evidence = "Public PlatformClient extension declares func humanPasskeyRegisterBegin(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue; the signature is unchanged from the registry and the declaration moved from line 658 to 754. The body delegates to read(.humanPasskeyRegisterBegin); enum cases and transport/descriptor switches are not the function declaration."
+
+[row.r8-144.11]
+interface = "interface.8.go-sdkswift-platformclient-humanpasskeyregisterfinish"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 757
+symbol = "humanPasskeyRegisterFinish"
+evidence = "Public PlatformClient extension declares func humanPasskeyRegisterFinish(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue; the signature is unchanged from the registry and the declaration moved from line 661 to 757. The body delegates to read(.humanPasskeyRegisterFinish); enum cases and transport/descriptor switches are not the function declaration."
+
+[row.r8-144.12]
+interface = "interface.8.go-sdkswift-platformclient-humanprofileget"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 760
+symbol = "humanProfileGet"
+evidence = "Public PlatformClient extension declares func humanProfileGet(_ request: JSONValue = .object([:]), pathParameters: [String: String] = [:]) async throws -> JSONValue; the signature is unchanged from the registry and the declaration moved from line 664 to 760. The body delegates to read(.humanProfileGet); enum cases and transport/descriptor switches are not the function declaration."
+
+[row.r8-144.13]
+interface = "interface.8.go-sdkswift-platformclient-humanprofileupdate"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 763
+symbol = "humanProfileUpdate"
+evidence = "Public PlatformClient extension declares func humanProfileUpdate(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue; the signature is unchanged from the registry and the declaration moved from line 667 to 763. The body delegates to read(.humanProfileUpdate); enum cases and transport/descriptor switches are not the function declaration."
+
+[row.r8-144.14]
+interface = "interface.8.go-sdkswift-platformclient-humansecurityaction"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 766
+symbol = "humanSecurityAction"
+evidence = "Public PlatformClient extension declares func humanSecurityAction(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue; the signature is unchanged from the registry and the declaration moved from line 670 to 766. The body delegates to read(.humanSecurityAction); enum cases and transport/descriptor switches are not the function declaration."
+
+[row.r8-144.15]
+interface = "interface.8.go-sdkswift-platformclient-humansecuritykeyexportbegin"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 769
+symbol = "humanSecurityKeyExportBegin"
+evidence = "Public PlatformClient extension declares func humanSecurityKeyExportBegin(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue; the signature is unchanged from the registry and the declaration moved from line 673 to 769. The body delegates to read(.humanSecurityKeyExportBegin); enum cases and transport/descriptor switches are not the function declaration."
+
+[row.r8-144.16]
+interface = "interface.8.go-sdkswift-platformclient-humansecuritykeyexportfinish"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 772
+symbol = "humanSecurityKeyExportFinish"
+evidence = "Public PlatformClient extension declares func humanSecurityKeyExportFinish(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue; the signature is unchanged from the registry and the declaration moved from line 676 to 772. The body delegates to read(.humanSecurityKeyExportFinish); enum cases and transport/descriptor switches are not the function declaration."
+
+[row.r8-144.17]
+interface = "interface.8.go-sdkswift-platformclient-humansecuritypasskeylist"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 775
+symbol = "humanSecurityPasskeyList"
+evidence = "Public PlatformClient extension declares func humanSecurityPasskeyList(_ request: JSONValue = .object([:]), pathParameters: [String: String] = [:]) async throws -> JSONValue; the signature is unchanged from the registry and the declaration moved from line 679 to 775. The body delegates to read(.humanSecurityPasskeyList); enum cases and transport/descriptor switches are not the function declaration."
+
+[row.r8-144.18]
+interface = "interface.8.go-sdkswift-platformclient-humansecuritypasskeyregisterbegin"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 778
+symbol = "humanSecurityPasskeyRegisterBegin"
+evidence = "Public PlatformClient extension declares func humanSecurityPasskeyRegisterBegin(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue; the signature is unchanged from the registry and the declaration moved from line 682 to 778. The body delegates to read(.humanSecurityPasskeyRegisterBegin); enum cases and transport/descriptor switches are not the function declaration."
+
+[row.r8-144.19]
+interface = "interface.8.go-sdkswift-platformclient-humansecuritypasskeyregisterfinish"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 781
+symbol = "humanSecurityPasskeyRegisterFinish"
+evidence = "Public PlatformClient extension declares func humanSecurityPasskeyRegisterFinish(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue; the signature is unchanged from the registry and the declaration moved from line 685 to 781. The body delegates to read(.humanSecurityPasskeyRegisterFinish); enum cases and transport/descriptor switches are not the function declaration."
+
+[row.r8-144.20]
+interface = "interface.8.go-sdkswift-platformclient-humansecuritypasskeyrevoke"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 784
+symbol = "humanSecurityPasskeyRevoke"
+evidence = "Public PlatformClient extension declares func humanSecurityPasskeyRevoke(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue; the signature is unchanged from the registry and the declaration moved from line 688 to 784. The body delegates to read(.humanSecurityPasskeyRevoke); enum cases and transport/descriptor switches are not the function declaration."
+
+[row.r8-144.21]
+interface = "interface.8.go-sdkswift-platformclient-humansecurityrecoveryreveal"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 787
+symbol = "humanSecurityRecoveryReveal"
+evidence = "Public PlatformClient extension declares func humanSecurityRecoveryReveal(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue; the signature is unchanged from the registry and the declaration moved from line 691 to 787. The body delegates to read(.humanSecurityRecoveryReveal); enum cases and transport/descriptor switches are not the function declaration."
+
+[row.r8-144.22]
+interface = "interface.8.go-sdkswift-platformclient-humansecuritysessionrevoke"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 790
+symbol = "humanSecuritySessionRevoke"
+evidence = "Public PlatformClient extension declares func humanSecuritySessionRevoke(_ request: JSONValue, idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue; the signature is unchanged from the registry and the declaration moved from line 694 to 790. The body delegates to mutate(.humanSecuritySessionRevoke); enum cases and transport/descriptor switches are not the function declaration."
+
+[row.r8-144.23]
+interface = "interface.8.go-sdkswift-platformclient-humansecuritysessionrevokeall"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 793
+symbol = "humanSecuritySessionRevokeAll"
+evidence = "Public PlatformClient extension declares func humanSecuritySessionRevokeAll(_ request: JSONValue, idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue; the signature is unchanged from the registry and the declaration moved from line 697 to 793. The body delegates to mutate(.humanSecuritySessionRevokeAll); enum cases and transport/descriptor switches are not the function declaration."
+
+[row.r8-144.24]
+interface = "interface.8.go-sdkswift-platformclient-humansessionfeepolicy"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 796
+symbol = "humanSessionFeePolicy"
+evidence = "Public PlatformClient extension declares func humanSessionFeePolicy(_ request: JSONValue = .object([:]), pathParameters: [String: String] = [:]) async throws -> JSONValue; the signature is unchanged from the registry and the declaration moved from line 700 to 796. The body delegates to read(.humanSessionFeePolicy); enum cases and transport/descriptor switches are not the function declaration."
+
+[row.r8-144.25]
+interface = "interface.8.go-sdkswift-platformclient-humansessionlist"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 799
+symbol = "humanSessionList"
+evidence = "Public PlatformClient extension declares func humanSessionList(_ request: JSONValue = .object([:]), pathParameters: [String: String] = [:]) async throws -> JSONValue; the signature is unchanged from the registry and the declaration moved from line 703 to 799. The body delegates to read(.humanSessionList); enum cases and transport/descriptor switches are not the function declaration."
+
+[row.r8-144.26]
+interface = "interface.8.go-sdkswift-platformclient-humansessionopen"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 802
+symbol = "humanSessionOpen"
+evidence = "Public PlatformClient extension declares func humanSessionOpen(_ request: JSONValue, idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue; the signature is unchanged from the registry and the declaration moved from line 706 to 802. The body delegates to mutate(.humanSessionOpen); enum cases and transport/descriptor switches are not the function declaration."
+
+[row.r8-144.27]
+interface = "interface.8.go-sdkswift-platformclient-humansessionrefresh"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 805
+symbol = "humanSessionRefresh"
+evidence = "Public PlatformClient extension declares func humanSessionRefresh(_ request: JSONValue = .object([:]), pathParameters: [String: String] = [:]) async throws -> JSONValue; the signature is unchanged from the registry and the declaration moved from line 709 to 805. The body delegates to read(.humanSessionRefresh); enum cases and transport/descriptor switches are not the function declaration."
+
+[row.r8-144.28]
+interface = "interface.8.go-sdkswift-platformclient-humansessionrevoke"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 808
+symbol = "humanSessionRevoke"
+evidence = "Public PlatformClient extension declares func humanSessionRevoke(idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue; the signature is unchanged from the registry and the declaration moved from line 712 to 808. The body delegates to mutate(.humanSessionRevoke); enum cases and transport/descriptor switches are not the function declaration."
+
+[row.r8-144.29]
+interface = "interface.8.go-sdkswift-platformclient-humansessionrevokeall"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 811
+symbol = "humanSessionRevokeAll"
+evidence = "Public PlatformClient extension declares func humanSessionRevokeAll(idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue; the signature is unchanged from the registry and the declaration moved from line 715 to 811. The body delegates to mutate(.humanSessionRevokeAll); enum cases and transport/descriptor switches are not the function declaration."
+
+[row.r8-144.30]
+interface = "interface.8.go-sdkswift-platformclient-humanstepupbegin"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 814
+symbol = "humanStepupBegin"
+evidence = "Public PlatformClient extension declares func humanStepupBegin(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue; the signature is unchanged from the registry and the declaration moved from line 718 to 814. The body delegates to read(.humanStepupBegin); enum cases and transport/descriptor switches are not the function declaration."

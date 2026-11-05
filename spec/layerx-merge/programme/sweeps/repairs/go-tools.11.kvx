@@ -1,0 +1,6 @@
+[repair.go-tools.11]
+target = "tools/qualification/localnode"
+command = "CGO_ENABLED=1 go vet ./tools/qualification/localnode/ && CGO_ENABLED=1 go test -count=1 ./tools/qualification/localnode/"
+revision = "c69af8b6706e55a243bc0f3a0e184b872b900e14"
+result = "repaired"
+change = "tools/qualification/localnode/main_test.go starts and stops the disposable sequencer node and perps gateway for an unconfigured test suite while preserving every existing assertion."

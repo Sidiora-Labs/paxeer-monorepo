@@ -1,0 +1,8 @@
+[repair.22.33.884]
+finding = "22.30.183/f038"
+implementation = "Sync and close a temporary checkpoint, atomically replace the current file, and sync the directory; first atomically persist the previous valid checkpoint as tx-scanner-state.json.previous. Refuse to overwrite corrupt or lost state."
+proof = ["TestRepairM_884_RestartAtomicReplacement", "TestRepairM_884_InterruptedCheckpointRestart", "TestRepairM_884_PublicationFailurePreservesCheckpoint", "TestRepairM_884_AbsentVersusLostCheckpoint", "TestRepairM_884_CorruptCheckpointRefused"]
+wiring_request = "tools/tx-scanner/cmd/scan.go (owning domain 16, fm-tools-ops): handle ReadState errors; start fresh only for errors.Is(err, os.ErrNotExist), and stop with an explicit recovery error otherwise so corrupt state cannot silently reset the scan."
+baseline = "Not run: the explicit task gate order prohibits verification before implementation and requires hf-done after hf-build; no baseline failures are claimed."
+evidence = "The private hf-build/hf-done ledger records the exact candidate revision, command, exit code and log path; qualification is claimed only by its passing hf-done record."
+gotcha = "A missing primary with a surviving previous checkpoint is a recovery condition, not a first start; ReadState and WriteState must preserve that distinction."

@@ -24,6 +24,7 @@ ureq = { version = "=3.4.0", default-features = false, features = ["rustls-no-pr
 rustix = { version = "=1.1.4", features = ["net", "process"] }
 
 [dev-dependencies]
+getrandom = "=0.4.3"
 layerx-programs-runtime = { path = "../../../../programs/crates/layerx-programs-runtime" }
 
 [lints]

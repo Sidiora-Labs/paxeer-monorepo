@@ -1,0 +1,13 @@
+[repair.22.33.48]
+finding = "22.30.106/7"
+proof = "services/human/crates/layerx-human-service/tests/repair_22_33_48.rs"
+tests = ["finding_7_interleaved_preparations_have_one_durable_winner", "finding_7_identical_replay_survives_each_durable_write_and_assertion_expiry", "finding_7_preparation_does_not_extend_assertion_expiry", "finding_7_failed_commit_rolls_back_assertion_device_and_notification", "finding_7_legacy_consumption_without_a_binding_cannot_open_another_session", "finding_7_mixed_preparations_cannot_bypass_the_binding", "finding_7_persistence_failure_leaves_no_partial_opening"]
+rule = "Commit durably binds a verified assertion to exactly one session id; another prepared session is refused and identical committed-session replay remains valid after assertion expiry."
+recovery = "Opening preparation writes its replay record; commit atomically persists assertion binding, device, notification and session in one store transaction. Tests stop and reopen the production store after each opening preparation and commit, in both interleavings, and prove rollback through real pinned-evidence refusals."
+baseline = "Not run: the declared test did not exist on the unchanged tree and the explicit gate order forbids verification before complete implementation. No pre-change test failure is claimed."
+wiring_requests = []
+resolved_wiring = "Human domain repair 22.31.443 is published; services/human/crates/layerx-human-service/tests/observed_balances_denom.rs now uses Quantity constructors and Option<Quantity> expectations."
+evidence = "The runner records the verified candidate revision, exact command, exit code and private log; the final task receipt copies that evidence."
+continuation = "Reviewed the existing repair without replacing it. Attempt 1 candidate fcf8d3081f82b4fbffcb8f04dfc40ad5f752f5ff failed the declared all-tests build in observed_balances_denom.rs with six E0308 type mismatches; no pre-change behavioral verification result is available. Current qualification evidence is supplied by hf-build and hf-done, without a hand-run verification command."
+attempt_3 = "Retained the previous implementation and seven integration tests, reviewed the published dependency repair on the current tree, and used hf-build followed by hf-done, including its dependency check; only their recorded results establish qualification."
+qualification_repair = "The first focused run exposed three test row lookups retaining assertion/device identifier prefixes that production row keys strip; corrected those lookups without changing assertions or production behavior."

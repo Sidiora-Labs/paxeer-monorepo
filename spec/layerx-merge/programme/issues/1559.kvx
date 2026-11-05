@@ -1,0 +1,7 @@
+[issue.1559]
+number = 1559
+title = "[Coherence] The commit says it updates the budgetCreate payload-rule test, but the test still expects one disclosed amount"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "already-fixed"
+evidence = "Commit 9b9f71f043fd795a16f6d408368c9103d1e64c59 updated services/agent/crates/layerx-crypto/tests/budget_call.rs:108 to require two amounts, with Transfer 123 at :109 and :110 and SpendingLimit 100 at :111 and :112, matching the ledger PayBudgetCreate branch in services/agent/crates/layerx-crypto/src/disclosure/call.rs:758, :770 and :778."
+close_comment = "The budgetCreate payload-rule test now checks both disclosed amounts: Transfer 123 and SpendingLimit 100. This matches the ledger budgetCreate disclosure, and the payload refusal assertions remain in place."

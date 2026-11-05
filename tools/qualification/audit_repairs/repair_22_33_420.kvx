@@ -1,0 +1,50 @@
+[repair]
+task = "22.33.420"
+audit = "22.30.145"
+acceptance = "22998.1"
+inspected_revision = "5fc0c55eaaa6d43868c4a2872366299b8b7e2007"
+implementation = "Change only the Paxeer example URL from /rpc to / and admit --all before unknown-option rejection; document approved node-origin replacement with the existing trust and fixture requirements."
+baseline = "No pre-change verify was run: the test module and repair record were absent, gates.jsonl was absent, and gate.json recorded zero builds and verifies. The explicit implementation-first gate order and prohibition on running verify_cmd by hand supersede step 6's baseline request. No baseline test failures are claimed; source inspection confirmed /rpc and the leading-option rejection of --all."
+build_cmd = "bash -n services/bridge/deploy/verify-evm-chain.sh"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_420.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision = "The final hf-done JSON and private evidence_ledger record the exact content-derived revision, command, exit and log; build and verify must pass at the same revision. This record is finalized before qualification because embedding its own candidate revision would change that revision. The runner retains the qualification evidence and publishes the task."
+source_proof = "Tests parse real JSON, freeze every example value except the repaired URL, trace the unchanged URL through the actual Rust loader, URL parser and POST producer, and check operator instructions. They parse the production verifier and overlay with bash -n; execute the actual verifier and run_all without credentials, explorer tools or live endpoints; check both --all forms, record-directory refusal, first-chain failure, cardinality and single-chain validation; and freeze the original verifier except the new case to preserve deployment checks, preflight and submission behavior."
+review_only = "Rust loader execution, TLS authentication, RPC availability, successful eight-chain verification, constructor encoding and explorer submission are not executed. Source contracts check their wiring and ordering; production qualification and operator approval remain with their owners. Neither finding changes a stateful recovery mechanism or introduces an interface."
+runtime = "Pytest uses the standard library and the required Bash interpreter with real dirname/basename startup utilities. Child environments inherit no operator variables and PATH contains only those three real executables, so jq/forge/cast and explorer publication are unreachable. No build toolchain, network, credential, mock, fake peer or replacement production implementation is used."
+
+[finding.relayer-paxeer-path]
+file = "services/bridge/deploy/relayer-solana.example.json"
+class = "retired-reference"
+severity = "medium"
+resolution = "The Paxeer .invalid URL uses /; every other JSON value, fixture key, trust anchor and foreign /rpc path is unchanged. The runbook requires an approved node origin at / and preserves TLS verification. Closure depends on passing hf-done evidence."
+tests = ["test_relayer_paxeer_root_and_all_other_example_facts_are_preserved", "test_relayer_example_loader_transport_and_operator_contract_agree"]
+
+[finding.bridge-all-option]
+file = "services/bridge/deploy/verify-evm-chain.sh"
+class = "runtime-risk"
+severity = "medium"
+resolution = "Recognize --all without shifting it, retaining the one-argument guard and existing run_all dispatch. Both submission and preflight forms reach the real record-directory guard and stop on the first failed chain. Closure depends on passing hf-done evidence."
+tests = ["test_shell_sources_parse_with_bash_n", "test_bridge_all_preserves_deployment_checks_preflight_and_order", "test_bridge_all_reaches_real_run_all_and_stops_before_explorer", "test_bridge_option_cardinality_and_unknown_leading_option_are_rejected", "test_bridge_single_chain_validation_remains_fail_closed"]
+
+[wiring]
+relayer = "Domain 11: services/interop/crates/layerx-bridge-relayer/src/config.rs and src/transport.rs retain loader/transport ownership; consume the corrected example URL unchanged and retain trust-anchor verification; no out-of-scope code change is requested."
+
+[format]
+policy = "No Python, Bash, Markdown or KVX formatter is configured for these paths. Preserve existing style and apply .editorconfig whitespace/newline conventions to touched files after implementation; retain the existing two-space JSON formatting."
+
+[gotcha.context]
+observed = "The inherited .cgignore and task-status edits belong to runner setup; cg brief reports unrelated cached task context, and large combined reads exceed output bounds."
+resolution = "Use actual Git status/diff, task-specific source sections and the private gate ledger; preserve inherited changes. GOTCHA.kvx and spec files are outside scope, so task notes are kept here."
+
+[gotcha.discovery]
+observed = "A guessed neighboring repair module was absent, and acceptance 22998.1 is nested under req.22998 rather than a standalone req.22998.1 section."
+resolution = "Use existing task-local paths and the supplied acceptance text; no absent-file or substring lookup is a qualification result."
+
+[repair_cycle.1]
+revision = "3855199bdec07f6b030d577b55db1156ebebdb15"
+command = "cg spec done 22.33.420 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "24 tests passed; two new missing-directory cases expected the environment-variable name where the unchanged production guard reports its expanded path."
+repair = "Assert the complete stderr line with the exact missing directory path; retain the guard, exit-code, no-usage and no-output assertions and rebuild before verification."

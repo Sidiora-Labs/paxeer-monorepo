@@ -1,0 +1,47 @@
+[repair.22.31.65]
+audit = "22.30.38"
+base_revision = "9b3c0edb83db2c918d37d3910bad522f5b067ca3"
+qualification = "hf-build followed by hf-done; the private runner ledger records the exact qualified candidate revision, command, exit and log."
+baseline = "No baseline verification was run: the explicit task order and allowed gates prohibit testing before complete implementation and prohibit invoking verify_cmd by hand. No claim of observed pre-change failures is made."
+
+[finding.payout-dispatch-crash]
+task_alias = "routing"
+test = "TestRepair_65_RoutingRestart"
+proof = "Kill a real worker process at durable intent, request send and accepted response boundaries; reopen its PostgreSQL store and provider client after the original lease expires; real TLS requests drive a durable local provider that executes Anvil transfers; assert one provider key, one chain transaction and one independently verified receipt. Disconnect the independent receipt reader to prove acceptance alone cannot settle or release inventory."
+change = "Submitted remains compatible durable intent; Accepted records a positive provider acknowledgement. An authoritative absent lookup permits resubmission using the original obligation key."
+wiring = "Domain 4 payout-provider owner: wire the deployed provider endpoint for services/launchpad/security/control/providers.go to authoritative key lookup and durable idempotent acceptance; this test qualifies the real local HTTP/PostgreSQL/Anvil path, not an external production provider."
+
+[finding.recovery-delete-grant]
+tests = ["TestRepair_65_RecoveryWithProductionGrants", "TestRepair_65_RecoveryPreservesNewerQuarantine", "TestRepair_65_RecoveryMarkerFailsClosed"]
+proof = "Authenticated HTTP recovery through the real Store and IncidentRecovery runs under a non-owner role granted the exact control_runtime table privileges from the production manifest; actual old credentials are revoked, a replacement is issued, and independent durable recovery evidence is consumed. Check restored operations and approver eligibility, retained history, denial without evidence, and rollback for newer quarantine."
+change = "Recovery updates the current contained quarantine to a recovered marker. Both actor authorization and approval authorization require a matching recovered incident with rotation and integrity references. No DELETE privilege is introduced."
+wiring = "Domain 4 integration owner: launchpad/spec/production-system/integration/migrations/470000.sql and grants.json remain outside scope; deploy the recovered-marker consumer with the existing SELECT, INSERT, UPDATE(body) grants, retaining incident history and without adding DELETE."
+evidence_boundary = "Secret/cache adapters are outside scope; successful recovery tests supply their durable completed outbox evidence, while exercising real IncidentWorker credential revocation, independent IncidentRecovery reads and runtime SQL grants."
+
+[finding.policy-write-read-shape]
+tests = ["TestRepair_65_PolicyWriteReadShape", "TestRepair_65_PolicyRejectsMalformedBeforeCommit"]
+proof = "Real SQL identity and HTTP POST policies -> GET campaigns -> POST/GET recommendations preserve UUID campaign/account IDs and EVM assetAllowlist encodings for both budget assets. Malformed IDs, addresses and duplicate instruments are rejected without policy writes; anonymous and foreign reads remain denied."
+change = "CreatePolicy requires the same UUID encodings and nonzero lowercase EVM destinations as PublicCampaign. Existing automation test fixtures now use valid frozen encodings without changing assertions."
+
+[qualification.previous_attempt]
+revision = "3c08e7b99ff6837f9df6f0749e82e3e2484fe624"
+command = "cg spec done 22.31.65 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build passed at this revision, but verification stopped in the existing TestMain fixture because anvil was absent from PATH; no test bodies ran and no behavior qualification is claimed."
+
+[qualification.environment]
+prerequisite = "Anvil 1.7.1 installed from @foundry-rs/anvil outside the repository; the unchanged real-chain fixture can now start its required process."
+evidence = "The final hf-done JSON and private gate ledger identify the verified revision; this record is frozen before hf-build so build and verify qualify the same candidate."
+
+[gotcha.repair65-anvil]
+symptom = "The package verification exits in TestMain before running test bodies when anvil is missing from PATH."
+do = "Provision the real Anvil executable before hf-build and hf-done; retain the fixture and its chain assertions."
+
+[qualification.repair]
+revision = "bd5540cd94a171632a7c5ea912d6fb8ca7129a8f"
+command = "cg spec done 22.31.65 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The intent restart reached the real provider submission but returned authority_unavailable; the other restart boundaries and interface tests passed."
+repair = "The local payout endpoint waits within its existing deadline when Anvil has accepted a transaction but its receipt is not yet available; it still requires a successful real receipt before persisting acceptance, and reports endpoint errors."

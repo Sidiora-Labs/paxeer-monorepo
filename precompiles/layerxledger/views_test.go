@@ -38,8 +38,10 @@ type precompileViewFixture struct {
 	global    uint64
 }
 
-func (f *precompileViewFixture) execute(t *testing.T, private ed25519.PrivateKey, kind uint32, sequence uint64, payload []byte, idempotency [32]byte) {
+func (f *precompileViewFixture) execute(t *testing.T, private ed25519.PrivateKey, kind uint32, sequence uint64, payload []byte, idempotency [32]byte, refusal bool) {
 	t.Helper()
+	hostBefore := storeSnapshot(t, f.ctx.KVStore(f.hostKey))
+	ledgerBefore := storeSnapshot(t, f.ctx.KVStore(f.storeKey))
 	f.global++
 	var key [32]byte
 	copy(key[:], private.Public().(ed25519.PublicKey))
@@ -60,6 +62,14 @@ func (f *precompileViewFixture) execute(t *testing.T, private ed25519.PrivateKey
 	activity.Signature = ed25519.Sign(private, hash[:])
 	receipt, err := f.host.Execute(lxphost.WithSequence(f.ctx, f.global), activity,
 		lxphost.KernelAuthority{Actor: owner, Principal: owner, VerifiedKey: key})
+	if refusal {
+		require.ErrorIs(t, err, lxphost.Code(-106))
+		require.Empty(t, receipt.Encoded)
+		require.Equal(t, hostBefore, storeSnapshot(t, f.ctx.KVStore(f.hostKey)))
+		require.Equal(t, ledgerBefore, storeSnapshot(t, f.ctx.KVStore(f.storeKey)))
+		f.global--
+		return
+	}
 	require.NoError(t, err)
 	require.Equal(t, lxphost.Code(0), receipt.ResultCode)
 }
@@ -85,25 +95,25 @@ func newPrecompileViewFixture(t *testing.T) *precompileViewFixture {
 		SupplyCap: f.cap, IssuerKind: 2, CustodyReference: []byte("reserve"),
 	})
 	require.NoError(t, err)
-	f.execute(t, f.private, 0x00010001, 0, registration, [32]byte{})
-	f.execute(t, f.private, 0x00010004, 1, types.EncodeOpenAccountPayload(f.asset), [32]byte{})
+	f.execute(t, f.private, 0x00010001, 0, registration, [32]byte{}, false)
+	f.execute(t, f.private, 0x00010004, 1, types.EncodeOpenAccountPayload(f.asset), [32]byte{}, false)
 	mint, err := types.EncodeSupplyPayload(f.asset, f.account, f.minted)
 	require.NoError(t, err)
-	f.execute(t, f.private, 0x0001000a, 2, mint, [32]byte{})
+	f.execute(t, f.private, 0x0001000a, 2, mint, [32]byte{}, false)
 	seed[0] = 2
 	recipientPrivate := ed25519.NewKeyFromSeed(seed[:])
 	var recipientKey [32]byte
 	copy(recipientKey[:], recipientPrivate.Public().(ed25519.PublicKey))
 	_, f.recipient, err = lxphost.AssetAccountID(recipientKey, f.asset)
 	require.NoError(t, err)
-	f.execute(t, recipientPrivate, 0x00010004, 0, types.EncodeOpenAccountPayload(f.asset), [32]byte{})
+	f.execute(t, recipientPrivate, 0x00010004, 0, types.EncodeOpenAccountPayload(f.asset), [32]byte{}, false)
 
 	burn, err := types.EncodeSupplyPayload(f.asset, f.account, sdk.NewInt(10))
 	require.NoError(t, err)
-	f.execute(t, f.private, 0x0001000b, 3, burn, [32]byte{})
+	f.execute(t, f.private, 0x0001000b, 3, burn, [32]byte{}, false)
 	recipientMint, err := types.EncodeSupplyPayload(f.asset, f.recipient, sdk.NewInt(10))
 	require.NoError(t, err)
-	f.execute(t, f.private, 0x0001000a, 4, recipientMint, [32]byte{})
+	f.execute(t, f.private, 0x0001000a, 4, recipientMint, [32]byte{}, false)
 
 	body := append(append([]byte(nil), f.account[:]...), f.recipient[:]...)
 	body = append(body, f.asset[:]...)
@@ -124,14 +134,17 @@ func newPrecompileViewFixture(t *testing.T) *precompileViewFixture {
 	f.grant = append(append([]byte(nil), f.grantID[:]...), body...)
 	f.grant = append(f.grant, ed25519.Sign(f.private, f.grantID[:])...)
 	require.NoError(t, types.ValidateIssueGrantPayload(f.grant))
-	// Decision 2340: even a well-formed grant never reaches the kernel.
+	// 52fda45db retired these kernel activities; the keeper also refuses
+	// well-formed payer grants before dispatch (decision 2340).
+	f.execute(t, f.private, 0x00010007, 5, f.grant, [32]byte{}, true)
+	f.execute(t, f.private, 0x00010008, 5, types.EncodeRevokeGrantPayload(f.grantID, 5), [32]byte{}, true)
 	before := storeSnapshot(t, f.ctx.KVStore(f.hostKey))
 	_, err = f.keeper.IssueGrant(f.ctx, ledgerkeeper.Actor{}, f.grant, [32]byte{})
 	require.ErrorIs(t, err, types.ErrNoPayerGrant)
 	_, err = f.keeper.RevokeGrant(f.ctx, ledgerkeeper.Actor{}, f.grantID, 5, [32]byte{})
 	require.ErrorIs(t, err, types.ErrNoPayerGrant)
 	require.Equal(t, before, storeSnapshot(t, f.ctx.KVStore(f.hostKey)))
-	f.execute(t, f.private, 0x00010002, 5, types.EncodePausePayload(f.asset), [32]byte{})
+	f.execute(t, f.private, 0x00010002, 5, types.EncodePausePayload(f.asset), [32]byte{}, false)
 	return f
 }
 
@@ -158,7 +171,11 @@ func (f *precompileViewFixture) cases(t *testing.T) []precompileViewCase {
 	owner, err := f.keeper.AccountOwner(f.ctx, f.account)
 	require.NoError(t, err)
 	require.Equal(t, f.owner, owner)
-	sequence, err := f.keeper.NextSequence(f.ctx, f.key, f.asset)
+	data, err := f.precompile.Run(f.evm, f.caller, common.Address{},
+		f.input(t, "getPayerGrant", []interface{}{f.grantID}), nil, true, false, nil)
+	require.ErrorIs(t, err, vm.ErrExecutionReverted)
+	assertLedgerRevert(t, data, "LXP_NO_PAYER_GRANT")
+	sequence, err := f.keeper.NextSequenceByAccountID(f.ctx, f.account, f.asset)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), sequence)
 	return []precompileViewCase{
@@ -170,7 +187,7 @@ func (f *precompileViewFixture) cases(t *testing.T) []precompileViewCase {
 		{"accountId", []interface{}{f.key, f.asset}, []interface{}{f.account}},
 		{"accountOwner", []interface{}{f.account}, []interface{}{owner}},
 		{"getPayerGrant", []interface{}{f.grantID}, nil},
-		{"nextSequence", []interface{}{f.key, f.asset}, []interface{}{sequence}},
+		{"nextSequence", []interface{}{f.account, f.asset}, []interface{}{sequence}},
 	}
 }
 
@@ -193,14 +210,14 @@ func (f *precompileViewFixture) assertView(t *testing.T, caller common.Address, 
 	require.Equal(t, ledgerBefore, storeSnapshot(t, f.ctx.KVStore(f.storeKey)))
 	require.Len(t, f.ctx.EventManager().Events(), eventsBefore)
 	require.Len(t, f.stateDB.GetAllLogs(), logsBefore)
+	method := f.precompile.GetABI().Methods[view.name]
+	require.True(t, method.IsConstant())
 	if view.name == "getPayerGrant" {
 		require.ErrorIs(t, err, vm.ErrExecutionReverted)
 		assertLedgerRevert(t, data, "LXP_NO_PAYER_GRANT")
 		return
 	}
 	require.NoError(t, err, "view %s: return data %x", view.name, data)
-	method := f.precompile.GetABI().Methods[view.name]
-	require.True(t, method.IsConstant())
 	want, err := method.Outputs.Pack(view.want...)
 	require.NoError(t, err)
 	require.Equal(t, want, data)
@@ -297,4 +314,25 @@ func TestPrecompileViewsIgnorePause(t *testing.T) {
 		require.Equal(t, hostBefore, storeSnapshot(t, f.ctx.KVStore(f.hostKey)))
 		require.Equal(t, ledgerBefore, storeSnapshot(t, f.ctx.KVStore(f.storeKey)))
 	})
+}
+
+func TestPrecompileNextSequenceReopen(t *testing.T) {
+	f := newRepair144Fixture(t)
+	f.sequence(t, f.from, 0)
+	f.sequence(t, f.to, 0)
+	f.refused(t, f.sender, "LXP_UNKNOWN_ACCOUNT_NAMESPACE", "nextSequence", [32]byte{}, f.asset)
+	f.p.success(t, f.sender, "mint", f.asset, f.from, big.NewInt(250))
+	f.p.success(t, f.sender, "send", f.envelope(t, 0, 40, 0x91))
+	f.sequence(t, f.from, 1)
+	f.sequence(t, f.to, 0)
+	f.balances(t, 210, 40)
+	f.reopen(t)
+	require.Equal(t, f.from, accountId(t, f.p, f.sender, f.payer.DIDKey, f.asset))
+	f.sequence(t, f.from, 1)
+	f.sequence(t, f.to, 0)
+	f.balances(t, 210, 40)
+	f.refused(t, f.sender, "LXP_UNKNOWN_ACCOUNT_NAMESPACE", "nextSequence", [32]byte{}, f.asset)
+	f.p.success(t, f.sender, "send", f.envelope(t, 1, 10, 0x92))
+	f.sequence(t, f.from, 2)
+	f.balances(t, 200, 50)
 }

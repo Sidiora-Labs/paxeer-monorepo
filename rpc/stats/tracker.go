@@ -13,8 +13,8 @@ import (
 var (
 	logger = paxlog.NewLogger("evmrpc", "stats")
 
-	httpTracker *tracker
-	wsTracker   *tracker
+	httpTracker trackerSlot
+	wsTracker   trackerSlot
 )
 
 type apiEvent struct {
@@ -41,21 +41,41 @@ type methodStats struct {
 	maxLatency   time.Duration
 }
 
-// InitRPCTracker initializes the HTTP/RPC tracker.
-func InitRPCTracker(ctx context.Context, interval time.Duration) {
-	if interval > 0 {
-		httpTracker = newTracker(ctx, "http", interval)
-	}
+type trackerSlot struct {
+	mu      sync.RWMutex
+	current *tracker
 }
 
-// InitWSTracker initializes the WebSocket tracker.
-func InitWSTracker(ctx context.Context, interval time.Duration) {
-	if interval > 0 {
-		wsTracker = newTracker(ctx, "ws", interval)
+// InitRPCTracker replaces the HTTP/RPC tracker and returns its owned handle.
+// A non-positive interval disables tracking and stops the previous tracker.
+func InitRPCTracker(ctx context.Context, interval time.Duration) *tracker {
+	return httpTracker.replace(ctx, "http", interval)
+}
+
+// InitWSTracker replaces the WebSocket tracker and returns its owned handle.
+// A non-positive interval disables tracking and stops the previous tracker.
+func InitWSTracker(ctx context.Context, interval time.Duration) *tracker {
+	return wsTracker.replace(ctx, "ws", interval)
+}
+
+func (s *trackerSlot) replace(ctx context.Context, connType string, interval time.Duration) *tracker {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.current != nil {
+		s.current.stop()
+		s.current = nil
 	}
+	if interval <= 0 {
+		return nil
+	}
+	t := newTracker(ctx, connType, interval)
+	t.owner = s
+	s.current = t
+	return t
 }
 
 type tracker struct {
+	owner    *trackerSlot
 	logger   *slog.Logger
 	ch       chan apiEvent
 	interval time.Duration
@@ -102,9 +122,18 @@ func (t *tracker) run() {
 		select {
 		case <-t.ctx.Done():
 			t.logger.Info("stats tracker stopping", "reason", t.ctx.Err())
-			// Report current period before stopping
-			t.reportCurrentPeriod()
-			return
+			// Join in-flight producers before draining the final accepted events.
+			t.mu.Lock()
+			t.mu.Unlock()
+			for {
+				select {
+				case event := <-t.ch:
+					t.processEvent(event)
+				default:
+					t.reportCurrentPeriod()
+					return
+				}
+			}
 		case event := <-t.ch:
 			// Process event immediately
 			t.processEvent(event)
@@ -235,6 +264,12 @@ func (t *tracker) TrackMessage(method string, connectionType string, startTime t
 		return // Gracefully handle nil tracker
 	}
 
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	if t.ctx.Err() != nil {
+		return
+	}
+
 	endTime := time.Now()
 	event := apiEvent{
 		Method:    method,
@@ -254,26 +289,38 @@ func (t *tracker) TrackMessage(method string, connectionType string, startTime t
 	}
 }
 
+// Stop releases this handle without disabling a newer replacement.
 func (t *tracker) Stop() {
-	t.cancel()  // Cancel context to stop the goroutine
-	t.wg.Wait() // Wait for goroutine to finish
-	t.logger.Info("stats tracker stopped")
+	if t == nil {
+		return
+	}
+	if t.owner != nil {
+		t.owner.mu.Lock()
+		defer t.owner.mu.Unlock()
+		if t.owner.current == t {
+			t.owner.current = nil
+		}
+	}
+	t.stop()
 }
 
-// RecordAPIInvocation is a simple entry point for recording API calls.
-// It uses the appropriate tracker based on connection type.
-// InitRPCTracker and InitWSTracker must be called first from server creation.
+func (t *tracker) stop() {
+	t.cancel()
+	t.wg.Wait()
+}
+
+// RecordAPIInvocation records a call using the active tracker for its transport.
 func RecordAPIInvocation(method string, connectionType string, startTime time.Time, success bool) {
+	var slot *trackerSlot
 	switch connectionType {
 	case "http":
-		if httpTracker == nil {
-			return
-		}
-		httpTracker.TrackMessage(method, connectionType, startTime, success)
+		slot = &httpTracker
 	case "websocket":
-		if wsTracker == nil {
-			return
-		}
-		wsTracker.TrackMessage(method, connectionType, startTime, success)
+		slot = &wsTracker
+	default:
+		return
 	}
+	slot.mu.RLock()
+	defer slot.mu.RUnlock()
+	slot.current.TrackMessage(method, connectionType, startTime, success)
 }

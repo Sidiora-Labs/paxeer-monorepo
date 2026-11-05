@@ -18,16 +18,44 @@
     - cmd: paxd q gov proposal $PROPOSAL_ID --output json | jq -r .status
     - cmd: paxdbin=paxd; chainid=pax; source tests/integration/utils/_tx_helpers.sh && submit_tx_and_wait node_admin gov vote $PROPOSAL_ID yes --fees 2000uhpx
       node: pax-node-1
-    # since quorum is 0.5, we only need 2/4 votes and expect proposal to pass after 35 seconds
-    - cmd: sleep 35
-    - cmd: paxd q gov proposal $PROPOSAL_ID --output json | jq -r .status
+    # Poll this proposal at committed heights until execution succeeds.
+    - cmd: |
+        set -euo pipefail
+        deadline=$((SECONDS + 90))
+        query() {
+          remaining=$((deadline - SECONDS))
+          if (( remaining <= 0 )); then
+            echo "Deadline exceeded for proposal $PROPOSAL_ID" >&2
+            exit 1
+          fi
+          timeout "${remaining}s" paxd "$@"
+        }
+        while (( SECONDS < deadline )); do
+          height=$(query status | jq -er '.SyncInfo.latest_block_height | tonumber | select(. > 0)')
+          status=$(query q gov proposal "$PROPOSAL_ID" --height "$height" --output json | jq -er .status)
+          case "$status" in
+            PROPOSAL_STATUS_PASSED) printf '%s\n' "$height"; exit 0 ;;
+            PROPOSAL_STATUS_REJECTED|PROPOSAL_STATUS_FAILED)
+              echo "Proposal $PROPOSAL_ID reached unexpected $status" >&2
+              exit 1 ;;
+            PROPOSAL_STATUS_DEPOSIT_PERIOD|PROPOSAL_STATUS_VOTING_PERIOD) ;;
+            *) echo "Unknown proposal status: $status" >&2; exit 1 ;;
+          esac
+          sleep 1
+        done
+        echo "Deadline exceeded for proposal $PROPOSAL_ID" >&2
+        exit 1
+      env: POST_EXECUTION_HEIGHT
+    - cmd: paxd q gov proposal "$PROPOSAL_ID" --height "$POST_EXECUTION_HEIGHT" --output json | jq -r .status
       env: PROPOSAL_STATUS
     # Get the tally params again after proposal is passed
-    - cmd: paxd q gov params --output json | jq -r .tally_params.quorum
+    - cmd: paxd q gov params --height "$POST_EXECUTION_HEIGHT" --output json | jq -r .tally_params.quorum
       env: NEW_TALLY_PARAM
-    - cmd: paxd q params subspace baseapp ABCIParams --output json |jq -r .value |jq .recheck_tx
+    - cmd: paxd q params subspace baseapp ABCIParams --height "$POST_EXECUTION_HEIGHT" --output json |jq -r .value |jq .recheck_tx
       env: NEW_ABCI_PARAM
   verifiers:
+    - type: eval
+      expr: PROPOSAL_STATUS == "PROPOSAL_STATUS_PASSED"
     # Check if the new params matches the expected value after proposal
     - type: eval
       expr: NEW_TALLY_PARAM == 0.450000000000000000
@@ -62,22 +90,52 @@
     - cmd: paxd q gov proposal $PROPOSAL_ID --output json | jq -r .status
     - cmd: paxdbin=paxd; chainid=pax; source tests/integration/utils/_tx_helpers.sh && submit_tx_and_wait node_admin gov vote $PROPOSAL_ID yes --fees 2000uhpx
       node: pax-node-3
-    # since expedited quorum is 0.9, we only need 4/4 votes and expect expedited proposal to pass after 20 seconds
-    - cmd: sleep 20
-    - cmd: paxd q gov proposal $PROPOSAL_ID --output json | jq -r .status
+    # Poll this proposal at committed heights until execution succeeds.
+    - cmd: |
+        set -euo pipefail
+        deadline=$((SECONDS + 90))
+        query() {
+          remaining=$((deadline - SECONDS))
+          if (( remaining <= 0 )); then
+            echo "Deadline exceeded for proposal $PROPOSAL_ID" >&2
+            exit 1
+          fi
+          timeout "${remaining}s" paxd "$@"
+        }
+        while (( SECONDS < deadline )); do
+          height=$(query status | jq -er '.SyncInfo.latest_block_height | tonumber | select(. > 0)')
+          status=$(query q gov proposal "$PROPOSAL_ID" --height "$height" --output json | jq -er .status)
+          case "$status" in
+            PROPOSAL_STATUS_PASSED) printf '%s\n' "$height"; exit 0 ;;
+            PROPOSAL_STATUS_REJECTED|PROPOSAL_STATUS_FAILED)
+              echo "Proposal $PROPOSAL_ID reached unexpected $status" >&2
+              exit 1 ;;
+            PROPOSAL_STATUS_DEPOSIT_PERIOD|PROPOSAL_STATUS_VOTING_PERIOD) ;;
+            *) echo "Unknown proposal status: $status" >&2; exit 1 ;;
+          esac
+          sleep 1
+        done
+        echo "Deadline exceeded for proposal $PROPOSAL_ID" >&2
+        exit 1
+      env: POST_EXECUTION_HEIGHT
+    - cmd: paxd q gov proposal "$PROPOSAL_ID" --height "$POST_EXECUTION_HEIGHT" --output json | jq -r .status
       env: PROPOSAL_STATUS
     # Get the tally params again after proposal is passed
-    - cmd: paxd q gov params --output json | jq -r .tally_params.expedited_quorum
+    - cmd: paxd q gov params --height "$POST_EXECUTION_HEIGHT" --output json | jq -r .tally_params.expedited_quorum
       env: NEW_PARAM
   verifiers:
+    - type: eval
+      expr: PROPOSAL_STATUS == "PROPOSAL_STATUS_PASSED"
     # Check if the new params is the expected value after proposal
     - type: eval
       expr: NEW_PARAM == 0.750000000000000000
 
 - name: Test making a proposal which got rejected should burn tokens
   inputs:
-    # Get the current tally params
-    - cmd: paxd q bank total --denom uhpx --output json | jq -r .amount
+    # Capture supply at a committed height before submitting this proposal.
+    - cmd: set -euo pipefail; paxd status | jq -er '.SyncInfo.latest_block_height | tonumber | select(. > 0)'
+      env: PRE_PROPOSAL_HEIGHT
+    - cmd: set -euo pipefail; paxd q bank total --denom uhpx --height "$PRE_PROPOSAL_HEIGHT" --output json | jq -er .amount
       env: TOTAL_SUPPLY_BEFORE_BURN
     # Make a new expedited proposal
     - cmd: paxdbin=paxd; chainid=pax; source tests/integration/utils/_tx_helpers.sh && submit_gov_proposal admin "Gov Param Change Expedited" gov submit-proposal param-change ./tests/integration/gov_module/proposal/expedited_proposal.json --fees 2000uhpx
@@ -90,19 +148,47 @@
     # only pax-node-0 vote yes
     - cmd: paxdbin=paxd; chainid=pax; source tests/integration/utils/_tx_helpers.sh && submit_tx_and_wait node_admin gov vote $PROPOSAL_ID yes --fees 2000uhpx
       node: pax-node-0
-    # since expedited quorum is 0.75, we expect it to be rejected and burn tokens, the since expected proposal will auto convert to normal proposal, we need to wait 35 seconds
-    - cmd: sleep 35
-    - cmd: paxd q gov proposal $PROPOSAL_ID --output json | jq -r .status
+    # Expedited failure converts to regular voting; wait for final rejection.
+    - cmd: |
+        set -euo pipefail
+        deadline=$((SECONDS + 90))
+        query() {
+          remaining=$((deadline - SECONDS))
+          if (( remaining <= 0 )); then
+            echo "Deadline exceeded for proposal $PROPOSAL_ID" >&2
+            exit 1
+          fi
+          timeout "${remaining}s" paxd "$@"
+        }
+        while (( SECONDS < deadline )); do
+          height=$(query status | jq -er '.SyncInfo.latest_block_height | tonumber | select(. > 0)')
+          status=$(query q gov proposal "$PROPOSAL_ID" --height "$height" --output json | jq -er .status)
+          case "$status" in
+            PROPOSAL_STATUS_REJECTED) printf '%s\n' "$height"; exit 0 ;;
+            PROPOSAL_STATUS_PASSED|PROPOSAL_STATUS_FAILED)
+              echo "Proposal $PROPOSAL_ID reached unexpected $status" >&2
+              exit 1 ;;
+            PROPOSAL_STATUS_DEPOSIT_PERIOD|PROPOSAL_STATUS_VOTING_PERIOD) ;;
+            *) echo "Unknown proposal status: $status" >&2; exit 1 ;;
+          esac
+          sleep 1
+        done
+        echo "Deadline exceeded for proposal $PROPOSAL_ID" >&2
+        exit 1
+      env: POST_EXECUTION_HEIGHT
+    - cmd: paxd q gov proposal "$PROPOSAL_ID" --height "$POST_EXECUTION_HEIGHT" --output json | jq -r .status
       env: PROPOSAL_STATUS
     # Get the tally params again after proposal is passed
-    - cmd: paxd q gov params --output json | jq -r .tally_params.expedited_quorum
+    - cmd: paxd q gov params --height "$POST_EXECUTION_HEIGHT" --output json | jq -r .tally_params.expedited_quorum
       env: NEW_PARAM
-    # Get the current tally params
-    - cmd: paxd q bank total --denom uhpx --output json | jq -r .amount
+    # Measure the same denom at the committed rejection height.
+    - cmd: set -euo pipefail; paxd q bank total --denom uhpx --height "$POST_EXECUTION_HEIGHT" --output json | jq -er .amount
       env: TOTAL_SUPPLY_AFTER_BURN
   verifiers:
-    # Check if the total supply is reduced or not to verify token burns
+    # Both the proposal's initial deposit and the subsequent deposit must burn.
     - type: eval
-      expr: TOTAL_SUPPLY_BEFORE_BURN == 5000000000333333333333
+      expr: PROPOSAL_STATUS == "PROPOSAL_STATUS_REJECTED"
     - type: eval
-      expr: TOTAL_SUPPLY_AFTER_BURN == 5000000000333313333333
+      expr: POST_EXECUTION_HEIGHT > PRE_PROPOSAL_HEIGHT
+    - type: eval
+      expr: TOTAL_SUPPLY_BEFORE_BURN - TOTAL_SUPPLY_AFTER_BURN == 20000000

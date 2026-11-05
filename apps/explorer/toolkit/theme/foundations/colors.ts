@@ -2,61 +2,119 @@ import { defaultsDeep } from 'es-toolkit/compat';
 
 import config from 'configs/app';
 
-// The product design tokens, one set per appearance.
-const LIGHT = {
-  surfaceContainer: '#F8F9FC',
-  surface: '#FFFFFF',
-  surfaceContainerHigh: '#EFF2F7',
-  onSurface: '#121317',
-  onSurfaceVariant: '#45474D',
-  iconSecondary: '#80868B',
-  outline: 'rgba(33, 34, 38, 0.12)',
-  dataTableBorder: '#BDC1C6',
-  primary: '#121317',
-  onPrimary: '#FFFFFF',
-  primaryHover: '#2B2D31',
-  tonal: '#E6EAF0',
+// Decision 2587: the explorer palette, with compatibility names for existing consumers.
+const LIGHT_ROLES = {
+  canvas: '#FFFFFF',
+  surface: '#F7F8FA',
+  raised: '#FFFFFF',
+  hairline: 'rgba(16,18,24,0.08)',
+  borderStrong: 'rgba(16,18,24,0.16)',
+  textPrimary: '#0E1016',
+  textSecondary: '#4B5262',
+  textMuted: '#8A91A0',
   accent: '#2B4FDA',
-  accentStrong: '#1E2867',
-  accentSoft: '#DCF1FF',
-  graphStart: 'rgba(43, 79, 218, 0.3)',
-  graphStop: 'rgba(43, 79, 218, 0)',
-  success: '#005143',
-  successSoft: '#DAF9D4',
-  destructive: '#BE1C1B',
-  destructiveSoft: '#FFEEF7',
-  warning: '#9E3D02',
-  warningSoft: '#FCFFAD',
+  accentSoft: 'rgba(43,79,218,0.10)',
+  onAccent: '#FFFFFF',
+  positive: '#0E8F55',
+  positiveSoft: 'rgba(14,143,85,0.10)',
+  negative: '#D1343B',
+  negativeSoft: 'rgba(209,52,59,0.10)',
+  warning: '#B46A00',
+  warningSoft: 'rgba(180,106,0,0.10)',
+  headerBar: 'rgba(255,255,255,0.85)',
+  chartAreaStart: 'rgba(43,79,218,0.30)',
+  chartAreaStop: 'rgba(43,79,218,0)',
 };
 
-const DARK = {
-  surfaceContainer: '#121317',
-  surface: '#18191D',
-  surfaceContainerHigh: '#212226',
-  onSurface: '#F8F9FC',
-  onSurfaceVariant: '#B2BBC5',
-  iconSecondary: '#80868B',
-  outline: 'rgba(230, 234, 240, 0.12)',
-  dataTableBorder: '#45474D',
-  primary: '#F8F9FC',
-  onPrimary: '#121317',
-  primaryHover: '#DEDFE2',
-  tonal: '#2F3034',
-  accent: '#9DD2FF',
-  accentStrong: '#DCF1FF',
-  accentSoft: '#1E2867',
-  selectedOption: '#3C90FF',
-  graphStart: 'rgba(157, 210, 255, 0.3)',
-  graphStop: 'rgba(157, 210, 255, 0)',
-  success: '#9BE69A',
-  successSoft: '#005143',
-  destructive: '#FFACC2',
-  destructiveSoft: '#990D0E',
-  warning: '#FFF350',
-  warningSoft: '#9E3D02',
+const DARK_ROLES = {
+  canvas: '#0B0C10',
+  surface: '#111319',
+  raised: '#171A21',
+  hairline: 'rgba(255,255,255,0.08)',
+  borderStrong: 'rgba(255,255,255,0.16)',
+  textPrimary: '#F2F4F8',
+  textSecondary: '#A0A8B8',
+  textMuted: '#6B7385',
+  accent: '#4F7DFF',
+  accentSoft: 'rgba(79,125,255,0.14)',
+  onAccent: '#FFFFFF',
+  positive: '#2FD27D',
+  positiveSoft: 'rgba(47,210,125,0.14)',
+  negative: '#FF5C5C',
+  negativeSoft: 'rgba(255,92,92,0.14)',
+  warning: '#F5B544',
+  warningSoft: 'rgba(245,181,68,0.14)',
+  headerBar: 'rgba(11,12,16,0.85)',
+  chartAreaStart: 'rgba(79,125,255,0.30)',
+  chartAreaStop: 'rgba(79,125,255,0)',
 };
+
+function withLegacyRoles(roles: typeof LIGHT_ROLES) {
+  return {
+    ...roles,
+    surfaceContainer: roles.canvas,
+    surfaceContainerHigh: roles.raised,
+    onSurface: roles.textPrimary,
+    onSurfaceVariant: roles.textSecondary,
+    iconSecondary: roles.textMuted,
+    outline: roles.hairline,
+    dataTableBorder: roles.hairline,
+    primary: roles.accent,
+    onPrimary: roles.onAccent,
+    primaryHover: roles.accent,
+    tonal: roles.accentSoft,
+    accentStrong: roles.accent,
+    selectedOption: roles.accentSoft,
+    graphStart: roles.chartAreaStart,
+    graphStop: roles.chartAreaStop,
+    success: roles.positive,
+    successSoft: roles.positiveSoft,
+    destructive: roles.negative,
+    destructiveSoft: roles.negativeSoft,
+    focusRing: roles.accent,
+    sparklineUp: roles.positive,
+    sparklineDown: roles.negative,
+    chartGrid: roles.hairline,
+  };
+}
+
+export const LIGHT = withLegacyRoles(LIGHT_ROLES);
+export const DARK = withLegacyRoles(DARK_ROLES);
+
+function paletteRole(role: keyof typeof LIGHT) {
+  return { _light: { value: LIGHT[role] }, _dark: { value: DARK[role] } };
+}
 
 const DEFAULT_THEME_COLORS = {
+  canvas: paletteRole('canvas'),
+  surface: paletteRole('surface'),
+  raised: paletteRole('raised'),
+  hairline: paletteRole('hairline'),
+  borderStrong: paletteRole('borderStrong'),
+  onAccent: paletteRole('onAccent'),
+  positive: paletteRole('positive'),
+  positiveSoft: paletteRole('positiveSoft'),
+  negative: paletteRole('negative'),
+  negativeSoft: paletteRole('negativeSoft'),
+  warning: paletteRole('warning'),
+  warningSoft: paletteRole('warningSoft'),
+  headerBar: paletteRole('headerBar'),
+  focusRing: paletteRole('focusRing'),
+  sparklineUp: paletteRole('sparklineUp'),
+  sparklineDown: paletteRole('sparklineDown'),
+  chartGrid: paletteRole('chartGrid'),
+  chartAreaStart: paletteRole('chartAreaStart'),
+  chartAreaStop: paletteRole('chartAreaStop'),
+  graphStart: paletteRole('graphStart'),
+  graphStop: paletteRole('graphStop'),
+  success: paletteRole('success'),
+  successSoft: paletteRole('successSoft'),
+  destructive: paletteRole('destructive'),
+  destructiveSoft: paletteRole('destructiveSoft'),
+  tonal: paletteRole('tonal'),
+  outline: paletteRole('outline'),
+  dataTableBorder: paletteRole('dataTableBorder'),
+  selectedOption: paletteRole('selectedOption'),
   bg: {
     primary: {
       _light: { value: LIGHT.surfaceContainer },
@@ -71,7 +129,7 @@ const DEFAULT_THEME_COLORS = {
       _dark: { value: DARK.surfaceContainerHigh },
     },
     overlay: {
-      _light: { value: LIGHT.surface },
+      _light: { value: LIGHT.raised },
       _dark: { value: DARK.surfaceContainerHigh },
     },
   },
@@ -85,8 +143,8 @@ const DEFAULT_THEME_COLORS = {
       _dark: { value: DARK.onSurfaceVariant },
     },
     muted: {
-      _light: { value: LIGHT.onSurfaceVariant },
-      _dark: { value: DARK.onSurfaceVariant },
+      _light: { value: LIGHT.textMuted },
+      _dark: { value: DARK.textMuted },
     },
   },
   border: {
@@ -95,8 +153,8 @@ const DEFAULT_THEME_COLORS = {
       _dark: { value: DARK.outline },
     },
     strong: {
-      _light: { value: LIGHT.dataTableBorder },
-      _dark: { value: DARK.dataTableBorder },
+      _light: { value: LIGHT.borderStrong },
+      _dark: { value: DARK.borderStrong },
     },
   },
   accent: {
@@ -120,17 +178,17 @@ const DEFAULT_THEME_COLORS = {
   selected: {
     control: {
       text: {
-        _light: { value: LIGHT.onSurface },
-        _dark: { value: DARK.onSurface },
+        _light: { value: LIGHT.accent },
+        _dark: { value: DARK.accent },
       },
       bg: {
-        _light: { value: LIGHT.tonal },
-        _dark: { value: DARK.tonal },
+        _light: { value: LIGHT.accentSoft },
+        _dark: { value: DARK.accentSoft },
       },
     },
     option: {
       bg: {
-        _light: { value: LIGHT.accent },
+        _light: { value: LIGHT.selectedOption },
         _dark: { value: DARK.selectedOption },
       },
     },
@@ -203,8 +261,8 @@ const DEFAULT_THEME_COLORS = {
   },
   topbar: {
     bg: {
-      _light: { value: LIGHT.surface },
-      _dark: { value: DARK.surface },
+      _light: { value: LIGHT.headerBar },
+      _dark: { value: DARK.headerBar },
     },
   },
   tabs: {
@@ -219,11 +277,11 @@ const DEFAULT_THEME_COLORS = {
     header: {
       bg: {
         _light: { value: LIGHT.surfaceContainer },
-        _dark: { value: DARK.surfaceContainerHigh },
+        _dark: { value: DARK.canvas },
       },
       fg: {
-        _light: { value: LIGHT.onSurfaceVariant },
-        _dark: { value: DARK.onSurfaceVariant },
+        _light: { value: LIGHT.textMuted },
+        _dark: { value: DARK.textMuted },
       },
     },
   },

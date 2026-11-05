@@ -1,9 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ProductionClient, STATE_COMMITMENT_PROTOCOL_VERSION, SecretBytes } from "@sidiora/layerx-sdk";
+import { generateKeyPairSync } from "node:crypto";
+import { ProductionClient, SecretBytes } from "@sidiora/layerx-sdk";
 import { MiddlewareError, encodePaymentRequiredHeader } from "@sidiora/layerx-seller-middleware";
-import { ReceiptAuthorityClient } from "../../../examples/support/runtime.mjs";
+import { SequencerReceiptClient } from "../../../examples/support/runtime.mjs";
 import { BuyerMiddleware, LayerXPaymentHttpTransport } from "../dist/index.js";
+
+const pair = generateKeyPairSync("ed25519");
+const pin = {
+  keyId: new Uint8Array(32).fill(0x55),
+  publicKey: new Uint8Array(pair.publicKey.export({ type: "spki", format: "der" }).subarray(-32)),
+  first_height: 1n,
+  last_height: 1000n,
+};
 
 function buyerConfig(network = "eip155:125") {
   return {
@@ -12,9 +21,9 @@ function buyerConfig(network = "eip155:125") {
       bearerToken: new SecretBytes(new TextEncoder().encode("unused-buyer-test-token")),
     })),
     source: "acct:buyer-evm-terms-test",
-    protocolVersion: STATE_COMMITMENT_PROTOCOL_VERSION,
+    receiptKeys: [pin],
     supported: [{ scheme: "exact", network }],
-    authorizedBatches: new ReceiptAuthorityClient("http://127.0.0.1:1/"),
+    authorizedBatches: new SequencerReceiptClient("http://127.0.0.1:1/", [pin]),
   };
 }
 
@@ -52,7 +61,15 @@ function buyerAcceptsReceiptedOfferWithoutResolver() {
 function buyerRefusesLayerxSupportedKind() {
   for (const network of ["eip155:1", "eip155:125", "eip155:4294967295"]) {
     const buyer = new BuyerMiddleware(buyerConfig(network));
-    assert.equal(buyer.protocolVersion, STATE_COMMITMENT_PROTOCOL_VERSION);
+    const required = {
+      x402Version: 2,
+      resource: { url: "https://seller.example/paid" },
+      accepts: [{ scheme: "exact", network, amount: "25", asset: "11".repeat(32),
+        payTo: "22".repeat(32), maxTimeoutSeconds: 120 }],
+    };
+    const offer = buyer.parseOffer(encodePaymentRequiredHeader(required));
+    assert.deepEqual(offer.required, required);
+    assert.deepEqual(offer.accepted, required.accepts[0]);
   }
   for (const network of [
     "layerx:beta", "layerx:125", "layerx:", "layerx:eip155:125",

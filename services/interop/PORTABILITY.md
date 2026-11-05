@@ -1,133 +1,93 @@
 # LayerX Portable Verification Guide
 
-This guide explains how to verify LayerX receipts and external protocol evidence without LayerX infrastructure.
+This guide covers offline verification of signed network receipts and the typed
+boundary for importing external evidence. Paxeer mainnet-beta is one BFT network
+(chain ID 125, `0x7d`); the kernel is part of the network and proposes blocks.
+A transaction is final when its block commits. A portable signature proof alone
+does not establish that commit.
 
 ## Overview
 
-The LayerX portable verification system supports two directions of evidence flow:
+The portable verification crate supports two directions:
 
-1. **Export**: LayerX receipts exported for verification by external parties
-2. **Import**: External protocol receipts and mandates verified by LayerX through adapters
+1. **Export**: carry canonical signed `ProtocolReceipt` v2 bytes to an offline verifier.
+2. **Import**: bind an adapter's typed verification result to exact external presentation bytes.
 
-Both directions maintain cryptographic rigor, exact provenance binding, and independence from live infrastructure.
+The current receipt API is `PortableReceiptV2`. `verify_portable_json` accepts
+only `layerx-receipt-proof-v2`; the historical v1 format and its `AuthorizedBatch`
+verification instructions are retired. There is no v1 reader in this crate.
 
 ## Portable Receipt Export
 
 ### Purpose
 
-External parties can verify LayerX receipts without:
-- A LayerX gateway or node
-- The layerxd daemon
-- A database connection
-- Network connectivity
-- Wall-clock time
+Once receipt keys have been pinned independently, an external verifier needs no
+running gateway, node, database, network connection or wall clock. The carried
+key is evidence to compare with that trust policy, never its source of trust.
 
-### Format: `layerx-receipt-proof-v1`
-
-The portable receipt is a UTF-8 JSON object with these exact camelCase members (in any JSON member order):
-
-| Member | Type | Description |
-|--------|------|-------------|
-| `format` | string | Literal `"layerx-receipt-proof-v1"` |
-| `verificationLevel` | string | Literal `"sequencer-signed"` |
-| `canonicalReceipt` | string | Complete canonical LayerX receipt (unpadded base64url) |
-| `receiptDigest` | string | 32-byte receipt-signature digest (unpadded base64url) |
-| `batchId` | string | 32-byte authorized batch ID (unpadded base64url) |
-| `asset` | string | 32-byte batch asset (unpadded base64url) |
-| `previousStateRoot` | string | 32-byte predecessor state root (unpadded base64url) |
-| `resultingStateRoot` | string | 32-byte successor state root (unpadded base64url) |
-| `sequencerPublicKey` | string | 32-byte Ed25519 public key (unpadded base64url) |
+Online acquisition uses node JSON-RPC at the root HTTPS path, for example
+`https://api1.mainnet-beta.paxeer.network/`, on chain ID 125. Other public hosts
+are `api2` through `api14.mainnet-beta.paxeer.network` and
+`api-mainnet-beta.paxeer.network`. The node method `pax_sequencerReceipt` reports
+`submitted`, `receipted` or `committed`; those are stages within the same network.
 
 ### Format: `layerx-receipt-proof-v2`
 
-`PortableReceiptV2` serializes a UTF-8 JSON object with exactly these camelCase members:
+`PortableReceiptV2` serializes a UTF-8 JSON object with these camelCase members:
 
 | Member | Type | Description |
-|--------|------|-------------|
-| `format` | string | Literal `"layerx-receipt-proof-v2"` |
-| `verificationLevel` | string | Literal `"receipted"`; the sequencer signed the receipt |
-| `signedReceipt` | string | Complete canonical signed `ProtocolReceipt` v2 bytes (lowercase `0x` hex) |
-| `receiptDigest` | string | 32-byte receipt-signature digest (lowercase `0x` hex) |
-| `receiptKey` | object | The signing entry, with exactly the four members below |
-| `receiptKey.keyId` | string | 32-byte receipt key identifier (lowercase `0x` hex) |
-| `receiptKey.publicKey` | string | 32-byte Ed25519 public key (lowercase `0x` hex) |
-| `receiptKey.firstHeight` | string | Inclusive first signing height (`0x` quantity) |
-| `receiptKey.lastHeight` | string | Inclusive last signing height (`0x` quantity) |
-| `inclusionHeight` | string | Carried inclusion height, at least the signed receipt height (`0x` quantity) |
+| --- | --- | --- |
+| `format` | string | Literal `layerx-receipt-proof-v2` |
+| `verificationLevel` | string | Literal `receipted`, also when exported from a committed answer |
+| `signedReceipt` | string | Complete canonical signed `ProtocolReceipt` v2, lowercase `0x` hex |
+| `receiptDigest` | string | 32-byte receipt-signature digest, lowercase `0x` hex |
+| `receiptKey` | object | Exactly the four members below |
+| `receiptKey.keyId` | string | 32-byte signing key identifier, lowercase `0x` hex |
+| `receiptKey.publicKey` | string | 32-byte Ed25519 public key, lowercase `0x` hex |
+| `receiptKey.firstHeight` | string | Inclusive first signing height, `0x` quantity |
+| `receiptKey.lastHeight` | string | Inclusive last signing height, `0x` quantity |
+| `inclusionHeight` | string | Carried height at least the signed receipt height, `0x` quantity |
+| `rawTransaction` | optional string | Raw signed transaction, lowercase `0x` hex, hashed against the activity ID |
 
-Quantities use lowercase hex without leading zeroes (`0x0` for zero). JSON member order is insignificant. The carried key and inclusion height do not establish trust or prove block inclusion.
+JSON member order is insignificant. Quantities are unsigned 64-bit lowercase hex
+without leading zeroes (`0x0` for zero). Unknown or duplicate members are refused.
+A JSON document is at most 1,500,000 bytes; receipt and optional transaction bytes
+are each nonempty and at most 1,048,576 bytes. See the full wire layout in
+[FORMAT.md](crates/layerx-portable/FORMAT.md).
 
 ### Verification Algorithm (v2)
 
-An independent verifier must:
-
-1. **Parse and validate the JSON object**
-   - Reject unknown members
-   - Require the v2 format and `verificationLevel: "receipted"`
-   - Reject non-canonical hex, quantities and wrong fixed-field lengths
-   - Reject JSON above 1,500,000 bytes or signed receipts above 1,048,576 bytes
-
-2. **Obtain the pinned `ReceiptKeys` list independently**
-   - From a trusted snapshot, certificate or test vector manifest
-   - Select the entry matching the receipt's signed key ID
-   - Require the signed height to lie in its inclusive `firstHeight` to `lastHeight` window
-   - Require every carried `receiptKey` member to equal that pinned entry
-   - The JSON object itself is NOT the trust root
-
-3. **Decode and re-encode the canonical receipt**
-   - Must produce byte-identical output
-   - `ProtocolReceipt` version 2 required
-   - Non-zero operation and activity IDs required
-   - Sequencer signature required
-
-4. **Compute and verify the canonical receipt digest**
-   - Encode the receipt without its signature: replace the trailing signature-presence flag, length and 64-byte signature with the single absent-signature byte `0x00`
-   - Compute `SHA-256("LXP/v1/receipt\0" || unsigned_canonical_receipt)`
-   - Require digest equals `receiptDigest`
-
-5. **Verify the Ed25519 signature under the height-ranged receipt key**
-   - Signature over the 32-byte digest
-   - Public key comes from the independently pinned entry
-   - Strict signature verification required
-   - Require `inclusionHeight` to be at least the signed receipt height; this is a consistency check, not an inclusion proof
-
-6. **Match the payment log before accepting a payment claim**
-   - Require a successful signed outcome and authenticate the supplied log view against the signed receipt's log commitments
-   - Require the `PaymentExact` emitter to be layerxledger at `0x000000000000000000000000000000000000101a` (`0x101A`)
-   - Match the event signature, indexed payment identifiers and data (asset and exact amount) to the independently expected payment
-   - Parsing the portable object or calling `verify_v2` alone does not perform this application-specific payment match
+1. Parse the bounded, closed JSON shape and canonical fields.
+2. Decode and canonically re-encode the signed `ProtocolReceipt` v2. Require
+   a nonzero activity ID, the supported receipt layout and an Ed25519 signature.
+3. Select exactly one independently pinned `ReceiptKeys` entry by the signed
+   context hash (the key ID). The signed height is in the last eight bytes of
+   the receipt's batch ID, whose first 24 bytes must be zero. Require that height
+   to lie within the entry's inclusive window and every carried key field to
+   equal that entry. Do not select the window using `inclusionHeight`.
+4. Replace the final signature framing and signature (`01 00000040` plus 64 bytes)
+   with one absent-signature byte (`00`). Compute
+   `SHA-256("LXP/v1/receipt\0" || unsigned_canonical_receipt)`; the domain ends in
+   a NUL byte. Require equality with `receiptDigest` and strictly verify the
+   Ed25519 signature over that digest.
+5. Require `inclusionHeight` to be at least the signed height. If `rawTransaction`
+   is present, require its Keccak-256 hash to equal the signed activity ID.
+6. Inspect the signed result code: a nonzero result remains a rejected transaction.
+   For a payment claim, additionally authenticate the supplied logs against the
+   receipt's commitments and match the expected event, identifiers, asset and
+   amount. `PaymentExact` must be emitted by layerxledger at
+   `0x000000000000000000000000000000000000101a`. `verify_v2` alone does not match
+   an application payment claim.
 
 ### What This Format Proves
 
-A verified v2 portable receipt proves:
-- The sequencer signed this exact receipt
-- The signing key matches the pinned entry and covers the signed height
-- The canonical receipt digest matches
-- The receipt is cryptographically valid
-
-It does **not** claim:
-- Batch inclusion in a checkpoint
-- Checkpoint finality
-- External settlement
-- Network consensus
-
-Those properties require additional proofs beyond this format.
-
-### Example (v1)
-
-```json
-{
-  "format": "layerx-receipt-proof-v1",
-  "verificationLevel": "sequencer-signed",
-  "canonicalReceipt": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIBAAAAAAAACgAAAAAAAAAFAAAAAAAAAMgAAAAAAAABAAAAAAAAAAEAAAAAAAAAAQAAAAAAAAABAAAAAAAAAGQAAAAAAAAAZAAAAAAAAAABZAAAAAAAAAFkAAAAAAAAAQAAAAAAAABlAAAAAAAAAGQAAAAAAAAAAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
-  "receiptDigest": "BAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ",
-  "batchId": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
-  "asset": "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
-  "previousStateRoot": "AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM",
-  "resultingStateRoot": "BAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ",
-  "sequencerPublicKey": "BQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQU"
-}
-```
+Verification authenticates the exact receipt under the independently pinned
+signing key and its height window. Optional transaction bytes are bound to that
+receipt's activity ID. It does not prove block inclusion, BFT commit, absence of
+equivocation, or settlement on an external chain. The carried inclusion height
+is only a consistency check, and exporting a committed answer still produces
+verification level `receipted`. Applications needing committed evidence must
+verify the additional block/commit proof under their own consensus trust policy.
 
 ### Example (v2)
 
@@ -157,225 +117,229 @@ All receipt, digest, key and height values below come from that recorded case.
 
 ### Implementation Example
 
-See `services/interop/crates/layerx-portable/tests/independent_verifier.rs` for a complete standalone verifier that processes golden vectors with no LayerX infrastructure.
+The public API in [receipt.rs](crates/layerx-portable/src/receipt.rs) provides:
+
+- `PortableReceiptV2::from_sequencer_receipt(answer, receipt_keys, raw_transaction)`:
+  accepts receipted or committed node answers and rejects submitted answers.
+- `PortableReceiptV2::export` and `export_with_transaction`: export signed bytes
+  after checking the supplied key and height.
+- `PortableReceiptV2::from_json`: parses fields without establishing trust.
+- `verify_v2`, `verify_json` and `verify_portable_json`: authenticate against the
+  caller's pinned key list; inspect `result_code()` on the verified value.
+
+The following example is also committed as
+[`examples/portable_v2.rs`](examples/portable_v2.rs). The integration target
+[`repair_22_33_95`](tests/repair_22_33_95.rs) compiles that exact source against
+the current public API, checks that this snippet matches it, and executes both
+functions with recorded producer receipts and independently pinned keys.
+
+Pass the node's receipted or committed answer to `export_receipt`, then carry the
+returned UTF-8 JSON bytes to `verify_receipt`. Supply `ReceiptKeyEntry::new(key_id,
+public_key, first_height, last_height)` entries from your independent trust policy
+on both sides; do not build that policy from the proof's `receiptKey`. The key ID
+must be unique and its inclusive height window must cover the signed receipt
+height, even when a committed answer carries a later block height. Supply raw
+transaction bytes when the consumer needs transaction binding.
+
+```rust
+use layerx_portable::{
+    verify_portable_json, PortableReceiptError, PortableReceiptV2, PortableVerified,
+    PortableVerifiedReceiptV2, ReceiptKeyEntry,
+};
+
+pub fn export_receipt(
+    answer: &serde_json::Value,
+    pinned_keys: &[ReceiptKeyEntry],
+    raw_transaction: Option<&[u8]>,
+) -> Result<Vec<u8>, PortableReceiptError> {
+    PortableReceiptV2::from_sequencer_receipt(answer, pinned_keys, raw_transaction)?.to_json()
+}
+
+pub fn verify_receipt(
+    json: &[u8],
+    pinned_keys: &[ReceiptKeyEntry],
+) -> Result<PortableVerifiedReceiptV2, PortableReceiptError> {
+    let PortableVerified::V2(receipt) = verify_portable_json(json, pinned_keys)?;
+    Ok(receipt)
+}
+```
+
+After verification, inspect `result_code()` before treating execution as
+successful: a nonzero result remains rejected. Neither function proves BFT
+commit or matches an application payment claim. Parsing with `from_json` alone
+also does not establish trust.
+
+The Rust [independent verifier harness](crates/layerx-portable/tests/independent_verifier.rs)
+compares the crate with a [Python verifier](crates/layerx-portable/tests/python_portable_verifier.py)
+that implements the format without importing a LayerX SDK. Python uses
+`cryptography` for Ed25519 and `pycryptodome` for Keccak-256.
 
 ## External Evidence Import
 
 ### Purpose
 
-LayerX verifies external protocol evidence (x402 payments, AP2 mandates, UCP orders, etc.) through version-pinned adapters that:
-- Perform protocol-specific cryptographic verification
-- Enforce exact spec version and conformance suite bindings
-- Return typed verified values bound to exact input bytes
-- Preserve verification provenance for audit
+External presentations retain their protocol's wire format. The generic portable
+boundary validates metadata, invokes the supplied adapter, and binds its typed
+result to the bytes verified. It does not itself implement external signature,
+delegation, time, nonce, audience or payment checks.
 
 ### Architecture
 
-```
-External Presentation (untrusted)
-    ↓
-ExternalEvidenceVerifier (adapter)
-    ↓
-Protocol-Specific Verification
-    ↓
-VerifiedExternalEvidence (typed + bound)
+```text
+ExternalPresentation (untrusted bytes and metadata)
+    -> ExternalEvidenceVerifier (caller-selected, trusted implementation)
+    -> protocol-specific verification with explicit context
+    -> VerifiedExternalEvidence<T> (typed result and digest binding)
 ```
 
 ### External Presentation
 
-The `ExternalPresentation` struct carries:
-- `adapter`: Adapter ID (e.g., `"x402-v2"`)
-- `protocol`: Protocol ID (e.g., `"x402"`)
-- `spec_version`: Exact pinned version (e.g., `"2.0.3"`)
-- `kind`: `ExternalEvidenceKind::Mandate` or `ExternalEvidenceKind::Receipt`
-- `media_type`: IANA media type (e.g., `"application/vnd.x402.payment+jose"`)
-- `payload`: Raw untrusted bytes (borrowed, never retained)
-
-Validation rules:
-- Adapter and protocol IDs must follow LayerX identifier rules
-- Spec version must be exactly pinned (no wildcards or ranges)
-- Media type must not contain control characters
-- Payload bounds: 1 byte to 2,097,152 bytes
-- Empty payloads rejected
-- Oversized payloads rejected
+`ExternalPresentation::new` takes adapter ID, protocol ID, exact spec version,
+`ExternalEvidenceKind::Mandate` or `Receipt`, media type, and borrowed payload
+bytes. Adapter/protocol identifiers and the pinned version are validated. The
+media type must be nonempty, at most 128 bytes and contain no ASCII controls.
+The payload must contain 1–2,097,152 bytes.
 
 ### Adapter Contract
 
-An `ExternalEvidenceVerifier` implementation must:
+`ExternalEvidenceVerifier<C>` declares an `AdapterDescriptor`, evidence kind and
+exact accepted media type, and implements protocol-specific `verify(payload, context)`. Its associated types preserve the verified value and verification
+error. `verify_external_evidence` refuses descriptor, kind or media-type
+mismatches before calling it, then preserves adapter errors.
 
-1. **Declare exact descriptor**
-   - Adapter ID
-   - Protocol ID and spec version
-   - Spec document digest (SHA-256 of canonical spec text)
-   - Conformance suite (name, vector count, suite digest)
-
-2. **Declare evidence kind**
-   - `Mandate` or `Receipt`
-   - A verifier accepts exactly one kind
-
-3. **Declare media type**
-   - The exact IANA media type accepted
-   - Must match presentation media type exactly
-
-4. **Perform protocol-specific verification**
-   - Signature verification
-   - Delegation chain validation
-   - Time bounds and nonce checks
-   - Audience and constraint enforcement
-   - Return typed verified value only after all checks pass
+The caller selects and trusts the verifier implementation, upstream pin,
+conformance declaration and context. A descriptor digest or vector count alone
+is not proof that a conformance suite ran or that an implementation is trustworthy.
 
 ### Verified External Evidence
 
-After successful verification, `VerifiedExternalEvidence<T>` binds:
-- The adapter's protocol-specific verified value (type `T`)
-- Adapter ID, protocol ID, spec version
-- Spec document digest
-- Conformance suite name, vector count, suite digest
-- Evidence kind and media type
-- **Evidence digest**: domain-separated SHA-256 hash of all inputs
+`VerifiedExternalEvidence<T>` has private fields and contains the typed result,
+adapter/protocol/version, specification digest, conformance suite identity and
+digest, evidence kind, media type and evidence digest. The digest is:
 
-The evidence digest is computed as:
-```
+```text
 SHA-256(
-    "LayerX/interop/external-evidence/v1\0" ||
-    kind_tag ||
-    len(adapter) || adapter ||
-    len(protocol) || protocol ||
-    len(spec_version) || spec_version ||
-    spec_document_digest ||
-    len(conformance_suite) || conformance_suite ||
-    conformance_vector_count ||
-    conformance_suite_digest ||
-    len(media_type) || media_type ||
+    "LayerX/interop/external-evidence/v1\0" || kind_tag ||
+    len(adapter) || adapter || len(protocol) || protocol ||
+    len(spec_version) || spec_version || spec_document_digest ||
+    len(conformance_suite) || conformance_suite || conformance_vector_count ||
+    conformance_suite_digest || len(media_type) || media_type ||
     len(payload) || payload
 )
 ```
 
-This digest:
-- Changes with any input byte or metadata field
-- Is safe to store and share (no secret exposure)
-- Provides non-repudiation for audit
-- Avoids retaining possibly secret-bearing raw mandates
+Lengths and the vector count are unsigned 64-bit big-endian integers. The kind
+tag is one byte: mandate = 1, receipt = 2. Specification and suite digests are
+32 raw bytes each.
 
-### Example: x402 Payment Receipt
+This digest binds bytes and metadata for comparison. It is not a signature,
+proof of verifier provenance, or non-repudiation. The verification context and
+typed result are not included in it. An external consumer must authenticate a
+verification report and trust its producer, or repeat verification. The wrapper
+does not retain the borrowed payload, but the adapter controls what its `T`
+contains. Digests can permit correlation or guessing of low-entropy inputs;
+apply the relevant data-handling policy before storing or sharing them.
 
-```rust
-use layerx_portable::{verify_external_evidence, ExternalPresentation, ExternalEvidenceKind};
+### Example: AP2 Mandate Pair
 
-// 1. Receive untrusted x402 payment receipt
-let x402_payload = receive_payment_receipt();
+The implemented generic import is
+[`Ap2ExternalMandateVerifier`](crates/layerx-ap2/src/portable.rs).
+`Ap2MandatePair::new(checkout, payment).to_json()` constructs an envelope with
+exactly `checkoutMandate` and `paymentMandate`; each value is an unchanged
+upstream SD-JWT presentation. The accepted media type is
+`application/vnd.layerx.ap2-mandate-pair+json` and the kind is `Mandate`.
 
-// 2. Create presentation with exact metadata
-let presentation = ExternalPresentation::new(
-    "x402-v2",
-    "x402",
-    "2.0.3",
-    ExternalEvidenceKind::Receipt,
-    "application/vnd.x402.payment-response+jose",
-    &x402_payload,
-)?;
-
-// 3. Verify through pinned x402 adapter
-let x402_verifier = get_x402_verifier();
-let verified = verify_external_evidence(
-    &x402_verifier,
-    &presentation,
-    &payment_context,
-)?;
-
-// 4. Extract typed x402 receipt value
-let x402_receipt = verified.into_verified();
-
-// 5. Store only the evidence digest (not raw payload)
-store_evidence_digest(verified.evidence_digest());
-```
+Construct the verifier with a trusted `KeyResolver` and a real `ConformanceSuite`.
+Use its descriptor's adapter, protocol and version for the presentation and pass
+the explicit AP2 `VerificationContext` to `verify_external_evidence`. The adapter
+verifies the pair together and returns `VerifiedMandates` inside the binding.
+Read `evidence_digest()` before consuming the wrapper with `into_verified()`.
 
 ### Supported Protocols
 
-Each adapter implements full upstream conformance:
-
-| Protocol | Adapter | Evidence Types | Conformance |
-|----------|---------|----------------|-------------|
-| x402 v2 | `x402-v2` | Mandate, Receipt | x402 reference vectors |
-| AP2 | `ap2` | Mandate pair | AP2 SD-JWT suite |
-| UCP | `ucp` | Order, Receipt | UCP profile vectors |
-| Visa Tap | `visa-tap` | Mandate | Visa conformance suite |
-
-See each adapter's `COMPATIBILITY.md` for transport matrix and vector coverage.
+The generic trait permits additional implementations; it is not a list of
+implemented or qualified upstream protocols. In this tree AP2 supplies the
+concrete external mandate verifier above. Other interop adapters expose their
+own verification and transport APIs. Consult their actual compatibility pages,
+including [x402](crates/layerx-x402/COMPATIBILITY.md), for declared coverage;
+there is no blanket claim of upstream reference-vector conformance.
 
 ## Testing and Portability Proof
 
 ### Golden Vectors
 
-Test vectors are located in:
-- `services/interop/crates/layerx-portable/tests/receipt_vectors.rs` — LayerX receipt export/verification
-- `services/interop/crates/layerx-portable/tests/external_verification.rs` — External evidence import
-- `services/interop/crates/layerx-portable/tests/independent_verifier.rs` — Standalone verifier harness
+The shared receipt corpus is
+[`sequencer-receipt-v1.json`](../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json).
+The fixture filename does not denote the portable JSON version. Receipt export
+and refusal cases live in [receipt_vectors.rs](crates/layerx-portable/tests/receipt_vectors.rs)
+and [sequencer_vectors.rs](crates/layerx-portable/tests/sequencer_vectors.rs).
+[external_verification.rs](crates/layerx-portable/tests/external_verification.rs)
+covers the generic binding boundary; it does not qualify every external adapter.
 
 ### Running Tests
 
+For development from the monorepo root:
+
 ```bash
-# Run all portable verification tests
+make interop-test-portable
 make interop-test-mandates
-
-# Run only receipt vectors
-cargo test --manifest-path services/interop/Cargo.toml -p layerx-portable --test receipt_vectors
-
-# Run only external evidence tests  
-cargo test --manifest-path services/interop/Cargo.toml -p layerx-portable --test external_verification
-
-# Run independent verifier proof
-cargo test --manifest-path services/interop/Cargo.toml -p layerx-portable --test independent_verifier
+cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-portable --test receipt_vectors
+cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-portable --test external_verification
+cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-portable --test independent_verifier
 ```
+
+`interop-test-portable` covers the portable crate; `interop-test-mandates` runs
+the AP2 crate, including the recorded guide example check.
 
 ### Portability Proof
 
-The `independent_verifier.rs` test proves portability by implementing a verifier that:
-1. Has no LayerX infrastructure dependencies
-2. Verifies golden vectors using only the format specification
-3. Requires only a trusted `AuthorizedBatch` from an independent source
-4. Processes receipts through `PortableReceipt` API alone
-
-This proves external parties can verify LayerX receipts without running LayerX software.
+The independent harness exercises recorded successful and rejected receipts,
+field substitutions, key-window boundaries and transaction binding against
+independently supplied fixture keys. Its Python implementation checks the same
+wire format using general cryptographic libraries. This is offline format and
+signature coverage, not a live-network or consensus-finality qualification.
 
 ## Security Considerations
 
 ### Trust Boundaries
 
-**LayerX Receipt Export:**
-- The JSON object itself is NOT a trust root
-- For v1, the verifier MUST obtain `AuthorizedBatch` from an independent trusted source
-- For v2, the verifier MUST obtain the pinned, height-ranged `ReceiptKeys` list independently
-- A valid signature proves the sequencer signed this receipt
-- It does NOT prove the batch was finalized or settled
-
-**External Evidence Import:**
-- Adapters trust only the pinned upstream specification
-- Verification is cryptographic and deterministic
-- The evidence digest is safe to store (no secret exposure)
-- Raw mandate payloads may contain payment instruments — handle accordingly
+Keep receipt trust keys independent of the proof being checked. Treat parsing,
+signature validity, payment matching and proof of commit as separate checks.
+For external imports, trust the verifier and its explicit context independently
+of its metadata; authenticate any report that crosses a process boundary.
+Raw mandates and adapter results can contain sensitive payment information.
 
 ### What Verification Does NOT Guarantee
 
-Neither portable receipts nor external evidence verification prove:
-- Liveness or availability of upstream systems
-- Settlement finality on external networks
-- Absence of equivocation (requires additional proofs)
-- Freedom from rollback (requires checkpoint finality)
-
-Always consult the specific verification level and proof scope.
+Portable signature verification does not establish upstream availability,
+external-chain finality, protection against local storage rollback or absence of
+equivocation. External evidence verification establishes only the checks actually
+performed by the selected adapter under its supplied context.
 
 ## References
 
-- **Format Specification**: `services/interop/crates/layerx-portable/FORMAT.md`
-- **API Documentation**: `services/interop/crates/layerx-portable/src/lib.rs`
-- **Golden Vectors**: `services/interop/crates/layerx-portable/tests/`
-- **x402 Compatibility**: `services/interop/crates/layerx-x402/COMPATIBILITY.md`
-- **Proof Library**: `services/agent/crates/layerx-proof/`
+- [Format specification](crates/layerx-portable/FORMAT.md)
+- [Public API](crates/layerx-portable/src/lib.rs)
+- [Portable test sources](crates/layerx-portable/tests/)
+- [x402 compatibility](crates/layerx-x402/COMPATIBILITY.md)
+- [Migration operations](crates/layerx-migrate/OPERATIONS.md)
+- [Mirror archives](crates/layerx-mirror/README.md)
+- [Proof library](../agent/crates/layerx-proof/)
+
+## Historical v1 (unsupported archival context)
+
+Historical `layerx-receipt-proof-v1` documents, base64 examples and the retired
+`PortableReceipt`/`AuthorizedBatch` interface are unsupported archival context.
+The current public consumer rejects the v1 format with
+`PortableReceiptError::UnsupportedFormat`; it does not provide a compatibility
+reader. The `v1` in the recorded fixture filename and in the signed receipt's
+`LXP/v1/receipt\0` digest domain does not select the portable JSON format.
+Re-export the original signed receipt through `PortableReceiptV2` with an
+independently pinned height-ranged key policy instead of relabeling a v1 document.
 
 ## Version History
 
-| Version | Date | Changes |
-|---------|------|---------|
-| 1.0 | 2026 | Initial `layerx-receipt-proof-v1` format and external evidence binding |
-| 2.0 | 2026 | `layerx-receipt-proof-v2`: receipted v2 bytes, canonical digest and height-ranged receipt key; recorded example checked against `PortableReceiptV2::export`; v1 documents remain readable |
+| Version | Status |
+| --- | --- |
+| 1.0 | Historical receipt format; unsupported by the current reader |
+| 2.0 | Current `layerx-receipt-proof-v2`: canonical signed bytes, height-ranged keys and optional raw transaction binding |

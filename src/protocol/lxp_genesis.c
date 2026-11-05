@@ -45,9 +45,8 @@ _Static_assert(sizeof(module_enable_prefix) ==
                    LXP_GENESIS_MODULE_ENABLE_PREFIX_BYTES + 1U,
                "module enable prefix length");
 
-/* The single genesis module registration table.  Every genesis consumer - the
- * protocol state root, the genesis builder, the daemon, the guarantor runtime
- * and the module registry - registers exactly these modules in this order, so
+/* The single genesis module registration table. The protocol state root,
+ * genesis builder and merged node module registry use this order, so
  * adding a module is one row here. Activity lists come from each module's
  * interface: the asset interface includes its eight live activities and
  * excludes the retired receive/grant ordinals (6, 7 and 8). Genesis must not
@@ -193,6 +192,26 @@ static lxp_result programs_storage_retirement_flag(
     return LXP_OK;
 }
 
+static lxp_result programs_guest_abi_v5_flag(
+    const lxp_genesis_manifest *manifest, bool *enabled)
+{
+    static const uint8_t key[32] = LXP_PROGRAMS_GUEST_ABI_V5_PARAMETER;
+    bool present = false;
+    *enabled = false;
+    for (size_t index = 0U; index < manifest->parameter_count; ++index) {
+        const lxp_genesis_parameter *parameter = &manifest->parameters[index];
+        if (memcmp(parameter->key, key, 32U) != 0) continue;
+        if (parameter->module_id != LXP_MODULE_GOVERNANCE)
+            return LXP_ERR_NON_CANONICAL;
+        if (present) return LXP_ERR_SEQUENCE_REUSED;
+        if (!lxp_ct_is_zero(parameter->value, 31U) || parameter->value[31] > 1U)
+            return LXP_ERR_NON_CANONICAL;
+        present = true;
+        *enabled = parameter->value[31] == 1U;
+    }
+    return LXP_OK;
+}
+
 static lxp_result module_enable_flags_known(
     const lxp_genesis_manifest *manifest)
 {
@@ -203,7 +222,9 @@ static lxp_result module_enable_flags_known(
         size_t entry;
         static const uint8_t retirement_key[32] =
             LXP_PROGRAMS_STORAGE_RETIREMENT_PARAMETER;
-        bool known = memcmp(parameter->key, retirement_key, 32U) == 0;
+        static const uint8_t abi5_key[32] = LXP_PROGRAMS_GUEST_ABI_V5_PARAMETER;
+        bool known = memcmp(parameter->key, retirement_key, 32U) == 0 ||
+                     memcmp(parameter->key, abi5_key, 32U) == 0;
         if (parameter->module_id != LXP_MODULE_GOVERNANCE ||
             memcmp(parameter->key, module_enable_prefix,
                    LXP_GENESIS_MODULE_ENABLE_PREFIX_BYTES) != 0)
@@ -327,6 +348,7 @@ lxp_result lxp_genesis_module_plan_resolve(
     const lxp_genesis_manifest *manifest, lxp_genesis_module_plan *plan)
 {
     bool storage_retirement = false;
+    bool guest_abi_v5 = false;
     bool oracle_transport = false;
     bool order_tif = false;
     bool perps_selected = false;
@@ -348,6 +370,8 @@ lxp_result lxp_genesis_module_plan_resolve(
     if (status == LXP_OK) status = module_enable_flags_known(manifest);
     if (status == LXP_OK)
         status = programs_storage_retirement_flag(manifest, &storage_retirement);
+    if (status == LXP_OK)
+        status = programs_guest_abi_v5_flag(manifest, &guest_abi_v5);
     if (status == LXP_OK) status = perps_oracle_transport(manifest, &oracle_transport);
     if (status == LXP_OK) status = perps_order_tif(manifest, &order_tif);
     if (status == LXP_OK && order_tif && !oracle_transport) status = LXP_ERR_VERSION_UNSUPPORTED;
@@ -382,8 +406,12 @@ lxp_result lxp_genesis_module_plan_resolve(
             return LXP_ERR_UNKNOWN_MODULE;
         }
         if (selected) {
-            if (entry->module_id == LXP_MODULE_PROGRAMS && storage_retirement)
-                iface = programs_module_registration_v4_storage_retirement();
+            if (entry->module_id == LXP_MODULE_PROGRAMS) {
+                if (guest_abi_v5)
+                    iface = programs_module_registration_v5();
+                else if (storage_retirement)
+                    iface = programs_module_registration_v4_storage_retirement();
+            }
             if (entry->module_id == LXP_MODULE_PERPS) {
                 perps_selected = true;
                 if (oracle_transport) iface = lx_perps_oracle_transport_module_iface();
@@ -519,7 +547,8 @@ static lxp_result validate(const lxp_genesis_manifest *manifest)
         manifest->network_id == 0U || manifest->genesis_timestamp_ms == 0U ||
         manifest->parameter_count == 0U ||
         manifest->parameter_count > LXP_GENESIS_MAX_PARAMETERS ||
-        manifest->guarantor_count == 0U ||
+        (manifest->protocol_version != LXP_PROTOCOL_VERSION_STATE_COMMITMENT &&
+         manifest->guarantor_count == 0U) ||
         manifest->guarantor_count > LXP_GENESIS_MAX_GUARANTORS ||
         manifest->account_count < LXP_GENESIS_FRESH_SYSTEM_ACCOUNT_COUNT ||
         manifest->account_count > LXP_GENESIS_MAX_ACCOUNTS ||
@@ -954,7 +983,7 @@ lxp_result lxp_genesis_materialize(const lxp_genesis_manifest *manifest,
     if (status != LXP_OK || arena == NULL || kernel == NULL ||
         kernel->state == NULL || kernel->journal == NULL ||
         lxp_genesis_module_plan_matches(&plan, kernel) != LXP_OK ||
-        kernel->state->count != 0U || kernel->state->idempotency_count != 0U ||
+        kernel->state->count != 0U ||
         kernel->state->next_sequence != 1U ||
         kernel->module_kv_count != 0U || kernel->blob_count != 0U ||
         kernel->state->accounts == NULL ||
@@ -1193,6 +1222,27 @@ lxp_result lxp_genesis_verify_signature(
     return status;
 }
 
+/* A NULL registration selects merged-network bootstrap. Non-NULL records
+ * retain the historical settlement checks without changing archived bytes. */
+static lxp_result genesis_bootstrap_policy(
+    const lxp_genesis_manifest *manifest,
+    const lxp_genesis_bootstrap_registration *registration)
+{
+    if (registration == NULL)
+        return manifest->protocol_version ==
+                   LXP_PROTOCOL_VERSION_STATE_COMMITMENT &&
+               manifest->guarantor_count == 0U ?
+                   LXP_OK : LXP_ERR_ROOT_MISMATCH;
+    if (!registration->finalised || registration->registration_index != 0U ||
+        registration->network_id != manifest->network_id ||
+        lxp_ct_memcmp(registration->state_root,
+                      manifest->genesis_receipt_state_root, 32U) != 0 ||
+        lxp_ct_memcmp(registration->settlement_anchor,
+                      manifest->genesis_receipt_state_root, 32U) != 0)
+        return LXP_ERR_ROOT_MISMATCH;
+    return LXP_OK;
+}
+
 lxp_result lxp_genesis_accept(
     const lxp_genesis_manifest *manifest,
     const lxp_genesis_bootstrap_registration *registration,
@@ -1201,15 +1251,11 @@ lxp_result lxp_genesis_accept(
     lxp_result status;
     if (activities_enabled == NULL) return LXP_ERR_NON_CANONICAL;
     *activities_enabled = false;
-    if (!storage_empty || manifest == NULL || registration == NULL ||
-        !registration->finalised || registration->registration_index != 0U ||
-        registration->network_id != manifest->network_id ||
-        lxp_ct_memcmp(registration->state_root,
-                      manifest->genesis_receipt_state_root, 32U) != 0 ||
-        lxp_ct_memcmp(registration->settlement_anchor,
-                      manifest->genesis_receipt_state_root, 32U) != 0)
+    if (!storage_empty || manifest == NULL)
         return LXP_ERR_ROOT_MISMATCH;
-    status = lxp_genesis_verify_signature(manifest, arena);
+    status = genesis_bootstrap_policy(manifest, registration);
+    if (status == LXP_OK)
+        status = lxp_genesis_verify_signature(manifest, arena);
     if (status == LXP_OK)
         status = lxp_programs_metering_genesis_validate(manifest);
     if (status == LXP_OK)
@@ -1230,7 +1276,7 @@ lxp_result lxp_genesis_bootstrap_verify(
     uint8_t live_root[32];
     uint8_t expected_receipt_root[32];
     lxp_result status;
-    if (manifest == NULL || registration == NULL || snapshot == NULL ||
+    if (manifest == NULL || snapshot == NULL ||
         kernel == NULL || arena == NULL || activities_enabled == NULL)
         return LXP_ERR_NON_CANONICAL;
     *activities_enabled = false;
@@ -1276,7 +1322,7 @@ lxp_result lxp_genesis_initialized_verify(
     uint8_t live_root[32];
     uint8_t expected_receipt_root[32];
     lxp_result status;
-    if (manifest == NULL || registration == NULL || snapshot == NULL ||
+    if (manifest == NULL || snapshot == NULL ||
         kernel == NULL || arena == NULL || activities_enabled == NULL)
         return LXP_ERR_NON_CANONICAL;
     *activities_enabled = false;
@@ -1288,14 +1334,9 @@ lxp_result lxp_genesis_initialized_verify(
         lxp_ct_memcmp(manifest->genesis_state_root,
                       snapshot->canonical_state_root, 32U) != 0)
         return LXP_ERR_ROOT_MISMATCH;
-    if (!registration->finalised || registration->registration_index != 0U ||
-        registration->network_id != manifest->network_id ||
-        lxp_ct_memcmp(registration->state_root,
-                      manifest->genesis_receipt_state_root, 32U) != 0 ||
-        lxp_ct_memcmp(registration->settlement_anchor,
-                      manifest->genesis_receipt_state_root, 32U) != 0)
-        return LXP_ERR_ROOT_MISMATCH;
-    status = lxp_genesis_verify_signature(manifest, arena);
+    status = genesis_bootstrap_policy(manifest, registration);
+    if (status == LXP_OK)
+        status = lxp_genesis_verify_signature(manifest, arena);
     if (status == LXP_OK)
         status = lxp_programs_metering_genesis_validate(manifest);
     if (status == LXP_OK)

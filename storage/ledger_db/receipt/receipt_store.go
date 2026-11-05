@@ -3,7 +3,10 @@ package receipt
 import (
 	"errors"
 	"fmt"
+	"io"
 	"math/rand"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -17,6 +20,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/proto"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/wal"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/utils"
+	"github.com/cockroachdb/pebble/v2/vfs"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/filters"
@@ -70,6 +74,7 @@ type receiptStore struct {
 	stopPruning chan struct{}
 	pruneWg     sync.WaitGroup
 	closeOnce   sync.Once
+	ownership   io.Closer
 }
 
 const (
@@ -112,7 +117,7 @@ func BackendTypeName(store ReceiptStore) string {
 	}
 }
 
-func newReceiptBackend(config dbconfig.ReceiptStoreConfig, storeKey sdk.StoreKey) (ReceiptStore, error) {
+func newReceiptBackend(config dbconfig.ReceiptStoreConfig, storeKey sdk.StoreKey) (_ ReceiptStore, err error) {
 	if config.DBDirectory == "" {
 		return nil, errors.New("receipt store db directory not configured")
 	}
@@ -130,20 +135,45 @@ func newReceiptBackend(config dbconfig.ReceiptStoreConfig, storeKey sdk.StoreKey
 		ssConfig.KeepLastVersion = false
 		ssConfig.Backend = "pebbledb"
 
-		db, err := mvcc.OpenDB(ssConfig.DBDirectory, ssConfig)
+		if err := os.MkdirAll(ssConfig.DBDirectory, 0o750); err != nil {
+			return nil, err
+		}
+		// Keep concurrent constructors out of the recovery-to-MVCC handoff.
+		var ownership io.Closer
+		ownership, err = vfs.Default.Lock(filepath.Join(ssConfig.DBDirectory, "RECEIPT-LOCK"))
+		if err != nil {
+			return nil, fmt.Errorf("lock receipt store: %w", err)
+		}
+		handedOff := false
+		defer func() {
+			if !handedOff {
+				err = errors.Join(err, ownership.Close())
+			}
+		}()
+
+		// Finish reading and closing the recovery WAL before MVCC starts its
+		// WAL writer and pruner. The retained entries remain stable during replay.
+		var entries []proto.ChangelogEntry
+		entries, err = recoverReceiptStore(dbutils.GetChangelogPath(ssConfig.DBDirectory))
 		if err != nil {
 			return nil, err
 		}
-		if err := recoverReceiptStore(dbutils.GetChangelogPath(ssConfig.DBDirectory), db); err != nil {
-			_ = db.Close()
+		var db paxdbtypes.StateStore
+		db, err = mvcc.OpenDB(ssConfig.DBDirectory, ssConfig)
+		if err != nil {
 			return nil, err
+		}
+		if err := replayReceiptStore(entries, db); err != nil {
+			return nil, errors.Join(err, db.Close())
 		}
 		rs := &receiptStore{
 			db:          db,
 			storeKey:    storeKey,
 			stopPruning: make(chan struct{}),
+			ownership:   ownership,
 		}
 		startReceiptPruning(db, int64(ssConfig.KeepRecent), int64(ssConfig.PruneIntervalSeconds), rs.stopPruning, &rs.pruneWg)
+		handedOff = true
 		return rs, nil
 	default:
 		return nil, fmt.Errorf("unsupported receipt store backend: %s", config.Backend)
@@ -272,59 +302,65 @@ func (s *receiptStore) Close() error {
 		}
 		s.pruneWg.Wait()
 		err = s.db.Close()
+		if s.ownership != nil {
+			err = errors.Join(err, s.ownership.Close())
+		}
 	})
 	return err
 }
 
-func recoverReceiptStore(changelogPath string, db paxdbtypes.StateStore) error {
-	ssLatestVersion := db.GetLatestVersion()
-	logger.Info("Recovering from changelog with latest receipt version", "changelog-path", changelogPath, "version", ssLatestVersion)
+func recoverReceiptStore(changelogPath string) (entries []proto.ChangelogEntry, err error) {
 	streamHandler, err := wal.NewChangelogWAL(changelogPath, wal.Config{})
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("open receipt recovery changelog: %w", err)
 	}
+	defer func() { err = errors.Join(err, streamHandler.Close()) }()
+	return readReceiptChangelog(streamHandler)
+}
+
+func readReceiptChangelog(streamHandler wal.ChangelogWAL) ([]proto.ChangelogEntry, error) {
 	firstOffset, errFirst := streamHandler.FirstOffset()
-	if firstOffset <= 0 || errFirst != nil {
-		return nil
-	}
 	lastOffset, errLast := streamHandler.LastOffset()
-	if lastOffset <= 0 || errLast != nil {
+	var offsetErr error
+	if errFirst != nil {
+		offsetErr = fmt.Errorf("read receipt recovery first offset: %w", errFirst)
+	}
+	if errLast != nil {
+		offsetErr = errors.Join(offsetErr, fmt.Errorf("read receipt recovery last offset: %w", errLast))
+	}
+	if offsetErr != nil {
+		return nil, offsetErr
+	}
+	// The WAL documents an empty log as two zero offsets without errors.
+	if firstOffset == 0 && lastOffset == 0 {
+		return nil, nil
+	}
+	if firstOffset == 0 || lastOffset < firstOffset {
+		return nil, fmt.Errorf("invalid receipt recovery offsets: first %d, last %d", firstOffset, lastOffset)
+	}
+	var entries []proto.ChangelogEntry
+	err := streamHandler.Replay(firstOffset, lastOffset, func(_ uint64, entry proto.ChangelogEntry) error {
+		entries = append(entries, entry)
 		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("read receipt recovery changelog: %w", err)
 	}
-	lastEntry, errRead := streamHandler.ReadAt(lastOffset)
-	if errRead != nil {
-		return errRead
-	}
-	// Look backward to find where we should start replay from
-	curVersion := lastEntry.Version
-	curOffset := lastOffset
-	if ssLatestVersion > 0 {
-		for curVersion > ssLatestVersion && curOffset > firstOffset {
-			curOffset--
-			curEntry, errRead := streamHandler.ReadAt(curOffset)
-			if errRead != nil {
-				return errRead
-			}
-			curVersion = curEntry.Version
+	return entries, nil
+}
+
+func replayReceiptStore(entries []proto.ChangelogEntry, db paxdbtypes.StateStore) error {
+	ssLatestVersion := db.GetLatestVersion()
+	for _, entry := range entries {
+		if entry.Version <= ssLatestVersion {
+			continue
 		}
-	} else {
-		// Fresh store (or no applied versions) - start from the first offset
-		curOffset = firstOffset
-	}
-	// Replay from the offset where the version is larger than SS store latest version
-	targetStartOffset := curOffset
-	logger.Info("Start replaying changelog to recover ReceiptStore", "from-offset", targetStartOffset, "to-offset", lastOffset)
-	if targetStartOffset < lastOffset {
-		return streamHandler.Replay(targetStartOffset, lastOffset, func(index uint64, entry proto.ChangelogEntry) error {
-			// commit to state store
-			if err := db.ApplyChangesetSync(entry.Version, entry.Changesets); err != nil {
-				return err
-			}
-			if err := db.SetLatestVersion(entry.Version); err != nil {
-				return err
-			}
-			return nil
-		})
+		if err := db.ApplyChangesetSync(entry.Version, entry.Changesets); err != nil {
+			return err
+		}
+		if err := db.SetLatestVersion(entry.Version); err != nil {
+			return err
+		}
 	}
 	return nil
 }

@@ -1,9 +1,9 @@
 [sweep.rust-test-programs]
-revision = "03e2d849d7f3e9ca51cada79f6d3cfe90938a0fb"
+revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
 command = "cargo test --locked --manifest-path programs/Cargo.toml -p TARGET --no-fail-fast"
 targets_total = 20
-targets_passed = 13
-targets_failed = 7
+targets_passed = 14
+targets_failed = 6
 targets_not_run = 0
 
 [target.rust-test-programs.1]
@@ -15,22 +15,22 @@ exit_code = 0
 target = "layerx-program-sdk"
 result = "failed"
 exit_code = 101
-observed = "bindgen::vectors::typed_interfaces_retain_versioned_capabilities_in_every_language at programs/sdk/rust/src/bindgen.rs:1273:13 failed because it received Err(InvalidSchema) instead of Err(UnsupportedAbi)."
-assumption = "The schema validation order appears inconsistent with this test's expected unsupported-ABI refusal."
+observed = "emit_generated_consumers at programs/sdk/rust/tests/bindgen_conformance.rs:332:83 panicked because an explicit consumer output directory is required."
+assumption = "This is an environmental failure because PAXEER_X_BINDINGS_EMIT_DIR is unset, and the other failing conformance tests also lack their prebuilt artifact and immutable fixture directories."
 
 [target.rust-test-programs.3]
 target = "layerx-programs-registry"
 result = "failed"
 exit_code = 101
-observed = "interface::conformance_vectors::central_abi_policy_admits_every_supported_version_and_refuses_unknown at programs/crates/layerx-programs-registry/src/interface.rs:1656:13 failed because it received Err(Invalid) instead of Err(AbiVersion(Unsupported { requested: 5 }))."
-assumption = "The interface validation order appears inconsistent with this test's expected ABI-version refusal."
+observed = "native_receipt_authorized_interface_reads at programs/crates/layerx-programs-registry/tests/interface_protocol.rs:149:64 panicked with missing PAXEER_X_INTERFACE_FIXTURES."
+assumption = "This is an environmental failure because the native interface fixture directory is not configured, and the input producer also lacks PAXEER_X_INTERFACE_INPUTS."
 
 [target.rust-test-programs.4]
 target = "layerx-programs-runtime"
 result = "failed"
 exit_code = 101
-observed = "calls::single_step_conformance::fixed_control_flow_local_global_and_internal_call_vectors_replay_real_steps at programs/crates/layerx-programs-runtime/src/calls.rs:1528:37 failed because engine validation rejected reference types as not enabled at offset 0x27."
-assumption = "The test fixture appears to require WebAssembly reference types that the execution engine configuration disables."
+observed = "execute::market_tests::compiled_market_concurrent_leases_are_not_over_slashed_and_the_offer_closes_after_disputes at programs/crates/layerx-programs-runtime/src/market_tests.rs:104:29 panicked with actual compiled market: environment variable not found."
+assumption = "This is an environmental failure because LAYERX_MARKET_WASM is unset, so the compiled-market test cannot load its required WebAssembly artifact."
 
 [target.rust-test-programs.5]
 target = "wasm-instrument"
@@ -63,22 +63,20 @@ exit_code = 0
 target = "layerx-programs-ai-market"
 result = "failed"
 exit_code = 101
-observed = "chain_domain_is_derived_from_the_merged_chain_id at programs/crates/layerx-programs-ai-market/tests/chain_domain.rs:47:5 failed because option_env!(PAXAI_CHAIN_DOMAIN) returned None instead of the expected merged chain-domain value."
-assumption = "This is an environmental failure because the compile-time PAXAI_CHAIN_DOMAIN variable is absent."
+observed = "deployment_refuses_state_of_another_chain_domain in programs/crates/layerx-programs-ai-market/tests/chain_domain.rs failed with Error: ApplicationError(3)."
+assumption = "This appears to be an environmental failure because the compile-time PAXAI_CHAIN_DOMAIN variable is absent, as confirmed by the companion chain-domain assertion at programs/crates/layerx-programs-ai-market/tests/chain_domain.rs:47:5."
 
 [target.rust-test-programs.11]
 target = "layerx-programs-arbiter"
 result = "failed"
 exit_code = 101
-observed = "bisect::tests::dispute_over_trap_judges_the_terminal_trap_step at programs/crates/layerx-programs-arbiter/src/bisect.rs:611:18 failed with Execution(EngineFault) because the deterministic execution observer refused UnsupportedState."
-assumption = "The execution observer appears unable to represent the terminal-trap state exercised by this dispute fixture."
+observed = "canonical_native_authority_matches_authenticated_historical_facts at programs/crates/layerx-programs-arbiter/tests/authority_from_prestate.rs:290:14 panicked with required genuine native replay corpus; no fallback: NotPresent."
+assumption = "This is an environmental failure because LAYERX_AUTHENTICATED_REPLAY_INPUTS is unset, so the test cannot load its genuine native replay corpus."
 
 [target.rust-test-programs.12]
 target = "layerx-programs-sandbox"
-result = "failed"
-exit_code = 101
-observed = "real_bound_receipt_closes_intrinsically_and_refuses_mismatch_and_regression at programs/crates/layerx-programs-sandbox/tests/lease.rs:145:29 failed with transition evidence: InvalidCanonicalEvidence."
-assumption = "The receipt fixture appears incompatible with the canonical transition-evidence validation rules."
+result = "passed"
+exit_code = 0
 
 [target.rust-test-programs.13]
 target = "layerx-programs-fuzz"

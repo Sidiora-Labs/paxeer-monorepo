@@ -1,6 +1,15 @@
 version = 1
 
+# tools/boundary-check scans Rust sources and Cargo manifests recursively under
+# crates/, including tests/, host-tests/ and src/bin/, skipping target/ directories.
+# It matches ambient-call tokens literally, even in comments, and permits only
+# exact file paths below; neither tests nor other binaries gain an exemption.
+# Library deadlines must use an injected layerx_types::clock::Clock and Deadline.
+# Tests use tests/support/wall_clock.rs::wall_time and
+# tests/support/monotonic_clock.rs::monotonic_time via explicit adapters.
+# Those shared adapters are outside crates/ and are not scanner exceptions.
+
 [[exceptions]]
 path = "crates/layerx-agentd/src/main.rs"
-reason = "The daemon binary is the single process boundary where ambient wall-clock time may enter; it stamps each request before calling the deterministic, now-parameterised read routes."
-safety = "The clock is read once per request through a fallible epoch conversion, is passed only as an explicit `now` argument into library APIs that refuse zero or stale values, and no library crate reads ambient time itself."
+reason = "The daemon entry point, built by layerx-agentd-host, is the sole approved process boundary for ambient wall-clock input."
+safety = "Fallible epoch conversion supplies explicit request timestamps to library APIs; library deadlines must instead receive an injected Clock. This exact-file exception does not authorize ambient clock reads in other libraries, binaries or tests."

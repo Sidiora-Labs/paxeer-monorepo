@@ -1,0 +1,21 @@
+{
+  "cassette": "block_importer_import_1_pending.json",
+  "classification": "historical Parity evidence",
+  "purpose": "Preserve the February 2018 upstream pending import regression sample, including its seven mined transaction objects.",
+  "sha256": "6cbdb078dff803c44b1db8db80c3366391a449099ebdd1ba7050f5614b9a87c0",
+  "merged_pending_conformance": false,
+  "reason": "This pending,true response has non-null block hash, state root and mined transaction locations. rpc/block.go pendingBlock returns null hash/stateRoot and hashes only; fullTx=true is explicitly unsupported.",
+  "required_producer_capture": "paxeer_pending_block_lifecycle.json",
+  "required_phases": [
+    "chain_identity",
+    "client_version",
+    "pending_hashes",
+    "pending_full_transactions",
+    "committed_head",
+    "committed_hashes",
+    "committed_full_transactions"
+  ],
+  "producer_capture_sha256": "ccff1ef30f1d6eef1cbd1302917a69b62e8bc57dbe269b15d21185177712c4d6",
+  "capture_classification": "The chain-125 public node refuses both pending selections with -32000 pending served by sequencer; this is refusal-path evidence under the attempt-2 ruling, not an open pendingBlock capture.",
+  "restart_scope": "Tests stop and reopen their production Hackney HTTP connection pool and replay committed block identity and pending refusal. No public producer restart is claimed."
+}

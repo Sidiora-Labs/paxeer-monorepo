@@ -5,6 +5,8 @@ use std::sync::Arc;
 use std::task::{Context, Poll, Wake, Waker};
 use std::time::Duration;
 
+use layerx_client::rpc::account::{balance as account_balance, ReadContext, ReadError, Requested};
+use layerx_client::sequencer::{SequencerEndpoint, SequencerError};
 use layerx_crypto::account_derivation::derive_from_seed;
 use layerx_crypto::signer::LocalSigner;
 use layerx_proof::inclusion::SequencerAuthorization;
@@ -206,6 +208,9 @@ fn submit(v: &Value, rpc: &RpcClient, policy: &ReceiptPolicy) -> Result<Value, B
     };
     let ordinal = u16::try_from(number(v, "ordinal")?).map_err(|_| ())?;
     let payload = bytes(v, "payload")?;
+    if payload.len() > layerx_sdk::rpc::MAX_TRANSACTION_CALLDATA_BYTES {
+        return Err(BridgeError::Invalid);
+    }
     let prepared = wallet
         .prepare_payload(ModuleId::Asset, ordinal, &payload, &options)
         .map_err(BridgeError::Rpc)?;
@@ -236,6 +241,69 @@ fn action(v: &Value) -> Result<&str, BridgeError> {
         _ => Err(BridgeError::Invalid),
     }
 }
+fn balance(v: &Value, node: bool) -> Result<Value, BridgeError> {
+    let c = &v["configuration"];
+    let asset = fixed(v, "asset")?;
+    let account =
+        layerx_sdk::rpc::wallet_account(text(v, "did")?, asset, fixed(c, "native_asset")?)
+            .map_err(BridgeError::Rpc)?;
+
+    // These are ledger asset accounts, including the native main account;
+    // eth_getBalance reads EVM gas funds and cannot accept these identifiers.
+    // Reuse the production ledger reader and its uint128 ABI validation.
+    let mut endpoint = url::Url::parse(text(c, "endpoint")?).map_err(|_| ())?;
+    if !node {
+        let base = endpoint.path().trim_end_matches('/');
+        let path = if base.ends_with("/rpc") {
+            base.to_owned()
+        } else {
+            format!("{base}/rpc")
+        };
+        endpoint.set_path(&path);
+    }
+    let roots = if c.get("ca_der").is_some() {
+        vec![bytes(c, "ca_der")?]
+    } else if endpoint.scheme() == "https" {
+        let loaded = rustls_native_certs::load_native_certs();
+        if loaded.certs.is_empty() || !loaded.errors.is_empty() {
+            return Err(BridgeError::Invalid);
+        }
+        loaded.certs.into_iter().map(|cert| cert.to_vec()).collect()
+    } else {
+        Vec::new()
+    };
+    let anchors: Vec<_> = roots.iter().map(Vec::as_slice).collect();
+    // Ledger views are public reads and require neither a signer nor a clock.
+    let endpoint = SequencerEndpoint::new(endpoint.as_str(), &anchors).map_err(sequencer_error)?;
+    let height = endpoint.block_number().map_err(sequencer_error)?;
+    let amount = account_balance(
+        &endpoint,
+        account,
+        asset,
+        ReadContext {
+            committed_height: height,
+            requested: Requested::new(Rung::Committed).map_err(|_| ())?,
+        },
+    )
+    .map_err(|error| match error {
+        ReadError::Rpc(error) => sequencer_error(error),
+        _ => BridgeError::Rpc(RpcError::InvalidResponse),
+    })?;
+    Ok(json!({"account_id": hex(&account), "asset_id": hex(&asset),
+        "balance": amount.value().to_string()}))
+}
+fn sequencer_error(error: SequencerError) -> BridgeError {
+    BridgeError::Rpc(match error {
+        SequencerError::Rpc(error) => RpcError::Remote {
+            code: error.code,
+            message: error.message,
+            data: error.data,
+        },
+        SequencerError::Malformed => RpcError::InvalidResponse,
+        SequencerError::Endpoint => RpcError::InvalidRequest,
+        _ => RpcError::Transport,
+    })
+}
 fn execute(v: &Value) -> Result<Value, BridgeError> {
     let action = action(v)?;
     let c = &v["configuration"];
@@ -250,10 +318,23 @@ fn execute(v: &Value) -> Result<Value, BridgeError> {
     } else {
         None
     };
-    let rpc = if c.get("ca_der").is_some() {
-        RpcClient::connect_with_ca_der(text(c, "endpoint")?, credential, &bytes(c, "ca_der")?)
-    } else {
-        RpcClient::connect(text(c, "endpoint")?, credential)
+    let node = match c.get("rpc_route").and_then(Value::as_str) {
+        None if !c.as_object().ok_or(())?.contains_key("rpc_route") => false,
+        Some("gateway") => false,
+        Some("node") => true,
+        _ => return Err(BridgeError::Invalid),
+    };
+    let rpc = match (node, c.get("ca_der").is_some()) {
+        (true, true) => RpcClient::connect_node_with_ca_der(
+            text(c, "endpoint")?,
+            credential,
+            &bytes(c, "ca_der")?,
+        ),
+        (true, false) => RpcClient::connect_node(text(c, "endpoint")?, credential),
+        (false, true) => {
+            RpcClient::connect_with_ca_der(text(c, "endpoint")?, credential, &bytes(c, "ca_der")?)
+        }
+        (false, false) => RpcClient::connect(text(c, "endpoint")?, credential),
     }
     .map_err(|_| ())?;
     let policy = ReceiptPolicy {
@@ -281,15 +362,7 @@ fn execute(v: &Value) -> Result<Value, BridgeError> {
                 .map(layerx_sdk::rpc::BalancesSnapshot::into_value)
                 .map_err(BridgeError::Rpc);
         }
-        "balance" => {
-            let rpc = rpc.with_clock(
-                layerx_client::runtime_clock::RuntimeClock::from_environment().map_err(|_| ())?,
-            );
-            return rpc
-                .wallet(fixed(c, "native_asset")?)
-                .balance(text(v, "did")?, fixed(v, "asset")?)
-                .map_err(BridgeError::Rpc);
-        }
+        "balance" => balance(v, node),
         "wait" => wait(v, rpc, &policy),
         "submit" => submit(v, &rpc, &policy),
         _ => Err(BridgeError::Invalid),

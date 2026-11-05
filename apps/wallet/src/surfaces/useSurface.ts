@@ -9,22 +9,22 @@ import {
   type GasStationModule,
   type SponsoredBatch,
   type SponsoredConsent,
+  type SponsoredSubmissionEvidence,
   webData,
   ethCall,
   ethQuantity,
   LEDGER_PRECOMPILE,
-  ledgerLogFloor,
-  listHolderRecords,
-  type HolderRecords,
-  type WalletCapsHistory,
   type WalletCapsState,
-  type WalletGrantCap,
+  type WalletCapsSnapshot,
   type WebPayerGrant,
+  type WebDataPaymentAvailability,
   feeToken,
   type FeeChoiceId,
   type ModuleProvider,
   type ModuleTransaction,
   sendModuleTransactionReceipted,
+  requireAuthenticatedReceipt,
+  matchReceiptTransaction,
   waitForSequencerReceipt,
   type SequencerReceiptAnswer,
   type SequencerRung,
@@ -101,6 +101,7 @@ export function receiptEvents(
   receipt: SequencerReceiptAnswer,
   surfaceModule: Pick<SurfaceModule, 'address' | 'decodeEvent'>
 ): SentTransaction['events'] {
+  requireAuthenticatedReceipt(receipt);
   if (!Array.isArray(receipt.logs)) throw new Error('the receipt carries no logs');
   return receipt.logs
     .map((log) => {
@@ -121,6 +122,7 @@ export function surfaceReceipt(
   receipt: SequencerReceiptAnswer,
   surfaceModule: Pick<SurfaceModule, 'address' | 'decodeEvent'>
 ): SentTransaction {
+  requireAuthenticatedReceipt(receipt);
   return {
     hash: receipt.txHash,
     rung: receipt.rung,
@@ -131,6 +133,7 @@ export function surfaceReceipt(
 
 export function receiptStatus(receipt: unknown): ReceiptStatus {
   if (!isRecord(receipt) || receipt.status === undefined) return 'pending';
+  requireAuthenticatedReceipt(receipt);
   if (receipt.status === '0x1') return 'confirmed';
   if (receipt.status === '0x0') return 'reverted';
   throw new Error('the receipt carries an invalid status');
@@ -207,7 +210,10 @@ export function useModuleSend(
             return receipt.txHash;
           };
           const hash = fee ? await fee.submit(transaction, direct) : await direct();
-          if (receipt) return receipt;
+          if (receipt) {
+            requireAuthenticatedReceipt(receipt);
+            return receipt;
+          }
           if (fee?.choice !== 'sid_sponsored')
             throw new Error('the module send returned no sequencer receipt');
           const sponsoredReceipt = await waitForSequencerReceipt(
@@ -215,6 +221,8 @@ export function useModuleSend(
             hash,
             { rung: 'receipted' }
           );
+          requireAuthenticatedReceipt(sponsoredReceipt);
+          matchReceiptTransaction(sponsoredReceipt, address, transaction);
           const status = receiptStatus(sponsoredReceipt);
           if (status !== 'pending') fee.settle(status);
           return sponsoredReceipt;
@@ -309,6 +317,24 @@ function sameCalls(batch: SponsoredBatch, tx: ModuleTransaction): boolean {
     batch.calls[0]?.data.toLowerCase() === tx.data.toLowerCase() &&
     batch.calls[0]?.value === tx.value
   );
+}
+
+export async function authenticatedSponsoredPhase(
+  provider: ModuleProvider | null,
+  report: Pick<SponsoredSubmissionEvidence, 'status' | 'tx_hash'>
+): Promise<SponsoredSelection['phase']> {
+  if (report.status === 'pending') return 'submitted';
+  if (report.status === 'cancelled') return 'cancelled';
+  if (!provider || !report.tx_hash) throw new Error('the sponsored result carries no transaction');
+  const receipt = await waitForSequencerReceipt(
+    (method, params) => provider.request({ method, params }),
+    report.tx_hash,
+    { rung: 'receipted' }
+  );
+  const status = receiptStatus(receipt);
+  if (status === 'pending' || status !== report.status)
+    throw new Error('the sponsored result differs from the authenticated receipt');
+  return status;
 }
 
 export function useFeeSelection(
@@ -444,9 +470,10 @@ export function useFeeSelection(
       }
       retainedFound = true;
       const report = await client.resume(retained.batch, retained.relayerSignature);
+      const phase = await authenticatedSponsoredPhase(provider, report);
       if (ticket === generation.current)
         publish({
-          phase: report.status === 'pending' ? 'submitted' : report.status,
+          phase,
           batch: retained.batch,
           relayerSignature: retained.relayerSignature,
           digest: client.digest(retained.batch),
@@ -463,7 +490,7 @@ export function useFeeSelection(
           reason: sponsoredReason(cause),
         });
     }
-  }, [address, station]);
+  }, [address, station, provider]);
   useEffect(() => {
     if (choice === 'sid_sponsored') void recover();
   }, [choice, recover]);
@@ -556,9 +583,10 @@ export function useFeeSelection(
           throw new GasStationError({ code: 'refused', field: 'quote_required' });
         }
         const report = await client.resume(current.batch, current.relayerSignature);
+        const phase = await authenticatedSponsoredPhase(provider, report);
         publish({
           ...current,
-          phase: report.status === 'pending' ? 'submitted' : report.status,
+          phase,
           ...(report.tx_hash ? { txHash: report.tx_hash } : {}),
         });
         if (!report.tx_hash)
@@ -616,7 +644,7 @@ export function useFeeSelection(
         throw cause;
       }
     },
-    [choice, feeDenom, station, address]
+    [choice, feeDenom, station, address, provider]
   );
   const setChoice = useCallback(
     (next: FeeChoiceId) => {
@@ -661,19 +689,17 @@ export function useFeeSelection(
 
 const GRANT_LOOKUP_ABI = parseAbi([
   'function getLayerXDid(address addr) view returns (bytes32 didPublicKey, string did)',
-  'function accountId(bytes32 didPublicKey, bytes32 assetId) view returns (bytes32)',
 ]);
 const PAYER_GRANT_ISSUED = toEventSelector('PayerGrantIssued(bytes32)');
 const ZERO_WORD: Hex = `0x${'0'.repeat(64)}`;
-const REFUSED_CAPS: WalletCapsState = {
+const REFUSED_CAPS = {
   state: 'refused',
   reason: 'The account or its evidence was refused.',
-};
-const NO_FINALISED_CHECKPOINT: WalletCapsState = {
+} satisfies WalletCapsState;
+const NO_FINALISED_CHECKPOINT = {
   state: 'unavailable',
   reason: 'consensus_unavailable',
-};
-const NO_GRANT_EXPIRY = ((1n << 64n) - 1n).toString();
+} satisfies WalletCapsState;
 export const GRANT_LOG_WINDOW = 10_000n;
 export const GRANT_LOG_BATCH = 8;
 // At most 1024 windows (10.24M blocks above the floor, 128 sequential batches); a longer history is reported unavailable, never partial.
@@ -731,26 +757,6 @@ export async function boundDid(provider: ModuleProvider, address: string): Promi
   return did;
 }
 
-async function issuedGrants(
-  provider: ModuleProvider,
-  fromBlock: bigint,
-  toBlock: bigint
-): Promise<(readonly [string, string])[]> {
-  const logs = await provider.request({
-    method: 'eth_getLogs',
-    params: [
-      {
-        address: LEDGER_PRECOMPILE,
-        topics: [PAYER_GRANT_ISSUED],
-        fromBlock: `0x${fromBlock.toString(16)}`,
-        toBlock: `0x${toBlock.toString(16)}`,
-      },
-    ],
-  });
-  if (!Array.isArray(logs)) throw new TypeError('invalid grant logs');
-  return logs.map(decodePayerGrantIssued);
-}
-
 export function decodePayerGrantIssued(log: unknown): readonly [string, string] {
   const hash: unknown = isRecord(log) ? log.transactionHash : undefined;
   if (!isLog(log) || typeof hash !== 'string' || !HASH.test(hash))
@@ -768,55 +774,36 @@ export function decodePayerGrantIssued(log: unknown): readonly [string, string] 
   return [grantId.toLowerCase(), hash.toLowerCase()] as const;
 }
 
-// The ledger precompile indexes PayerGrantIssued by grant id only and has no per-account grant view, so a grant is
-// attributed to the account by its issuing transaction, which the bound address sends or a sponsor sends to it.
-async function issuedBy(provider: ModuleProvider, hash: string, address: string): Promise<boolean> {
-  const tx = await provider.request({ method: 'eth_getTransactionByHash', params: [hash] });
-  if (!isRecord(tx) || typeof tx.from !== 'string' || (tx.to !== null && typeof tx.to !== 'string'))
-    throw new TypeError('invalid grant transaction');
-  return tx.from.toLowerCase() === address || tx.to?.toLowerCase() === address;
+export interface SurfaceCapsSnapshot extends WalletCapsSnapshot {
+  readonly budgetAvailability: 'available' | 'unavailable';
 }
 
-const holderRecordsServed = new WeakMap<ModuleProvider, boolean>();
-const RECORD_ID = /^(?:0x)?([0-9a-fA-F]{64})$/u;
-
-// The account's grant records from px_listHolderRecords when the endpoint serves it. The first read per provider is the
-// probe: a -32601 answer marks the method as not served and returns null so the bounded chain scan is used instead.
-async function indexedGrants(
-  provider: ModuleProvider,
-  address: string
-): Promise<HolderRecords | null> {
-  if (holderRecordsServed.get(provider) === false) return null;
-  try {
-    const records = await listHolderRecords(provider, address, 'grant');
-    holderRecordsServed.set(provider, true);
-    return records;
-  } catch (cause) {
-    if (!holderRecordsServed.has(provider) && isRecord(cause) && cause.code === -32601) {
-      holderRecordsServed.set(provider, false);
-      return null;
+export type SurfaceCapsState =
+  | Exclude<WalletCapsState, WalletCapsSnapshot>
+  | SurfaceCapsSnapshot
+  | {
+      readonly state: 'incomplete';
+      readonly reason: 'Grant discovery has not covered the finalized block.';
+      readonly indexedHeight: string | null;
+      readonly finalizedHeight: string;
     }
-    throw cause;
-  }
-}
-
-function grantRecordId(record: Readonly<Record<string, unknown>>): string {
-  const match = typeof record.record_id === 'string' ? RECORD_ID.exec(record.record_id) : null;
-  if (!match) throw new TypeError('invalid holder record');
-  return `0x${match[1]!.toLowerCase()}`;
-}
-
-async function inBatches<T, R>(items: readonly T[], read: (item: T) => Promise<R>): Promise<R[]> {
-  const out: R[] = [];
-  for (let start = 0; start < items.length; start += GRANT_LOG_BATCH)
-    out.push(...(await Promise.all(items.slice(start, start + GRANT_LOG_BATCH).map(read))));
-  return out;
-}
+  | {
+      readonly state: 'retired';
+      readonly reason: string;
+      readonly payment: WebDataPaymentAvailability;
+      readonly did: string;
+      readonly network_id: number;
+      readonly observation: {
+        readonly rung: 'committed';
+        readonly block_number: string;
+        readonly state_root: string;
+      };
+    };
 
 export async function readGrantCaps(
   provider: ModuleProvider,
   address: string
-): Promise<WalletCapsState> {
+): Promise<SurfaceCapsState> {
   const chainId = await ethQuantity(provider, 'eth_chainId');
   const head = await provider.request({
     method: 'eth_getBlockByNumber',
@@ -840,108 +827,25 @@ export async function readGrantCaps(
   };
   const [didPublicKey, did] = await layerXDid(observedProvider, address);
   if (didPublicKey === ZERO_WORD) return REFUSED_CAPS;
-  const account = decodeFunctionResult({
-    abi: GRANT_LOOKUP_ABI,
-    functionName: 'accountId',
-    data: await view(
-      observedProvider,
-      LEDGER_PRECOMPILE,
-      encodeFunctionData({
-        abi: GRANT_LOOKUP_ABI,
-        functionName: 'accountId',
-        args: [didPublicKey, ZERO_WORD],
-      })
-    ),
-  }).toLowerCase();
-  const finalised = BigInt(head.number);
-  const height = finalised.toString();
-  const indexed = await indexedGrants(provider, address);
-  let ids: string[];
-  let history: WalletCapsHistory;
-  if (indexed !== null) {
-    ids = [...new Set(indexed.items.map(grantRecordId))];
-    history = {
-      source: 'indexer',
-      indexed_height: indexed.indexedHeight?.toString() ?? null,
-      chain_height: indexed.chainHeight.toString(),
-    };
-  } else {
-    const floor = ledgerLogFloor(Number(chainId));
-    if (floor === undefined)
-      return {
-        state: 'unavailable',
-        reason: 'consensus_unavailable',
-      };
-    const count = finalised < floor ? 0n : (finalised - floor) / GRANT_LOG_WINDOW + 1n;
-    if (count > GRANT_LOG_WINDOW_CEILING)
-      return {
-        state: 'unavailable',
-        reason: 'consensus_unavailable',
-      };
-    const windows: (readonly [bigint, bigint])[] = [];
-    for (let to = finalised; to >= floor; to -= GRANT_LOG_WINDOW)
-      windows.push([to - floor >= GRANT_LOG_WINDOW ? to - GRANT_LOG_WINDOW + 1n : floor, to]);
-    const issued = (
-      await inBatches(windows, ([from, to]) => issuedGrants(provider, from, to))
-    ).flat();
-    const self = address.toLowerCase();
-    const hashes = [...new Set(issued.map(([, hash]) => hash))];
-    const sent = await inBatches(hashes, (hash) => issuedBy(provider, hash, self));
-    const mine = new Set(hashes.filter((_, index) => sent[index]));
-    ids = [...new Set(issued.filter(([, hash]) => mine.has(hash)).map(([id]) => id))];
-    history = { source: 'chain_scan', floor: floor.toString(), head: height };
-  }
-  const owned =
-    ids.length === 0
-      ? []
-      : (await webData(observedProvider).caps(ids)).grants.filter(
-          (grant) => grant.from === account
-        );
-  const expires = earliestLiveExpiry(owned, BigInt(Math.floor(Date.now() / 1000)));
+  const payment = await webData(observedProvider).paymentAvailability();
   return {
-    state: owned.length === 0 ? 'empty' : 'ready',
+    state: 'retired',
+    reason: payment.available
+      ? `Payer grants are retired. Web requests are available and pay ${payment.fee} wei as transaction value.`
+      : 'Payer grants are retired. Web requests are currently paused.',
+    payment,
     did,
-    account_id: account.slice(2),
     network_id: Number(chainId),
-    context: {
-      principal: did,
-      session_id: '',
-      address: address.toLowerCase(),
-      chain_id: Number(chainId),
-      expires_at: expires === null ? NO_GRANT_EXPIRY : expires.toString(),
-    },
     observation: {
       rung: 'committed',
-      block_number: height,
+      block_number: BigInt(head.number).toString(),
       state_root: head.stateRoot.slice(2).toLowerCase(),
     },
-    history,
-    budgets: [],
-    grants: owned.map(
-      (grant): WalletGrantCap => ({
-        id: grant.grantId.slice(2),
-        owner: grant.from.slice(2),
-        recipient: grant.recipient.slice(2),
-        asset: grant.asset.slice(2),
-        per_draw_maximum: grant.perDrawMaximum.toString(),
-        allowance: grant.allowance.toString(),
-        drawn_total: grant.drawnTotal.toString(),
-        drawn_this_period: grant.drawnThisPeriod.toString(),
-        recurring: grant.recurring,
-        window_length: grant.windowLength.toString(),
-        window_start: grant.windowStart.toString(),
-        expiration: grant.expiration.toString(),
-        revocation_height: grant.revocationSequence.toString(),
-        revoked_at_height: grant.revokedAt.toString(),
-        revoked: grant.revoked,
-        invoice_settled: grant.invoiceSettled,
-      })
-    ),
   };
 }
 
 export function useWebDataCaps(): {
-  readonly caps: WalletCapsState;
+  readonly caps: SurfaceCapsState;
   readonly refreshCaps: () => void;
 } {
   const connection = useWallet();
@@ -951,7 +855,7 @@ export function useWebDataCaps(): {
     () => ({}),
     [provider, address, connection.identity?.id, connection.status, revision]
   );
-  const [retained, setRetained] = useState<{ key: object; value: WalletCapsState } | null>(null);
+  const [retained, setRetained] = useState<{ key: object; value: SurfaceCapsState } | null>(null);
   const refreshCaps = useCallback(() => setRevision((value) => value + 1), []);
   useEffect(() => {
     let alive = true,
@@ -963,7 +867,10 @@ export function useWebDataCaps(): {
       if (!provider || !address) {
         setRetained({
           key,
-          value: { state: 'refused', reason: 'Connect an authenticated wallet to read its caps.' },
+          value: {
+            state: 'refused',
+            reason: 'Connect an authenticated wallet to read web payment availability.',
+          },
         });
         return;
       }
@@ -1021,7 +928,7 @@ export function useWebDataCaps(): {
       wallet?.off('message', message);
     };
   }, [key, provider, address, connection.wallet, refreshCaps]);
-  const caps: WalletCapsState = retained?.key === key ? retained.value : { state: 'loading' };
+  const caps: SurfaceCapsState = retained?.key === key ? retained.value : { state: 'loading' };
   useEffect(() => {
     if (caps.state !== 'ready' && caps.state !== 'empty') return undefined;
     const delay = capsRefreshDelay(caps.context.expires_at, Date.now());

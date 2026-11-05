@@ -1,0 +1,243 @@
+[reconcile.r8-151]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r8-151.1]
+interface = "interface.8.err-gateway-program-source-absent"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 3150
+symbol = "program_source_absent"
+evidence = "The source-publication upstream status match still declares 404 => response(404, \"program_source_absent\", None); the registered signature is unchanged."
+
+[row.r8-151.2]
+interface = "interface.8.err-gateway-program-source-unverified"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 3152
+symbol = "program_source_unverified"
+evidence = "The source-publication upstream status match still declares 422 => response(422, \"program_source_unverified\", None); the registered signature is unchanged."
+
+[row.r8-151.3]
+interface = "interface.8.err-gateway-program-state-unverified"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 2609
+symbol = "program_state_unverified"
+evidence = "The registered now_millis().map_err clock-failure expression still emits response(503, \"program_state_unverified\", Some(5)) while validating the program head. Other occurrences reject missing state or discovery data."
+
+[row.r8-151.4]
+interface = "interface.8.err-gateway-publication-authorization-refused"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 3149
+symbol = "publication_authorization_refused"
+evidence = "The source-publication upstream status match still declares 403 => response(403, \"publication_authorization_refused\", None); the registered signature is unchanged."
+
+[row.r8-151.5]
+interface = "interface.8.err-gateway-receipt-key-unauthorized"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 1030
+symbol = "receipt_key_unauthorized"
+evidence = "unauthorized_or still emits response(502, \"receipt_key_unauthorized\", None) for GatewayError::UntrustedSequencer, matching the registered error response."
+
+[row.r8-151.6]
+interface = "interface.8.err-gateway-receipt-verification-failed"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 1751
+symbol = "receipt_verification_failed"
+evidence = "verified_result maps verify_live_receipt errors through unauthorized_or(error, response(503, \"receipt_verification_failed\", Some(5))), exactly matching the registered signature rather than the later settlement test literals."
+
+[row.r8-151.7]
+interface = "interface.8.err-gateway-settlement-content-type-required"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 2864
+symbol = "settlement_content_type_required"
+evidence = "settle still rejects a non-JSON request with return response(415, \"settlement_content_type_required\", None), matching the registered content-type refusal."
+
+[row.r8-151.8]
+interface = "interface.8.err-gateway-settlement-inclusion-unavailable"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 2850
+symbol = "settlement_inclusion_unavailable"
+evidence = "settlement_rpc maps the paxeer::node request failure with .map_err(|_| response(503, \"settlement_inclusion_unavailable\", Some(5)))?, matching the signature. The later ok_or_else handles an absent result instead."
+
+[row.r8-151.9]
+interface = "interface.8.err-gateway-signer-not-owned"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 2202
+symbol = "signer_not_owned"
+evidence = "issue_key declares return response(403, \"signer_not_owned\", None) when the requested signer is absent from the session's allowed signer keys. rotate_key independently declares the same refusal at line 3305 for the old signer."
+
+[row.r8-151.10]
+interface = "interface.8.http-gateway-get-internal-v1-principal"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 2014
+symbol = "/internal/v1/principal"
+evidence = "The GET /internal/v1/principal route condition still matches the registered signature and dispatches to principal_route(config, request, &trace_id)."
+
+[row.r8-151.11]
+interface = "interface.8.http-gateway-get-livez"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 2017
+symbol = "/livez"
+evidence = "The GET /livez route condition still matches the registered signature and returns HTTP 200 JSON with status live, service layerx-gateway and the package version."
+
+[row.r8-151.12]
+interface = "interface.8.http-gateway-get-metrics"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 2033
+symbol = "/metrics"
+evidence = "The GET /metrics route condition still matches the registered signature and returns event_producer_failures and event_producer_overflow from producer_health.metrics()."
+
+[row.r8-151.13]
+interface = "interface.8.http-gateway-get-readyz"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 2027
+symbol = "/readyz"
+evidence = "The exact GET /readyz route condition still matches the registered signature and calls gateway_readiness(config); the adjacent /readyz/core branch is a separate route."
+
+[row.r8-151.14]
+interface = "interface.8.http-gateway-get-readyz-core"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 2030
+symbol = "/readyz/core"
+evidence = "The GET /readyz/core route condition still matches the registered signature and calls gateway_readiness_scope(config, false)."
+
+[row.r8-151.15]
+interface = "interface.8.http-gateway-get-v1-keys"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 1573
+symbol = "/v1/keys"
+evidence = "manage_keys declares the registered GET /v1/keys condition and dispatches to list_keys(config, &principal_hash); the outer route's shared keys-path check is not the GET declaration."
+
+[row.r8-151.16]
+interface = "interface.8.http-gateway-get-v1-keys-2"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 1576
+symbol = "/v1/keys/"
+evidence = "manage_keys still declares let Some(suffix) = request.path.strip_prefix(\"/v1/keys/\") else, matching the registered signature. Subsequent branches handle DELETE and POST rotation; this prefix declaration itself has no GET condition."
+
+[row.r8-151.17]
+interface = "interface.8.http-gateway-get-v1-status"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 2040
+symbol = "/v1/status"
+evidence = "The GET /v1/status route condition still matches the registered signature and dispatches to gateway_status(config)."
+
+[row.r8-151.18]
+interface = "interface.8.http-gateway-post-v1-keys"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 1570
+symbol = "/v1/keys"
+evidence = "manage_keys declares the registered POST /v1/keys condition and calls issue_key with the authenticated principal, session and principal hash; the adjacent GET branch lists keys."
+
+[row.r8-151.19]
+interface = "interface.8.rpc-gateway-px-getaccount"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/paxeer.rs"
+line = 890
+symbol = "px_getAccount"
+evidence = "The dispatch method match still declares \"px_getAccount\" => get_account(config, id, params), exactly preserving the registered JSON-RPC signature."
+
+[row.r8-151.20]
+interface = "interface.8.rpc-gateway-px-getcapabilities"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/paxeer.rs"
+line = 894
+symbol = "px_getCapabilities"
+evidence = "The dispatch method match still declares \"px_getCapabilities\" => super::capabilities::get(config, id, params), exactly preserving the registered JSON-RPC signature."
+
+[row.r8-151.21]
+interface = "interface.8.rpc-gateway-px-listassets"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/paxeer.rs"
+line = 892
+symbol = "px_listAssets"
+evidence = "The dispatch method match declares \"px_listAssets\" => list_assets(config, id, params), exactly matching the registered signature. The earlier documentation mention does not declare the method."
+
+[row.r8-151.22]
+interface = "interface.8.rpc-gateway-px-resolveaccount"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/paxeer.rs"
+line = 889
+symbol = "px_resolveAccount"
+evidence = "The dispatch method match still declares \"px_resolveAccount\" => resolve_account(config, id, params), exactly preserving the registered JSON-RPC signature."
+
+[row.r8-151.23]
+interface = "interface.8.err-gateway-32700"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/rpc.rs"
+line = 93
+symbol = "-32700"
+evidence = "route still returns json_response(200, &error(&Value::Null, -32700, \"Parse error\")) when serde_json cannot parse the body, exactly matching the registered error signature."
+
+[row.r8-151.24]
+interface = "interface.8.err-gateway-json-content-type-required"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/rpc.rs"
+line = 90
+symbol = "json_content_type_required"
+evidence = "route still declares return response(415, \"json_content_type_required\", None) when media_type_is(request, \"application/json\") fails, matching the registered refusal."
+
+[row.r8-151.25]
+interface = "interface.8.rpc-gateway-px-getroutecatalogue"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/rpc.rs"
+line = 39
+symbol = "px_getRouteCatalogue"
+evidence = "dispatch declares if method == \"px_getRouteCatalogue\" and calls routes::rpc_catalogue, matching the registered signature. The later schema-test published-method array is only a reference."
+
+[row.r8-151.26]
+interface = "interface.8.rs-indexer-layerx-indexer-ai-market-cursorkeyring"
+verdict = "served"
+path = "services/platform/hosted/indexer/src/ai_market.rs"
+line = 660
+symbol = "CursorKeyring"
+evidence = "pub struct CursorKeyring declares the current MAC key and retired key generations, exactly matching the registered public type signature; the following impl and borrowed parameter are uses of that type."
+
+[row.r8-151.27]
+interface = "interface.8.rs-indexer-layerx-indexer-ai-market-epochstatus"
+verdict = "served"
+path = "services/platform/hosted/indexer/src/ai_market.rs"
+line = 495
+symbol = "EpochStatus"
+evidence = "pub enum EpochStatus is the registered repr(u8) declaration, with Retained through UnsupportedVersion variants; EpochEntry.status and the later variant expressions refer to this enum."
+
+[row.r8-151.28]
+interface = "interface.8.rs-indexer-layerx-indexer-ai-market-freshness"
+verdict = "served"
+path = "services/platform/hosted/indexer/src/ai_market.rs"
+line = 460
+symbol = "Freshness"
+evidence = "pub enum Freshness declares Current, Stale { lag: u64 } and Unknown, matching the registered public type signature. The preceding documentation and later MarketView field are not the declaration."
+
+[row.r8-151.29]
+interface = "interface.8.rs-indexer-layerx-indexer-ai-market-pagerequest"
+verdict = "served"
+path = "services/platform/hosted/indexer/src/ai_market.rs"
+line = 521
+symbol = "PageRequest"
+evidence = "pub struct PageRequest declares market, snapshot, filter, active_only, limit and cursor, matching the registered public type signature; its later impl and borrowed request parameter are not the declaration."
+
+[row.r8-151.30]
+interface = "interface.8.rs-indexer-layerx-indexer-ai-market-projectionstore"
+verdict = "served"
+path = "services/platform/hosted/indexer/src/ai_market.rs"
+line = 783
+symbol = "ProjectionStore"
+evidence = "pub struct ProjectionStore declares connection: Mutex<Connection> for the durable SQLite projection, matching the registered public type signature; the later impl block does not declare the type."

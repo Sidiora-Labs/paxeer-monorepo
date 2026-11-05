@@ -136,7 +136,7 @@ def test_listed_or_test_only_commit_passes(tmp_path):
     result = run_gate(tmp_path, base, custom_head, "--list", custom)
     assert result.returncode == 0, result.stdout + result.stderr
 
-    # A merge-only edit is excluded by --no-merges; its parents are doc-only.
+    # A merge-only consensus edit needs its own ledger entry.
     git(tmp_path, "checkout", "-b", "side")
     commit_file(tmp_path, "docs/side.md", "side branch\n")
     git(tmp_path, "checkout", "main")
@@ -144,7 +144,33 @@ def test_listed_or_test_only_commit_passes(tmp_path):
     git(tmp_path, "merge", "--no-ff", "--no-commit", "side")
     merge_head = commit_file(tmp_path, path, "merge-only consensus rule\n")
     result = run_gate(tmp_path, custom_head, merge_head)
-    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert merge_head in result.stdout
+    assert path in result.stdout
+
+    merge_ledger = ledger + (
+        f"| `{merge_head}` | Merge-only claim rule | `{path}` | V6120Upgrade |\n"
+    )
+    (tmp_path / LIST_PATH).write_text(merge_ledger, encoding="utf-8")
+    dirty = run_gate(tmp_path, custom_head, merge_head)
+    assert dirty.returncode == 1, dirty.stdout + dirty.stderr
+    assert merge_head in dirty.stdout
+    assert path in dirty.stdout
+
+    recorded_head = commit_file(tmp_path, LIST_PATH, merge_ledger)
+    accepted = run_gate(tmp_path, custom_head, recorded_head)
+    assert accepted.returncode == 0, accepted.stdout + accepted.stderr
+    assert accepted.stdout == ""
+
+    pinned = run_gate(tmp_path, custom_head, merge_head)
+    assert pinned.returncode == 1, pinned.stdout + pinned.stderr
+    assert merge_head in pinned.stdout
+    assert path in pinned.stdout
+
+    (tmp_path / LIST_PATH).write_text(ledger, encoding="utf-8")
+    dirty = run_gate(tmp_path, custom_head, recorded_head)
+    assert dirty.returncode == 0, dirty.stdout + dirty.stderr
+    assert dirty.stdout == ""
 
 
 def test_seeded_list_names_the_cited_commits():

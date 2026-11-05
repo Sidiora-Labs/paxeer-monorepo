@@ -97,6 +97,7 @@ func instantiateContractHandlerFn(cliCtx client.Context) http.HandlerFunc {
 		// get the id of the code to instantiate
 		codeID, err := strconv.ParseUint(vars["codeId"], 10, 64)
 		if err != nil {
+			rest.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
 			return
 		}
 

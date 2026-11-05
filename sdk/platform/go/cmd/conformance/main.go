@@ -223,7 +223,7 @@ func runVectors(repo string) error {
 		name  string
 		count int
 	}{
-		{"vector-v1-receipted-positive", 4},
+		{"vector-v1-receipted-positive", 5},
 		{"vector-v2-receipted-revert", 1},
 		{"vector-v3-receipt-refusals", 6},
 	} {
@@ -284,6 +284,12 @@ func runVectors(repo string) error {
 		return fmt.Errorf("vector-v4-committed: unexpected name or refusal count")
 	}
 	c := committed.Positive
+	trustedHash, err := hex.DecodeString("a7c648246a5213d57d6a2f2aa7bdc8e0050249629e5e92a4b89f2bdb918e9108")
+	if err != nil {
+		return err
+	}
+	trust := layerx.CommittedTrust{ChainID: "committed-fixture", Height: 10}
+	copy(trust.BlockHash[:], trustedHash)
 	receipt, err := verifyVectorReceipt(c.receiptVectorCase)
 	if err == nil {
 		err = matchVectorReceipt(c.receiptVectorCase, receipt, "receipted")
@@ -291,7 +297,7 @@ func runVectors(repo string) error {
 	if err != nil {
 		return fmt.Errorf("%s: %s: %w", committed.Name, c.ID, err)
 	}
-	result, err := layerx.VerifyCommittedReceipt(receipt, c.BlockHeader, c.ReceiptInclusion, c.Commit, c.ValidatorSet)
+	result, err := layerx.VerifyCommittedReceipt(receipt, c.BlockHeader, c.ReceiptInclusion, c.Commit, c.ValidatorSet, trust)
 	if err == nil {
 		err = matchVectorReceipt(c.receiptVectorCase, result.SequencerReceiptVerification, c.Expected.Rung)
 	}
@@ -301,7 +307,7 @@ func runVectors(repo string) error {
 	for _, refusal := range committed.Refusals {
 		inclusion := c.ReceiptInclusion
 		inclusion.NextCommit = refusal.NextCommit
-		result, err := layerx.VerifyCommittedReceipt(receipt, c.BlockHeader, inclusion, c.Commit, c.ValidatorSet)
+		result, err := layerx.VerifyCommittedReceipt(receipt, c.BlockHeader, inclusion, c.Commit, c.ValidatorSet, trust)
 		if err := matchVectorRefusal(result.SequencerReceiptVerification, err, refusal.ExpectedCheck); err != nil {
 			return fmt.Errorf("%s: %s: %w", committed.Name, refusal.ID, err)
 		}
@@ -329,7 +335,7 @@ func runVectors(repo string) error {
 		if i == 1 {
 			keys, level = committedKeys, "committed"
 		}
-		result, err := layerx.VerifyPortableReceipt(encoded, keys)
+		result, err := layerx.VerifyPortableReceipt(encoded, keys, trust)
 		if err != nil {
 			return fmt.Errorf("%s: bundle %d: %w", portable.Name, i, err)
 		}

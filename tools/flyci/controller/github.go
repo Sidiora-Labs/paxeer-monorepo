@@ -459,7 +459,14 @@ func (c *githubClient) qSource(ctx context.Context, r qualificationRequest) erro
 	return nil
 }
 func (c *githubClient) qDispatch(ctx context.Context, r qualificationRequest) error {
-	payload := qJSON(map[string]any{"ref": r.Ref, "inputs": map[string]string{"request_id": r.LogicalID, "request": base64.StdEncoding.EncodeToString(qCanonical(r))}})
+	requestBytes, e := qCanonical(r)
+	if e != nil {
+		return e
+	}
+	payload, e := json.Marshal(map[string]any{"ref": r.Ref, "inputs": map[string]string{"request_id": r.LogicalID, "request": base64.StdEncoding.EncodeToString(requestBytes)}})
+	if e != nil {
+		return e
+	}
 	if len(payload) > 60000 {
 		return errors.New("dispatch input too large")
 	}
@@ -605,7 +612,9 @@ func (c *githubClient) qCollect(ctx context.Context, rec qualificationRecord, ke
 		out.Jobs = append(out.Jobs, job)
 		out.ArchiveDigests[cell.ID] = qHash(sealed)
 	}
-	qSign(&out, signer)
+	if e = qSign(&out, signer); e != nil {
+		return out, e
+	}
 	return out, qValidateCompleted(out, signer.Public().(ed25519.PublicKey), "github-actions", time.Now().Add(time.Minute))
 }
 func (c *githubClient) qTick(ctx context.Context, registry *qualificationRegistry) error {
@@ -688,7 +697,15 @@ func (c *githubClient) qTick(ctx context.Context, registry *qualificationRegistr
 				if e = qStrict(b, &existing); e != nil {
 					return e
 				}
-				if qHash(qCanonical(existing.Request)) != qHash(qCanonical(rec.Request)) || existing.RunID != rec.RunID || existing.Attempt != rec.Attempt {
+				existingBytes, err := qCanonical(existing.Request)
+				if err != nil {
+					return err
+				}
+				requestBytes, err := qCanonical(rec.Request)
+				if err != nil {
+					return err
+				}
+				if !bytes.Equal(existingBytes, requestBytes) || existing.RunID != rec.RunID || existing.Attempt != rec.Attempt {
 					return errors.New("retained completion identity mismatch")
 				}
 				if e = qValidateCompleted(existing, signer.Public().(ed25519.PublicKey), "github-actions", time.Now().Add(time.Minute)); e != nil {
@@ -702,7 +719,10 @@ func (c *githubClient) qTick(ctx context.Context, registry *qualificationRegistr
 				if err != nil {
 					return err
 				}
-				b = qCanonical(completed)
+				b, e = qCanonical(completed)
+				if e != nil {
+					return e
+				}
 				if e = qWrite(path, b); e != nil {
 					return e
 				}

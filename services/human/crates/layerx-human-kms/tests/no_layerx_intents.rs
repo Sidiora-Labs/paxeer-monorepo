@@ -79,10 +79,10 @@ fn human_kms_and_service_name_no_intents_envelope() -> Result<(), Box<dyn std::e
     let activity = evidence
         .bound_activity(expected)
         .map_err(|e| format!("{e:?}"))?;
-    assert_eq!(activity.account_sequence(), call.nonce);
-    assert_eq!(activity.network_id(), 125);
-    assert_eq!(activity.actor_did(), sender);
-    assert_eq!(activity.authority(), owner);
+    assert_eq!(activity.call.nonce, call.nonce);
+    assert_eq!(activity.sender, sender);
+    assert_eq!(activity.call.chain_id, 125);
+    assert_eq!(activity.disclosure.actor, sender);
     assert_eq!(activity.payload(), call.data);
     assert_eq!(activity.fee_limit(), 200_000);
     assert!(evidence.verify_outcome(expected).is_err());

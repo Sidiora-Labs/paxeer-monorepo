@@ -54,6 +54,81 @@ pub fn verify_creation_call_disclosure(
     Ok(())
 }
 
+const EVM_RECEIPT_MODULE_ID: u16 = 12;
+
+pub fn verify_evm_outcome(
+    evidence: &crate::agents::ProtocolEvidence,
+    expected: layerx_types::payload::ActivityType,
+) -> Result<layerx_wire::receipt::Receipt, AgentFailure> {
+    let bound = evidence.bound_activity(expected)?;
+    if evidence.rung != Rung::Committed {
+        return Err(AgentFailure::Unavailable);
+    }
+    let receipt = layerx_wire::receipt::decode(&evidence.receipt_bytes)
+        .map_err(|_| AgentFailure::Refused("invalid EVM receipt encoding"))?;
+    let canonical = layerx_wire::receipt::encode(&receipt)
+        .map_err(|_| AgentFailure::Refused("invalid canonical EVM receipt"))?;
+    let hash: [u8; 32] = Sha256::digest(&canonical).into();
+    let protocol = receipt.protocol().ok_or(AgentFailure::Refused(
+        "EVM receipt is not protocol material",
+    ))?;
+    let height = protocol.batch_id();
+    for (differs, reason) in [
+        (
+            canonical != evidence.receipt_bytes,
+            "EVM receipt canonical bytes differ",
+        ),
+        (
+            evidence.tx_hash == [0; 32] || protocol.activity_id() != evidence.tx_hash,
+            "EVM receipt transaction binding differs",
+        ),
+        (
+            protocol.protocol_version() != bound.protocol_version(),
+            "EVM receipt protocol version binding differs",
+        ),
+        (
+            protocol.module_id() != EVM_RECEIPT_MODULE_ID
+                || protocol.operation() != 2
+                || protocol.module_version() != 1,
+            "EVM receipt operation binding differs",
+        ),
+        (
+            protocol.timestamp() == 0
+                || (protocol.result_code() == 0
+                    && !(bound.disclosure.expiry.not_before..=bound.disclosure.expiry.not_after)
+                        .contains(&protocol.timestamp())),
+            "EVM receipt timestamp binding differs",
+        ),
+        (
+            protocol.fee_charged() > bound.disclosure.fee_limit,
+            "EVM receipt fee exceeds disclosure",
+        ),
+        (
+            evidence.receipt_hash != hash,
+            "EVM receipt hash binding differs",
+        ),
+        (
+            evidence.block_height == 0
+                || height[..24] != [0; 24]
+                || height[24..] != evidence.block_height.to_be_bytes(),
+            "EVM receipt height binding differs",
+        ),
+        (
+            protocol.global_sequence() == 0,
+            "EVM receipt sequence is missing",
+        ),
+        (
+            protocol.sequencer_signature().is_none(),
+            "EVM receipt signature is missing",
+        ),
+    ] {
+        if differs {
+            return Err(AgentFailure::Refused(reason));
+        }
+    }
+    Ok(receipt)
+}
+
 const PREPARE_DOMAIN: &[u8] = b"layerx-human-journey-prepare/v1";
 const SUBMIT_DOMAIN: &[u8] = b"layerx-human-journey-submit/v1";
 
@@ -494,6 +569,8 @@ impl<'a> ProductionAgentCreation<'a> {
                 ),
             };
         let signed = SignedCreationTransaction::decode(&signed_activity)?;
+        let protocol_key =
+            ProtocolEvidence::creation_idempotency_key(&signed.disclosure, action_key)?;
         if signed.disclosure.actor != signed.owner_public_key[12..]
             || signed.owner_public_key != public_key
             || signed.disclosure.idempotency_key
@@ -537,7 +614,7 @@ impl<'a> ProductionAgentCreation<'a> {
             Some(receipt) => receipt,
             None => match self
                 .runtime
-                .receipt_by_idempotency_key(action_key, activity_id)
+                .receipt_by_idempotency_key(protocol_key, activity_id)
                 .map_err(map_boundary)?
             {
                 ReceiptLookup::Found(receipt) => receipt,
@@ -546,9 +623,10 @@ impl<'a> ProductionAgentCreation<'a> {
                 }
             },
         };
-        Self::protocol_evidence(
+        Self::protocol_evidence_for_action(
             signed_activity,
             public_key,
+            action_key,
             self.runtime.registry(),
             receipt,
         )
@@ -619,6 +697,24 @@ impl<'a> ProductionAgentCreation<'a> {
         material: ReceiptMaterial,
     ) -> Result<ProtocolEvidence, AgentFailure> {
         let signed = SignedCreationTransaction::decode(&signed_activity)?;
+        let action_key = signed.disclosure.idempotency_key;
+        Self::protocol_evidence_for_action(
+            signed_activity,
+            owner_public_key,
+            action_key,
+            registry,
+            material,
+        )
+    }
+
+    pub fn protocol_evidence_for_action(
+        signed_activity: Vec<u8>,
+        owner_public_key: [u8; 32],
+        action_key: [u8; 32],
+        registry: &ModuleRegistry,
+        material: ReceiptMaterial,
+    ) -> Result<ProtocolEvidence, AgentFailure> {
+        let signed = SignedCreationTransaction::decode(&signed_activity)?;
         let activity_id = signed.activity_id;
         if signed.owner_public_key != owner_public_key
             || !registry.declares(signed.disclosure.activity_type)
@@ -632,7 +728,7 @@ impl<'a> ProductionAgentCreation<'a> {
             actor: signed.disclosure.actor.clone(),
             owner_public_key,
             network_id: signed.network_id,
-            action_key: signed.disclosure.idempotency_key,
+            action_key,
             activity_id,
             signed_activity,
             receipt_bytes: material.canonical_bytes,
@@ -668,13 +764,13 @@ impl<'a> ProductionAgentCreation<'a> {
         let bound = evidence.bound_activity(kind).map_err(|_| {
             AgentFailure::Refused("lifecycle receipt does not prove successful action")
         })?;
-        let verified = evidence.verify_outcome(bound.activity_type())?;
+        let verified = verify_evm_outcome(evidence, bound.activity_type())?;
         let protocol = verified.protocol().ok_or(AgentFailure::Refused(
             "lifecycle receipt is not protocol material",
         ))?;
         if protocol.activity_id() != evidence.tx_hash
-            || protocol.module_id() != expected_module as u16
-            || protocol.operation() != 0
+            || protocol.module_id() != EVM_RECEIPT_MODULE_ID
+            || protocol.operation() != 2
             || protocol.result_code() != 0
         {
             return Err(AgentFailure::Refused(

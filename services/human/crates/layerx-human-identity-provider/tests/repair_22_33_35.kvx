@@ -1,0 +1,33 @@
+[repair.22.33.35]
+audit = "22.30.103"
+acceptance = "22998.1"
+mode = "BUILD"
+baseline_revision = "0657b3241036d09e9545515e69c35f127ca4f386"
+baseline = "The repair test did not exist and the private gate ledger had no earlier runs; the explicit implementation-first, hf-build then hf-done-only order prohibits the contradictory pre-change verification, so no baseline failures are claimed."
+evidence = "hf-build and hf-done retain exact candidate revision, command, exit and private log; qualification requires both gates passing on the same candidate."
+
+[finding.identity-binding-producer-test]
+test = "identity_binding_producer_transport_and_reopen"
+existing_target_test = "principal_store::wallet_gateway_binding_producer_transport_and_reopen"
+proof = "The unchanged wallet gateway produceIdentityBinding, RpcPool and readUnifiedAccount issue the committed JWS recording against committed loopback TestChain and in-memory SQL peers; no locally authored binding signer substitutes for that issuer. The real identity Server and RemoteIdentityProvider drive LXIP operation 4, the real LXIB Client resolves DID and tenant, and PrincipalStore first opens after binding acceptance. Both stores and all clients stop and reopen; the same principal, tenant, DID and journey row recover without resubmitting a binding."
+refusals = "An independent signing key forges a JWS, another authenticated subject reuses the real signature, and the actual issuer signs another tenant; every refusal is asserted before and after reopen, leaves the pending or accepted identity unchanged, and cannot open the other subject's tenancy. Untrusted assertions and cross-tenant LXIB lookups remain refused."
+
+[finding.identity-head-fixture]
+test = "identity_head_merged_transport_validator_and_reopen"
+existing_target_test = "account_head::merged_account_head_transport_validator_and_reopen"
+proof = "The gateway's actual account-read producer records getUnifiedAccount responses at committed tags 37 and 38 using its committed loopback TestChain peer and production ABI decoder. Rust SequencerEndpoint sends exact eth_call parameters over loopback HTTP; the production account_binding decoder recovers the same DID as LXIP/LXIB. The account, main account id and public key are asserted; malformed ABI responses and substituted keys are refused as identity evidence. Both identity and principal stores and the account transport stop and reopen, retain both raw observations, and re-read the same DID and tenant."
+retained = "All original protocol-3 receipt, header signature, key, receipt digest, state-root, proof-encoding, later-batch and tamper assertions in account_head.rs remain unchanged. This current account-binding read is not a replacement for authenticated owner provisioning or the legacy CLI's first-batch barrier."
+limit = "The production validate-account-head CLI has no merged account-observation interface: its source still requires protocol 3 and batch number 1. The added test proves the available merged transport/decoder and durable identity path; it cannot establish that the legacy provisioning CLI accepts a later merged head, so full head-finding closure remains dependent on the wiring request."
+
+[wiring.identity-head-fixture]
+request = "Human domain 10: services/human/crates/layerx-human-identity-provider/src/provision_head.rs and src/main.rs must expose authenticated merged account/authority observation validation, bind account/key/network/committed height, and replace the first-batch consumed=0 owner-provisioning interface; services/platform/hosted/human/provision-owner-job.yaml must consume that interface before the legacy barrier can retire."
+
+[fixtures]
+recording = "tests/fixtures/wallet_binding_22_33_35.json retains actual issuer outputs, the public verification key, exact SQL inputs, ABI account observations and SHA-256 hashes of unchanged producer sources; no producer private key is retained."
+regeneration = "tests/fixtures/record_wallet_binding_22_33_35.mjs imports full production TypeScript modules with Node's type transformer and normal gateway dependencies, calls the real issuer against committed peers and records its outputs during implementation only; the Rust gate needs no environment, credential, endpoint, Node, external toolchain or native artifact."
+
+[gotchas]
+baseline_order = "Do not spend a manual baseline verification when the task explicitly requires implementation followed by hf-build and hf-done-only verification."
+source_scope = "The first-batch compatibility validator cannot become a merged account verifier through test-only changes; preserve its refusals and name the source migration as an out-of-path wiring request."
+constructor_loader = "Resolving a package with require.resolve inside a synchronous Node resolve hook recursively invokes the same hook; use nextResolve with the installed gateway package as the parent instead."
+scope = "Spec and GOTCHA edits and publication are prohibited by this task; finding/test mappings, limits and gotchas stay in this scoped task record and the runner owns publication."

@@ -15,6 +15,8 @@ AGENT_MANIFEST := services/agent/Cargo.toml
 AGENT_FUZZ_TOOLCHAIN ?= nightly-2025-11-10
 AGENT_BOUNDARY_HARNESS := $(abspath $(or $(CARGO_TARGET_DIR),services/agent/tests/boundary/target))/debug/agent-boundary-conformance
 AGENT_NODE_RPC_URL ?= http://127.0.0.1:8545
+AGENT_BOUNDARY_COMMAND ?= $(AGENT_CARGO) run --manifest-path services/agent/tests/boundary/Cargo.toml --locked --
+AGENT_BOUNDARY_MODE ?=
 HUMAN_CARGO ?= cargo
 HUMAN_API_GEN ?= $(HUMAN_CARGO) run --manifest-path services/human/tools/api-gen/Cargo.toml --locked --
 HUMAN_API_SCHEMA_DIR ?= services/human/schema/human-api
@@ -46,6 +48,7 @@ LIB_SOURCES := $(filter-out src/storage/lxp_projection.c \
 	src/paxeer/lxp_da_challenge_record.c src/guarantor/lxp_da_challenge.c, \
 	$(shell find src -type f -name '*.c' -print | LC_ALL=C sort))
 LIB_OBJECTS := $(patsubst %.c,$(BUILD_DIR)/obj/%.o,$(LIB_SOURCES))
+LIB_SOURCE_MEMBERSHIP := $(BUILD_DIR)/liblayerx.sources
 LIBRARY := $(BUILD_DIR)/liblayerx.a
 TEST_LIB_OBJECTS := $(patsubst %.c,$(BUILD_DIR)/test-obj/%.o,$(LIB_SOURCES))
 TEST_LIBRARY := $(BUILD_DIR)/liblayerx-testing.a
@@ -180,7 +183,18 @@ build: $(LIBRARY)
 $(LIB_OBJECTS) $(TEST_LIB_OBJECTS): CFLAGS += $(CONSENSUS_CFLAGS)
 $(LIB_OBJECTS) $(TEST_LIB_OBJECTS): Makefile
 
-$(LIBRARY): $(LIB_OBJECTS)
+.PHONY: force-lib-source-membership
+force-lib-source-membership:
+
+$(LIB_SOURCE_MEMBERSHIP): force-lib-source-membership
+	@mkdir -p $(@D)
+	@set -eu; \
+		tmp=$$(mktemp "$@.XXXXXX"); \
+		trap 'rm -f "$$tmp"' EXIT HUP INT TERM; \
+		printf '%s\n' $(LIB_SOURCES) > "$$tmp"; \
+		if ! cmp -s "$$tmp" "$@"; then mv -f "$$tmp" "$@"; fi
+
+$(LIBRARY): $(LIB_OBJECTS) $(LIB_SOURCE_MEMBERSHIP)
 	@mkdir -p $(@D)
 	rm -f $@
 	$(AR) rcsD $@ $(LIB_OBJECTS)
@@ -189,7 +203,7 @@ $(BUILD_DIR)/obj/%.o: %.c
 	@mkdir -p $(@D)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -MMD -MP -c $< -o $@
 
-$(TEST_LIBRARY): $(TEST_LIB_OBJECTS)
+$(TEST_LIBRARY): $(TEST_LIB_OBJECTS) $(LIB_SOURCE_MEMBERSHIP)
 	@mkdir -p $(@D)
 	rm -f $@
 	$(AR) rcsD $@ $(TEST_LIB_OBJECTS)
@@ -1115,7 +1129,7 @@ test-contract-state-surface:
 	scripts/ci/solidity-state-surface.sh
 
 test-contracts: test-contract-state-surface
-	forge test --offline --root .
+	FOUNDRY_TEST=tests/solidity forge test --offline --root . --no-dynamic-test-linking
 
 qualify-replay:
 	tools/lxp_qual_replay_matrix.sh
@@ -1133,6 +1147,23 @@ $(BUILD_DIR)/tests/test_qual_recovery: tests/test_qual_recovery.c \
 
 qualify-faults: $(BUILD_DIR)/tests/test_qual_recovery
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_qual_recovery
+
+QUAL_REPLAY_TAIL_SOURCES := tests/test_qual_replay_tail.c \
+	tests/qualification/lxp_qual_replay.c \
+	src/protocol/lxp_activity.c src/codec/lxp_codec.c \
+	src/protocol/lxp_arena.c src/protocol/lxp_u128.c \
+	src/protocol/lxp_result.c src/crypto/lxp_hash.c src/crypto/lxp_ct.c \
+	src/protocol/lxp_protocol.c
+
+$(BUILD_DIR)/tests/test_qual_replay_tail: $(QUAL_REPLAY_TAIL_SOURCES) \
+		include/layerx/lxp_qualification.h Makefile
+	@mkdir -p $(@D)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(QUAL_REPLAY_TAIL_SOURCES) \
+		$(EXTRA_LDFLAGS) -o $@
+
+.PHONY: test-qual-replay-tail
+test-qual-replay-tail: $(BUILD_DIR)/tests/test_qual_replay_tail
+	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_qual_replay_tail
 
 $(BUILD_DIR)/tests/kernel/%: tests/%.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
@@ -1201,34 +1232,83 @@ test-wave-8: test-service-offer test-service-commit test-service-attest \
 
 
 $(BUILD_DIR)/tests/lxp_test_codec_primitives: \
-		tests/codec/lxp_test_codec_primitives.c $(LIBRARY)
+		tests/codec/lxp_test_codec_primitives.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+		$(LIBRARY) $(EXTRA_LDFLAGS) \
+		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
-test-codec: $(BUILD_DIR)/tests/lxp_test_codec_primitives
+# Task 22.33.1034 audit 22.30.4 proof record:
+# 001: binding_authority_substitutes_receiver_signature,
+#      native_receive_verifies_receiver_signature, receive_environment_copies_binding,
+#      binding_receive_retired_ordinals_refused.
+# 017: bridge_credit_symbols_absent; 004: budget_pull_type_refused,
+#      budget_delegate_spend_unchanged; 016: codec_malformed_envelope_admission.
+# 005: lxp_codec_vector_run; 006: builder_header_without_custody.
+# 007: fee_schedule_golden_bytes, fee_per_activity_golden_table.
+# 008: execute_refuses_host_fee_meter, prepare_refuses_host_fee_meter.
+# Prior attempt revision 3b9662dce1cc1e6a55ccc10007979f1f37511383:
+# make -s test-codec test-codec-limits test-codec-vectors test-codec-version
+# exited 2 at prepare_refuses_host_fee_meter's decoded receipt verification.
+# Wiring request: modules/layerxpay (pay domain) owns native payment producer
+# coverage; the C binding tests exercise the retained SEND consumer contract.
+CODEC_AUDIT_TESTS := $(addprefix $(BUILD_DIR)/tests/, \
+	lxp_test_binding_authority_receive lxp_test_bridge_credit_absent \
+	lxp_test_budget_pull_retired lxp_test_custody_builder_header \
+	lxp_test_fee_golden lxp_test_fee_meter_refused)
+
+$(CODEC_AUDIT_TESTS): $(BUILD_DIR)/tests/%: tests/codec/%.c \
+		tests/codec/lxp_kernel_case.h $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
+	@mkdir -p $(@D)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+		$(LIBRARY) $(EXTRA_LDFLAGS) \
+		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
+
+test-codec: $(BUILD_DIR)/tests/lxp_test_codec_primitives $(CODEC_AUDIT_TESTS)
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_codec_primitives
+	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_binding_authority_receive \
+		binding_authority_substitutes_receiver_signature \
+		native_receive_verifies_receiver_signature receive_environment_copies_binding \
+		binding_receive_retired_ordinals_refused
+	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_bridge_credit_absent \
+		"$(abspath $(LIBRARY))" bridge_credit_symbols_absent deposit_nullifier_kept
+	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_budget_pull_retired \
+		budget_pull_type_refused budget_delegate_spend_unchanged
+	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_custody_builder_header \
+		builder_header_without_custody
+	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_fee_golden \
+		fee_schedule_golden_bytes fee_per_activity_golden_table
+	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_fee_meter_refused \
+		execute_refuses_host_fee_meter prepare_refuses_host_fee_meter
 
 $(BUILD_DIR)/tests/lxp_test_codec_composite: \
-		tests/codec/lxp_test_codec_composite.c $(LIBRARY)
+		tests/codec/lxp_test_codec_composite.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+		$(LIBRARY) $(EXTRA_LDFLAGS) \
+		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 test-codec-limits: $(BUILD_DIR)/tests/lxp_test_codec_composite
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_codec_composite
 
 $(BUILD_DIR)/tests/lxp_test_codec_strict: \
-		tests/codec/lxp_test_codec_strict.c $(LIBRARY)
+		tests/codec/lxp_test_codec_strict.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+		$(LIBRARY) $(EXTRA_LDFLAGS) \
+		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 test-codec-version: $(BUILD_DIR)/tests/lxp_test_codec_strict
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_codec_strict
 
 $(BUILD_DIR)/tests/lxp_test_codec_vectors: \
 		tests/codec/lxp_test_codec_vectors.c $(LIBRARY) \
-		tests/vectors/codec/valid.lxv tests/vectors/codec/adversarial.lxv
+		tests/vectors/codec/valid.lxv tests/vectors/codec/adversarial.lxv \
+		$(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+		$(LIBRARY) $(EXTRA_LDFLAGS) \
+		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 test-codec-vectors: $(BUILD_DIR)/tests/lxp_test_codec_vectors
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_codec_vectors
@@ -1453,7 +1533,7 @@ $(BUILD_DIR)/tests/lxp_test_journal: tests/state/lxp_test_journal.c $(LIBRARY)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) -lcrypto -pthread -o $@
 
 $(BUILD_DIR)/tests/lxp_test_journal_tsan: tests/state/lxp_test_journal.c \
-		src/state/lxp_journal.c src/state/lxp_idempotency.c \
+		src/state/lxp_journal.c \
 		src/crypto/lxp_hash.c src/crypto/lxp_ed25519.c \
 		src/crypto/lxp_ct.c src/crypto/lxp_ed25519.c \
 		src/ledger/lx_account_registry.c src/ledger/lx_account_id.c \
@@ -1965,7 +2045,11 @@ agent-test-types-receipt:
 agent-test-types-verification:
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(AGENT_CARGO) test --manifest-path $(AGENT_MANIFEST) --locked -p layerx-types --test verification
 
-agent-test-vectors:
+.PHONY: agent-prepare-codec-corpus
+agent-prepare-codec-corpus:
+	python3 tests/vectors/codec/generate.py
+
+agent-test-vectors: agent-prepare-codec-corpus
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(AGENT_CARGO) test --manifest-path $(AGENT_MANIFEST) --locked -p layerx-types --test vectors
 
 agent-test-crypto-verify: test-crypto-ed25519 test-crypto-secp256k1
@@ -2003,9 +2087,17 @@ agent-test-proof-levels:
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(AGENT_CARGO) test --manifest-path $(AGENT_MANIFEST) --locked -p layerx-proof --tests
 	$(AGENT_CARGO) check --manifest-path $(AGENT_MANIFEST) --locked -p layerx-proof --example offline_verify
 
+.PHONY: agent-boundary-check-report
+agent-boundary-check-report:
+	@$(AGENT_BOUNDARY_COMMAND) --check-report "$(or $(AGENT_BOUNDARY_MODE),default)"
+
 agent-test-boundary:
-	$(AGENT_CARGO) run --manifest-path services/agent/tests/boundary/Cargo.toml --locked -- \
-		"$(AGENT_NODE_RPC_URL)" $(CURDIR)
+	@set -eu; agent_boundary_report=$$(mktemp); \
+	trap 'rm -f -- "$$agent_boundary_report"' EXIT HUP INT TERM; \
+	LAYERX_QUALIFY_NODE_RPC_URL="$(AGENT_NODE_RPC_URL)" \
+		$(AGENT_BOUNDARY_COMMAND) $(if $(AGENT_BOUNDARY_MODE),$(AGENT_BOUNDARY_MODE),"$(AGENT_NODE_RPC_URL)" "$(CURDIR)") > "$$agent_boundary_report"; \
+	$(AGENT_BOUNDARY_COMMAND) --check-report "$(or $(AGENT_BOUNDARY_MODE),default)" < "$$agent_boundary_report"; \
+	cat "$$agent_boundary_report"
 
 agent-qualify-boundary:
 	$(AGENT_CARGO) build --manifest-path services/agent/tests/boundary/Cargo.toml --locked
@@ -2874,7 +2966,7 @@ $(BUILD_DIR)/tests/test_programs_abi5_admission: tests/programs/test_programs_ab
 test-programs-abi5-admission: $(BUILD_DIR)/tests/test_programs_abi5_admission
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_programs_abi5_admission
 
-PAXAI_CHAIN_DOMAIN ?= b69143b1aa0c360367c299a2a47bbbfe3546ecbdc0a78c640770d49d977f038d
+PAXAI_CHAIN_DOMAIN ?= 62b6b14734fa769c3e0fbc94de495a3d038be49a2524b1c071d75d0a4eed71f6
 PAXAI_HOST_BOUNDARY_DIR := $(BUILD_DIR)/paxai-host-boundary
 
 $(BUILD_DIR)/tests/paxai_host_boundary: tests/programs/test_ai_host_boundary.c \
@@ -2886,24 +2978,29 @@ $(BUILD_DIR)/tests/paxai_host_boundary: tests/programs/test_ai_host_boundary.c \
 paxai-host-boundary: paxai-host-boundary-build
 
 paxai-host-boundary-build: $(BUILD_DIR)/tests/paxai_host_boundary
-	cd programs && PAXAI_CHAIN_DOMAIN=$(PAXAI_CHAIN_DOMAIN) $(PROGRAMS_CARGO) build --locked --release --target wasm32-unknown-unknown -p layerx-programs-ai-market
+	@rm -f $(PAXAI_HOST_BOUNDARY_DIR)/manifest
+	@printf '%s\n' '$(PAXAI_CHAIN_DOMAIN)' | LC_ALL=C grep -Eq '^[0-9a-f]{64}$$'
+	@command -v wasm-opt >/dev/null 2>&1 || { printf '%s\n' 'paxai-host-boundary: wasm-opt is required' >&2; exit 1; }
+	cd programs && PAXAI_CHAIN_DOMAIN=$(PAXAI_CHAIN_DOMAIN) $(PROGRAMS_CARGO) build --locked --release --config 'profile.release.opt-level="z"' --target wasm32-unknown-unknown -p layerx-programs-ai-market
 	@mkdir -p $(PAXAI_HOST_BOUNDARY_DIR)
-	cp $(if $(CARGO_TARGET_DIR),$(CARGO_TARGET_DIR),programs/target)/wasm32-unknown-unknown/release/layerx_programs_ai_market.wasm $(PAXAI_HOST_BOUNDARY_DIR)/ai_market.wasm
+	wasm-opt -Oz --strip-debug --strip-producers $(if $(CARGO_TARGET_DIR),$(CARGO_TARGET_DIR),programs/target)/wasm32-unknown-unknown/release/layerx_programs_ai_market.wasm -o $(PAXAI_HOST_BOUNDARY_DIR)/ai_market.wasm
+	@test "$$(wc -c < $(PAXAI_HOST_BOUNDARY_DIR)/ai_market.wasm)" -le 524184 || { printf '%s\n' 'paxai-host-boundary: guest exceeds 524184 bytes (524288 minus 104-byte deployment envelope)' >&2; exit 1; }
+	$(RUN_PREFIX) $(BUILD_DIR)/tests/paxai_host_boundary $(PAXAI_HOST_BOUNDARY_DIR)/ai_market.wasm < /dev/null
 	printf '%s\n%s\n%s\n' '$(abspath $(PAXAI_HOST_BOUNDARY_DIR)/ai_market.wasm)' '$(abspath $(BUILD_DIR)/tests/paxai_host_boundary)' '$(PAXAI_CHAIN_DOMAIN)' > $(PAXAI_HOST_BOUNDARY_DIR)/manifest
 
 $(BUILD_DIR)/tests/lxp_test_blob_admission: tests/programs/test_blob_admission.c \
-		$(LAYERXD_SOURCES) $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
+		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) -Icmd/layerxd $(CFLAGS) $< $(LAYERXD_SOURCES) \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $< \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) $(EXTRA_LDFLAGS) \
 		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -lsqlite3 -pthread -ldl -lm -o $@
 
 PAXAI_FUNDED_SCRIPT ?=
 
 $(BUILD_DIR)/tests/lxp_test_paxai_native_gaps: tests/programs/test_paxai_native_gaps.c \
-		$(LAYERXD_SOURCES) $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
+		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) -Icmd/layerxd $(CFLAGS) $< $(LAYERXD_SOURCES) \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $< \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) $(EXTRA_LDFLAGS) \
 		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -lsqlite3 -pthread -ldl -lm -o $@
 
@@ -3057,32 +3154,18 @@ latency-wave-test:
 BRIDGE_PYTHON ?= python3
 PAXEER_GO ?= go
 PAXEER_GO_JOBS ?= 4
+BETA_SPEC ?= spec/layerx-merge/spec.kvx
+BETA_TASK ?=
+BETA_LEDGER ?=
+BETA_EVIDENCE_ROOT ?=
 .PHONY: beta-qualify-focused
 beta-qualify-focused:
-	scripts/ci/beta-qualify.sh \
-		'make build layerx-genesis-build' \
-		'make agent-build' \
-		'make human-build' \
-		'make platform-build' \
-		'make programs-build' \
-		'make interop-build' \
-		'make test-admission agent-test-client-submit-focused agent-test-agentd-handshake-gate agent-test-boundary' \
-		'make agent-test-agentd-session agent-test-agentd-revocation agent-test-agentd-tenant-resolve agent-test-agentd-subscription agent-test-agentd-delivery agent-test-agentd-gaps agent-test-agentd-webhook agent-test-mcp-scope agent-test-mcp-readonly agent-test-mcp-write agent-test-sdk-rust agent-test-contract-schema platform-sdk-check human-test-service' \
-		'make human-test-activity' \
-		'make human-build human-test-unit human-test-component' \
-		'make test-snapshot test-state-root programs-core-test' \
-		'make test-protocol agent-test-proof-checkpoint test-contracts interop-test-mirrors' \
-		'make test-asset-withdraw test-bridge-withdraw test-result' \
-		'make platform-test-registry' \
-		'make interop-test-ramps' \
-		'make platform-test-tooling platform-hosted-topology-check beta-contract-check' \
-		'make platform-test-tooling platform-beta-cluster-up platform-hosted-smoke platform-beta-cluster-down' \
-		'make qualify-faults' \
-		'make qualify-replay' \
-		'make agent-qualify-faults' \
-		'make agent-qualify-fuzz' \
-		'make agent-qualify-boundary' \
-		'make human-qualify-faults'
+	@set -eu; \
+		command=$$(scripts/ci/beta-qualify.sh --print-command "$(BETA_SPEC)" "$(BETA_TASK)"); \
+		scripts/ci/beta-qualify.sh \
+			--spec "$(BETA_SPEC)" --task "$(BETA_TASK)" \
+			--ledger "$(BETA_LEDGER)" --evidence-root "$(BETA_EVIDENCE_ROOT)" \
+			-- "$$command"
 
 .PHONY: test-state-proof
 $(BUILD_DIR)/tests/lxp_test_state_proof: tests/state/lxp_test_state_proof.c \
@@ -3140,20 +3223,6 @@ test-owner-rotation: $(BUILD_DIR)/tests/lxp_test_owner_rotation_unit
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_owner_rotation_unit
 
 test: test-owner-rotation
-
-ARCHIVE_CODEC_SOURCES := cmd/layerx-archive-codec/main.c
-ARCHIVE_CODEC_OBJECTS := $(patsubst %.c,$(BUILD_DIR)/obj/%.o,$(ARCHIVE_CODEC_SOURCES))
--include $(ARCHIVE_CODEC_OBJECTS:.o=.d)
-
-.PHONY: layerx-archive-codec
-layerx-archive-codec: $(BUILD_DIR)/bin/layerx-archive-codec
-
-$(BUILD_DIR)/bin/layerx-archive-codec: $(ARCHIVE_CODEC_OBJECTS) $(LIBRARY) \
-		$(PROGRAMS_RUNTIME_LIB) | programs-build
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(ARCHIVE_CODEC_OBJECTS) $(LIBRARY) \
-		$(PROGRAMS_RUNTIME_LIB) $(LIBRARY) $(EXTRA_LDFLAGS) \
-		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 include tools/paxeer-x/build/104.35.11.mk
 include tools/paxeer-x/build/6.6.mk

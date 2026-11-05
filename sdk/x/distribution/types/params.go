@@ -49,20 +49,14 @@ func (p *Params) ParamSetPairs() paramtypes.ParamSetPairs {
 
 // ValidateBasic performs basic validation on distribution parameters.
 func (p Params) ValidateBasic() error {
-	if p.CommunityTax.IsNegative() || p.CommunityTax.GT(sdk.OneDec()) {
-		return fmt.Errorf(
-			"community tax should be non-negative and less than one: %s", p.CommunityTax,
-		)
+	if err := validateCommunityTax(p.CommunityTax); err != nil {
+		return err
 	}
-	if p.BaseProposerReward.IsNegative() {
-		return fmt.Errorf(
-			"base proposer reward should be positive: %s", p.BaseProposerReward,
-		)
+	if err := validateBaseProposerReward(p.BaseProposerReward); err != nil {
+		return err
 	}
-	if p.BonusProposerReward.IsNegative() {
-		return fmt.Errorf(
-			"bonus proposer reward should be positive: %s", p.BonusProposerReward,
-		)
+	if err := validateBonusProposerReward(p.BonusProposerReward); err != nil {
+		return err
 	}
 	if v := p.BaseProposerReward.Add(p.BonusProposerReward).Add(p.CommunityTax); v.GT(sdk.OneDec()) {
 		return fmt.Errorf(

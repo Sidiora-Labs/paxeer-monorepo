@@ -2,6 +2,7 @@ package search
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -31,7 +32,7 @@ func (s Store) Search(ctx context.Context, r Request) (Page, error) {
 		return Page{}, fmt.Errorf("%w: timeout configuration", ErrUnavailable)
 	}
 	p := Page{Items: []Hit{}, MatchKind: q.Kind, Status: "ok"}
-	if e = tx.QueryRow(ctx, "SELECT generation,watermark FROM stats_search.generation WHERE singleton").Scan(&p.Generation, &p.Watermark); e != nil {
+	if e = tx.QueryRow(ctx, "SELECT generation,revision FROM stats_search.active_v2 WHERE singleton").Scan(&p.Generation, &p.Watermark); e != nil {
 		return Page{}, fmt.Errorf("%w: index watermark", ErrUnavailable)
 	}
 	after := ""
@@ -52,10 +53,10 @@ func (s Store) Search(ctx context.Context, r Request) (Page, error) {
 		value = q.Key + "%"
 	}
 	// Exact pool identity sorts first; token associations are deterministic by pool.
-	rows, e := tx.Query(ctx, `SELECT d.pool_address,d.token_address,d.name FROM stats_search.documents d
- JOIN stats_search.visibility v ON v.pool_address=d.pool_address
- WHERE d.generation=$1 AND `+predicate+` AND d.canonical AND NOT d.quarantined
- AND v.public AND NOT v.tombstone AND v.revision>=d.visibility_revision
+	rows, e := tx.Query(ctx, `SELECT d.payload FROM stats_search.documents_v2 d
+ JOIN stats_search.authority_v2 v ON v.pool_address=d.pool_address
+ WHERE d.generation=$1 AND `+predicate+`
+ AND v.public AND NOT v.tombstone AND v.visibility_revision>=d.visibility_revision
  AND d.revision<=$3 AND ($4='' OR d.pool_status=$4) AND ($5='' OR (CASE WHEN d.pool_address=$6 THEN 0 ELSE 1 END,d.pool_address) > (CASE WHEN $5=$6 THEN 0 ELSE 1 END,$5))
  ORDER BY (d.pool_address=$6) DESC,d.pool_address ASC LIMIT $7`, p.Generation, value, p.Watermark, r.Filter.PoolStatus, after, q.Key, r.Limit+1)
 	if e != nil {
@@ -63,11 +64,16 @@ func (s Store) Search(ctx context.Context, r Request) (Page, error) {
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var pool, token, name string
-		if e = rows.Scan(&pool, &token, &name); e != nil {
+		var raw []byte
+		var document IndexedDocument
+		if e = rows.Scan(&raw); e != nil {
 			return Page{}, fmt.Errorf("%w: decode", ErrUnavailable)
 		}
-		p.Items = append(p.Items, Hit{Kind: r.Kind, ID: "125:" + pool, Label: name, PoolAddress: &pool, TokenAddress: &token, Score: "1"})
+		if json.Unmarshal(raw, &document) != nil || document.Validate() != nil {
+			return Page{}, fmt.Errorf("%w: document", ErrUnavailable)
+		}
+		pool, token := document.PoolAddress, document.TokenAddress
+		p.Items = append(p.Items, Hit{Kind: r.Kind, ID: "125:" + pool, Label: document.Name, PoolAddress: &pool, TokenAddress: &token, Score: "1"})
 	}
 	if e = rows.Err(); e != nil {
 		return Page{}, fmt.Errorf("%w: rows", ErrUnavailable)

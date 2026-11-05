@@ -1,0 +1,49 @@
+[issue.1511]
+number = 1511
+title = "[P2] Restore PAY2's standalone lockfile for its declared locked qualification gates"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "task"
+evidence = "Commit a9a72229033ad1ff9513a28c686c6e6b6537d376 deleted services/agent/qualification/pay2/Cargo.lock, which remains absent despite the standalone workspace at services/agent/qualification/pay2/Cargo.toml:8, its ignore rule at services/agent/qualification/pay2/.gitignore:1 and the unchanged locked gates introduced by cbecc219e90f3e467ae5e393b631eec43bb6a696 and retained in the done task at spec/layerx-merge/spec.kvx:131523 and spec/layerx-merge/spec.kvx:131536; services/agent/qualification/pay2/build.rs:10 only reads retained sources, services/agent/qualification/pay2/tests/build_inputs.rs:7 checks those inputs, and services/agent/qualification/pay2/pay2e_test.rs:316 and services/agent/qualification/pay2/pay2e_test.rs:356 retain node readiness without registering the funded test as a Cargo target."
+close_comment = "PAY2 still needs its tracked standalone lockfile and a matching ignore policy to reproduce the declared locked compilation gates from a fresh checkout. The repair is specified with regression coverage while preserving node readiness; test compilation alone does not establish funded PAY2 execution."
+
+[task.18.1511.1]
+title = "Issue #1511: Restore PAY2's tracked standalone dependency lock"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181511.1"]
+capabilities = []
+interfaces = []
+do_1 = "Restore services/agent/qualification/pay2/Cargo.lock with dependency resolution valid for the standalone workspace declared at services/agent/qualification/pay2/Cargo.toml:8 and its current dependencies at services/agent/qualification/pay2/Cargo.toml:21; remove the lockfile ignore rule at services/agent/qualification/pay2/.gitignore:1 while retaining the target directory rule at services/agent/qualification/pay2/.gitignore:2."
+do_2 = "Extend services/agent/qualification/pay2/tests/build_inputs.rs:7 with pay2_lockfile_is_tracked, asserting that the standalone lockfile exists, is tracked, matches its tracked bytes and is not ignored even with git check-ignore --no-index; assert command exit codes so an unavailable Git invocation cannot pass as an unignored file, and retain the existing build-input assertions."
+do_3 = "A fresh checkout containing only tracked PAY2 prerequisites must pass both locked compilation commands retained at spec/layerx-merge/spec.kvx:131536 and spec/layerx-merge/spec.kvx:131537 and the focused lockfile regression without changing the lockfile; preserve the node chain, height and receipt-key checks at services/agent/qualification/pay2/pay2e_test.rs:316 and services/agent/qualification/pay2/pay2e_test.rs:356, and keep the funded source as the build input read at services/agent/qualification/pay2/build.rs:11 rather than claiming that --no-run executes it."
+symbols = ["pay2_lockfile_is_tracked"]
+touches = ["services/agent/qualification/pay2/Cargo.lock", "services/agent/qualification/pay2/.gitignore", "services/agent/qualification/pay2/tests/build_inputs.rs"]
+tests = ["services/agent/qualification/pay2/tests/build_inputs.rs::pay2_lockfile_is_tracked"]
+planned_paths = ["services/agent/qualification/pay2/Cargo.lock"]
+build_cmd = "cargo build --locked --manifest-path services/agent/qualification/pay2/Cargo.toml --all-targets"
+verify_cmd = "! grep -nw lni services/agent/qualification/pay2/pay2e_test.rs && cargo test --locked --manifest-path services/agent/qualification/pay2/Cargo.toml --no-run && cargo test --locked --manifest-path services/agent/qualification/pay2/Cargo.toml --test build_inputs pay2_lockfile_is_tracked -- --exact"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181511]
+title = "PAY2's locked qualification gates reproduce from tracked standalone dependencies"
+ac_1 = "Given the independent workspace at services/agent/qualification/pay2/Cargo.toml:8, a fresh checkout includes a valid tracked Cargo.lock that is not ignored by services/agent/qualification/pay2/.gitignore:1, and the locked build and test-compilation gates at spec/layerx-merge/spec.kvx:131536 and spec/layerx-merge/spec.kvx:131537 plus the focused lockfile regression pass without generating or modifying the lockfile, while preserving node readiness and distinguishing compilation from funded execution."
+
+[acceptance.18.1511.1]
+feature = "18"
+req = "181511.1"
+scenario = "Given a fresh checkout of PAY2's standalone workspace with its tracked lockfile, when its declared locked build and test-compilation gates and focused lockfile regression run, then dependency resolution succeeds without changing the lockfile, the lockfile is tracked and not ignored, and node readiness remains intact without claiming live funded execution."
+contract = "contracts/agent-cli.md#agent-qualification-gates"
+test = "services/agent/qualification/pay2/tests/build_inputs.rs::pay2_lockfile_is_tracked (planned)"
+qualification = "UNRUN"

@@ -1,0 +1,936 @@
+# Pre-upgrade audit of launchpad metadata and REST interfaces.
+# Repairs are proposals assigned to the owning product domains.
+
+[audit.22.30.35]
+task = "22.30.35"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 99
+findings = 26
+docs_reviewed = 13
+upgrade_ready = false
+blocking = ["1", "2", "3"]
+
+[file.1]
+path = "apps/launchpad/web/instrumentation.ts"
+lines = 19
+verdict = "clean"
+note = "Next.js node and edge instrumentation selects matching Sentry configuration and reports backend-origin configuration failures."
+
+[file.2]
+path = "services/launchpad/api/internal/ratelimit/ratelimit.go"
+lines = 83
+verdict = "clean"
+note = "Limiter bounds client state and capacity and resolves trusted-proxy addresses before producing explicit 429 responses."
+
+[file.3]
+path = "services/launchpad/api/internal/ratelimit/ratelimit_test.go"
+lines = 103
+verdict = "clean"
+note = "Tests concrete limiter expiry, capacity and independent client address accounting."
+
+[file.4]
+path = "services/launchpad/api/internal/rest/accounting_v2.go"
+lines = 360
+verdict = "clean"
+note = "Accounting history routes preserve exact raw amounts, chain-125 source positions, cursor scope and frozen response schemas."
+
+[file.5]
+path = "services/launchpad/api/internal/rest/admission.go"
+lines = 145
+verdict = "clean"
+note = "Admission reserves capacity by read class and returns canonical saturation errors before entering store work."
+
+[file.6]
+path = "services/launchpad/api/internal/rest/chain_abi_parity_test.go"
+lines = 51
+verdict = "clean"
+note = "Loads real EventEmitter and ERC20 ABI files to check the seven-input MarketCreated topic and decimals selector (4263.1 and 4263.2)."
+
+[file.7]
+path = "services/launchpad/api/internal/rest/compatibility.go"
+lines = 465
+verdict = "issues"
+note = "Production snapshot and statistics wiring uses authoritative accounting projections and frozen contracts; rankings cursor handling has finding 7."
+
+[file.8]
+path = "services/launchpad/api/internal/rest/dev_chain.go"
+lines = 365
+verdict = "issues"
+note = "Development block and event RPC lookups are bounded and cached, but source chain identity is stamped without endpoint admission; finding 13."
+
+[file.9]
+path = "services/launchpad/api/internal/rest/dev_discovery.go"
+lines = 353
+verdict = "clean"
+note = "Development discovery mounts feed, history, search and callout routes with bounded queries and canonical envelopes; writes require authority."
+
+[file.10]
+path = "services/launchpad/api/internal/rest/dev_head_budget_test.go"
+lines = 251
+verdict = "clean"
+note = "Tests cold-head singleflight, deadline reserve, caller cancellation and failed RPC recovery with concrete HTTP and store dependencies."
+
+[file.11]
+path = "services/launchpad/api/internal/rest/dev_history.go"
+lines = 94
+verdict = "clean"
+note = "Development trades and candles use the shared history request parser and translate store errors into frozen responses."
+
+[file.12]
+path = "services/launchpad/api/internal/rest/dev_history_discovery_test.go"
+lines = 497
+verdict = "clean"
+note = "Tests actual development HTTP discovery, history, search and cursor responses against Postgres and Redis."
+
+[file.13]
+path = "services/launchpad/api/internal/rest/dev_market.go"
+lines = 677
+verdict = "clean"
+note = "Development pool, ranking, holder and reward reads preserve exact amounts and source positions and bound their work."
+
+[file.14]
+path = "services/launchpad/api/internal/rest/dev_market_documents_test.go"
+lines = 110
+verdict = "clean"
+note = "Checks rendered market, ranking and holder documents against frozen schemas, including empty and exact-amount cases."
+
+[file.15]
+path = "services/launchpad/api/internal/rest/dev_market_test.go"
+lines = 599
+verdict = "issues"
+note = "Custom MarketCreated fixture emits only LOG2 with no event data; producer-path coverage is incomplete, finding 9."
+
+[file.16]
+path = "services/launchpad/api/internal/rest/dev_search.go"
+lines = 277
+verdict = "clean"
+note = "Search bounds queries and result counts and renders compact and expanded frozen shapes from indexed identities."
+
+[file.17]
+path = "services/launchpad/api/internal/rest/dev_stream.go"
+lines = 881
+verdict = "issues"
+note = "Receipt completion can skip an individual failure while advancing the durable cursor past it; finding 2."
+
+[file.18]
+path = "services/launchpad/api/internal/rest/frozen_response_schema_test.go"
+lines = 140
+verdict = "clean"
+note = "Uses tracked OpenAPI fixtures and shared ValidateJSON on actual response bytes; checks schema versions and retired route removal."
+
+[file.19]
+path = "services/launchpad/api/internal/rest/holder_rewards_test.go"
+lines = 209
+verdict = "clean"
+note = "Tests rewards stats and pool documents, exact values, empty collections and canonical dependency errors."
+
+[file.20]
+path = "services/launchpad/api/internal/rest/holder_rewards_v2.go"
+lines = 124
+verdict = "clean"
+note = "Reward handlers decode raw amounts and source metadata from concrete store results and validate frozen output."
+
+[file.21]
+path = "services/launchpad/api/internal/rest/leaderboards_test.go"
+lines = 185
+verdict = "clean"
+note = "Tests leaderboard categories, windows, order, exact values and source watermarks through the actual handler."
+
+[file.22]
+path = "services/launchpad/api/internal/rest/leaderboards_v2.go"
+lines = 161
+verdict = "clean"
+note = "Leaderboard snapshots validate supported windows and limits and use authoritative projections without inventing missing values."
+
+[file.23]
+path = "services/launchpad/api/internal/rest/pool_reads.go"
+lines = 519
+verdict = "clean"
+note = "Pool detail and list paths validate addresses and cursor scopes and use bounded public-cache and authoritative read-model paths."
+
+[file.24]
+path = "services/launchpad/api/internal/rest/pool_reads_test.go"
+lines = 414
+verdict = "clean"
+note = "Tests actual pool pagination, scope rejection, sparse results, source errors and shared cache behavior."
+
+[file.25]
+path = "services/launchpad/api/internal/rest/pool_stats_v22_test.go"
+lines = 149
+verdict = "clean"
+note = "Tests v2.2 pool statistics semantics, exact values and query rejection against actual response serialization."
+
+[file.26]
+path = "services/launchpad/api/internal/rest/primitives.go"
+lines = 233
+verdict = "clean"
+note = "Canonical v2 errors set required fields, request and schema headers, no-store and retry metadata; query parsers bound multiplicity and length."
+
+[file.27]
+path = "services/launchpad/api/internal/rest/primitives_test.go"
+lines = 251
+verdict = "clean"
+note = "Tests concrete primitive bounds and canonical error mapping, including nonconfigured and retryable dependency failures."
+
+[file.28]
+path = "services/launchpad/api/internal/rest/production_integration_test.go"
+lines = 486
+verdict = "clean"
+note = "Applies embedded migrations and tests actual generated SDK HTTP decoding, persistent stream resume, admission reserve and cache-fill recovery."
+
+[file.29]
+path = "services/launchpad/api/internal/rest/public_cache.go"
+lines = 171
+verdict = "clean"
+note = "Public cache bounds body size and singleflight fills and separates waiter cancellation from bounded background fill lifetime."
+
+[file.30]
+path = "services/launchpad/api/internal/rest/qualification_workload_test.go"
+lines = 1701
+verdict = "issues"
+note = "Workload uses real HTTP and PostgreSQL references but incorrectly compares bounded rankings with the whole projection; finding 10."
+
+[file.31]
+path = "services/launchpad/api/internal/rest/rankings_projection_test.go"
+lines = 63
+verdict = "clean"
+note = "Tests actual ranking truncation, custom limits, source watermark preservation and frozen schema validation."
+
+[file.32]
+path = "services/launchpad/api/internal/rest/rest.go"
+lines = 45
+verdict = "issues"
+note = "Search proxy failure bytes bypass the canonical Error contract, finding 1; its registry contract authority is missing, finding 12."
+
+[file.33]
+path = "services/launchpad/api/internal/rest/rest_test.go"
+lines = 37
+verdict = "clean"
+note = "Shared test helpers read actual HTTP responses and write concrete store fixture rows."
+
+[file.34]
+path = "services/launchpad/api/internal/rest/route_inventory_test.go"
+lines = 81
+verdict = "clean"
+note = "Compares mounted routes with tracked frozen fixtures and verifies removed legacy routes stay absent."
+
+[file.35]
+path = "services/launchpad/metadata/cmd/metadatad/main.go"
+lines = 20
+verdict = "clean"
+note = "Metadatad delegates startup, worker mode and shutdown to concrete app and process lifecycle code and propagates startup errors."
+
+[file.36]
+path = "services/launchpad/metadata/internal/app/app.go"
+lines = 1059
+verdict = "issues"
+note = "Production wiring pins chain 125, authenticates service channels and starts maintenance; poison pending media can starve later work, finding 4."
+
+[file.37]
+path = "services/launchpad/metadata/internal/app/dev_connected_test.go"
+lines = 529
+verdict = "clean"
+note = "Tests signed creator publication and upload over real identity, HTTP, storage and Postgres, including replay and worker lifecycle."
+
+[file.38]
+path = "services/launchpad/metadata/internal/app/dev_upload_test.go"
+lines = 244
+verdict = "clean"
+note = "Tests authenticated development multipart upload and public read-back through app routes and concrete dependencies."
+
+[file.39]
+path = "services/launchpad/metadata/internal/app/dev_v2_test.go"
+lines = 345
+verdict = "issues"
+note = "Custom TokenDeployed producer duplicates the ABI and accepts chain-1337 evidence as chain 125; finding 15."
+
+[file.40]
+path = "services/launchpad/metadata/internal/app/development_connected.go"
+lines = 183
+verdict = "issues"
+note = "Development creator-media uses actual identity and wallet authorization, but quarantine readiness does not prove anonymous denial, finding 6."
+
+[file.41]
+path = "services/launchpad/metadata/internal/app/startup_failure_test.go"
+lines = 57
+verdict = "clean"
+note = "Tests dependency-admission startup failures, cleanup and absence of usable handlers."
+
+[file.42]
+path = "services/launchpad/metadata/internal/config/config.go"
+lines = 612
+verdict = "clean"
+note = "Environment loading and production schema, budget, TLS, proxy, storage and identity requirements were compared with registry configuration declarations."
+
+[file.43]
+path = "services/launchpad/metadata/internal/config/config_test.go"
+lines = 119
+verdict = "clean"
+note = "Tests environment defaults, parsing errors and fail-closed production prerequisites through the concrete loader."
+
+[file.44]
+path = "services/launchpad/metadata/internal/config/edge_production_test.go"
+lines = 183
+verdict = "clean"
+note = "Tests production edge admission for canonical stream, TLS pins, origin and storage configuration."
+
+[file.45]
+path = "services/launchpad/metadata/internal/db/external.sql"
+lines = 12
+verdict = "clean"
+note = "Foreign read-only indexer schema declares pool, token and creator fields consumed by legacy SQL queries."
+
+[file.46]
+path = "services/launchpad/metadata/internal/db/query.sql"
+lines = 70
+verdict = "clean"
+note = "Parameterized legacy metadata and image SQL has explicit single and batch result shapes and stable upsert identities."
+
+[file.47]
+path = "services/launchpad/metadata/internal/db/sqlcdb/db.go"
+lines = 32
+verdict = "generated"
+note = "Generated by sqlc v1.31.1; database transaction adapter derives from sqlc.yaml and checked-in query and schema sources."
+
+[file.48]
+path = "services/launchpad/metadata/internal/db/sqlcdb/models.go"
+lines = 42
+verdict = "generated"
+note = "Generated by sqlc v1.31.1; model types derive from metadata migrations and the read-only foreign indexer schema."
+
+[file.49]
+path = "services/launchpad/metadata/internal/db/sqlcdb/querier.go"
+lines = 27
+verdict = "generated"
+note = "Generated by sqlc v1.31.1; Querier declarations derive from internal/db/query.sql and are consumed by the concrete adapter."
+
+[file.50]
+path = "services/launchpad/metadata/internal/db/sqlcdb/query.sql.go"
+lines = 312
+verdict = "generated"
+note = "Generated by sqlc v1.31.1 from query.sql; parameter and result bindings are generated from the checked-in schema sources."
+
+[file.51]
+path = "services/launchpad/metadata/internal/image/image.go"
+lines = 77
+verdict = "clean"
+note = "Legacy image format and extension mapping agrees with sniffing and serving consumers and refuses unsupported formats."
+
+[file.52]
+path = "services/launchpad/metadata/internal/image/image_test.go"
+lines = 86
+verdict = "clean"
+note = "Tests raster allowlist, extension mapping, dimensions and unsupported content rejection."
+
+[file.53]
+path = "services/launchpad/metadata/internal/image/inprocess.go"
+lines = 46
+verdict = "issues"
+note = "Development in-process codec advertises a deadline that cannot interrupt decode or PNG encode; finding 8."
+
+[file.54]
+path = "services/launchpad/metadata/internal/image/raster.go"
+lines = 141
+verdict = "clean"
+note = "Raster processing bounds input bytes, dimensions and pixels, rejects malformed or animated containers and emits stripped PNG variants; production process isolation owns hard termination."
+
+[file.55]
+path = "services/launchpad/metadata/internal/image/raster_production_test.go"
+lines = 56
+verdict = "clean"
+note = "Tests real supported raster decoders, malformed inputs, dimensions and variant outputs."
+
+[file.56]
+path = "services/launchpad/metadata/internal/image/sniff.go"
+lines = 49
+verdict = "clean"
+note = "Legacy sniffing compares declared and detected MIME and bounds dimensions before accepting a raster."
+
+[file.57]
+path = "services/launchpad/metadata/internal/image/worker.go"
+lines = 240
+verdict = "clean"
+note = "Production worker uses a separate process, bounded protocol and deadline and validates outputs and required isolation before admission."
+
+[file.58]
+path = "services/launchpad/metadata/internal/image/worker_production_test.go"
+lines = 83
+verdict = "clean"
+note = "Tests actual raster subprocess startup, supported formats, protocol bounds and worker failure behavior."
+
+[file.59]
+path = "services/launchpad/metadata/internal/image/worker_rlimit_linux.go"
+lines = 63
+verdict = "clean"
+note = "Linux worker applies memory, CPU, process and file ceilings and propagates resource-admission failure."
+
+[file.60]
+path = "services/launchpad/metadata/internal/image/worker_rlimit_other.go"
+lines = 11
+verdict = "clean"
+note = "Unsupported platform explicitly refuses production resource isolation rather than silently removing limits."
+
+[file.61]
+path = "services/launchpad/metadata/internal/image/worker_rlimit_production_test.go"
+lines = 141
+verdict = "clean"
+note = "Tests actual Linux worker resource ceilings and readiness refusal with real worker processes."
+
+[file.62]
+path = "services/launchpad/metadata/internal/internaltest/containers.go"
+lines = 114
+verdict = "clean"
+note = "Container helpers create real Postgres, Redis, S3-compatible storage and scanner dependencies with bounded readiness and cleanup."
+
+[file.63]
+path = "services/launchpad/metadata/internal/internaltest/external.go"
+lines = 192
+verdict = "clean"
+note = "External fixture helpers require explicit dependency configuration and use concrete database, storage and scanner clients."
+
+[file.64]
+path = "services/launchpad/metadata/internal/internaltest/identity.go"
+lines = 265
+verdict = "clean"
+note = "Identity fixture runs the actual identity authority and obtains signed HTTP sessions for media tests."
+
+[file.65]
+path = "services/launchpad/metadata/internal/metadata/assets.go"
+lines = 204
+verdict = "clean"
+note = "Asset lifecycle binds immutable evidence to hash and size and enforces explicit state transitions and promotion prerequisites."
+
+[file.66]
+path = "services/launchpad/metadata/internal/metadata/assets_production_test.go"
+lines = 427
+verdict = "clean"
+note = "Tests persistent asset transitions, scan evidence, actual object promotion, corruption rejection and idempotence."
+
+[file.67]
+path = "services/launchpad/metadata/internal/metadata/canonical.go"
+lines = 190
+verdict = "clean"
+note = "Canonical identity validates indexer stream completeness, provenance and source position before decoding frozen Token data."
+
+[file.68]
+path = "services/launchpad/metadata/internal/metadata/committed_production_test.go"
+lines = 115
+verdict = "clean"
+note = "Tests actual committed-chain proof binding and refusal of uncommitted or inconsistent canonical evidence."
+
+[file.69]
+path = "services/launchpad/metadata/internal/metadata/connected.go"
+lines = 1192
+verdict = "clean"
+note = "Connected token and account media bind ownership, identity, moderation, scanning and immutable variants; internal service routes verify channel assertions."
+
+[file.70]
+path = "services/launchpad/metadata/internal/metadata/connected_catalog_test.go"
+lines = 75
+verdict = "clean"
+note = "Compares mounted connected token and account routes exactly with generated SDK operationDefinitions (4279.1)."
+
+[file.71]
+path = "services/launchpad/metadata/internal/metadata/connected_production_test.go"
+lines = 99
+verdict = "clean"
+note = "Tests concrete connected missing-runtime refusal and actual PostgreSQL restriction revision ordering."
+
+[file.72]
+path = "services/launchpad/metadata/internal/metadata/dev_connected.go"
+lines = 349
+verdict = "issues"
+note = "Development identity persistence discards failures and removes cancellation, causing possible loss after restart and pruning; finding 5."
+
+[file.73]
+path = "services/launchpad/metadata/internal/metadata/dev_v2.go"
+lines = 356
+verdict = "clean"
+note = "Development metadata normalizes indexed identities, decodes TokenDeployed receipts and uses connected published documents when available."
+
+[file.74]
+path = "services/launchpad/metadata/internal/metadata/edge.go"
+lines = 289
+verdict = "clean"
+note = "Edge delivery checks immutable object paths and hashes and bounds reads; schema and transport admission fail closed."
+
+[file.75]
+path = "services/launchpad/metadata/internal/metadata/edge_production_test.go"
+lines = 529
+verdict = "issues"
+note = "Production edge checks actual receipt and object bytes, but moderation tests inject local state rather than drive authority propagation; finding 14."
+
+[file.76]
+path = "services/launchpad/metadata/internal/metadata/handlers.go"
+lines = 740
+verdict = "issues"
+note = "Legacy authenticated upload validates images but publishes mutable objects before durable metadata completion; finding 11."
+
+[file.77]
+path = "services/launchpad/metadata/internal/metadata/handlers_test.go"
+lines = 541
+verdict = "clean"
+note = "Tests legacy reads, creator authorization, input limits, MIME rejection and image read-back against real dependencies."
+
+[file.78]
+path = "services/launchpad/metadata/internal/metadata/helpers.go"
+lines = 135
+verdict = "clean"
+note = "Legacy normalization, nullable metadata assembly, image URL construction and bounded batch deduplication agree with PublicMetadata types."
+
+[file.79]
+path = "services/launchpad/metadata/internal/metadata/helpers_internal_test.go"
+lines = 157
+verdict = "clean"
+note = "Tests concrete helper normalization, batch bounds, URL generation and nullable field mapping."
+
+[file.80]
+path = "services/launchpad/metadata/internal/metadata/ingress_production_test.go"
+lines = 123
+verdict = "clean"
+note = "Tests actual identity authority session ingress and scope and failure propagation into the metadata channel."
+
+[file.81]
+path = "services/launchpad/metadata/internal/metadata/legacy_production_test.go"
+lines = 20
+verdict = "clean"
+note = "Tests legacy upload and image handler fail-closed behavior with absent production dependencies."
+
+[file.82]
+path = "services/launchpad/metadata/internal/metadata/legacy_reads.go"
+lines = 320
+verdict = "issues"
+note = "Production legacy reads consult only local moderation without refreshing authority state; finding 3."
+
+[file.83]
+path = "services/launchpad/metadata/internal/metadata/measure_production.py"
+lines = 505
+verdict = "clean"
+note = "Measurement driver validates workload and external evidence, executes actual signed HTTP operations and records bounded latency and resource results."
+
+[file.84]
+path = "services/launchpad/metadata/internal/metadata/production.go"
+lines = 296
+verdict = "clean"
+note = "Production store bounds patches, checks creator authorization and revision preconditions and persists asset and moderation state."
+
+[file.85]
+path = "services/launchpad/metadata/internal/metadata/production_test.go"
+lines = 179
+verdict = "clean"
+note = "Tests concrete parser, persistent revision, authorization, input bounds and restriction behavior."
+
+[file.86]
+path = "services/launchpad/metadata/internal/metadata/publication.go"
+lines = 409
+verdict = "clean"
+note = "Publication service validates canonical signed operations and upload references and persists idempotent jobs before returning acceptance identities."
+
+[file.87]
+path = "services/launchpad/metadata/internal/metadata/publication_production_test.go"
+lines = 308
+verdict = "clean"
+note = "Tests actual identity, signed wallet operations and persistent jobs for ownership, replay, conflicts and status."
+
+[file.88]
+path = "services/launchpad/metadata/internal/metadata/publication_worker.go"
+lines = 279
+verdict = "clean"
+note = "Worker claims durable publication jobs, verifies creation and moderation, commits document revisions and resumes persisted job states."
+
+[file.89]
+path = "services/launchpad/metadata/internal/metadata/qualify_v2.py"
+lines = 42
+verdict = "clean"
+note = "V2 qualifier validates actual named Go HTTP outputs, rejects failed or skipped tests and checks frozen boundary samples."
+
+[file.90]
+path = "services/launchpad/metadata/internal/metadata/qualify_wire.py"
+lines = 27
+verdict = "clean"
+note = "Wire qualifier executes actual named serializer tests and verifies all frozen outputs and negative required-field mutations."
+
+[file.91]
+path = "services/launchpad/metadata/internal/metadata/scanner_production_test.go"
+lines = 204
+verdict = "clean"
+note = "Tests real scanner clean, infected and unavailable results and scan-evidence binding against concrete dependencies."
+
+[file.92]
+path = "services/launchpad/metadata/internal/metadata/v2.go"
+lines = 766
+verdict = "clean"
+note = "V2 parser bounds and rejects duplicate or unknown fields; persistent revisions and read adapters preserve creator authorization and canonical token identity."
+
+[file.93]
+path = "services/launchpad/metadata/internal/metadata/v2_production_test.go"
+lines = 464
+verdict = "clean"
+note = "Tests actual v2 requests and responses, revisions, creator authorization, field bounds and persistent moderation."
+
+[file.94]
+path = "services/launchpad/metadata/internal/metadata/wire.go"
+lines = 279
+verdict = "clean"
+note = "Wire adapters project typed upload, asset and metadata states into frozen schemas and validate immutable URLs and raw token amounts."
+
+[file.95]
+path = "services/launchpad/metadata/internal/metadata/wire_production_test.go"
+lines = 163
+verdict = "clean"
+note = "Tests actual frozen serializers, malformed adapters, UTC boundaries and foreign content URL rejection."
+
+[file.96]
+path = "services/launchpad/metadata/internal/migrate/migrate.go"
+lines = 42
+verdict = "clean"
+note = "Embedded goose runner serializes global configuration, propagates migration failures and closes its short-lived database handle."
+
+[file.97]
+path = "services/launchpad/metadata/migrations/migrations.go"
+lines = 11
+verdict = "clean"
+note = "Embedded filesystem points at checked-in SQL migrations used by startup and concrete test fixtures."
+
+[file.98]
+path = "services/launchpad/metadata/pkg/types/types.go"
+lines = 58
+verdict = "clean"
+note = "Legacy upload and public response types have explicit JSON names and nullable fields shared by handlers and metadata SDK consumers."
+
+[file.99]
+path = "services/launchpad/metadata/sqlc.yaml"
+lines = 31
+verdict = "clean"
+note = "Sqlc configuration derives pgx interfaces from metadata migrations and read-only foreign schema with empty slices and explicit nullable overrides."
+
+[finding.1]
+file = "services/launchpad/api/internal/rest/rest.go"
+line = 40
+severity = "high"
+observed = "RegisterV2SearchProxy.ErrorHandler emits only code, message and retryable. TimeoutHandler at line 43 emits plain text. The required Error fields requestId, retryAfterMs, fieldErrors and details are absent; sdk/launchpad/packages/sdk/src/transport.ts:136 cannot decode these responses and loses the typed error metadata."
+expected = "GET /v2/search must round-trip failure responses through the frozen Error decoder, with request identity, schema version and retry metadata matching other v2 routes and requirement 4259.1."
+proposal = "In services/launchpad/api/internal/rest/rest.go, route transport and timeout failures through WriteV2APIError; drive unavailable and slow actual upstreams through HTTP and the generated SDK decoder and assert the complete Error envelope."
+owner_domain = 4
+class = "interface-mismatch"
+interface = "4.http-api-get-v2-search-rest"
+
+[finding.2]
+file = "services/launchpad/api/internal/rest/dev_stream.go"
+line = 427
+severity = "high"
+observed = "DevelopmentStream.complete skips a swap when BatchElem.Error is nonnil or the receipt is nil. projectTrades passes the last input swap to appendTrades, which commits projector_cursor beyond that skipped swap at line 665. Subsequent queries use a strictly greater position, so a transient per-item RPC failure permanently removes the trade from the stream, including after restart."
+expected = "Every committed indexed swap must reach the stream once or remain durably recoverable. An individual temporary receipt failure cannot establish permanent invalidity or advance recovery beyond unresolved data."
+proposal = "In services/launchpad/api/internal/rest/dev_stream.go, stop cursor advancement at unresolved receipts or persist an ordered retry/quarantine ledger in the same transaction. Exercise per-item RPC failure, recovery and projector restart and assert the trade arrives exactly once."
+owner_domain = 4
+class = "restart-recovery"
+
+[finding.3]
+file = "services/launchpad/metadata/internal/metadata/legacy_reads.go"
+line = 178
+severity = "high"
+observed = "ProductionLegacyReads.build and logo use read-only snapshots and Store.readV2 moderation from local documents only; neither calls ConnectedMedia.syncModeration. Maintenance refreshes pending assets rather than quiet approved tokens, so removal at the visibility authority can leave creator metadata and logo bytes publicly readable indefinitely without a connected request for that pool."
+expected = "Legacy public metadata and logo reads must honor the same current visibility authority as connected media reads, including revocation for already approved content and after restart; canonical token identity may remain while creator content is withheld."
+proposal = "In services/launchpad/metadata/internal/metadata/legacy_reads.go and internal/app/app.go, refresh authority state before serving creator content or durably deliver revocations for every published pool. Define cache invalidation and prove removal reaches legacy single, batch and logo routes without connected reads."
+owner_domain = 4
+class = "security"
+interface = "4.http-metadata-get-metadata-token-address-legacy-reads"
+
+[finding.4]
+file = "services/launchpad/metadata/internal/app/app.go"
+line = 930
+severity = "medium"
+observed = "scanPendingMedia selects the earliest ten pending assets and returns at the first error. Integrity and decode failures at lines 877-882 do not reject or defer the row. runMediaMaintenance then returns before account maintenance, publication and retention, allowing one permanently corrupt oldest object to repeatedly block healthy work."
+expected = "Terminally invalid media must be durably rejected and temporary failures must have bounded backoff. A single pending asset must not starve unrelated uploads, accepted creator publications or expiry work."
+proposal = "In services/launchpad/metadata/internal/app/app.go, persist terminal rejection and per-item retry times and schedule independent bounded work classes. Prove a corrupt oldest object cannot block a valid upload, account maintenance or an accepted publication."
+owner_domain = 4
+class = "runtime-risk"
+
+[finding.5]
+file = "services/launchpad/metadata/internal/metadata/dev_connected.go"
+line = 147
+severity = "medium"
+observed = "persistToken ignores marshal and insert errors and calls Exec with context.WithoutCancel without a fresh deadline. chainToken still caches and returns success. After a write outage, cache eviction or restart can lose the only decoded identity once the development RPC prunes its creation receipt."
+expected = "Canonical identity retained for a pruned RPC must survive restart and persistence must be bounded and observable; process memory cannot silently substitute for failed durable retention."
+proposal = "In services/launchpad/metadata/internal/metadata/dev_connected.go, bound persistence, return write failures and require durable retention or a durable retry before reporting reusable success. Prove recovery after a failed insert followed by process restart and receipt pruning."
+owner_domain = 4
+class = "restart-recovery"
+
+[finding.6]
+file = "services/launchpad/metadata/internal/app/development_connected.go"
+line = 112
+severity = "medium"
+observed = "Development wiring defaults quarantine and approved storage to S3_BUCKET and warns when they coincide. DevelopmentObjectsReadiness performs only authenticated HeadBucket calls. A bucket permitting anonymous object reads can pass readiness and expose quarantine originals directly despite the media router exposing only approved keys."
+expected = "Quarantine originals must remain inaccessible to anonymous callers in every publicly reachable profile. Authenticated bucket access and an application route allowlist do not prove object-store privacy."
+proposal = "In services/launchpad/metadata/internal/app/development_connected.go and metadata/dev_connected.go, require private quarantine storage or verified equivalent key policy and probe anonymous denial separately from the router. Test refusal against a real anonymously readable quarantine bucket."
+owner_domain = 4
+class = "security"
+interface = "4.env-metadata-s3-quarantine-bucket"
+
+[finding.7]
+file = "services/launchpad/api/internal/rest/compatibility.go"
+line = 247
+severity = "medium"
+observed = "rankingsRequest accepts any nonempty cursor, but projectionRankings and writeRankingsProjection never consume it and always return the first bounded snapshot with nextCursor null. The development handler rejects nonempty cursors instead, making identical requests behave differently across profiles."
+expected = "A supplied cursor must select a real continuation or receive a stable invalid-cursor response; replacement snapshots cannot silently accept a cursor while returning the initial result again."
+proposal = "In services/launchpad/api/internal/rest/compatibility.go, reject nonempty cursors consistently with the development handler unless real snapshot continuation is implemented. Assert the same invalid-cursor HTTP result in both profiles."
+owner_domain = 4
+class = "runtime-risk"
+interface = "4.http-api-get-v2-rankings-category-compatibility"
+
+[finding.8]
+file = "services/launchpad/metadata/internal/image/inprocess.go"
+line = 26
+severity = "medium"
+observed = "InProcessWorker.Decode advertises the same five-second wall deadline as ProcessWorker, but ReencodeSupported invokes image.Decode and png.Encode synchronously without cancellation. Context checks before decode and during resize cannot interrupt either codec phase, which can exceed the deadline in the serving process."
+expected = "The advertised processing deadline must bound the entire codec operation, or admission must accurately expose and constrain the weaker development execution model so slow input cannot occupy a request without that bound."
+proposal = "In services/launchpad/metadata/internal/image/inprocess.go and internal/app/development_connected.go, use a killable bounded worker suitable for the deployment or enforceably cancellable codec execution and admission. Prove slow decoding and encoding cannot exceed the advertised wall bound."
+owner_domain = 4
+class = "runtime-risk"
+
+[finding.9]
+file = "services/launchpad/api/internal/rest/dev_market_test.go"
+line = 92
+severity = "medium"
+observed = "emitMarketCreated mines custom LOG2(MarketCreated,poolId) bytecode with zero event data, while the actual EventEmitter ABI has seven inputs. The fixture inserts indexer rows directly; checking the topic in chain_abi_parity_test does not establish the actual producer, indexer and REST path."
+expected = "Brief fact 7 and requirements 4263.1 and 4263.2 require the real producer shape through transport into its consumer. A matching topic with missing event fields cannot establish that integration."
+proposal = "In services/launchpad/api/internal/rest/dev_market_test.go, execute actual launchpad/EventEmitter creation on the supported chain or replay a tracked real creation receipt through the real indexer. Assert REST and generated SDK source positions and exact fields, including restart recovery."
+owner_domain = 4
+class = "test-gap"
+
+[finding.10]
+file = "services/launchpad/api/internal/rest/qualification_workload_test.go"
+line = 595
+severity = "medium"
+observed = "restMeasurementReference compares the rankings response snapshot with the whole PublicProjection.Payload. writeRankingsProjection cuts items to the requested limit, default 50, and sets truncated=true. A valid larger projection therefore fails the measurement oracle despite a correct bounded public response."
+expected = "The reference must independently compute the bounded response, preserving rank order, totalEligible, watermark and truncation, rather than require items outside the public request limit."
+proposal = "In services/launchpad/api/internal/rest/qualification_workload_test.go, derive expected first-limit rankings independently from full PostgreSQL results and assert all retained fields. Include a real projection larger than default and custom limits."
+owner_domain = 4
+class = "test-gap"
+
+[finding.11]
+file = "services/launchpad/metadata/internal/metadata/handlers.go"
+line = 479
+severity = "medium"
+observed = "Legacy upload stores images before recordMetadata and invalidates cache only after every write succeeds. storeImage overwrites a token-derived mutable key before upserting its image row. A database or later banner failure returns 500 after visible bytes or an earlier image row changed, without durable repair state."
+expected = "A failed creator update must preserve consistent previously published media and metadata or persist a recoverable operation that completes after restart. Readers must not observe unrecorded partial publication."
+proposal = "In services/launchpad/metadata/internal/metadata/handlers.go, stage immutable objects, commit image and metadata pointers together and durably track publication and cleanup work. Exercise object success followed by database or second-image failure and assert consistent reads and restart recovery."
+owner_domain = 4
+class = "runtime-risk"
+
+[finding.12]
+file = "services/launchpad/api/internal/rest/rest.go"
+line = 24
+severity = "medium"
+observed = "Stable launchpad API and metadata registry rows, including 4.http-api-get-v2-search-rest, link contracts/services.md#launchpad-api and #launchpad-metadata, but contracts/services.md does not exist. Integrators cannot follow the declared contract authority for these live interfaces."
+expected = "Stable service registry links must resolve to maintained documentation of actual route, frozen wire shape, authentication, errors and lifecycle behavior."
+proposal = "Domain 4 should restore contracts/services.md with launchpad-api and launchpad-metadata sections or update registry links to existing maintained authorities. Document search errors, media visibility and publication recovery alongside the frozen contracts."
+owner_domain = 4
+class = "doc-drift"
+interface = "4.http-api-get-v2-search-rest"
+
+[finding.13]
+file = "services/launchpad/api/internal/rest/dev_chain.go"
+line = 80
+severity = "medium"
+observed = "newDevelopmentChain dials RPC_URL without eth_chainId admission and position stamps all results as chain 125. Metadata development startup at app.go:338 also lacks the production chain check, and dev_v2.go:237 labels receipts chain 125. Simulated tests run chain 1337 and accept this attribution."
+expected = "Merged-network source positions identify the chain that actually emitted the receipt. A development profile cannot relabel arbitrary configured chain evidence as verified chain 125."
+proposal = "In services/launchpad/api/internal/rest/dev_chain.go and services/launchpad/metadata/internal/app/app.go, require eth_chainId=0x7d before admitting development reads and refresh the binding on readiness. Exercise a real mismatched node and require closed startup or unavailable reads."
+owner_domain = 4
+class = "config-drift"
+interface = "4.http-api-get-v2-pools-dev-market"
+
+[finding.14]
+file = "services/launchpad/metadata/internal/metadata/edge_production_test.go"
+line = 383
+severity = "medium"
+observed = "The legacy-read moderation test inserts blocked=true directly into local documents before asserting hidden creator fields and logo. It never changes the real visibility authority, so it cannot detect the missing authority-to-legacy-read propagation in finding 3."
+expected = "Moderation integration must drive the authority through its actual transport into public readers, including an otherwise idle approved token and reader restart."
+proposal = "In services/launchpad/metadata/internal/metadata/edge_production_test.go, publish and approve real content, remove it through the moderation authority and assert legacy single, batch and logo denial without direct local moderation writes or connected reads first."
+owner_domain = 4
+class = "test-gap"
+
+[finding.15]
+file = "services/launchpad/metadata/internal/app/dev_v2_test.go"
+line = 51
+severity = "medium"
+observed = "The development token fixture duplicates TokenDeployed as a local ABI string and emits custom contract-creation bytecode rather than invoking the factory. Its simulated chain is 1337 while response assertions accept chain 125, leaving ABI drift and configured chain binding unproved."
+expected = "Token evidence must use the actual factory shape and actual supported chain. The HTTP consumer must reject a mismatched chain rather than have the fixture bless relabeled receipts."
+proposal = "In services/launchpad/metadata/internal/app/dev_v2_test.go, use the real factory path or tracked factory receipt through the real indexer, run a chain-125 positive path and require refusal against a real chain-1337 endpoint."
+owner_domain = 4
+class = "test-gap"
+
+[finding.16]
+file = "docs/site/docs/agents/agentd.md"
+line = 3
+severity = "low"
+observed = "The introduction calls the daemon a LayerX Network component. Lines 10-15 and 50-62 describe authority without explaining that proposer and receipt authority now belong to the single Paxeer node, retaining the old network boundary as the operating model."
+expected = "The audit brief specifies one Paxeer mainnet-beta BFT network, chain 125, node root JSON-RPC and a separately declared hosted px_ contract. Documentation must identify that boundary and avoid retired components and public interfaces."
+proposal = "Rewrite docs/site/docs/agents/agentd.md around the non-authoritative agent of one Paxeer network and node-owned proposer authority. Preserve protocol field names that remain valid and explain their merged-network meaning."
+owner_domain = 9
+class = "doc-drift"
+
+[finding.17]
+file = "docs/wiki/Agentd.md"
+line = 3
+severity = "low"
+observed = "The wiki introduces a LayerX Network agent and presents the authority handshake at lines 10-15 and 51-63 without merged Paxeer node ownership, repeating the old network boundary."
+expected = "The audit brief specifies one Paxeer mainnet-beta BFT network, chain 125, node root JSON-RPC and a separately declared hosted px_ contract. Documentation must identify that boundary and avoid retired components and public interfaces."
+proposal = "Update docs/wiki/Agentd.md alongside the site Agentd page to identify one Paxeer network and node-owned proposer trust. Preserve required protocol labels while removing the implication of a second network."
+owner_domain = 9
+class = "doc-drift"
+
+[finding.18]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 39
+severity = "medium"
+observed = "Lines 39-41 call the router the only unified eth/lx/px endpoint. Lines 50-51, 198-200 and 609 advertise /rpc, /rpc/schema and /rpc/ws. The public-host description and fifteen-method count retain the old service model."
+expected = "The audit brief specifies one Paxeer mainnet-beta BFT network, chain 125, node root JSON-RPC and a separately declared hosted px_ contract. Documentation must identify that boundary and avoid retired components and public interfaces."
+proposal = "Rewrite docs/site/docs/platform/hosted-gateway.md to separate node root RPC and its declared namespaces from hosted px_ OpenRPC operations. Use api1 through api14 plus the shared mainnet-beta origin and remove retired router and /rpc examples."
+owner_domain = 8
+class = "doc-drift"
+
+[finding.19]
+file = "docs/wiki/HostedGateway.md"
+line = 39
+severity = "medium"
+observed = "Lines 39-41 describe a unified eth/lx/px router and lines 50-51, 198-200 and 609 publish retired /rpc paths. Line 51 claims eighteen methods while the site counterpart claims fifteen, leaving the public contract count ambiguous."
+expected = "The audit brief specifies one Paxeer mainnet-beta BFT network, chain 125, node root JSON-RPC and a separately declared hosted px_ contract. Documentation must identify that boundary and avoid retired components and public interfaces."
+proposal = "Rewrite docs/wiki/HostedGateway.md from maintained hosted OpenRPC and node contracts, align it with the site page and replace retired endpoint paths and divergent hardcoded method counts with the actual service boundary."
+owner_domain = 8
+class = "doc-drift"
+
+[finding.20]
+file = "docs/QUALIFICATION.md"
+line = 99
+severity = "medium"
+observed = "The final paragraph treats Paxeer and LayerX as separate systems sharing a monorepo. Lines 21 and 79-82 require a sequencer-offline emergency exit from a finalized checkpoint, retaining retired settlement and forced-exit assumptions."
+expected = "The audit brief specifies one Paxeer mainnet-beta BFT network, chain 125, node root JSON-RPC and a separately declared hosted px_ contract. Documentation must identify that boundary and avoid retired components and public interfaces."
+proposal = "Rewrite docs/QUALIFICATION.md for subsystem qualification within one Paxeer network with BFT commit finality. Replace retired checkpoint forced-exit evidence with current recovery and asset-movement evidence and update the active specification link at line 24."
+owner_domain = 16
+class = "doc-drift"
+
+[finding.21]
+file = "docs/site/docs/overview/quickstart.md"
+line = 167
+severity = "medium"
+observed = "Line 20 and lines 167-217 direct users to POST /rpc and /rpc/ws with lx_ methods. Lines 301-302, 497-518 and 596 repeat the retired gateway router for funding, transaction submission and CLI operations."
+expected = "The audit brief specifies one Paxeer mainnet-beta BFT network, chain 125, node root JSON-RPC and a separately declared hosted px_ contract. Documentation must identify that boundary and avoid retired components and public interfaces."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md against node root eth_/pax_ calls and separately declared hosted px_ operations. Update HTTP, WebSocket, funding and CLI examples together and prove the examples through their real clients."
+owner_domain = 8
+class = "doc-drift"
+
+[finding.22]
+file = "docs/site/docs/overview/payments.md"
+line = 21
+severity = "medium"
+observed = "The exported RPC_URL uses the retired /rpc router. Lines 139, 178-179 and 225 then route sequence, asset and submission operations through lx_ methods on that endpoint, so the documented flow cannot use the merged public API."
+expected = "The audit brief specifies one Paxeer mainnet-beta BFT network, chain 125, node root JSON-RPC and a separately declared hosted px_ contract. Documentation must identify that boundary and avoid retired components and public interfaces."
+proposal = "Rewrite docs/site/docs/overview/payments.md with the node root endpoint and current payment and asset calls. Separate hosted px_ operations from node methods and preserve exact signing, amount units and receipt binding in executable examples."
+owner_domain = 8
+class = "doc-drift"
+
+[finding.23]
+file = "docs/site/docs/concepts/assets.md"
+line = 219
+severity = "medium"
+observed = "Lines 219-220 present lx_listAssets, lx_getAsset, lx_getBalances and lx_estimateFee as the gateway asset surface. Lines 41-42 also refer to public lx_sendActivity admission. Those public names belong to the retired separate LayerX interface."
+expected = "The audit brief specifies one Paxeer mainnet-beta BFT network, chain 125, node root JSON-RPC and a separately declared hosted px_ contract. Documentation must identify that boundary and avoid retired components and public interfaces."
+proposal = "Update docs/site/docs/concepts/assets.md to map discovery, balances and fees to current node and bank/pointer interfaces and hosted px_ operations where applicable. Preserve valid asset encodings while replacing retired public names and examples."
+owner_domain = 2
+class = "doc-drift"
+
+[finding.24]
+file = "docs/site/docs/concepts/paxeer-boundary.md"
+line = 3
+severity = "medium"
+observed = "The opening names layerx-paxeer-boundary as the only hosted chain path and lines 5-7 prescribe paxeer-boundary and paxeer-relay deployment. The retired component inventory explicitly deletes services/platform/hosted/paxeer and removes the relay because the kernel is part of the node."
+expected = "The audit brief specifies one Paxeer mainnet-beta BFT network, chain 125, node root JSON-RPC and a separately declared hosted px_ contract. Documentation must identify that boundary and avoid retired components and public interfaces."
+proposal = "Rewrite docs/site/docs/concepts/paxeer-boundary.md around direct node RPC, chain-125 verification and maintained TLS trust boundaries. Remove retired sidecar, relay, image and deployment instructions and link current public and private endpoint contracts."
+owner_domain = 8
+class = "doc-drift"
+
+[finding.25]
+file = "docs/site/docs/operators/porting.md"
+line = 4
+severity = "low"
+observed = "The introduction calls the kits the LayerX Network program environment. Lines 47-52 discuss the LayerX execution model without explaining that the Programs ABI now belongs to the single Paxeer network."
+expected = "The audit brief specifies one Paxeer mainnet-beta BFT network, chain 125, node root JSON-RPC and a separately declared hosted px_ contract. Documentation must identify that boundary and avoid retired components and public interfaces."
+proposal = "Update docs/site/docs/operators/porting.md to locate existing Programs ABI constraints within the merged Paxeer node. Retain valid adapter ABI semantics and add current deployment envelope, chain-domain and payload-limit references."
+owner_domain = 13
+class = "doc-drift"
+
+[finding.26]
+file = "docs/site/docs/operators/qualification.md"
+line = 99
+severity = "medium"
+observed = "The site qualification page repeats the separate Paxeer-versus-LayerX systems model. Lines 21 and 79-82 retain sequencer-offline checkpoint emergency exit evidence, contradicting merged BFT finality and retired custody forced exits."
+expected = "The audit brief specifies one Paxeer mainnet-beta BFT network, chain 125, node root JSON-RPC and a separately declared hosted px_ contract. Documentation must identify that boundary and avoid retired components and public interfaces."
+proposal = "Update docs/site/docs/operators/qualification.md alongside docs/QUALIFICATION.md for subsystem gates within one network and current restart, commit and asset safety evidence. Remove retired forced-exit requirements and link the active specification."
+owner_domain = 16
+class = "doc-drift"
+
+[doc.1]
+path = "docs/site/docs/agents/agentd.md"
+status = "stale"
+notes = "Lines 3, 10-15 and 50-62 need merged-network and node-owned authority framing; existing sequencer field names alone are not separate-service defects. Finding 16."
+
+[doc.2]
+path = "docs/site/docs/platform/hosted-gateway.md"
+status = "stale"
+notes = "Lines 39-41, 50-51, 198-200 and 609 advertise retired unified-router paths; public hosts and method count also need reconciliation. Finding 18."
+
+[doc.3]
+path = "docs/wiki/HostedGateway.md"
+status = "stale"
+notes = "Lines 39-41, 50-51, 198-200 and 609 retain router endpoints; line 51 differs from the site page on method count. Finding 19."
+
+[doc.4]
+path = "docs/wiki/Agentd.md"
+status = "stale"
+notes = "Lines 3, 10-15 and 51-63 require the same network and authority clarification as the site Agentd page. Finding 17."
+
+[doc.5]
+path = "docs/QUALIFICATION.md"
+status = "stale"
+notes = "Lines 21 and 79-82 retain checkpoint emergency exits; line 99 describes separate systems and line 24 links the pre-merge task board. Finding 20."
+
+[doc.6]
+path = "docs/site/docs/overview/quickstart.md"
+status = "stale"
+notes = "Lines 20, 167-217, 301-302, 497-518 and 596 publish retired /rpc, /rpc/ws or lx_ integration paths. Finding 21."
+
+[doc.7]
+path = "docs/site/docs/overview/payments.md"
+status = "stale"
+notes = "Lines 18-21 export a retired router URL; lines 139, 178-179 and 225 build payments on retired lx_ calls. Finding 22."
+
+[doc.8]
+path = "docs/site/docs/concepts/assets.md"
+status = "stale"
+notes = "Lines 41-42 and 219-220 describe retired public lx_ asset and activity APIs; retain valid encoding details during the rewrite. Finding 23."
+
+[doc.9]
+path = "docs/site/docs/concepts/paxeer-boundary.md"
+status = "stale"
+notes = "Lines 3-7 and later relay deployment instructions prescribe the retired hosted/paxeer topology; private TLS transport itself remains valid. Finding 24."
+
+[doc.10]
+path = "docs/site/docs/operators/porting.md"
+status = "stale"
+notes = "Lines 4 and 47-52 need single-network framing and current deployment references; LayerX package names alone do not invalidate adapter semantics. Finding 25."
+
+[doc.11]
+path = "docs/site/docs/operators/qualification.md"
+status = "stale"
+notes = "Lines 21, 79-82 and 99 repeat checkpoint-exit and separate-network assumptions; line 24 links the pre-merge task board. Finding 26."
+
+[doc.12]
+path = "docs/site/docs/agents/sdk-verification.md"
+status = "accurate"
+notes = "Describes merged eth_/pax_ node reads, independently pinned receipt keys and separate inclusion versus committed BFT evidence; preserves fixture provenance and refusal checks without introducing a separate sequencer service."
+
+[doc.13]
+path = "contracts/services.md"
+status = "missing"
+notes = "Missing registry authority for launchpad-api and launchpad-metadata, including search and legacy metadata/logo route rows. Finding 12 proposes restoration or a maintained replacement contract page."

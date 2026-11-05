@@ -70,18 +70,26 @@ func (source *HumanStreamSource) Next(ctx context.Context, cursor StreamCursor) 
 	return page, err
 }
 
+// Cursors are opaque: ordering beyond this replay window is enforced by the
+// source's acknowledged checkpoint. Pending pages are checked independently.
+const maximumStreamReplayCursors = 256
+
 type ResumableStream struct {
-	mu     sync.Mutex
-	cursor StreamCursor
-	seen   map[string]struct{}
-	source StreamSource
+	mu         sync.Mutex
+	cursor     StreamCursor
+	seen       map[string]struct{}
+	replay     [maximumStreamReplayCursors]string
+	replayNext int
+	source     StreamSource
+	fetched    StreamCursor
+	pending    []StreamEvent
 }
 
 func NewResumableStream(cursor StreamCursor, source StreamSource) (*ResumableStream, error) {
 	if cursor.value == "" || source == nil {
 		return nil, newSDKError(ErrorInvalidArgument, RetryNever)
 	}
-	return &ResumableStream{cursor: cursor, source: source, seen: make(map[string]struct{})}, nil
+	return &ResumableStream{cursor: cursor, fetched: cursor, source: source, seen: make(map[string]struct{})}, nil
 }
 
 func (stream *ResumableStream) Cursor() StreamCursor {
@@ -93,13 +101,19 @@ func (stream *ResumableStream) Cursor() StreamCursor {
 func (stream *ResumableStream) Next(ctx context.Context) ([]StreamEvent, error) {
 	stream.mu.Lock()
 	defer stream.mu.Unlock()
-	page, err := stream.source.Next(ctx, stream.cursor)
+	if len(stream.pending) != 0 {
+		return append([]StreamEvent(nil), stream.pending...), nil
+	}
+	page, err := stream.source.Next(ctx, stream.fetched)
 	if err != nil {
 		return nil, err
 	}
 	accepted := make([]StreamEvent, 0, len(page.Events))
 	pageSeen := make(map[string]struct{}, len(page.Events))
 	for _, event := range page.Events {
+		if _, err := NewStreamCursor(event.Cursor); err != nil {
+			return nil, newSDKError(ErrorDecodeFailure, RetryNever)
+		}
 		if event.Cursor == "" || event.Cursor == stream.cursor.value {
 			return nil, newSDKError(ErrorDecodeFailure, RetryNever)
 		}
@@ -123,11 +137,30 @@ func (stream *ResumableStream) Next(ctx context.Context) ([]StreamEvent, error) 
 	if err != nil {
 		return nil, err
 	}
-	for cursor := range pageSeen {
-		stream.seen[cursor] = struct{}{}
-	}
-	stream.cursor = next
+	stream.fetched = next
+	stream.pending = append([]StreamEvent(nil), accepted...)
 	return accepted, nil
+}
+
+func (stream *ResumableStream) Acknowledge(cursor StreamCursor) error {
+	stream.mu.Lock()
+	defer stream.mu.Unlock()
+	if len(stream.pending) == 0 || cursor.value != stream.pending[0].Cursor {
+		return newSDKError(ErrorInvalidArgument, RetryNever)
+	}
+	stream.cursor = cursor
+	if previous := stream.replay[stream.replayNext]; previous != "" {
+		delete(stream.seen, previous)
+	}
+	stream.replay[stream.replayNext] = cursor.value
+	stream.replayNext = (stream.replayNext + 1) % maximumStreamReplayCursors
+	stream.seen[cursor.value] = struct{}{}
+	stream.pending[0] = StreamEvent{}
+	stream.pending = stream.pending[1:]
+	if len(stream.pending) == 0 {
+		stream.pending = nil
+	}
+	return nil
 }
 
 func (stream *ResumableStream) Run(ctx context.Context, consume func(StreamEvent) error) error {
@@ -144,6 +177,10 @@ func (stream *ResumableStream) Run(ctx context.Context, consume func(StreamEvent
 		}
 		for _, event := range events {
 			if err := consume(event); err != nil {
+				return err
+			}
+			cursor, _ := NewStreamCursor(event.Cursor)
+			if err := stream.Acknowledge(cursor); err != nil {
 				return err
 			}
 		}

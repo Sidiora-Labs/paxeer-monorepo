@@ -657,6 +657,9 @@ func NewFilterAPI(
 	globalLogSlicePool *LogSlicePool,
 	watermarks *WatermarkManager,
 ) *FilterAPI {
+	if filterConfig == nil || filterConfig.timeout < evmrpcconfig.MinFilterTimeout {
+		panic("evm.filter_timeout must be at least 2ns so the cleanup ticker interval is positive")
+	}
 	if filterConfig.maxBlock <= 0 {
 		filterConfig.maxBlock = DefaultMaxBlockRange
 	}
@@ -733,11 +736,15 @@ func (a *FilterAPI) cleanupExpiredFilters(timeout time.Duration) {
 	}
 	a.filtersMu.RUnlock()
 
-	// Second pass: remove expired filters (write lock)
+	a.removeExpiredFilters(now, timeout, toRemove)
+}
+
+func (a *FilterAPI) removeExpiredFilters(now time.Time, timeout time.Duration, toRemove []ethrpc.ID) {
+	// Recheck after acquiring the removal lock: a poll may have renewed a candidate.
 	if len(toRemove) > 0 {
 		a.filtersMu.Lock()
 		for _, id := range toRemove {
-			if filter, exists := a.filters[id]; exists {
+			if filter, exists := a.filters[id]; exists && now.Sub(filter.lastAccess) > timeout {
 				delete(a.filters, id)
 				if filter.cancelFunc != nil {
 					filter.cancelFunc()
@@ -811,6 +818,32 @@ func (a *FilterAPI) NewFilter(
 		f.cancelFunc = func() {
 			cancel()
 			feed.unsubscribe(sub)
+		}
+	}
+
+	if f.pending == nil && crit.BlockHash == nil {
+		if crit.FromBlock == nil || (crit.FromBlock.IsInt64() &&
+			(crit.FromBlock.Int64() == ethrpc.LatestBlockNumber.Int64() ||
+				crit.FromBlock.Int64() == ethrpc.SafeBlockNumber.Int64() ||
+				crit.FromBlock.Int64() == ethrpc.FinalizedBlockNumber.Int64())) {
+			latest, heightErr := a.logFetcher.latestHeight(ctx)
+			if heightErr != nil {
+				cancel()
+				return "", heightErr
+			}
+			start := latest
+			if crit.FromBlock == nil && crit.ToBlock != nil {
+				end, boundErr := getHeightFromBigIntBlockNumber(latest, crit.ToBlock)
+				if boundErr != nil {
+					cancel()
+					return "", boundErr
+				}
+				if end < start {
+					start = end
+				}
+			}
+			f.fc.FromBlock = big.NewInt(start)
+			f.lastToHeight = start
 		}
 	}
 
@@ -969,7 +1002,7 @@ func (a *FilterAPI) GetFilterChanges(
 			return result, nil
 		}
 		// filter with a ToBlock would have no updates if it has previously queried for this crit
-		if filter.fc.ToBlock != nil && filter.lastToHeight >= filter.fc.ToBlock.Int64() {
+		if filter.fc.ToBlock != nil && filter.fc.ToBlock.IsInt64() && filter.fc.ToBlock.Sign() >= 0 && filter.lastToHeight > filter.fc.ToBlock.Int64() {
 			return result, nil
 		}
 		logs, lastToHeight, err := a.logFetcher.GetLogsByFilters(ctx, filter.fc, filter.lastToHeight)
@@ -1075,18 +1108,10 @@ func (a *FilterAPI) GetFilterLogs(
 		return append(toFilterLogs(logs), a.receiptedLogs(txs, filter.fc)...), nil
 	}
 
-	logs, lastToHeight, err := a.logFetcher.GetLogsByFilters(ctx, filter.fc, 0)
+	logs, _, err := a.logFetcher.GetLogsByFilters(ctx, filter.fc, 0)
 	if err != nil {
 		return nil, err
 	}
-
-	// Update filter with write lock
-	a.filtersMu.Lock()
-	if updatedFilter, exists := a.filters[filterID]; exists {
-		updatedFilter.lastToHeight = lastToHeight
-		a.filters[filterID] = updatedFilter
-	}
-	a.filtersMu.Unlock()
 
 	return toFilterLogs(logs), nil
 }
@@ -1373,6 +1398,9 @@ func (f *LogFetcher) GetLogsByFilters(ctx context.Context, crit filters.FilterCr
 		// Try efficient range query first
 		// #nosec G115 -- begin and end are validated to be positive block heights above
 		if logs, rangeErr := f.tryFilterLogsRange(ctx, uint64(begin), uint64(end), crit); rangeErr == nil {
+			if err := f.checkLogLimit(logs); err != nil {
+				return nil, 0, err
+			}
 			return logs, end, nil
 		} else if !errors.Is(rangeErr, receipt.ErrRangeQueryNotSupported) {
 			// If it's a real error (not just unsupported), return it
@@ -1382,7 +1410,7 @@ func (f *LogFetcher) GetLogsByFilters(ctx context.Context, crit filters.FilterCr
 	// Fall back to block-by-block querying for backends that don't support range queries
 
 	bloomIndexes := EncodeFilters(crit.Addresses, crit.Topics)
-	blocks, end, applyOpenEndedLogLimit, err := f.fetchBlocksByCrit(ctx, crit, lastToHeight, bloomIndexes)
+	blocks, end, _, err := f.fetchBlocksByCrit(ctx, crit, lastToHeight, bloomIndexes)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -1392,6 +1420,7 @@ func (f *LogFetcher) GetLogsByFilters(ctx context.Context, crit filters.FilterCr
 	sortedBatches := make([][]*ethtypes.Log, 0)
 	var wg sync.WaitGroup
 	var submitError error
+	var collectionError error
 
 	processBatch := func(batch []*coretypes.ResultBlock) {
 		defer wg.Done()
@@ -1399,7 +1428,15 @@ func (f *LogFetcher) GetLogsByFilters(ctx context.Context, crit filters.FilterCr
 		localLogs := f.globalLogSlicePool.Get()
 
 		for _, block := range batch {
-			f.GetLogsForBlockPooled(block, crit, &localLogs)
+			if err := f.GetLogsForBlockPooled(block, crit, &localLogs); err != nil {
+				f.globalLogSlicePool.Put(localLogs)
+				resultsMutex.Lock()
+				if collectionError == nil {
+					collectionError = err
+				}
+				resultsMutex.Unlock()
+				return
+			}
 		}
 
 		// Sort the local batch
@@ -1434,16 +1471,12 @@ func (f *LogFetcher) GetLogsByFilters(ctx context.Context, crit filters.FilterCr
 		}
 	}
 
-	if submitError != nil {
-		return nil, 0, submitError
-	}
-
 	// Process remaining blocks
-	if len(blockBatch) > 0 {
+	if submitError == nil && len(blockBatch) > 0 {
 		wg.Add(1)
 		if err := runner.SubmitWithMetrics(func() { processBatch(blockBatch) }); err != nil {
 			wg.Done()
-			return nil, 0, fmt.Errorf("system overloaded, please reduce request frequency: %w", err)
+			submitError = fmt.Errorf("system overloaded, please reduce request frequency: %w", err)
 		}
 	}
 
@@ -1457,11 +1490,15 @@ func (f *LogFetcher) GetLogsByFilters(ctx context.Context, crit filters.FilterCr
 		}
 	}()
 
+	if submitError != nil {
+		return nil, 0, submitError
+	}
+	if collectionError != nil {
+		return nil, 0, collectionError
+	}
 	res = f.mergeSortedLogs(sortedBatches)
-
-	// Apply rate limit
-	if applyOpenEndedLogLimit && int64(len(res)) >= f.filterConfig.maxLog {
-		res = res[:int(f.filterConfig.maxLog)]
+	if err := f.checkLogLimit(res); err != nil {
+		return nil, 0, err
 	}
 
 	// Ensure we never return nil, always return an array (even if empty)
@@ -1470,6 +1507,13 @@ func (f *LogFetcher) GetLogsByFilters(ctx context.Context, crit filters.FilterCr
 	}
 
 	return res, end, err
+}
+
+func (f *LogFetcher) checkLogLimit(logs []*ethtypes.Log) error {
+	if f.filterConfig.maxLog > 0 && int64(len(logs)) > f.filterConfig.maxLog {
+		return fmt.Errorf("log limit exceeded (%d), maximum allowed is %d logs", len(logs), f.filterConfig.maxLog)
+	}
+	return nil
 }
 
 func (f *LogFetcher) mergeSortedLogs(batches [][]*ethtypes.Log) []*ethtypes.Log {
@@ -1599,7 +1643,10 @@ func (f *LogFetcher) normalizeRangeQueryLogs(ctx context.Context, candidateLogs 
 		}
 
 		// filterTransactions caches receipts in globalBlockCache
-		txHashes := getTxHashesFromBlock(f.ctxProvider, f.txConfigProvider, f.k, block, f.includeSyntheticReceipts, f.cacheCreationMutex, f.globalBlockCache)
+		txHashes, err := getTxHashesFromBlockWithReceiptErrors(f.ctxProvider, f.txConfigProvider, f.k, block, f.includeSyntheticReceipts, f.cacheCreationMutex, f.globalBlockCache, true)
+		if err != nil {
+			return nil, err
+		}
 		if len(txHashes) == 0 {
 			continue
 		}
@@ -1609,9 +1656,9 @@ func (f *LogFetcher) normalizeRangeQueryLogs(ctx context.Context, candidateLogs 
 
 		var logIndex uint
 		for _, txHashEntry := range txHashes {
-			rcpt, found := getOrSetCachedReceipt(f.cacheCreationMutex, f.globalBlockCache, sdkCtx, f.k, block, txHashEntry.hash)
-			if !found {
-				continue
+			rcpt, err := getOrSetCachedReceiptErr(f.cacheCreationMutex, f.globalBlockCache, sdkCtx, f.k, block, txHashEntry.hash)
+			if err != nil {
+				return nil, fmt.Errorf("load receipt %s: %w", txHashEntry.hash, err)
 			}
 
 			if hasFilters && len(rcpt.LogsBloom) > 0 && !MatchFilters(ethtypes.Bloom(rcpt.LogsBloom), filterIndexes) {
@@ -1648,18 +1695,21 @@ func (f *LogFetcher) normalizeRangeQueryLogs(ctx context.Context, candidateLogs 
 }
 
 // Pooled version that reuses slice allocation
-func (f *LogFetcher) GetLogsForBlockPooled(block *coretypes.ResultBlock, crit filters.FilterCriteria, result *[]*ethtypes.Log) {
+func (f *LogFetcher) GetLogsForBlockPooled(block *coretypes.ResultBlock, crit filters.FilterCriteria, result *[]*ethtypes.Log) error {
 	collector := &pooledCollector{logs: result}
-	f.collectLogs(block, crit, collector)
+	return f.collectLogs(block, crit, collector)
 }
 
 // Unified log collection logic - fallback path that fetches receipts individually
-func (f *LogFetcher) collectLogs(block *coretypes.ResultBlock, crit filters.FilterCriteria, collector logCollector) {
+func (f *LogFetcher) collectLogs(block *coretypes.ResultBlock, crit filters.FilterCriteria, collector logCollector) error {
 	ctx := f.ctxProvider(block.Block.Height)
 
-	txHashes := getTxHashesFromBlock(f.ctxProvider, f.txConfigProvider, f.k, block, f.includeSyntheticReceipts, f.cacheCreationMutex, f.globalBlockCache)
+	txHashes, err := getTxHashesFromBlockWithReceiptErrors(f.ctxProvider, f.txConfigProvider, f.k, block, f.includeSyntheticReceipts, f.cacheCreationMutex, f.globalBlockCache, true)
+	if err != nil {
+		return err
+	}
 	if len(txHashes) == 0 {
-		return
+		return nil
 	}
 
 	blockHeight := block.Block.Height
@@ -1677,8 +1727,7 @@ func (f *LogFetcher) collectLogs(block *coretypes.ResultBlock, crit filters.Filt
 	for _, txHashEntry := range txHashes {
 		rcpt, err := getOrSetCachedReceiptErr(f.cacheCreationMutex, f.globalBlockCache, ctx, f.k, block, txHashEntry.hash)
 		if err != nil {
-			logger.Error("collectLogs: unable to find receipt for hash", "hash", txHashEntry.hash, "err", err)
-			continue
+			return fmt.Errorf("load receipt %s: %w", txHashEntry.hash, err)
 		}
 
 		// Skip receipt if its bloom filter doesn't match the criteria
@@ -1712,6 +1761,7 @@ func (f *LogFetcher) collectLogs(block *coretypes.ResultBlock, crit filters.Filt
 			collector.Append(ethLog)
 		}
 	}
+	return nil
 }
 
 // MatchesCriteria checks if a log matches the filter criteria.
@@ -1903,16 +1953,32 @@ func (a *FilterAPI) scopeFilterLogs(ctx context.Context, logs []*FilterLog) ([]*
 	result := make([]*FilterLog, 0, len(logs))
 	byHeight := make(map[uint64]map[common.Hash]bool)
 	for _, log := range logs {
+		if log.BlockHash == (common.Hash{}) && a.logFetcher.watermarks != nil && a.logFetcher.watermarks.pending != nil {
+			if tx, ok := a.logFetcher.watermarks.pending.PendingTx(log.TxHash); ok {
+				if tx.Height < 1 || uint64(tx.Height) != log.BlockNumber {
+					return nil, fmt.Errorf("receipted log %s does not match transaction height %d", log.TxHash, tx.Height)
+				}
+				decoded, err := a.logFetcher.txConfigProvider(tx.Height).TxDecoder()(tx.TxBytes)
+				if err != nil {
+					return nil, fmt.Errorf("decode receipted log transaction %s: %w", log.TxHash, err)
+				}
+				msg := evmtypes.GetEVMTransactionMessage(decoded)
+				if msg == nil {
+					return nil, fmt.Errorf("receipted log transaction %s has no EVM message", log.TxHash)
+				}
+				etx, _ := msg.AsTransaction()
+				if etx == nil || etx.Hash() != log.TxHash {
+					return nil, fmt.Errorf("receipted log transaction %s has a mismatched EVM hash", log.TxHash)
+				}
+				if domainAllowsTransaction(ctx, a.domainIndex, etx) {
+					result = append(result, log)
+				}
+				continue
+			}
+		}
 		allowed, cached := byHeight[log.BlockNumber]
 		if !cached {
 			sdkctx := a.logFetcher.ctxProvider(LatestCtxHeight)
-			if log.BlockHash == (common.Hash{}) && a.logFetcher.watermarks != nil && a.logFetcher.watermarks.pending != nil {
-				snapshot, err := a.logFetcher.watermarks.pending.Snapshot()
-				if err != nil {
-					return nil, err
-				}
-				sdkctx = snapshot
-			}
 			allowed = domainHashSet(a.domainIndex, sdkctx, scope, log.BlockNumber)
 			byHeight[log.BlockNumber] = allowed
 		}

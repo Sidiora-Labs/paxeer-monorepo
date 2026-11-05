@@ -23,15 +23,23 @@
     <maven.compiler.release>21</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <kotlin.version>2.0.20</kotlin.version>
-    <jackson.version>2.18.9</jackson.version>
+    <jackson.version>2.18.11</jackson.version>
     <bouncycastle.version>1.85</bouncycastle.version>
     <layerx.conformance.reportDirectory>${project.build.directory}/surefire-reports</layerx.conformance.reportDirectory>
   </properties>
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>com.fasterxml.jackson.core</groupId>
+        <artifactId>jackson-databind</artifactId>
+        <version>${jackson.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
   <dependencies>
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
-      <version>${jackson.version}</version>
     </dependency>
     <dependency>
       <groupId>org.bouncycastle</groupId>

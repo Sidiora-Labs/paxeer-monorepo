@@ -1,195 +1,30 @@
 import { redirect } from "next/navigation";
 
 import { copyEntry } from "../../../../../copy/runtime";
-import { formatCopy } from "../../../../../copy/format";
-import { unifiedAccountAvailability } from "../../../../explorer/client";
-import {
-  ExplorerFrame,
-  explorerReceiptPath,
-  ExplorerUnavailable,
-  FreshnessDisplay,
-  verificationLabel,
-} from "../../../../explorer/components";
-import {
-  accountIdentifierPath,
-  parseAccountIdentifier,
-  type PaxeerActivityEvent,
-  type UnifiedAccountAvailabilityRecord,
-} from "../../../../explorer/model";
-import { ExplorerLink, ExplorerPanel, ExplorerTable, ExplorerVerificationBadge } from "../../../../kit/explorer";
+import { ExplorerFrame } from "../../../../explorer/components";
+import { NativeAccountPage } from "../../../../explorer/native-components";
+import { nativeAddress, type NativeUnifiedAccount } from "../../../../explorer/native-model";
+import { loadNativeAccountPage, nativeAccountPagePath } from "../../../../explorer/native-page";
 
 export const dynamic = "force-dynamic";
 
-function eventLabel(event: PaxeerActivityEvent): string {
-  return copyEntry(`explorer.account.event.${event.replaceAll("-", "_")}`).message;
-}
-
-function absentValue(): string {
-  return copyEntry("explorer.value.none").message;
-}
-
-function IdentitiesPanel({ account }: Readonly<{ account?: UnifiedAccountAvailabilityRecord }>) {
-  const identities = account?.identities;
+function ObservationPosition({ account }: Readonly<{ account: NativeUnifiedAccount }>) {
+  const newest = account.activity.at(0);
+  const oldest = account.activity.at(-1);
   return (
-    <ExplorerPanel title={copyEntry("explorer.account.identities").message}>
-      <p className="text-sm text-foreground-secondary">
-        {copyEntry(identities?.bound === true
-          ? "explorer.account.linked.body"
-          : "explorer.account.not_linked.body").message}
-      </p>
-      <ExplorerTable
-        caption={copyEntry("explorer.account.identities.table").message}
-        columns={[
-          copyEntry("explorer.column.fact").message,
-          copyEntry("explorer.column.value").message,
-        ]}
-        rows={[
-          {
-            id: "evm",
-            cells: [copyEntry("explorer.account.identity.evm").message, identities?.evmAddress ?? absentValue()],
-          },
-          {
-            id: "pax",
-            cells: [copyEntry("explorer.account.identity.pax").message, identities?.paxAddress ?? absentValue()],
-          },
-          {
-            id: "did",
-            cells: [copyEntry("explorer.account.identity.did").message, identities?.layerxDid ?? absentValue()],
-          },
-          {
-            id: "account",
-            cells: [
-              copyEntry("explorer.account.identity.account").message,
-              identities?.layerxAccount === undefined
-                ? absentValue()
-                : (
-                  <ExplorerLink href={accountIdentifierPath(identities.layerxAccount)}>
-                    {identities.layerxAccount}
-                  </ExplorerLink>
-                ),
-            ],
-          },
-        ]}
-      />
-    </ExplorerPanel>
+    <section aria-label="Observation position">
+      <h2>Observation position</h2>
+      {newest === undefined || oldest === undefined ? (
+        <p>No committed activity position is published on this page.</p>
+      ) : (
+        <p>
+          Observed activity on this page: committed block {newest.block_number}, ordinal {newest.ordinal}
+          {" through committed block "}{oldest.block_number}, ordinal {oldest.ordinal}.
+        </p>
+      )}
+      <p>This account snapshot does not establish the current network head.</p>
+    </section>
   );
-}
-
-function BalancesPanel({ account }: Readonly<{ account?: UnifiedAccountAvailabilityRecord }>) {
-  return (
-    <ExplorerPanel title={copyEntry("explorer.account.balances").message}>
-      <ExplorerTable
-        caption={copyEntry("explorer.account.balances.table").message}
-        columns={[
-          copyEntry("explorer.column.asset").message,
-          copyEntry("explorer.column.on_paxeer").message,
-          copyEntry("explorer.column.on_layerx").message,
-          copyEntry("explorer.column.in_custody").message,
-        ]}
-        rows={(account?.balances.items ?? []).map((balance) => ({
-          id: balance.assetId,
-          cells: [
-            <span data-availability={balance.denom.state}>{balance.denom.state === "present" ? balance.denom.value : copyEntry("explorer.verify.unavailable").message}</span>,
-            balance.paxeer ?? absentValue(),
-            balance.layerx ?? absentValue(),
-            balance.custody ?? absentValue(),
-          ],
-        }))}
-      />
-      <p className="text-sm text-foreground-secondary">
-        {copyEntry("explorer.account.gateway_reported").message}
-      </p>
-    </ExplorerPanel>
-  );
-}
-
-function SettlementPanel({ account }: Readonly<{ account?: UnifiedAccountAvailabilityRecord }>) {
-  const settlement = account?.settlement;
-  return (
-    <ExplorerPanel title={copyEntry("explorer.account.settlement").message}>
-      <ExplorerTable
-        caption={copyEntry("explorer.account.settlement.table").message}
-        columns={[
-          copyEntry("explorer.column.stage").message,
-          copyEntry("explorer.column.value").message,
-        ]}
-        rows={[
-          {
-            id: "instant",
-            cells: [
-              copyEntry("explorer.settlement.instant").message,
-              settlement === undefined
-                ? absentValue()
-                : formatCopy("explorer.settlement.instant.detail", { block: settlement.instantBlock }),
-            ],
-          },
-          {
-            id: "sealed",
-            cells: [
-              copyEntry("explorer.settlement.sealed").message,
-              settlement === undefined
-                ? absentValue()
-                : formatCopy("explorer.settlement.sealed.detail", { batch: settlement.sealedBatch }),
-            ],
-          },
-          {
-            id: "final",
-            cells: [
-              copyEntry("explorer.settlement.final").message,
-              settlement === undefined || settlement.finalizedBatch.state === "unavailable" || settlement.anchorStatusName.state === "unavailable"
-                ? copyEntry("explorer.verify.unavailable").message
-                : formatCopy("explorer.settlement.final.detail", {
-                  batch: settlement.finalizedBatch.value,
-                  status: settlement.anchorStatusName.value,
-                }),
-            ],
-          },
-        ]}
-      />
-    </ExplorerPanel>
-  );
-}
-
-function PaxeerActivityPanel({ account }: Readonly<{ account?: UnifiedAccountAvailabilityRecord }>) {
-  const activity = account?.paxeerActivity;
-  return (
-    <ExplorerPanel title={copyEntry("explorer.account.paxeer_activity").message}>
-      <p className="text-sm text-foreground-secondary">
-        {activity === undefined
-          ? copyEntry("explorer.account.paxeer_activity.unavailable").message
-          : formatCopy("explorer.account.paxeer_activity.window", {
-            fromBlock: activity.fromBlock,
-            toBlock: activity.toBlock,
-          })}
-      </p>
-      <ExplorerTable
-        caption={copyEntry("explorer.account.paxeer_activity.table").message}
-        columns={[
-          copyEntry("explorer.column.block").message,
-          copyEntry("explorer.column.event").message,
-          copyEntry("explorer.column.amount").message,
-          copyEntry("explorer.column.transaction").message,
-        ]}
-        rows={(activity?.items ?? []).map((record) => ({
-          id: `${record.blockNumber}-${record.logIndex}`,
-          cells: [
-            record.blockNumber,
-            eventLabel(record.event),
-            record.amount ?? absentValue(),
-            record.transactionHash,
-          ],
-        }))}
-      />
-    </ExplorerPanel>
-  );
-}
-
-function accountPagePath(identifier: string, before?: string, beforeBlock?: string): string {
-  const query = new URLSearchParams();
-  if (before !== undefined) query.set("before", before);
-  if (beforeBlock !== undefined) query.set("beforeBlock", beforeBlock);
-  const suffix = query.toString();
-  return accountIdentifierPath(identifier) + (suffix === "" ? "" : `?${suffix}`);
 }
 
 export default async function AccountPage({
@@ -197,100 +32,39 @@ export default async function AccountPage({
   searchParams,
 }: Readonly<{
   params: Promise<{ accountId: string }>;
-  searchParams: Promise<{ before?: string; beforeBlock?: string }>;
+  searchParams: Promise<{ cursor?: string; before?: string; beforeBlock?: string; before_block?: string }>;
 }>) {
   const requested = (await params).accountId;
-  const identifier = parseAccountIdentifier(requested);
-  if (identifier === undefined) {
+  let address: string;
+  try {
+    address = nativeAddress(requested).toLowerCase();
+  } catch {
     return (
       <ExplorerFrame
         title={copyEntry("explorer.account.title").message}
         description={copyEntry("explorer.account.invalid").message}
       >
-        <FreshnessDisplay />
-        <p className="text-sm text-foreground-secondary">{copyEntry("explorer.not_found.body").message}</p>
+        <p>{copyEntry("explorer.not_found.body").message}</p>
       </ExplorerFrame>
     );
   }
   const query = await searchParams;
-  if (identifier.canonical !== requested) {
-    redirect(accountPagePath(identifier.canonical, query.before, query.beforeBlock));
+  if (query.before !== undefined || query.beforeBlock !== undefined || query.before_block !== undefined) {
+    return (
+      <ExplorerFrame title={copyEntry("explorer.account.title").message} description={address}>
+        <section aria-label="Account snapshot refused" data-state="cursor-refused">
+          <p>This account requires the returned snapshot cursor. The former activity position cannot be continued.</p>
+          <a href={nativeAccountPagePath(address)}>Start a new account snapshot</a>
+        </section>
+      </ExplorerFrame>
+    );
   }
-  let account: UnifiedAccountAvailabilityRecord | undefined;
-  try {
-    account = await unifiedAccountAvailability(identifier.canonical, query.beforeBlock, query.before);
-  } catch {
-    account = undefined;
-  }
-  if (account !== undefined && account.canonical !== identifier.canonical) {
-    redirect(accountPagePath(account.canonical, query.before, query.beforeBlock));
-  }
-  if (account === undefined) {
-    return <ExplorerUnavailable />;
-  }
-  const activity = account.layerxActivity;
-  const freshness = account.freshness;
-  const accountProps = account === undefined ? {} : { account };
+  if (requested !== address) redirect(nativeAccountPagePath(address, query.cursor));
+  const model = await loadNativeAccountPage(address, query.cursor);
   return (
-    <ExplorerFrame
-      title={copyEntry("explorer.account.title").message}
-      description={identifier.canonical}
-    >
-      <FreshnessDisplay {...(freshness === undefined ? {} : { freshness })} />
-      <IdentitiesPanel {...accountProps} />
-      <BalancesPanel {...accountProps} />
-      <SettlementPanel {...accountProps} />
-      <ExplorerPanel title={copyEntry("explorer.account.layerx_activity").message}>
-        {activity === undefined
-          ? (
-            <p className="text-sm text-foreground-secondary">
-              {copyEntry("explorer.account.layerx_activity.absent").message}
-            </p>
-          )
-          : (
-            <ExplorerTable
-              caption={copyEntry("explorer.account.table").message}
-              columns={[
-                copyEntry("explorer.column.sequence").message,
-                copyEntry("explorer.column.receipt").message,
-                copyEntry("explorer.column.operation").message,
-                copyEntry("explorer.column.amount").message,
-                copyEntry("explorer.column.result").message,
-                copyEntry("explorer.column.verification").message,
-              ]}
-              rows={activity.items.map((record) => ({
-                id: record.receiptId,
-                cells: [
-                  record.globalSequence,
-                  <ExplorerLink key="receipt" href={explorerReceiptPath(record.receiptDigest)}>
-                    {record.receiptDigest}
-                  </ExplorerLink>,
-                  record.operation,
-                  record.amount,
-                  record.resultCode,
-                  <ExplorerVerificationBadge
-                    key="verification"
-                    label={verificationLabel(record.verificationLevel)}
-                    unverified={record.verificationLevel === "unverified"}
-                  />,
-                ],
-              }))}
-            />
-          )}
-        {activity?.nextBefore === undefined ? null : (
-          <ExplorerLink href={accountPagePath(identifier.canonical, activity.nextBefore, query.beforeBlock)}>
-            {copyEntry("explorer.pagination.older").message}
-          </ExplorerLink>
-        )}
-      </ExplorerPanel>
-      <PaxeerActivityPanel {...accountProps} />
-      {account?.paxeerActivity.nextBeforeBlock === undefined ? null : (
-        <ExplorerLink
-          href={accountPagePath(identifier.canonical, query.before, account.paxeerActivity.nextBeforeBlock)}
-        >
-          {copyEntry("explorer.pagination.older").message}
-        </ExplorerLink>
-      )}
+    <ExplorerFrame title={copyEntry("explorer.account.title").message} description={address}>
+      {model.state === "ready" ? <ObservationPosition account={model.account} /> : null}
+      <NativeAccountPage model={model} />
     </ExplorerFrame>
   );
 }

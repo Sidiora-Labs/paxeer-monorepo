@@ -14,7 +14,18 @@ else:
     from kvx import KvxValue, load
 
 
-CLASSES = ("served_ok", "planned_pending", "stale_planned", "missing", "line_drift")
+CLASSES = (
+    "served_ok",
+    "planned_pending",
+    "stale_planned",
+    "missing",
+    "line_drift",
+    "retired_ok",
+    "retire_pending",
+    "kept",
+    "change_present",
+    "change_absent",
+)
 _IDENTIFIER = r"[A-Za-z_$][A-Za-z0-9_$]*"
 _TOKENS = re.compile(r"[\w$]+")
 _QUOTED = re.compile(r'"([^"\n]+)"|\x27([^\x27\n]+)\x27|`([^`\n]+)`')
@@ -125,6 +136,7 @@ def interfaces_reconcile(
     if not revision:
         raise ValueError("the registry and referenced files have no revision at HEAD")
     counts = dict.fromkeys(CLASSES, 0)
+    domains: dict[str, dict[str, int]] = {}
     findings: dict[str, dict[str, KvxValue]] = {}
     for path, rows in grouped.items():
         exists = path.is_file()
@@ -152,8 +164,15 @@ def interfaces_reconcile(
                         occurrences[key].append(bisect.bisect_left(newlines, start) + 1)
                         start = content.find(symbol, start + 1)
             locations = occurrences[key]
-            planned = row["status"] in ("new", "planned")
-            if not locations:
+            status = row["status"]
+            planned = status in ("new", "planned")
+            if "overridden_by" in row:
+                classification = "kept"
+            elif status == "retire":
+                classification = "retire_pending" if locations else "retired_ok"
+            elif status == "change":
+                classification = "change_present" if locations else "change_absent"
+            elif not locations:
                 classification = "planned_pending" if planned else "missing"
             elif planned:
                 classification = "stale_planned"
@@ -164,6 +183,12 @@ def interfaces_reconcile(
             else:
                 classification = "served_ok"
             counts[classification] += 1
+            domain = name.split(".", 2)[1]
+            domain_counts = domains.setdefault(
+                domain, {"rows": 0, **dict.fromkeys(CLASSES, 0)}
+            )
+            domain_counts["rows"] += 1
+            domain_counts[classification] += 1
             if classification != "served_ok":
                 findings[name] = {
                     "interface": name,
@@ -176,6 +201,8 @@ def interfaces_reconcile(
     report: dict[str, dict[str, KvxValue]] = {
         "interfaces": {"revision": revision, "rows": len(interfaces), **counts}
     }
+    for domain in sorted(domains):
+        report[f"domain.{domain}"] = domains[domain]
     for number, (name, _) in enumerate(interfaces, 1):
         if name in findings:
             report[f"row.{number}"] = findings[name]

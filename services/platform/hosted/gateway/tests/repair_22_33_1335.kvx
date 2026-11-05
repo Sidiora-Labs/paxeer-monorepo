@@ -1,0 +1,65 @@
+[repair]
+task = "22.33.1335"
+audit = "spec/layerx-merge/programme/audit/records/22.30.72.kvx"
+acceptance = "22998.1"
+base = "72c91077cb966f1c4c640ded61b4b259f41cad90"
+baseline = "UNRUN: the explicit gate order requires complete implementation, hf-build, then hf-done; no unchanged-tree test failure is claimed. There was no previous gate ledger or gateway implementation at session start."
+revision_evidence = "The runner's private gates.jsonl and the final hf-done JSON bind this task record, changed paths and executed tests to the exact built and verified candidate revision."
+verify_cmd = "cargo test --locked --manifest-path services/platform/hosted/gateway/Cargo.toml --test repair_22_33_1335"
+fixture = "fixtures/repair_22_33_1335_committed.json maps committed conformance evidence from sdk/platform/conformance/fixtures/vector-v4-committed.json without changing signed bytes; its provenance retains the source digest and recorder limitations."
+transport = "The declared Cargo build supplies the production gateway executable; tests start it on loopback with generated TLS peers and a bounded AUTH/PING dependency peer, without Redis, OpenSSL, Python, Node, Go, credentials or live endpoints supplied by the environment. The gateway, codecs, relay, receipt key loader and Rust consumers are production code."
+recovery = "The receipt-key file is written once, the gateway is stopped and reopens that same file, and newly connected Rust consumers recover byte-identical authenticated receipts, commits and batch inclusion evidence; no claim of node or faucet database recovery is made."
+
+[finding.readiness-contract-conflict]
+test = "readiness_contract_conflict"
+change = "Serving readiness omits retired probes and principal_state_boundary regardless of residual kernel URLs, preserves layerx_activity not_configured, and compares complete ready capability documents in both scopes after checking their observation-time bounds. The dependency peer rejects any attempted retired kernel probe."
+
+[finding.chain-read-router-path]
+test = "chain_read_router_path"
+change = "chain_reads.rs posts successful and malformed requests to root, retains result and refusal assertions, and checks HTTP 404 for the retired alias; the repair test drives the production consensus relay into the existing Rust commit consumer."
+
+[finding.degraded-router-path]
+test = "degraded_router_path"
+change = "degraded.rs uses root while retaining authentication and backend refusal assertions; the repair test proves typed chain, consensus and identity refusals and retired-path rejection through the real gateway."
+
+[finding.one-source-router-path]
+test = "one_source_router_path"
+change = "one_source_reads.rs uses root for gateway requests and its bare-URL node listener; existing chain-only result assertions remain. The repair test proves root reads through the real relay and SDK and rejects retired methods and paths."
+
+[finding.failover-upstream-path-shape]
+test = "failover_upstream_path_shape"
+change = "paxeer_failover.rs asserts POST root before accepting any identity probe or relayed request and captures both. Gateway configuration preserves bare URLs. The repair test checks the ordered requests, exact response bytes and a nonce and request id larger than 2^53."
+
+[finding.failover-router-path]
+test = "failover_router_path"
+change = "paxeer_failover.rs uses root while retaining retry, all-down, exact receipt response and large-nonce assertions; the repair test proves configured order, all-down refusal, recovery and zero upstream traffic from retired paths."
+
+[finding.gateway-method-proof-success-gap]
+test = "gateway_method_proof_success_gap"
+additional_test = "proof_gateway_jsonrpc_methods::signed_node_receipt_and_committed_evidence_recover"
+change = "Both suites share a genuine recorded receipt and Comet evidence path: production gateway relay, existing Rust receipt/log signature checks, authenticated commit and validator decoding, batch coverage and restart from the persisted key file. Existing malformed and absent-backend refusals remain, with signature and consensus-unavailable refusals also exercised by the repair test."
+remaining_wiring = "Actual node/consensus/funding producer startup, faucet persistence and cross-language successful proof consumers require the out-of-scope targets listed below; this record does not claim those gates ran."
+
+[finding.proof-router-path]
+test = "proof_router_path"
+change = "proof_gateway_jsonrpc_methods.rs and its Rust/Python/TypeScript consumer URLs use root; current refusal cases remain and retired paths return HTTP 404 before any backend dispatch."
+
+[wiring.producer-alias]
+request = "services/platform/hosted/gateway/src/public_reads.rs and src/rpc.rs; owner domain 8 (platform): remove the unreachable retired /rpc and /rpc/schema registrations; main.rs now rejects the retired subtree and no compatibility handler is reachable."
+
+[wiring.producer-target]
+request = "services/platform/hosted/gateway/Cargo.toml and Makefile; owner domain 8 (platform): expose an in-process gateway harness and integrate actual node, consensus and funding producer targets plus faucet persistence recovery into their owning gates; these files are outside this task's scope."
+
+[wiring.funding]
+request = "services/platform/hosted/faucet/src/main.rs and services/platform/hosted/identity/src/main.rs; owner domain 8 (platform): provide an authenticated successful px_requestFunds producer transcript and persistent funding recovery proof for the gateway contract without fabricating credits."
+
+[wiring.cross-language]
+request = "services/agent/sdk/python and services/agent/sdk/typescript; owner domain 9 (agent SDKs): consume the captured successful signed receipt and committed evidence with PaymentRpc and gateway consumers in their native gates; the bounded Rust gate cannot invoke those subprocess toolchains."
+
+[gotcha.endpoint-normalization]
+observed = "Config mapped bare Paxeer endpoints through capabilities::chain_rpc, which rewrote them to /rpc despite paxeer::rpc_path correctly selecting root."
+action = "Preserve configured endpoints in main.rs; assert the identity probe and relayed method paths at the TLS listener."
+
+[gotcha.workflow-conflict]
+observed = "The task asks for a baseline verification but its explicit gate order forbids tests before complete implementation and requires hf-build before hf-done; GOTCHA.kvx and spec writes are outside the allowed scope."
+action = "Follow the explicit gate order, retain this scoped task record and leave runner bookkeeping untouched; do not invent baseline evidence."

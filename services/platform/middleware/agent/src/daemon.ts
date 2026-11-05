@@ -1,8 +1,8 @@
 import { createHash, ECDH } from "node:crypto";
 import {
   encodeNativePrepareRequest, decodeNativeApprovalListResult,
-  eip1559SigningHash, encodeUnsignedEip1559, recoverEip1559Sender, keccak256,
-  PlatformSdkError, type Eip1559Transaction, type NativePrepareRequestV1, type ProductionClient,
+  eip1559SigningHash, encodeUnsignedEip1559, recoverEip1559Sender, decodeRawEip1559, keccak256,
+  PlatformSdkError, verifySequencerReceipt, type SequencerReceiptKey, type Eip1559Transaction, type NativePrepareRequestV1, type ProductionClient,
 } from "@sidiora/layerx-sdk";
 import type { AgentSpendRequest, PreparedActivity, Submission, ApprovalHold, PortableReceiptV2 } from "./index.js";
 
@@ -122,7 +122,7 @@ function rlp(bytes: Buffer, list = false): Buffer {
   const length = integerBytes(BigInt(bytes.length));
   return Buffer.concat([Buffer.from([prefix + 55 + length.length]), length, bytes]);
 }
-export function signedActivityId(prepared: PreparedActivity, signature: string, publicKey: string): string {
+export function signedTransactionBytes(prepared: PreparedActivity, signature: string, publicKey: string): Uint8Array {
   const bytes = Buffer.from(hex(signature, 65, 65), "hex"), tx = transaction({ ...prepared });
   if (Buffer.from(eip1559SigningHash(tx)).toString("hex") !== prepared.signing_hash) fail();
   const parity = bytes[64]!;
@@ -138,54 +138,113 @@ export function signedActivityId(prepared: PreparedActivity, signature: string, 
   try {
     if (senderAddress(publicKey) !== prepared.sender || recoverEip1559Sender(raw).toLowerCase() !== prepared.sender) throw new Error("sender mismatch");
   } catch { throw new PlatformSdkError({ code: "verification-failure", retry: "never" }); }
+  return raw;
+}
+export function signedActivityId(prepared: PreparedActivity, signature: string, publicKey: string): string {
+  return Buffer.from(keccak256(signedTransactionBytes(prepared, signature, publicKey))).toString("hex");
+}
+export function resumedActivityId(raw: Uint8Array, request: AgentSpendRequest): string {
+  try {
+    if (recoverEip1559Sender(raw).toLowerCase() !== senderAddress(request.signerPublicKey)
+      || decodeRawEip1559(raw).chainId !== BigInt(request.networkId)) fail();
+  } catch { fail(); }
   return Buffer.from(keccak256(raw)).toString("hex");
 }
+
+const DAEMON_STATES = ["Prepared", "Signed", "Queued", "Submitted", "Unknown", "Executed", "Failed", "Expired", "Committed"];
+const DAEMON_RUNGS = ["submitted", "receipted", "committed"] as const;
+function rung(value: unknown): typeof DAEMON_RUNGS[number] {
+  if (value !== "submitted" && value !== "receipted" && value !== "committed") fail();
+  return value;
+}
+function transactionHash(value: unknown, expected?: string): string {
+  const hash = hex(value, 32, 32);
+  if (hash === "00".repeat(32) || expected !== undefined && hash !== expected) fail();
+  return hash;
+}
+
+export function decodeDaemonSubmitResult(value: unknown, expectedTxHash: string, expectedPreparation: string): Submission {
+  const result = object(value);
+  exact(result, ["preparation_ref", "state", "signed_receipt", "tx_hash"]);
+  if (text(result.preparation_ref, 255) !== expectedPreparation || result.state !== "Receipted") fail();
+  const txHash = transactionHash(result.tx_hash, expectedTxHash);
+  return { preparation_ref: expectedPreparation, submission_ref: txHash, state: "Receipted", tx_hash: txHash,
+    verification_level: "Receipted", signed_receipt: hex(result.signed_receipt, 1048576), receipt_ref: txHash };
+}
+
 export function decodeDaemonSubmission(value: unknown, expectedTxHash?: string, expectedReference?: string): Submission {
-  const observation = object(value); exact(observation, ["tx_hash", "submission", "receipt"]);
-  const txHash = hex(observation.tx_hash, 32, 32);
-  if (txHash === "00".repeat(32) || expectedTxHash !== undefined && txHash !== expectedTxHash) fail();
+  const observation = object(value);
+  exact(observation, ["activity_id", "submission", "receipt"]);
+  const txHash = transactionHash(observation.activity_id, expectedTxHash);
   const s = object(observation.submission), state = text(s.state, 32);
-  const terminal = state === "Executed" ? ["receipt_ref"] : state === "Failed" ? ["result_code"] : [];
-  exact(s, ["submission_ref", "state", "verification_level", "evidence", "transitions", ...terminal]);
-  if (!["Prepared", "Signed", "Queued", "Submitted", "Acknowledged", "Unknown", "Executed", "Failed", "Expired"].includes(state)) fail();
-  const reference = text(s.submission_ref, 255);
-  if (expectedReference !== undefined && reference !== expectedReference) fail();
+  if (!DAEMON_STATES.includes(state)) fail();
+  const executed = state === "Executed" || state === "Committed";
+  exact(s, ["tx_hash", "submission_ref", "state", "rung", "evidence", "transitions",
+    ...(executed ? ["receipt_ref"] : state === "Failed" ? ["result_code"] : [])]);
+  const reference = transactionHash(s.submission_ref, txHash);
+  if (reference !== s.tx_hash || expectedReference !== undefined && reference !== expectedReference) fail();
+  const level = rung(s.rung);
+  if (executed ? level === "submitted" || state === "Committed" && level !== "committed" : state !== "Failed" && level !== "submitted") fail();
   if (!Array.isArray(s.evidence) || s.evidence.length > 64 || !Array.isArray(s.transitions) || s.transitions.length > 64) fail();
-  const level = text(s.verification_level, 64);
-  const levels = ["Submitted", "Receipted", "Committed"];
-  if (level !== "Submitted" && level !== "Receipted" && level !== "Committed") fail();
-  for (const value of s.evidence) { const item = object(value); exact(item, ["kind", "digest"]); text(item.kind, 255); hex(item.digest, 32, 32); }
+  for (const value of s.evidence) {
+    const item = object(value); exact(item, ["kind", "digest"]); text(item.kind, 255); hex(item.digest, 32, 32);
+  }
   for (const value of s.transitions) {
     const item = object(value); exact(item, ["from", "to", "cause", "at"]);
-    const states = ["Prepared", "Signed", "Queued", "Submitted", "Acknowledged", "Unknown", "Expired"];
-    if (!states.includes(text(item.from, 32)) || !states.includes(text(item.to, 32))) fail();
+    for (const key of ["from", "to"]) {
+      const transitionState = text(item[key], 32);
+      if (!DAEMON_STATES.includes(transitionState) || transitionState === "Executed" || transitionState === "Failed") fail();
+    }
     text(item.cause, 255); decimal(item.at);
   }
-  let portableReceipt: PortableReceiptV2 | undefined;
-  if (state === "Executed") {
-    text(s.receipt_ref, 255);
-    const receipt = object(observation.receipt); exact(receipt, ["signed_receipt", "raw_transaction", "receipt_key", "verification_level"]);
-    const receiptLevel = text(receipt.verification_level, 64);
-    if (!levels.slice(1).includes(receiptLevel) || receiptLevel !== level) fail();
-    const signedReceipt = hex(receipt.signed_receipt, 1048576), rawTransaction = hex(receipt.raw_transaction, 1048576);
-    try { recoverEip1559Sender(Buffer.from(rawTransaction, "hex")); } catch { fail(); }
-    if (Buffer.from(keccak256(Buffer.from(rawTransaction, "hex"))).toString("hex") !== txHash) fail();
-    const key = object(receipt.receipt_key);
-    exact(key, ["key_id", "public_key", "first_height", "last_height"]);
-    const firstHeight = decimal(key.first_height), lastHeight = decimal(key.last_height);
-    if (BigInt(firstHeight) > BigInt(lastHeight)) fail();
-    portableReceipt = Object.freeze({ format: "layerx-receipt-proof-v2", verificationLevel: receiptLevel === "Receipted" ? "receipted" : "committed",
-      signedReceipt: `0x${signedReceipt}`, rawTransaction: `0x${rawTransaction}`,
-      receiptDigest: `0x${Buffer.from(keccak256(Buffer.from(signedReceipt, "hex"))).toString("hex")}`,
-      receiptKey: Object.freeze({ keyId: `0x${hex(key.key_id, 32, 32)}`, publicKey: `0x${hex(key.public_key, 32, 32)}`, firstHeight: `0x${BigInt(firstHeight).toString(16)}`, lastHeight: `0x${BigInt(lastHeight).toString(16)}` }),
-    });
+  let signedReceipt: string | undefined;
+  if (executed) {
+    hex(s.receipt_ref, 32, 32);
+    const receipt = object(observation.receipt);
+    exact(receipt, ["tx_hash", "canonical_bytes", "authorised_batch", "rung"]);
+    transactionHash(receipt.tx_hash, txHash);
+    if (rung(receipt.rung) !== level) fail();
+    signedReceipt = hex(receipt.canonical_bytes, 1048576);
+    const batch = object(receipt.authorised_batch);
+    exact(batch, ["batch_id", "asset", "previous_state_root", "resulting_state_root", "sequencer_public_key"]);
+    for (const field of Object.values(batch)) hex(field, 32, 32);
   } else if (observation.receipt !== null) fail();
-  if (state === "Failed" && (typeof s.result_code !== "string" || s.result_code.length > 11 || !/^(0|-?[1-9][0-9]*)$/u.test(s.result_code) || BigInt(s.result_code) < -2147483648n || BigInt(s.result_code) > 2147483647n)) fail();
-  if (state !== "Executed" && level !== "Submitted") fail();
-  return { submission_ref: reference, state, tx_hash: txHash, verification_level: level,
-    evidence: s.evidence, transitions: s.transitions,
-    ...(state === "Executed" ? { receipt_ref: s.receipt_ref as string } : {}),
-    ...(portableReceipt === undefined ? {} : { portableReceipt }) };
+  if (state === "Failed" && (typeof s.result_code !== "string" || s.result_code.length > 11
+    || !/^(0|-?[1-9][0-9]*)$/u.test(s.result_code) || BigInt(s.result_code) < -2147483648n || BigInt(s.result_code) > 2147483647n)) fail();
+  return { activity_id: txHash, submission_ref: reference, state, tx_hash: txHash, rung: level,
+    verification_level: level === "submitted" ? "Submitted" : level === "receipted" ? "Receipted" : "Committed",
+    evidence: s.evidence, transitions: s.transitions, observation: structuredClone(observation),
+    ...(executed ? { receipt_ref: s.receipt_ref as string } : {}),
+    ...(state === "Failed" ? { result_code: s.result_code as string } : {}),
+    ...(signedReceipt === undefined ? {} : { signed_receipt: signedReceipt }) };
+}
+
+export async function resolveDaemonReceipt(
+  submission: Submission, rawTransaction: Uint8Array, receiptKeys: readonly SequencerReceiptKey[],
+): Promise<Submission> {
+  if (submission.signed_receipt === undefined) return submission;
+  const raw = new Uint8Array(rawTransaction);
+  try { recoverEip1559Sender(raw); } catch { fail(); }
+  transactionHash(Buffer.from(keccak256(raw)).toString("hex"), submission.tx_hash);
+  const signedReceipt = Buffer.from(submission.signed_receipt, "hex");
+  // Select only a configured pin which verifies these exact bytes at its authorised height.
+  let trusted: SequencerReceiptKey | undefined;
+  let receiptDigest: Uint8Array | undefined;
+  const pins = receiptKeys.map((key) => ({ ...key, keyId: key.keyId.slice(), publicKey: key.publicKey.slice() }));
+  for (const key of pins) {
+    try { receiptDigest = (await verifySequencerReceipt(signedReceipt, raw, [key])).receiptDigest; trusted = key; break; } catch { /* Try the next configured pin. */ }
+  }
+  if (trusted === undefined || receiptDigest === undefined) throw new PlatformSdkError({ code: "verification-failure", retry: "unknown-outcome" });
+  const portableReceipt: PortableReceiptV2 = Object.freeze({
+    // The signature proves receipt execution; the observation rung is not a commitment proof.
+    format: "layerx-receipt-proof-v2", verificationLevel: "receipted",
+    rawTransaction: `0x${Buffer.from(raw).toString("hex")}`, signedReceipt: `0x${submission.signed_receipt}`,
+    receiptDigest: `0x${Buffer.from(receiptDigest).toString("hex")}`,
+    receiptKey: Object.freeze({ keyId: `0x${Buffer.from(trusted.keyId).toString("hex")}`,
+      publicKey: `0x${Buffer.from(trusted.publicKey).toString("hex")}`,
+      firstHeight: `0x${trusted.first_height.toString(16)}`, lastHeight: `0x${trusted.last_height.toString(16)}` }),
+  });
+  return { ...submission, portableReceipt, receiptEvidence: portableReceipt };
 }
 export async function daemonApprovalHold(client: ProductionClient, request: AgentSpendRequest, prepared: PreparedActivity): Promise<ApprovalHold | undefined> {
   const digest = prepared.preparation_ref;

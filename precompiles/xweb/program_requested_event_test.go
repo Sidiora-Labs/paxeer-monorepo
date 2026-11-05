@@ -20,7 +20,7 @@ func TestProgramRequestEmitsXWebProgramRequested(t *testing.T) {
 	require.Equal(t, "XWebProgramRequested(bytes32,uint64,uint8,bytes,uint64)", event.Sig)
 	require.False(t, event.Anonymous)
 	require.Len(t, event.Inputs, 5)
-	for i, name := range []string{"programId", "requestId", "origin", "input", "deadline"} {
+	for i, name := range []string{"programId", "requestId", "kind", "payload", "sequence"} {
 		require.Equal(t, name, event.Inputs[i].Name)
 		require.Equal(t, i < 2, event.Inputs[i].Indexed)
 	}
@@ -68,6 +68,8 @@ func TestProgramRequestEmitsXWebProgramRequested(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, found)
 	require.Equal(t, types.KindFetch, record.Kind)
+	require.Equal(t, uint64(23), record.Sequence)
+	require.False(t, record.Fulfilled)
 	require.Equal(t, types.Keccak(input), record.PayloadHash)
 	require.Equal(t, uint64(1), h.keeper.ProgramPendingCount(h.ctx()))
 	logs := h.logs("XWebProgramRequested")
@@ -76,16 +78,16 @@ func TestProgramRequestEmitsXWebProgramRequested(t *testing.T) {
 	require.Equal(t, []common.Hash{topic, common.Hash(programID), topicOf(id)}, logs[0].Topics)
 	decoded, err := event.Inputs.NonIndexed().Unpack(logs[0].Data)
 	require.NoError(t, err)
-	require.Equal(t, []interface{}{types.OriginProgram, input, uint64(0)}, decoded)
+	require.Equal(t, []interface{}{record.Kind, input, record.Sequence}, decoded)
 	allLogs := h.stateDB.GetAllLogs()
-	require.Len(t, allLogs, before+2)
-	require.Equal(t, h.precompile.GetABI().Events["XWebRequested"].ID, allLogs[before].Topics[0])
-	require.Equal(t, topicOf(id), allLogs[before].Topics[1])
-	require.Equal(t, topic, allLogs[before+1].Topics[0])
+	require.Len(t, allLogs, before+1)
+	require.Equal(t, topic, allLogs[before].Topics[0])
+	require.Equal(t, common.Hash(programID), allLogs[before].Topics[1])
+	require.Equal(t, topicOf(id), allLogs[before].Topics[2])
 
 	require.ErrorContains(t, h.precompile.RequestFromProgram(h.evm, call, requestTopic, data, false), "LXP_DUPLICATE_ENTRY")
-	require.Len(t, h.stateDB.GetAllLogs(), before+2)
+	require.Len(t, h.stateDB.GetAllLogs(), before+1)
 	h.request(recorder, callbackGas)
 	require.Len(t, h.logs("XWebProgramRequested"), 1)
-	require.Len(t, h.logs("XWebRequested"), 3)
+	require.Len(t, h.logs("XWebRequested"), 2)
 }

@@ -1,0 +1,42 @@
+[task]
+id = "22.33.68"
+audit = "22.30.108"
+acceptance = "22998.1"
+base_revision = "4edaf4fff3f943e154c8337c0bcc16fe4dd9dd3c"
+verify_cmd = "cargo test --locked --manifest-path services/interop/crates/layerx-bridge-relayer/Cargo.toml --test repair_22_33_68"
+evidence = "The private hf-build/hf-done ledger binds the candidate revision, exact command, exit code and log; the final response copies its last evidence line."
+baseline = "No prior gate ledger or repair test existed. No baseline execution is claimed: the ordered implementation-first and hf-build/hf-done-only instructions prohibit running verify_cmd on the unchanged tree."
+
+[finding.attestation-policy-coverage]
+test = "attestation_policy_coverage_survives_restart_direction_changes_and_rotation"
+path = "Production Relayer::refresh_attestation_policies reads loopback destination RPC through PaxeerTransport and PaxeerRpc; Relayer::attestation_view snapshots real reopened Journal and CosignDirectory; production serve returns HTTP bundles with destination membership and thresholds. Both original API/server suites execute in this repair target and register this path too; their direct answer fixtures now snapshot destination policies."
+
+[finding.operator-root-fixture]
+test = "operator_root_fixture_loads_and_posts_through_pinned_tls"
+path = "RelayerConfig::load -> paxeer_endpoints -> PaxeerRpc -> pinned TLS loopback node asserts POST /, chain id before method, wrong-chain refusal and wrong-anchor refusal. operator_config.rs positive Paxeer fixture uses /."
+
+[finding.cosign-root-fixture]
+test = "cosign_root_fixture_loads_and_posts_through_pinned_tls"
+path = "Same production configuration/transport round trip; operator_cosign_contract.rs positive Paxeer fixture uses / and registers the real root transport test."
+
+[finding.quorum-root-fixture]
+test = "paxeer_rpc::paxeer_reads_need_a_strict_majority_of_endpoints"
+path = "Existing quorum cases execute inside the repair target against independent root loopback servers, each asserting POST /."
+
+[finding.quorum-coverage]
+tests = ["paxeer_rpc::duplicate_and_alias_endpoints_cannot_outvote_an_independent_backend", "quorum_coverage_refuses_tls_authority_and_certificate_aliases", "paxeer_rpc::paxeer_rpc_refuses_mixed_chain_ids_and_more_than_eight_endpoints"]
+path = "Duplicate or aliased authorities and repeated pinned public keys are refused before any request; two divergent independent real HTTP peers return Divergence. Eight distinct authorities pass, nine and mixed chain ids fail. Optional private proxy paths never create another vote."
+limitation = "Distinct authority/pin checks conservatively reject shared trust keys; independent operational ownership still requires operator configuration."
+
+[finding.transport-root-fixture]
+tests = ["paxeer_transport::a_loopback_emulator_answers_after_the_chain_id_check", "paxeer_transport::a_wrong_chain_id_is_refused_before_the_method_is_sent", "operator_root_fixture_loads_and_posts_through_pinned_tls"]
+path = "All existing transport tests execute in the repair target at root, retaining malformed framing, response size, TLS anchor, URL and chain assertions."
+
+[finding.capture-prerequisite]
+test = "capture_prerequisite_reports_missing_inputs_and_refuses_required_missing_or_unpinned_artifacts"
+path = "The ordinary no-input suite reports a named MissingPrerequisite disposition. LAYERX_BRIDGE_CAPTURE_REQUIRED=1 fails absent inputs; required_captured_production_boundaries retains every genuine-corpus scenario and artifact pin assertion. The repair gate exercises partial inputs, missing files, bad pins, and independently hashed incomplete manifests through the real Corpus loader without an external corpus."
+qualification = "Captured production-boundary scenarios are NOT PROVEN by a missing-prerequisite disposition."
+wiring_request = ".github/workflows/bridge-test.yml (domain 11 Interop, CI owner): add a mandatory captured-boundary qualification job that provisions the genuine corpus and independently pinned SHA256, sets LAYERX_BRIDGE_CAPTURE_REQUIRED=1 plus LAYERX_BRIDGE_CAPTURE_MANIFEST and LAYERX_BRIDGE_CAPTURE_MANIFEST_SHA256, then runs cargo test --locked --manifest-path services/interop/crates/layerx-bridge-relayer/Cargo.toml --test outbound_isolation -- --nocapture; absent artifacts must fail."
+
+[wiring.endpoint-identities]
+request = "services/interop/crates/layerx-bridge-relayer/src/config.rs and src/transport.rs (domain 11 Interop): carry explicit independent-backend identities for multi-endpoint configuration, as requested by the separate duplicate-quorum finding; these paths are outside this task."

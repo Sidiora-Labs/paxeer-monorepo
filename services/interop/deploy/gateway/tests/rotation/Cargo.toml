@@ -1,0 +1,40 @@
+[package]
+name = "gateway-rotation-proof"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.91.1"
+
+[workspace]
+
+[[bin]]
+name = "rotation-gateway"
+path = "../../../../crates/layerx-interop-service/src/main.rs"
+
+[[bin]]
+name = "rotation-probe"
+path = "probe.rs"
+
+[dependencies]
+base64 = { version = "=0.23.1" }
+ed25519-dalek = { version = "=2.2.0" }
+layerx-ap2 = { path = "../../../../crates/layerx-ap2" }
+layerx-client = { path = "../../../../../agent/crates/layerx-client" }
+layerx-crypto = { path = "../../../../../agent/crates/layerx-crypto" }
+layerx-fiat = { path = "../../../../crates/layerx-fiat" }
+layerx-interop-gateway = { path = "../../../../crates/layerx-interop-gateway" }
+layerx-migrate = { path = "../../../../crates/layerx-migrate" }
+layerx-platform-gateway = { path = "../../../../../platform/hosted/gateway" }
+layerx-proof = { path = "../../../../../agent/crates/layerx-proof" }
+layerx-ucp = { path = "../../../../crates/layerx-ucp" }
+layerx-visa-tap = { path = "../../../../crates/layerx-visa-tap" }
+layerx-wire = { path = "../../../../../agent/crates/layerx-wire" }
+layerx-x402 = { path = "../../../../crates/layerx-x402" }
+native-tls = { version = "=0.2.18" }
+openssl = { version = "=0.10.81" }
+p256 = { version = "=0.13.2", default-features = false, features = ["ecdsa", "std"] }
+rustls = { version = "=0.23.46", default-features = false, features = ["ring", "std", "tls12"] }
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = { version = "=1.0.151", features = ["arbitrary_precision"] }
+sha2 = { version = "=0.10.9" }
+subtle = { version = "=2.6.1" }
+zeroize = { version = "=1.9.0" }

@@ -13,7 +13,7 @@ const SearchBarSuggestPriceUpdate = ({ data, isMobile }: ItemsProps<SearchResult
   const icon = <TxEntity.Icon/>;
   const hash = (
     <chakra.mark overflow="hidden" whiteSpace="nowrap" fontWeight={ 700 }>
-      <HashStringShortenDynamic hash={ data.hash } noTooltip/>
+      <HashStringShortenDynamic fontFamily="mono" fontVariantNumeric="tabular-nums" hash={ data.hash } noTooltip/>
     </chakra.mark>
   );
   const badge = <Badge colorPalette="green" flexShrink={ 0 } ml={ 2 }>Price update</Badge>;

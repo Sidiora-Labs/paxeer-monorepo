@@ -46,8 +46,8 @@ func newRPCEndpointConfig(config evmrpcconfig.Config) RPCEndpointConfig {
 }
 
 // ServerOption configures NewEVMHTTPServer (a TraceContextProvider, SequencerReceiptOption,
-// SequencerOption, PendingOption or SequencerForwardOption) and NewEVMWebSocketServer
-// (a SequencerOption, PendingOption or SequencerForwardOption).
+// SequencerOption, PendingOption, pxIndexerOption or SequencerForwardOption) and NewEVMWebSocketServer
+// (a SequencerReceiptOption, SequencerOption, PendingOption, pxIndexerOption or SequencerForwardOption).
 type ServerOption interface{ serverOption() }
 
 func (TraceContextProvider) serverOption()   {}
@@ -154,6 +154,10 @@ func NewEVMHTTPServer(
 	if tmClient == nil || k == nil || ctxProvider == nil || txConfigProvider == nil || app == nil {
 		return nil, errors.New("EVM HTTP server dependencies are not configured")
 	}
+	pxIndexer, err := pxIndexerForServer(config.PxIndexerURL, opts)
+	if err != nil {
+		return nil, err
+	}
 	domainResolver, err := domainResolverForServer(app, k, ctxProvider, opts)
 	if err != nil {
 		return nil, err
@@ -181,15 +185,18 @@ func NewEVMHTTPServer(
 		logger.Info("To enable debug metrics output to stdout, set EVM_DEBUG_METRICS=true")
 	}
 
-	// Initialize RPC tracker
-	stats.InitRPCTracker(ctxProvider(LatestCtxHeight).Context(), config.RPCStatsInterval)
-
 	httpServer := NewHTTPServer(rpc.HTTPTimeouts{
 		ReadTimeout:       config.ReadTimeout,
 		ReadHeaderTimeout: config.ReadHeaderTimeout,
 		WriteTimeout:      config.WriteTimeout,
 		IdleTimeout:       config.IdleTimeout,
 	})
+	configured := false
+	defer func() {
+		if !configured {
+			httpServer.Stop()
+		}
+	}()
 	httpServer.domainResolver = domainResolver
 	methodTimeout := tmutils.Some(httpServer.timeouts.WriteTimeout)
 	if err := httpServer.SetListenAddr(config.HTTPAddress, config.HTTPPort); err != nil {
@@ -232,6 +239,7 @@ func NewEVMHTTPServer(
 	if err != nil {
 		return nil, err
 	}
+	sendCfg.SequencerSource = sequencerReceipts.Source
 
 	globalBlockCache := NewBlockCache(3000)
 	cacheCreationMutex := &sync.Mutex{}
@@ -244,7 +252,7 @@ func NewEVMHTTPServer(
 	debugAPI := NewDebugAPI(tmClient, k, beginBlockKeepers, ctxProvider, txConfigProvider, simulateConfig, app, antehandler, ConnectionTypeHTTP, config, globalBlockCache, cacheCreationMutex, watermarks)
 	debugAPI.backend.SetTraceContextProvider(traceCtxProvider)
 	if config.TraceBakeEnabled {
-		StartTraceBakerForDebugAPI(debugAPI, TraceBakerConfig{
+		startServerTraceBaker(httpServer, debugAPI, TraceBakerConfig{
 			Workers:      config.TraceBakeWorkers,
 			QueueSize:    config.TraceBakeQueueSize,
 			Tracers:      config.TraceBakeTracers,
@@ -283,7 +291,13 @@ func NewEVMHTTPServer(
 		httpServer.addStopHook(api.shutdown)
 		return api
 	}
+	stateAPI := NewStateAPI(tmClient, k, ctxProvider, ConnectionTypeHTTP, watermarks, app.CommitMultiStore().(storetypes.Queryable))
+	simulationAPI := NewSimulationAPI(ctxProvider, k, beginBlockKeepers, txConfigProvider, tmClient, simulateConfig, app, antehandler, ConnectionTypeHTTP, globalBlockCache, cacheCreationMutex, watermarks)
+	pxAPI := &pxAccountAPI{state: stateAPI, tx: txAPI, simulation: simulationAPI, indexer: pxIndexer, methods: httpServer.HTTPMethods}
 	apis := []rpc.API{
+		{Namespace: "px", Service: pxAPI},
+		{Namespace: "px", Service: &pxHistoryAPI{account: pxAPI}},
+		{Namespace: "px", Service: &pxKernelAPI{tmClient: tmClient, chainID: ctx.ChainID(), connectionType: stateAPI.connectionType}},
 		{
 			Namespace: "echo",
 			Service:   NewEchoAPI(),
@@ -321,8 +335,12 @@ func NewEVMHTTPServer(
 			Service:   sequencerReceiptAPI,
 		},
 		{
+			Namespace: "px",
+			Service:   &receiptKeysAPI{receipts: sequencerReceiptAPI},
+		},
+		{
 			Namespace: "eth",
-			Service:   NewStateAPI(tmClient, k, ctxProvider, ConnectionTypeHTTP, watermarks, app.CommitMultiStore().(storetypes.Queryable)),
+			Service:   stateAPI,
 		},
 		{
 			Namespace: "eth",
@@ -334,7 +352,7 @@ func NewEVMHTTPServer(
 		},
 		{
 			Namespace: "eth",
-			Service:   NewSimulationAPI(ctxProvider, k, beginBlockKeepers, txConfigProvider, tmClient, simulateConfig, app, antehandler, ConnectionTypeHTTP, globalBlockCache, cacheCreationMutex, watermarks),
+			Service:   simulationAPI,
 		},
 		{
 			Namespace: "net",
@@ -390,6 +408,10 @@ func NewEVMHTTPServer(
 		return nil, err
 	}
 
+	tracker := stats.InitRPCTracker(ctx.Context(), config.RPCStatsInterval)
+	httpServer.addStopHook(tracker.Stop)
+
+	configured = true
 	return httpServer, nil
 }
 
@@ -410,6 +432,10 @@ func NewEVMWebSocketServer(
 	if tmClient == nil || k == nil || ctxProvider == nil || txConfigProvider == nil || app == nil {
 		return nil, errors.New("EVM WebSocket server dependencies are not configured")
 	}
+	pxIndexer, err := pxIndexerForServer(config.PxIndexerURL, opts)
+	if err != nil {
+		return nil, err
+	}
 	domainResolver, err := domainResolverForServer(app, k, ctxProvider, opts)
 	if err != nil {
 		return nil, err
@@ -417,9 +443,12 @@ func NewEVMWebSocketServer(
 	var seq *SequencerOption
 	var forward *SequencerForwardOption
 	var pending PendingSnapshot
+	var sequencerReceipts SequencerReceiptOption
 	for _, opt := range opts {
 		switch o := opt.(type) {
-		case domainResolverOption:
+		case domainResolverOption, pxIndexerOption:
+		case SequencerReceiptOption:
+			sequencerReceipts = o
 		case PendingOption:
 			if o.source == nil {
 				return nil, errors.New("pending option needs a snapshot source; build it with NewPendingOption")
@@ -440,6 +469,7 @@ func NewEVMWebSocketServer(
 	if err != nil {
 		return nil, err
 	}
+	sendCfg.SequencerSource = sequencerReceipts.Source
 	ctx := ctxProvider(LatestCtxHeight)
 	if config.EnableUnsafeKeyringRPC && evmCfg.IsLiveChainID(ctx) {
 		return nil, errors.New("unsafe keyring RPC cannot be enabled on a live chain")
@@ -448,15 +478,18 @@ func NewEVMWebSocketServer(
 	// This is idempotent - if HTTP server already initialized it, this is a no-op
 	InitGlobalWorkerPool(config.WorkerPoolSize, config.WorkerQueueSize)
 
-	// Initialize WebSocket tracker.
-	stats.InitWSTracker(ctxProvider(LatestCtxHeight).Context(), config.RPCStatsInterval)
-
 	httpServer := NewHTTPServer(rpc.HTTPTimeouts{
 		ReadTimeout:       config.ReadTimeout,
 		ReadHeaderTimeout: config.ReadHeaderTimeout,
 		WriteTimeout:      config.WriteTimeout,
 		IdleTimeout:       config.IdleTimeout,
 	})
+	configured := false
+	defer func() {
+		if !configured {
+			httpServer.Stop()
+		}
+	}()
 	httpServer.domainResolver = domainResolver
 	methodTimeout := tmutils.Some(httpServer.timeouts.WriteTimeout)
 	if err := httpServer.SetListenAddr(config.HTTPAddress, config.WSPort); err != nil {
@@ -511,10 +544,24 @@ func NewEVMWebSocketServer(
 	if err != nil {
 		return nil, err
 	}
+	httpServer.addStopHook(subscriptionAPI.shutdown)
 	if seq != nil {
 		subscriptionAPI.receiptLogs = seq.receiptLogs
 	}
+	sequencerReceiptAPI, err := newSequencerReceiptAPI(tmClient, ctxProvider, sequencerReceipts, ConnectionTypeWS)
+	if err != nil {
+		return nil, err
+	}
+	txAPI := NewTransactionAPI(tmClient, k, ctxProvider, txConfigProvider, homeDir, ConnectionTypeWS, methodTimeout, watermarks, globalBlockCache, cacheCreationMutex, config.EnableUnsafeKeyringRPC)
+	stateAPI := NewStateAPI(tmClient, k, ctxProvider, ConnectionTypeWS, watermarks, app.CommitMultiStore().(storetypes.Queryable))
+	simulationAPI := NewSimulationAPI(ctxProvider, k, beginBlockKeepers, txConfigProvider, tmClient, simulateConfig, app, antehandler, ConnectionTypeWS, globalBlockCache, cacheCreationMutex, watermarks)
+	pxAPI := &pxAccountAPI{state: stateAPI, tx: txAPI, simulation: simulationAPI, indexer: pxIndexer, methods: httpServer.WSMethods}
 	apis := []rpc.API{
+		{Namespace: "pax", Service: sequencerReceiptAPI},
+		{Namespace: "px", Service: &receiptKeysAPI{receipts: sequencerReceiptAPI}},
+		{Namespace: "px", Service: pxAPI},
+		{Namespace: "px", Service: &pxHistoryAPI{account: pxAPI}},
+		{Namespace: "px", Service: &pxKernelAPI{tmClient: tmClient, chainID: ctx.ChainID(), connectionType: stateAPI.connectionType}},
 		{
 			Namespace: "echo",
 			Service:   NewEchoAPI(),
@@ -525,7 +572,7 @@ func NewEVMWebSocketServer(
 		},
 		{
 			Namespace: "eth",
-			Service:   NewTransactionAPI(tmClient, k, ctxProvider, txConfigProvider, homeDir, ConnectionTypeWS, methodTimeout, watermarks, globalBlockCache, cacheCreationMutex, config.EnableUnsafeKeyringRPC),
+			Service:   txAPI,
 		},
 		{
 			Namespace: "eth",
@@ -537,7 +584,7 @@ func NewEVMWebSocketServer(
 		},
 		{
 			Namespace: "eth",
-			Service:   NewStateAPI(tmClient, k, ctxProvider, ConnectionTypeWS, watermarks, app.CommitMultiStore().(storetypes.Queryable)),
+			Service:   stateAPI,
 		},
 		{
 			Namespace: "eth",
@@ -549,11 +596,15 @@ func NewEVMWebSocketServer(
 		},
 		{
 			Namespace: "eth",
-			Service:   NewSimulationAPI(ctxProvider, k, beginBlockKeepers, txConfigProvider, tmClient, simulateConfig, app, antehandler, ConnectionTypeWS, globalBlockCache, cacheCreationMutex, watermarks),
+			Service:   simulationAPI,
 		},
 		{
 			Namespace: "net",
 			Service:   &domainNetAPI{NetAPI: NewNetAPI(tmClient, k, ctxProvider, ConnectionTypeWS)},
+		},
+		{
+			Namespace: "txpool",
+			Service:   NewTxPoolAPI(tmClient, k, ctxProvider, txConfigProvider, &TxPoolConfig{maxNumTxs: int(config.MaxTxPoolTxs)}, ConnectionTypeWS),
 		},
 		{
 			Namespace: "eth",
@@ -579,5 +630,37 @@ func NewEVMWebSocketServer(
 		return nil, err
 	}
 
+	installTxPoolWSScopes(httpServer)
+
+	tracker := stats.InitWSTracker(ctx.Context(), config.RPCStatsInterval)
+	httpServer.addStopHook(tracker.Stop)
+
+	configured = true
 	return httpServer, nil
+}
+
+var serverTraceBakers = struct {
+	sync.Mutex
+	owners map[*keeper.TraceDB]*TraceBaker
+}{owners: make(map[*keeper.TraceDB]*TraceBaker)}
+
+func startServerTraceBaker(server *HTTPServer, api *DebugAPI, config TraceBakerConfig) {
+	serverTraceBakers.Lock()
+	baker := StartTraceBakerForDebugAPI(api, config)
+	if baker == nil {
+		serverTraceBakers.Unlock()
+		return
+	}
+	cache := api.keeper.TraceDB()
+	serverTraceBakers.owners[cache] = baker
+	serverTraceBakers.Unlock()
+	server.addStopHook(func() {
+		serverTraceBakers.Lock()
+		if serverTraceBakers.owners[cache] == baker {
+			cache.SetTraceEnqueuer(nil)
+			delete(serverTraceBakers.owners, cache)
+		}
+		serverTraceBakers.Unlock()
+		baker.Stop()
+	})
 }

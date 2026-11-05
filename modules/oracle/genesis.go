@@ -12,7 +12,21 @@ import (
 // InitGenesis initialize default parameters
 // and the keeper's address to pubkey map
 func InitGenesis(ctx sdk.Context, keeper keeper.Keeper, data *types.GenesisState) {
+	if err := types.ValidateGenesisExchangeRates(data); err != nil {
+		panic(err)
+	}
+	if err := data.Params.Validate(); err != nil {
+		panic(err)
+	}
 	keeper.SetParams(ctx, data.Params)
+	// Genesis carries the whitelist rather than target records. Reconstruct it
+	// before restored ballots can be accepted or tallied in the first period.
+	targets := make(map[string]types.Denom)
+	keeper.IterateVoteTargets(ctx, func(denom string, info types.Denom) bool {
+		targets[denom] = info
+		return false
+	})
+	keeper.ApplyWhitelist(ctx, data.Params.Whitelist, targets)
 	for _, d := range data.FeederDelegations {
 		voter, err := sdk.ValAddressFromBech32(d.ValidatorAddress)
 		if err != nil {
@@ -28,7 +42,12 @@ func InitGenesis(ctx sdk.Context, keeper keeper.Keeper, data *types.GenesisState
 	}
 
 	for _, ex := range data.ExchangeRates {
-		keeper.SetBaseExchangeRate(ctx, ex.Denom, ex.ExchangeRate)
+		// A legacy rate has no provable observation time. It must stay unavailable
+		// until a new valid observation, even if the target store already has it.
+		keeper.DeleteBaseExchangeRate(ctx, ex.Denom)
+	}
+	for _, ex := range data.OracleExchangeRates {
+		keeper.RestoreBaseExchangeRate(ctx, ex.Denom, ex.OracleExchangeRate)
 	}
 
 	for _, pc := range data.PenaltyCounters {
@@ -74,9 +93,9 @@ func ExportGenesis(ctx sdk.Context, keeper keeper.Keeper) *types.GenesisState {
 		return false
 	})
 
-	exchangeRates := []types.ExchangeRateTuple{}
+	exchangeRates := []types.GenesisExchangeRate{}
 	keeper.IterateBaseExchangeRates(ctx, func(denom string, rate types.OracleExchangeRate) (stop bool) {
-		exchangeRates = append(exchangeRates, types.ExchangeRateTuple{Denom: denom, ExchangeRate: rate.ExchangeRate})
+		exchangeRates = append(exchangeRates, types.GenesisExchangeRate{Denom: denom, OracleExchangeRate: rate})
 		return false
 	})
 
@@ -101,12 +120,15 @@ func ExportGenesis(ctx sdk.Context, keeper keeper.Keeper) *types.GenesisState {
 		return false
 	})
 
-	return types.NewGenesisState(
+	genesis := types.NewGenesisState(
 		params,
-		exchangeRates,
+		[]types.ExchangeRateTuple{},
 		feederDelegations,
 		penaltyCounters,
 		aggregateExchangeRateVotes,
 		priceSnapshots,
 	)
+	genesis.ExchangeRateVersion = types.GenesisExchangeRateVersion
+	genesis.OracleExchangeRates = exchangeRates
+	return genesis
 }

@@ -1,0 +1,6 @@
+[repair.c-kernel-make.85]
+target = "test-contract-state-surface"
+command = "make -s test-contract-state-surface"
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+result = "already-passing"
+change = "The existing tests/solidity/governance/SidioraProxyTimelock.t.sol exercises schedule, execute and cancel against the real timelock and Treasury proxy, asserting scheduling, delayed execution, cancellation, role checks and replay refusal; all three state-changing selectors have test evidence without product or test changes."

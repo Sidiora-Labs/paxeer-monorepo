@@ -102,7 +102,7 @@ func TestGrantSession(t *testing.T) {
 	authSessionEvents(t, f, result, grantID, body, expiry, action)
 
 	t.Run("replay preserves grant", func(t *testing.T) {
-		before := authViewStores(f.ctx, f.harness.key)
+		before := authViewStores(f.ctx, f.hostKey, f.harness.key)
 		grant, err := f.keeper.GetGrant(f.ctx, grantID)
 		require.NoError(t, err)
 		refused, err := f.keeper.GrantSession(f.ctx, actor, body, expiry, action, idempotency)
@@ -112,11 +112,11 @@ func TestGrantSession(t *testing.T) {
 		require.NotEmpty(t, refused.Encoded)
 		next, err := lxphost.NextSequence(f.ctx, f.hostKey)
 		require.NoError(t, err)
-		require.Equal(t, refused.GlobalSequence+1, next)
+		require.Equal(t, refused.GlobalSequence, next)
 		again, err := f.keeper.GetGrant(f.ctx, grantID)
 		require.NoError(t, err)
 		require.Equal(t, grant, again)
-		require.Equal(t, before, authViewStores(f.ctx, f.harness.key))
+		require.Equal(t, before, authViewStores(f.ctx, f.hostKey, f.harness.key))
 	})
 
 	t.Run("kernel refusal retains receipt", func(t *testing.T) {
@@ -196,17 +196,17 @@ func TestGrantSessionSuccessor(t *testing.T) {
 	require.Equal(t, lxphost.Code(-7), err)
 	_, err = f.host.ReadSessionKey(f.ctx, grantID)
 	require.Equal(t, lxphost.Code(-7), err)
-	require.Equal(t, before[1], authViewStores(f.ctx, f.harness.key)[0])
+	require.Equal(t, before, authViewStores(f.ctx, f.hostKey, f.harness.key))
 	t.Run("replay preserves grant", func(t *testing.T) {
-		paramsBefore := authViewStores(f.ctx, f.harness.key)
+		paramsBefore := authViewStores(f.ctx, f.hostKey, f.harness.key)
 		replayed, err := f.keeper.GrantSessionSuccessor(f.ctx, actor, body, expiry, action, successor.PredecessorID, successor.ExpectedCommitment, idempotency)
 		require.ErrorIs(t, err, types.ErrAuthScope, "replayed payload returned kernel code %d", replayed.ResultCode)
 		require.Equal(t, lxphost.Code(-204), replayed.ResultCode)
-		require.Equal(t, refused.GlobalSequence+1, replayed.GlobalSequence)
+		require.Equal(t, refused.GlobalSequence, replayed.GlobalSequence)
 		require.NotEmpty(t, replayed.Encoded)
 		next, err := lxphost.NextSequence(f.ctx, f.hostKey)
 		require.NoError(t, err)
-		require.Equal(t, replayed.GlobalSequence+1, next)
+		require.Equal(t, replayed.GlobalSequence, next)
 		after, err := f.host.ReadGrant(f.ctx, f.sessionID)
 		require.NoError(t, err)
 		require.Equal(t, predecessor, after)
@@ -217,6 +217,6 @@ func TestGrantSessionSuccessor(t *testing.T) {
 		require.Equal(t, lxphost.Code(-7), err)
 		_, err = f.host.ReadSessionKey(f.ctx, grantID)
 		require.Equal(t, lxphost.Code(-7), err)
-		require.Equal(t, paramsBefore, authViewStores(f.ctx, f.harness.key))
+		require.Equal(t, paramsBefore, authViewStores(f.ctx, f.hostKey, f.harness.key))
 	})
 }

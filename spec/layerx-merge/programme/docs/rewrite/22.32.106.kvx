@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.106"
+domain = 12
+owner_role = "fm-wallet"
+pages = 1
+
+[page.1]
+path = "sdk/wallet/README.md"
+status = "stale"
+bytes = 3712
+source_1 = "record 22.30.115 [doc.13] (stale): Stale introduction and API list at 3, 91-92; missing current EVM review and authenticated receipt examples."

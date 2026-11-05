@@ -2,13 +2,21 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"math/big"
 	"os"
+	"reflect"
 	"testing"
+	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/verify"
+	evmrpc "github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/stretchr/testify/require"
 )
 
 func TestVectorV2ReceiptedRevertVerifies(t *testing.T) {
@@ -31,6 +39,7 @@ func TestVectorV2ReceiptedRevertVerifies(t *testing.T) {
 	if err != nil {
 		t.Fatalf("pinned receipt signature: %v", err)
 	}
+	vector_v2_test(t, &v, verified.Digest)
 	if r.Status != 0 || verified.Receipt.ResultCode != 1 {
 		t.Fatal("signed V2 receipt must report a revert")
 	}
@@ -71,4 +80,91 @@ func TestVectorV2ReceiptedRevertVerifies(t *testing.T) {
 			}
 		})
 	}
+}
+
+func vector_v2_test(t *testing.T, v *vectorV2, digest [32]byte) {
+	t.Helper()
+	const sourcePath = "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+	data, err := os.ReadFile("../../" + sourcePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var source struct {
+		ChainID uint64 `json:"chainId"`
+		Cases   []struct {
+			ID             string                        `json:"id"`
+			RawTransaction hexutil.Bytes                 `json:"rawTransaction"`
+			Receipt        evmrpc.SequencerReceiptResult `json:"receiptJson"`
+			SignedReceipt  hexutil.Bytes                 `json:"signedReceipt"`
+			ReceiptDigest  common.Hash                   `json:"receiptDigest"`
+			PinnedKey      struct {
+				KeyID       hexutil.Bytes `json:"keyId"`
+				PublicKey   hexutil.Bytes `json:"publicKey"`
+				FirstHeight uint64        `json:"firstHeight"`
+				LastHeight  uint64        `json:"lastHeight"`
+			} `json:"pinnedKey"`
+			LXPCode string `json:"lxpCode"`
+		} `json:"cases"`
+	}
+	if err := json.Unmarshal(data, &source); err != nil {
+		t.Fatal(err)
+	}
+	if (*big.Int)(v.ChainID).Cmp(new(big.Int).SetUint64(source.ChainID)) != 0 {
+		t.Fatal("V2 chain ID differs from conformance source")
+	}
+	for _, c := range source.Cases {
+		if c.ID != "V2-layerxledger-revert" {
+			continue
+		}
+		if v.Receipt.TxHash != c.Receipt.TxHash {
+			t.Fatalf("V2 transaction hash %s differs from conformance source %s", v.Receipt.TxHash, c.Receipt.TxHash)
+		}
+		if !bytes.Equal(v.RawTransaction, c.RawTransaction) {
+			t.Fatal("V2 transaction bytes differ from conformance source")
+		}
+		if !reflect.DeepEqual(v.Receipt, c.Receipt) || !bytes.Equal(v.Receipt.Receipt, c.SignedReceipt) {
+			t.Fatal("V2 receipt differs from conformance source")
+		}
+		if common.Hash(digest) != c.ReceiptDigest {
+			t.Fatalf("V2 receipt digest %s differs from conformance source %s", common.Hash(digest), c.ReceiptDigest)
+		}
+		if len(v.ReceiptKeys) != 1 {
+			t.Fatal("V2 must pin the conformance source key")
+		}
+		key := v.ReceiptKeys[0]
+		if !bytes.Equal(key.KeyId, c.PinnedKey.KeyID) || !bytes.Equal(key.PublicKey, c.PinnedKey.PublicKey) ||
+			key.FirstHeight != c.PinnedKey.FirstHeight || key.LastHeight != c.PinnedKey.LastHeight {
+			t.Fatal("V2 receipt key differs from conformance source")
+		}
+		if v.LXPCode != c.LXPCode || v.Provenance.Source != sourcePath+"#"+c.ID {
+			t.Fatal("V2 revert code or provenance differs from conformance source")
+		}
+		return
+	}
+	t.Fatal("conformance source lacks the V2 revert case")
+}
+
+// The embedded executable contains paxd's real command tree. The bounded repair
+// gate exercises the same recorder and strict consumers in process below.
+func TestVectorV2RecordsPrimaryStandby(t *testing.T) {
+	executable, err := os.Executable()
+	require.NoError(t, err)
+	t.Setenv("COMMITTED_FIXTURE_EXEC_PAXD", "1")
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	n, err := prepareHome(ctx, executable)
+	require.NoError(t, err)
+	t.Cleanup(func() { os.RemoveAll(n.home) })
+	_, err = n.prepareStandby()
+	require.NoError(t, err)
+	require.NoError(t, n.configureV2Genesis())
+	stop, err := n.start()
+	require.NoError(t, err)
+	t.Cleanup(stop)
+	value, err := recordV2FromHome(n, "4299cb15eced23eb9a839162acd11e9a937edd05")
+	require.NoError(t, err)
+	v := value.(*vectorV2)
+	require.Len(t, v.ReceiptKeys, 2)
+	require.GreaterOrEqual(t, uint64(v.Receipt.Height), uint64(3))
+	repairM1092VerifyV2Copies(t, v)
 }

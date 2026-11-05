@@ -1,0 +1,25 @@
+[repair.22.33.970]
+finding = "metadata-browser-selectors"
+proving_test = "apps/launchpad/web/test/repair-22-33-970.test.mjs:metadata_browser_selectors_real_editor_transport_viewer"
+base_revision = "0e1d5eb94cabe89e2260279a849b7154911ef8ee"
+change = "Use current accessible editor/viewer labels; derive approved revision and both operation identities from the committed metadata request/response, then correlate the viewer metadata/media response and rendered image."
+preserved = "Retry identity, cancellation and late-approval suppression, no optimistic approval, keyboard label/focus, responsive image dimensions and variants, axe WCAG violations, layout shift bound, token identity and trading during outage."
+proof = "Production editor and image transport upload a real PNG to an in-process HTTP fixture, interrupt the connection, cancel a held retry, retry the same operation, sign and commit metadata, then render the production query-backed viewer and its outage state; the browser measurement validators consume the actual wire observations and reject identity/revision substitutions."
+baseline = "No earlier gate ledger exists; the declared test file was absent at the base revision. Baseline verification was not run because the ordered bounded gates require complete implementation, hf-build, then hf-done and prohibit running verify_cmd by hand. No baseline test failure is claimed."
+evidence = "The runner's private gate ledger /out/run/gates.jsonl records the exact built and verified candidate revisions, commands, exits and private log paths; hf-done is authoritative for the final qualification result."
+wiring_requests = "The proposed browser repair is within scope; the unrelated dependency-gate wiring request is recorded in qualification.22.33.970."
+
+[qualification.22.33.970]
+status = "implemented-not-qualified"
+revision = "f1b4f1f85a5506a11017d0bff07982d76d3b49cb"
+command = "npm --prefix apps/launchpad/web install --no-audit --no-fund && node --check apps/launchpad/web/src/features/metadata-media/measure.browser.mjs"
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "The pre-existing web package manifest uses workspace:* dependencies; the declared npm install exits EUNSUPPORTEDPROTOCOL before node --check runs. hf-done and the proving test did not run."
+wiring_request = "apps/launchpad/web/package.json and the owning launchpad dependency/gate configuration (domain 4): align the declared npm install gate with the existing pnpm workspace dependencies; the manifest and gate configuration are outside this task's scope."
+
+[continuation.22.33.970]
+base_revision = "0d67b10a1307bd87573ba79cf46b7f9c0337f7e3"
+prior_failure = "revision=61ce5155c62f76a7946493d8c66278332950a5d3; command=cg spec done 22.33.970 -f layerx-merge --root /work/paxeer-monorepo; exit=1; log=/out/logs/verify-1.log"
+observed = "The real editor upload reached the SDK decoder, but the frozen workspace install does not produce @kindle/sdk/dist/index.js."
+repair = "The in-process source loader resolves the actual SDK TypeScript entry and compiles all committed contract and operation schemas with the SDK build's strict Ajv settings in memory; malformed patch and asset responses must still be rejected."

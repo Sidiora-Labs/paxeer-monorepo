@@ -1,0 +1,83 @@
+[reconcile.r10-69]
+revision = "0b17e0748b8a5c1506383faf11209f4f35235885"
+rows = 10
+
+[row.r10-69.1]
+interface = "interface.10.http-human-withdraw-claim"
+verdict = "served"
+path = "services/human/schema/human-api/movement.kvx"
+line = 177
+symbol = "/v1/withdrawals/{journey_id}/claim"
+evidence = "The registered POST /v1/withdrawals/{journey_id}/claim declaration remains under operation.withdraw.claim at lines 173-180, with WithdrawClaimRequest -> Journey and retired = true. Served records the retained schema literal, not a live withdrawal handler; the declaration has not been removed."
+
+[row.r10-69.2]
+interface = "interface.10.http-human-exit-start"
+verdict = "served"
+path = "services/human/schema/human-api/movement.kvx"
+line = 186
+symbol = "/v1/exit"
+evidence = "The registered POST /v1/exit declaration remains under operation.exit.start at lines 182-190, with ExitStartRequest -> Journey, idempotency = true and retired = true. The schema declaration is retained even though marked retired; presence does not establish a live exit handler."
+
+[row.r10-69.3]
+interface = "interface.10.http-human-exit-eligibility"
+verdict = "served"
+path = "services/human/schema/human-api/movement.kvx"
+line = 196
+symbol = "/v1/exit/eligibility"
+evidence = "The registered GET /v1/exit/eligibility declaration remains under operation.exit.eligibility at lines 192-199, with Empty -> ExitEligibility and retired = true. The route literal still exists in the schema, so a verdict asserting its absence would be incorrect."
+
+[row.r10-69.4]
+interface = "interface.10.fmt-human-api-type-program-approval-budget"
+verdict = "served"
+path = "services/human/schema/human-api/program-approvals.kvx"
+line = 83
+symbol = "ProgramApprovalBudget"
+evidence = "[type.ProgramApprovalBudget] remains at line 83. Its required list at line 84 retains verification:VerificationLevel and all sixteen registered fields; line 85 adds optional = [rung:Rung]. The observed signature change is an optional rung, not replacement of the required verification field."
+
+[row.r10-69.5]
+interface = "interface.10.http-human-approval-program-approve"
+verdict = "served"
+path = "services/human/schema/human-api/program-approvals.kvx"
+line = 141
+symbol = "/v1/program-approvals/{approval_id}/approve"
+evidence = "method = POST and path = /v1/program-approvals/{approval_id}/approve remain at lines 140-141; request = ProgramApprovalDecisionRequest and response = ProgramApprovalDecision remain unchanged. The request requires held_digest and step_up_evidence; the response now declares optional rung:Rung alongside release_ref at line 106. The schema still describes release authorization rather than replacing this route with an EVM call."
+
+[row.r10-69.6]
+interface = "interface.10.http-human-native-send-access-begin"
+verdict = "served"
+path = "services/human/schema/human-api/v1.kvx"
+line = 153
+symbol = "/v1/native/send/access/begin"
+evidence = "method = POST and path = /v1/native/send/access/begin remain at lines 152-153, with NativeSendAccessRequest -> NativeSendAccessDisclosure. The route signature is unchanged; the request now includes optional native_fee_budget:NativeFeeBudget and nonce:EvmNonce at line 136, with the nonce documented as the pending-tag sender nonce for this exact access request."
+
+[row.r10-69.7]
+interface = "interface.10.http-human-native-send-access-confirm"
+verdict = "served"
+path = "services/human/schema/human-api/v1.kvx"
+line = 160
+symbol = "/v1/native/send/access/confirm"
+evidence = "method = POST and path = /v1/native/send/access/confirm remain at lines 159-160, with NativeSendAccessConfirmation -> NativeSendAccessResult. The route signature is unchanged; the confirmation now declares optional native_fee_budget:NativeFeeBudget and nonce:EvmNonce at line 141, preserving the exact sender nonce covered by step-up when begin disclosed it."
+
+[row.r10-69.8]
+interface = "interface.10.cli-layerx-human-api-gen"
+verdict = "served"
+path = "services/human/tools/api-gen/src/main.rs"
+line = 33
+symbol = "layerx-human-api-gen"
+evidence = "The usage literal at line 33 is layerx-human-api-gen [--check] [schema-dir] [out-dir], adding optional --check to the registered CLI signature. fn main() -> ExitCode at line 18 selects human_api_drift_gate for --check and write_client otherwise; both success messages report retired operation counts."
+
+[row.r10-69.9]
+interface = "interface.10.cli-layerx-human-copy-lint"
+verdict = "served"
+path = "services/human/tools/copy-lint/src/main.rs"
+line = 444
+symbol = "main"
+evidence = "Cargo.toml names this executable layerx-human-copy-lint; fn main() at line 444 still accepts the optional web-root argument and defaults to apps/web, so the registered CLI argument signature is unchanged. It calls human_copy_lint at line 448. source_violations now rejects references to /v1/deposits, /v1/withdrawals, /v1/exit and /v1/wallet-binding at lines 363-375; the deposits literal is a rejection rule, not a served route."
+
+[row.r10-69.10]
+interface = "interface.10.cli-human-dependency-policy"
+verdict = "served"
+path = "services/human/tools/dependency-policy.sh"
+line = 18
+symbol = "allowlisted_license_token"
+evidence = "The registered shell command still exists at the same path with #!/bin/sh at line 1; its invocation signature is unchanged. allowlisted_license_token() at line 18 anchors the license policy implementation. The script runs locked cargo metadata against services/human/Cargo.toml and its banned list at line 12 includes layerx-core, layerx-protocol-core, layerx-human-movement-provider and layerx-paxeer-client; lines 71-79 reject unsafe Rust in human/crates."

@@ -1143,175 +1143,129 @@ func TestTruncatedKeyFile(t *testing.T) {
 
 // This test simulates the scenario where a value file is truncated.
 func truncatedValueFileTest(t *testing.T, tableBuilder *tableBuilder) {
-	rand := util.NewTestRandom()
+	for _, remaining := range []uint32{0, 1, 9} {
+		t.Run(fmt.Sprintf("tail-bytes-%d", remaining), func(t *testing.T) {
+			truncatedValueFileAt(t, tableBuilder, remaining)
+		})
+	}
+}
 
+func truncatedValueFileAt(t *testing.T, tableBuilder *tableBuilder, remaining uint32) {
+	rand := util.NewTestRandom()
 	logger := slog.Default()
 	directory := t.TempDir()
-
-	tableName := rand.String(8)
+	tableName := "truncation"
 	table, err := tableBuilder.builder(time.Now, tableName, []string{directory})
-	if err != nil {
-		t.Fatalf("failed to create table: %v", err)
-	}
-
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, table.Close()) })
 	require.Equal(t, tableName, table.Name())
+	require.NoError(t, table.Put([]byte("baseline"), []byte("durable"),
+		&types.SecondaryKey{Key: []byte("baseline-alias"), Offset: 1, Length: 3}))
+	require.NoError(t, table.Flush())
+	disk := table.(*DiskTable)
+	index := disk.controlLoop.threadsafeHighestSegmentIndex.Load() + 1
+	shards := disk.getShardingFactor()
+	require.NoError(t, table.Close())
 
-	expectedValues := make(map[string][]byte)
-
-	// Fill the table with random data.
-	iterations := 100
-	for i := 0; i < iterations; i++ {
-		batchSize := rand.Int32Range(1, 10)
-		if batchSize == 1 {
-			key := rand.PrintableVariableBytes(32, 64)
-			value := rand.PrintableVariableBytes(1, 128)
-			err = table.Put(key, value)
-			require.NoError(t, err)
-			expectedValues[string(key)] = value
-		} else {
-			batch := make([]*types.PutRequest, 0, batchSize)
-			for j := int32(0); j < batchSize; j++ {
-				key := rand.PrintableVariableBytes(32, 64)
-				value := rand.PrintableVariableBytes(1, 128)
-				batch = append(batch, &types.PutRequest{Key: key, Value: value})
-				expectedValues[string(key)] = value
-			}
-			err = table.PutBatch(batch)
-			require.NoError(t, err)
-		}
-	}
-
-	err = table.Flush()
+	// Produce the next segment in two durability stages. Only the first stage's
+	// returned addresses reach the real keymap; the interrupted tail is unacknowledged.
+	monitor := util.NewErrorMonitor(t.Context(), logger, nil)
+	seg, err := segment.CreateSegment(logger, monitor, index, disk.segmentPaths, false, shards, true)
 	require.NoError(t, err)
-
-	segmentPath, err := segment.NewSegmentPath(directory, "", tableName)
-	require.NoError(t, err)
-	_, highestSegmentIndex, _, err := segment.GatherSegmentFiles(
-		logger,
-		table.(*DiskTable).errorMonitor,
-		[]*segment.SegmentPath{segmentPath},
-		false,
-		time.Now(),
-		true,
-		false)
-	require.NoError(t, err)
-	keyFileName := fmt.Sprintf("%s/%s/segments/%d%s",
-		directory, tableName, highestSegmentIndex, segment.KeyFileExtension)
-	keyFileBytes, err := os.ReadFile(keyFileName)
-	require.NoError(t, err)
-
-	if len(keyFileBytes) == 0 {
-		key := rand.PrintableVariableBytes(32, 64)
-		value := rand.PrintableVariableBytes(1, 64)
-		err = table.Put(key, value)
+	expectedValues := map[string][]byte{"baseline": []byte("durable"), "baseline-alias": []byte("ura")}
+	for shard := uint8(0); shard < shards; shard++ {
+		primary := fmt.Sprintf("keep-%d", shard)
+		prefix := primary + "-prefix"
+		end := primary + "-end"
+		value := []byte("abcdefgh")
+		_, _, err = seg.Write(&types.PutRequest{Key: []byte(primary), Value: value,
+			SecondaryKeys: []*types.SecondaryKey{
+				{Key: []byte(prefix), Length: 2},
+				{Key: []byte(end), Offset: uint32(len(value))},
+			}})
 		require.NoError(t, err)
-		expectedValues[string(key)] = value
+		expectedValues[primary] = value
+		expectedValues[prefix] = value[:2]
+		expectedValues[end] = []byte{}
+	}
+	wait, err := seg.Flush()
+	require.NoError(t, err)
+	committedKeys, err := wait()
+	require.NoError(t, err)
+	require.Len(t, committedKeys, int(shards)*3)
+	if disk.keymapTypeFile.Type() != keymap.MemKeymapType {
+		keys, _, err := keymap.NewUnsafePebbleDBKeymap(logger, disk.keymapPath, false)
+		require.NoError(t, err)
+		err = keys.Put(committedKeys)
+		stopErr := keys.Stop()
+		require.NoError(t, err)
+		require.NoError(t, stopErr)
 	}
 
-	// Stop the table
-	ok, _ := table.(*DiskTable).errorMonitor.IsOk()
-	require.True(t, ok)
-	err = table.Close()
+	tail := &types.PutRequest{Key: []byte("torn"), Value: []byte("0123456789"),
+		SecondaryKeys: []*types.SecondaryKey{
+			{Key: []byte("torn-prefix"), Length: 1},
+			{Key: []byte("torn-empty")},
+		}}
+	_, _, err = seg.Write(tail)
 	require.NoError(t, err)
-
-	_, highestSegmentIndex, segments, err := segment.GatherSegmentFiles(
-		logger,
-		table.(*DiskTable).errorMonitor,
-		[]*segment.SegmentPath{segmentPath},
-		false,
-		time.Now(),
-		true,
-		false)
+	tailKeys, err := seg.Seal(time.Now())
 	require.NoError(t, err)
-
-	// Truncate a random shard of the last value file.
-	// Find a shard that has at least one key in the last segment (truncating an empty file is boring)
-	keysInLastFile, err := segments[highestSegmentIndex].GetKeys()
-	require.NoError(t, err)
-	nonEmptyShards := make(map[uint32]struct{})
-	for key := range keysInLastFile {
-		keyShard := uint32(keysInLastFile[key].Address.ShardID())
-		nonEmptyShards[keyShard] = struct{}{}
-	}
-	var shard uint32
-	for shard = range nonEmptyShards {
-		// iteration order is random, shard will be randomly selected from nonEmptyShards
-		break
-	}
-
-	valueFileName := fmt.Sprintf("%s/%s/segments/%d-%d%s",
-		directory, tableName, highestSegmentIndex, shard, segment.ValuesFileExtension)
+	require.Len(t, tailKeys, 3)
+	require.Equal(t, types.KeyKindPrimary, tailKeys[0].Kind)
+	require.Equal(t, types.KeyKindSecondary, tailKeys[1].Kind)
+	require.Equal(t, types.KeyKindFinalSecondary, tailKeys[2].Kind)
+	address := tailKeys[0].Address
+	require.Equal(t, uint8(0), address.ShardID())
+	valueFileName := filepath.Join(directory, tableName, segment.SegmentDirectory,
+		fmt.Sprintf("%d-%d%s", index, address.ShardID(), segment.ValuesFileExtension))
 	valueFileBytes, err := os.ReadFile(valueFileName)
 	require.NoError(t, err)
-
-	bytesRemaining := int32(0)
-	if len(valueFileBytes) > 1 {
-		bytesRemaining = rand.Int32Range(1, int32(len(valueFileBytes)))
-	}
-
-	valueFileBytes = valueFileBytes[:bytesRemaining]
-	err = os.WriteFile(valueFileName, valueFileBytes, 0644)
-	require.NoError(t, err)
-
-	// Figure out which keys are expected to be missing
-	missingKeys := make(map[string]struct{})
-	for _, key := range keysInLastFile {
-		keyShard := uint32(key.Address.ShardID())
-		if keyShard != shard {
-			// key does not belong to the shard that was truncated
-			continue
-		}
-
-		offset := key.Address.Offset()
-		valueSize := len(expectedValues[string(key.Key)])
-		// If there are not at least this many bytes remaining in the value file, the value is missing.
-		requiredLength := offset + uint32(valueSize) + 4
-		if requiredLength > uint32(len(valueFileBytes)) {
-			missingKeys[string(key.Key)] = struct{}{}
+	require.Equal(t, []byte("abcdefgh0123456789"), valueFileBytes, "V3 stores raw bytes without a length prefix")
+	length := uint64(address.Offset()) + uint64(remaining)
+	requiredLength := uint64(address.Offset()) + uint64(address.ValueSize())
+	require.Greater(t, requiredLength, length)
+	for _, key := range committedKeys {
+		if key.Address.ShardID() == address.ShardID() {
+			end := uint64(key.Address.Offset()) + uint64(key.Address.ValueSize())
+			require.LessOrEqual(t, end, length, "complete group must fit at the raw V3 boundary")
 		}
 	}
-
-	// Mark the last segment as non-sealed. This will be the case if the file is truncated.
-	metadataFileName := fmt.Sprintf("%s/%s/segments/%d%s",
-		directory, tableName, highestSegmentIndex, segment.MetadataFileExtension)
+	require.NoError(t, os.Truncate(valueFileName, int64(length)))
+	metadataFileName := filepath.Join(directory, tableName, segment.SegmentDirectory,
+		fmt.Sprintf("%d%s", index, segment.MetadataFileExtension))
 	metadataBytes, err := os.ReadFile(metadataFileName)
 	require.NoError(t, err)
-	// The last byte of the metadata file is the sealed flag.
 	metadataBytes[len(metadataBytes)-1] = 0
-	err = os.WriteFile(metadataFileName, metadataBytes, 0644)
-	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(metadataFileName, metadataBytes, 0644))
 
-	// Restart the table.
-	table, err = tableBuilder.builder(time.Now, tableName, []string{directory})
-	require.NoError(t, err)
-
-	// Manually remove the keys from the last segment from the keymap. If this happens in reality (as opposed
-	// to the files being artificially deleted in this test), the keymap will not hold any value that has not
-	// yet been durably flushed to disk.
-	for key := range missingKeys {
-		err = table.(*DiskTable).keymap.Delete([]*types.ScopedKey{{Key: []byte(key)}})
+	// Inspect the actual open result twice, including its rewritten key file.
+	for restart := 0; restart < 2; restart++ {
+		table, err = tableBuilder.builder(time.Now, tableName, []string{directory})
 		require.NoError(t, err)
-	}
-
-	// Check the data in the table.
-	for expectedKey, expectedValue := range expectedValues {
-		if _, expectedToBeMissing := missingKeys[expectedKey]; expectedToBeMissing {
-			_, ok, err := table.Get([]byte(expectedKey))
+		require.Equal(t, uint64(len(expectedValues)), table.KeyCount())
+		for key, expected := range expectedValues {
+			value, exists, err := table.Get([]byte(key))
+			require.NoError(t, err, key)
+			require.True(t, exists, key)
+			require.Equal(t, expected, value, key)
+		}
+		for _, key := range tailKeys {
+			_, exists, err := table.Get(key.Key)
 			require.NoError(t, err)
-			require.False(t, ok)
-		} else {
-			value, ok, err := table.Get([]byte(expectedKey))
+			require.False(t, exists, "the whole torn group must be absent: %s", key.Key)
+			exists, err = table.Exists(key.Key)
 			require.NoError(t, err)
-			require.True(t, ok)
-			require.Equal(t, expectedValue, value)
+			require.False(t, exists)
+		}
+		recovered, err := table.(*DiskTable).controlLoop.segments[index].GetKeys()
+		require.NoError(t, err)
+		require.Equal(t, committedKeys, recovered, "recovery must retain exactly the complete groups")
+		if restart == 0 {
+			require.NoError(t, table.Close())
 		}
 	}
-
-	// Remove the missing values from the expected values map. Simplifies following checks.
-	for key := range missingKeys {
-		delete(expectedValues, key)
-	}
-
+	iterations := 100
 	// Make additional modifications to the table to ensure that it is still working.
 	for i := 0; i < iterations; i++ {
 
@@ -1366,7 +1320,7 @@ func truncatedValueFileTest(t *testing.T, tableBuilder *tableBuilder) {
 		}
 	}
 
-	ok, _ = table.(*DiskTable).errorMonitor.IsOk()
+	ok, _ := table.(*DiskTable).errorMonitor.IsOk()
 	require.True(t, ok)
 	err = table.Drop()
 	require.NoError(t, err)

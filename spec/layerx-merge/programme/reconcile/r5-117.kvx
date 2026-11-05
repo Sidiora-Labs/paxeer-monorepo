@@ -1,0 +1,147 @@
+[reconcile.r5-117]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 18
+
+[row.r5-117.1]
+interface = "interface.5.go-node-precompile-keepers-price-feed-k"
+verdict = "served"
+path = "node/precompiles.go"
+line = 211
+symbol = "PriceFeedK"
+evidence = "The declaration func (pk *PrecompileKeepers) PriceFeedK() *pricefeedkeeper.Keeper at line 211 matches the registered signature and returns pk.PricefeedKeeper; line 210 is its comment."
+
+[row.r5-117.2]
+interface = "interface.5.go-node-precompile-keepers-spot-k"
+verdict = "served"
+path = "node/precompiles.go"
+line = 206
+symbol = "SpotK"
+evidence = "The declaration func (pk *PrecompileKeepers) SpotK() *spotkeeper.Keeper at line 206 matches the registered signature and returns pk.SpotKeeper; line 205 is its comment."
+
+[row.r5-117.3]
+interface = "interface.5.go-node-precompile-keepers-tx-config"
+verdict = "served"
+path = "node/precompiles.go"
+line = 147
+symbol = "TxConfig"
+evidence = "The declaration func (pk *PrecompileKeepers) TxConfig() client.TxConfig at line 147 returns pk.txConf as registered; the client.TxConfig occurrence at line 63 is the field type."
+
+[row.r5-117.4]
+interface = "interface.5.go-node-precompile-keepers-x-web-k"
+verdict = "served"
+path = "node/precompiles.go"
+line = 192
+symbol = "XWebK"
+evidence = "The declaration func (pk *PrecompileKeepers) XWebK() *xwebkeeper.Keeper at line 192 matches the registered signature and returns pk.xweb; line 191 is its comment."
+
+[row.r5-117.5]
+interface = "interface.5.go-node-sequencer-config-micro-batch-options"
+verdict = "served"
+path = "node/sequencer/config.go"
+line = 325
+symbol = "MicroBatchOptions"
+evidence = "The declaration func (c Config) MicroBatchOptions() MicroBatchOptions at line 325 matches the registered receiver and result type; line 326 constructs the result from the configured window and count."
+
+[row.r5-117.6]
+interface = "interface.5.go-node-sequencer-parse-mode"
+verdict = "served"
+path = "node/sequencer/config.go"
+line = 153
+symbol = "ParseMode"
+evidence = "The declaration func ParseMode(name string) (Mode, error) at line 153 matches the registered signature and switches on the mode name; line 238 is a call while reading configuration."
+
+[row.r5-117.7]
+interface = "interface.5.go-node-sequencer-consensus-source-sealed"
+verdict = "served"
+path = "node/sequencer/consensus_source.go"
+line = 135
+symbol = "Sealed"
+evidence = "The declaration func (s *ConsensusSource) Sealed() *SealedLayer at line 135 matches the registered signature and returns s.sealed under s.mu; line 134 documents the method."
+
+[row.r5-117.8]
+interface = "interface.5.go-node-sequencer-sealed-layer"
+verdict = "served"
+path = "node/sequencer/layers.go"
+line = 36
+symbol = "SealedLayer"
+evidence = "The declaration type SealedLayer struct at line 36 matches the registered type and holds block results, context and store; line 35 is its comment and line 48 uses it as a method receiver."
+
+[row.r5-117.9]
+interface = "interface.5.go-node-sequencer-sealed-layer-context"
+verdict = "served"
+path = "node/sequencer/layers.go"
+line = 48
+symbol = "Context"
+evidence = "The declaration func (s *SealedLayer) Context() sdk.Context at line 48 matches the registered receiver and result type and returns s.ctx; line 43 is the sdk.Context field type."
+
+[row.r5-117.10]
+interface = "interface.5.go-node-sequencer-seal-batch"
+verdict = "served"
+path = "node/sequencer/seal.go"
+line = 73
+symbol = "SealBatch"
+evidence = "The declaration func SealBatch(a *app.App, b *Batch, msg seqtypes.MsgSequenceBatch) (*SealedLayer, []byte, error) at line 73 matches the registered signature; lines 59 and 68 only mention the function in comments."
+
+[row.r5-117.11]
+interface = "interface.5.go-node-sequencer-replicator-close"
+verdict = "served"
+path = "node/sequencer/standby.go"
+line = 500
+symbol = "Close"
+evidence = "The declaration func (r *Replicator) Close() at line 500 matches the registered receiver and locks r.mu before r.dropConn(); lines 471 and 781 call Close on network connections."
+
+[row.r5-117.12]
+interface = "interface.5.go-node-sequencer-standby"
+verdict = "served"
+path = "node/sequencer/standby.go"
+line = 619
+symbol = "Standby"
+evidence = "The declaration type Standby struct at line 619 matches the registered type and holds replication state, keys and executor; line 638 uses it as the constructor result and line 680 constructs a value."
+
+[row.r5-117.13]
+interface = "interface.5.go-node-sequencer-standby-config"
+verdict = "served"
+path = "node/sequencer/standby.go"
+line = 507
+symbol = "StandbyConfig"
+evidence = "The declaration type StandbyConfig struct at line 507 matches the registered type and holds WAL, executor, keys and replication options; line 638 uses it as the NewStandby parameter type."
+
+[row.r5-117.14]
+interface = "interface.5.go-node-sequencer-standby-consensus-key"
+verdict = "served"
+path = "node/sequencer/standby.go"
+line = 764
+symbol = "ConsensusKey"
+evidence = "The declaration func (s *Standby) ConsensusKey() tmtypes.PrivValidator at line 764 returns s.consensusKey exactly as registered; line 515 declares the StandbyConfig field and other occurrences read that field."
+
+[row.r5-117.15]
+interface = "interface.5.go-node-sequencer-standby-err"
+verdict = "served"
+path = "node/sequencer/standby.go"
+line = 750
+symbol = "Err"
+evidence = "The declaration func (s *Standby) Err() error at line 750 matches the registered receiver and result type and returns s.failed under s.mu; lines 359 and 925 call Err on contexts."
+
+[row.r5-117.16]
+interface = "interface.5.go-node-sequencer-standby-last-seq"
+verdict = "served"
+path = "node/sequencer/standby.go"
+line = 721
+symbol = "LastSeq"
+evidence = "The declaration func (s *Standby) LastSeq() uint64 at line 721 matches the registered signature and returns s.appliedSeq under s.mu; lines 76 and 523 are Ack and StandbyConfig fields."
+
+[row.r5-117.17]
+interface = "interface.5.go-node-sequencer-standby-receipt-key"
+verdict = "served"
+path = "node/sequencer/standby.go"
+line = 767
+symbol = "ReceiptKey"
+evidence = "The declaration func (s *Standby) ReceiptKey() ed25519.PrivateKey at line 767 returns s.receiptKey exactly as registered; line 517 declares the StandbyConfig field and other occurrences read that field."
+
+[row.r5-117.18]
+interface = "interface.5.go-node-sequencer-standby-serve"
+verdict = "served"
+path = "node/sequencer/standby.go"
+line = 770
+symbol = "Serve"
+evidence = "The declaration func (s *Standby) Serve(l net.Listener) error at line 770 matches the registered signature and accepts connections until the listener fails; line 769 is the method comment."

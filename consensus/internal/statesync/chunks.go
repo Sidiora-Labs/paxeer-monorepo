@@ -15,6 +15,20 @@ import (
 // errDone is returned by chunkQueue.Next() when all chunks have been returned.
 var errDone = errors.New("chunk queue has completed")
 
+// maxSnapshotChunks limits a snapshot to 65,536 chunks. Tracking grows only as
+// chunks are fetched, and the cap bounds tracking and per-snapshot disk entries.
+const maxSnapshotChunks uint32 = 1 << 16
+
+func validateSnapshotChunks(s *snapshot) error {
+	if s == nil || s.Chunks == 0 {
+		return errors.New("snapshot has no chunks")
+	}
+	if s.Chunks > maxSnapshotChunks {
+		return fmt.Errorf("snapshot chunk count %d exceeds supported limit %d", s.Chunks, maxSnapshotChunks)
+	}
+	return nil
+}
+
 // chunk contains data for a chunk.
 type chunk struct {
 	Height uint64
@@ -41,21 +55,21 @@ type chunkQueue struct {
 // newChunkQueue creates a new chunk queue for a snapshot, using a temp dir for storage.
 // Callers must call Close() when done.
 func newChunkQueue(snapshot *snapshot, tempDir string) (*chunkQueue, error) {
+	if err := validateSnapshotChunks(snapshot); err != nil {
+		return nil, err
+	}
 	dir, err := os.MkdirTemp(tempDir, "tm-statesync")
 	if err != nil {
 		return nil, fmt.Errorf("unable to create temp dir for state sync chunks: %w", err)
-	}
-	if snapshot.Chunks == 0 {
-		return nil, errors.New("snapshot has no chunks")
 	}
 
 	return &chunkQueue{
 		snapshot:       snapshot,
 		dir:            dir,
-		chunkFiles:     make(map[uint32]string, snapshot.Chunks),
-		chunkSenders:   make(map[uint32]types.NodeID, snapshot.Chunks),
-		chunkAllocated: make(map[uint32]bool, snapshot.Chunks),
-		chunkReturned:  make(map[uint32]bool, snapshot.Chunks),
+		chunkFiles:     make(map[uint32]string),
+		chunkSenders:   make(map[uint32]types.NodeID),
+		chunkAllocated: make(map[uint32]bool),
+		chunkReturned:  make(map[uint32]bool),
 		waiters:        make(map[uint32][]chan<- uint32),
 	}, nil
 }

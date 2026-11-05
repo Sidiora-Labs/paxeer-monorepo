@@ -1,3 +1,4 @@
+import React from "react";
 import { usePerpsWallet } from "@/hooks/perps/usePerpsWallet";
 import { useSpotPortfolio } from "@/hooks/spot/useSpotPortfolio";
 import { dStrToToken, dStrToUsd } from "@/core/spot/api";
@@ -123,7 +124,8 @@ export function MobileSpotBalancePanel() {
     );
   }
 
-  const realizedColor = realizedTotalUsd >= 0 ? "var(--success)" : "var(--danger)";
+  const realizedColor =
+    realizedTotalUsd >= 0 ? "var(--success)" : "var(--danger)";
 
   return (
     <div

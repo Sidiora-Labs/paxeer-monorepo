@@ -381,7 +381,7 @@ fn decode_sequencer_receipt(
         1 => true,
         _ => return Err(RpcFault::Malformed),
     };
-    let sponsor = match fields.get("sponsor") {
+    let mut sponsor = match fields.get("sponsor") {
         Some(Value::Null) => None,
         Some(Value::String(sponsor)) => Some(
             bytes(sponsor)?
@@ -390,6 +390,11 @@ fn decode_sequencer_receipt(
         ),
         _ => return Err(RpcFault::Malformed),
     };
+    // The node serializes common.Address as an address, including the zero
+    // address when reverted execution emitted no Sponsored event.
+    if !succeeded && sponsor == Some([0; 20]) {
+        sponsor = None;
+    }
     let execution = Execution {
         seq: number("seq")?,
         succeeded,
@@ -478,7 +483,12 @@ pub fn decode_full_sequencer_receipt(
     result.fee_amount = Some(receipt_fixed_bytes(&Value::String(format!(
         "0x{fee:0>64}"
     )))?);
-    result.sponsor = Some(receipt_fixed_bytes(&value["sponsor"])?);
+    let sponsor = receipt_fixed_bytes(&value["sponsor"])?;
+    result.sponsor = if result.status == Some(0) && sponsor == [0; 20] {
+        None
+    } else {
+        Some(sponsor)
+    };
     result.from = Some(receipt_fixed_bytes(&value["from"])?);
     result.to = Some(receipt_fixed_bytes(&value["to"])?);
     result.contract_address = Some(receipt_fixed_bytes(&value["contractAddress"])?);

@@ -105,9 +105,11 @@ fn bind_call_refuses_budget_create_payload_rule_violations() -> Result<(), Box<d
     );
     assert_eq!(disclosure.idempotency_key, BUDGET);
     assert_eq!(disclosure.asset, asset);
-    assert_eq!(disclosure.amounts.len(), 1);
+    assert_eq!(disclosure.amounts.len(), 2);
     assert_eq!(disclosure.amounts[0].role, AmountRole::Transfer);
     assert_eq!(disclosure.amounts[0].value, 123);
+    assert_eq!(disclosure.amounts[1].role, AmountRole::SpendingLimit);
+    assert_eq!(disclosure.amounts[1].value, 100);
     let mut payload = 1_u16.to_be_bytes().to_vec();
     for value in [BUDGET, budget_account, asset, purpose] {
         payload.extend_from_slice(&value);

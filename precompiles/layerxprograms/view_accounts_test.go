@@ -246,7 +246,7 @@ func TestProgramsViewValueAccountBalance(t *testing.T) {
 			before := f.snapshot()
 			actual, err := f.view(t, "getValueAccount", getValueAccountHandler, f.program, id)
 			require.NoError(t, err)
-			require.Equal(t, []interface{}{tc.balance, true}, actual)
+			require.Equal(t, []interface{}{tc.balance, tc.frozen}, actual)
 			require.Equal(t, before, f.snapshot())
 		})
 	}

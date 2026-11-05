@@ -431,8 +431,14 @@ lxp_result lxp_programs_sandbox_execute(
         status = lxp_programs_call_execute(ctx, &inner, authority, value->call,
                                            effects);
     if (status != LXP_OK && !lxp_result_is_fatal(status) &&
-        value->guest_savepoint.active)
-        (void)lxp_module_savepoint_discard(ctx, &value->guest_savepoint);
+        value->guest_savepoint.active) {
+        lxp_result discarded = lxp_module_savepoint_discard(
+            ctx, &value->guest_savepoint);
+        if (discarded != LXP_OK) {
+            status = discarded;
+            goto cleanup;
+        }
+    }
     if (!lxp_result_is_fatal(status) && value->usage_result.published) {
         size_t kind;
         for (kind = 0U; kind < 3U; ++kind)
@@ -451,6 +457,7 @@ lxp_result lxp_programs_sandbox_execute(
         status = sandbox_invariant(value, __func__, __LINE__);
     if (status == LXP_OK && value->guest_savepoint.active)
         status = sandbox_invariant(value, __func__, __LINE__);
+cleanup:
     {
         size_t kind;
         for (kind = 0U; kind < 3U; ++kind) {
@@ -709,6 +716,20 @@ lxp_result layerx_programs_call_sandbox_usage_result_occupancy(
     (void)memcpy(outcome->occupancy_transfer_root,
                  value->usage_result.transfer_root, 32U);
     return LXP_OK;
+}
+
+extern int32_t layerx_programs_sandbox_namespace(
+    const uint8_t host[32], const uint8_t lease[32], uint8_t out[32]);
+
+lxp_result layerx_programs_call_sandbox_execution_principal(
+    uint64_t call_token, const uint8_t program[32], uint8_t principal[32])
+{
+    const programs_sandbox_activity *value = sandbox_for_call(call_token);
+    if (value == NULL) return LXP_ERR_UNKNOWN_FIELD;
+    if (value->operation != SANDBOX_EXECUTE || program == NULL || principal == NULL)
+        return LXP_ERR_NON_CANONICAL;
+    return layerx_programs_sandbox_namespace(program, value->lease_id, principal) == 0 ?
+        LXP_OK : LXP_ERR_NON_CANONICAL;
 }
 
 lxp_result layerx_programs_call_sandbox_context(uint64_t call_token)

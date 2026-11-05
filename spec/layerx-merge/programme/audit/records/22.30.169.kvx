@@ -1,0 +1,1223 @@
+# Pre-upgrade audit, decision 2515. Product findings and proposed owning repairs only.
+
+[audit.22.30.169]
+task = "22.30.169"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 107
+findings = 47
+docs_reviewed = 15
+upgrade_ready = false
+blocking = ["programs-terminal-response"]
+review_basis = "All 107 package members read in full against the listed requirements, produced/consumed registry declarations, retired dispositions and documentation. Registry totals exceed the package lists: every listed row was reviewed; sanitized external-service identifiers were treated as registry redactions rather than live name mismatches."
+qualification_boundary = "This record proposes repairs only. No inventoried target or integration/cluster test was executed as part of the audit; requirement 22998.1 repair evidence remains the responsibility of each owning repair task. The task qualification checks the record and graph only."
+
+[file.001]
+path = ".github/workflows/agent.yml"
+lines = 123
+verdict = "clean"
+note = "Reviewed Rust workspace jobs, adversarial corpus and fuzz invocation, current services/agent roots, time bounds, action pins and read permissions; no standalone node custody test is introduced."
+
+[file.002]
+path = ".github/workflows/bridge-test.yml"
+lines = 152
+verdict = "clean"
+note = "Reviewed EVM vault, Solana, relayer and deployment-tooling jobs against bridge inputs; explicit toolchain/setup and scoped permissions agree with their declared commands."
+
+[file.003]
+path = ".github/workflows/ci.yml"
+lines = 97
+verdict = "clean"
+note = "Reviewed C17, Solidity and repository-audit wiring, deterministic locale/toolchain settings and dependency filters; declared jobs retain their actual build/test paths."
+
+[file.004]
+path = ".github/workflows/codeql.yml"
+lines = 58
+verdict = "clean"
+note = "Reviewed language matrix, event conditions, permissions and pinned CodeQL actions; analysis output and security-events permission remain job scoped."
+
+[file.005]
+path = ".github/workflows/docs-links.yml"
+lines = 32
+verdict = "clean"
+note = "Reviewed Markdown link-check inputs, tool invocation and exclusions; action pins and source checkout are consistent with the declared link gate."
+
+[file.006]
+path = ".github/workflows/docs-site.yml"
+lines = 60
+verdict = "clean"
+note = "Reviewed strict MkDocs build, environment and artifact/deploy job handoff; mkdocs.yml site_dir=site resolves to the uploaded docs/site/site path."
+
+[file.007]
+path = ".github/workflows/explorer-build.yml"
+lines = 161
+verdict = "clean"
+note = "Reviewed frontend/backend/service matrix, diff-base inputs, caches and actual build/lint/test-ratio commands; current explorer paths and job dependencies agree."
+
+[file.008]
+path = ".github/workflows/explorer-images.yml"
+lines = 97
+verdict = "clean"
+note = "Reviewed image matrix, explicit Dockerfiles, registry tags and publish conditions; credentials remain scoped to image publication."
+
+[file.009]
+path = ".github/workflows/hosted-developer.yml"
+lines = 43
+verdict = "clean"
+note = "Reviewed owner UI, Rust boundary and deployment-render jobs using current services/platform paths and their real targets."
+
+[file.010]
+path = ".github/workflows/human.yml"
+lines = 171
+verdict = "clean"
+note = "Reviewed Rust/JS build, intent fuzz, real-stack browser and performance jobs, current services/human paths and external fixture requirements; no human build asks for layerxd or sign-credit."
+
+[file.011]
+path = ".github/workflows/interop-migration-testnets.yml"
+lines = 111
+verdict = "clean"
+note = "Reviewed isolated connected/live source qualification, private fixture assembly and configured RPC/auth inputs; cross-chain observations remain explicitly external evidence."
+
+[file.012]
+path = ".github/workflows/interop-x402.yml"
+lines = 53
+verdict = "clean"
+note = "Reviewed transport-matrix trigger, toolchain and actual interop-test-x402 target; x402 origin/evidence cases remain connected to current service roots."
+
+[file.013]
+path = ".github/workflows/jev-pr-advisory.yml"
+lines = 86
+verdict = "clean"
+note = "Reviewed advisory execution, untrusted PR text handling, comment marker and artifact retention; workflow requests an advisory and preserves its report rather than treating it as a release gate."
+
+[file.014]
+path = ".github/workflows/labeler.yml"
+lines = 25
+verdict = "clean"
+note = "Reviewed trusted-event label application and job permissions; pinned action reads the declared label configuration without running PR application code."
+
+[file.015]
+path = ".github/workflows/mirror-live.yml"
+lines = 38
+verdict = "clean"
+note = "Reviewed real publish/retrieve fixture input, private configuration handoff, evidence capture and cleanup; archive reads are not described as settlement."
+
+[file.016]
+path = ".github/workflows/mirror-verification-live.yml"
+lines = 45
+verdict = "clean"
+note = "Reviewed canonical/divergence/tamper/failover vector inputs, cross-language conformance commands and evidence artifacts; verification requires the configured real mirror path."
+
+[file.017]
+path = ".github/workflows/node-build.yml"
+lines = 152
+verdict = "issues"
+note = "Read all native-library, paxd, lxphost and node test jobs; native dependencies and digest comparison are wired. The PR input filter omits actual node dependencies."
+
+[file.018]
+path = ".github/workflows/offchain-images.yml"
+lines = 154
+verdict = "clean"
+note = "Reviewed plan/image/digest handoff, Dockerfile selection, reviewed image identities and digest outputs; publication is constrained by the declared image plan."
+
+[file.019]
+path = ".github/workflows/paxeer-buf-check.yml"
+lines = 86
+verdict = "clean"
+note = "Reviewed proto path triggers, explicit docker/layerx recipe and Buf checks; generated protocol inputs reach the declared check."
+
+[file.020]
+path = ".github/workflows/paxeer-cross-arch-build.yml"
+lines = 241
+verdict = "clean"
+note = "Reviewed linux-amd64/macOS-arm64 setup and native build prerequisites, chain targets and current source roots."
+
+[file.021]
+path = ".github/workflows/paxeer-dapp-tests.yml"
+lines = 81
+verdict = "clean"
+note = "Reviewed devnet/testnet workflows, mnemonic secret wiring and dapp command conditions; tests are explicitly tied to their configured external networks."
+
+[file.022]
+path = ".github/workflows/paxeer-db-tests.yml"
+lines = 349
+verdict = "clean"
+note = "Reviewed database package prefixes, GOFLAGS, timeout, container setup and coverage commands; package selection is explicit and non-node custody paths are not revived."
+
+[file.023]
+path = ".github/workflows/paxeer-docker-build.yml"
+lines = 186
+verdict = "clean"
+note = "Reviewed regular and variant image build inputs, explicit Dockerfile, native library steps and cache/tag handoff."
+
+[file.024]
+path = ".github/workflows/paxeer-docker-publish.yml"
+lines = 83
+verdict = "clean"
+note = "Reviewed manual publication conditions, explicit node Dockerfile, registry credentials, build reference and output tags."
+
+[file.025]
+path = ".github/workflows/paxeer-ecr.yml"
+lines = 158
+verdict = "issues"
+note = "Reviewed all four image variants and reference/tag handling; every build action omits the existing node recipe and defaults to an absent root Dockerfile."
+
+[file.026]
+path = ".github/workflows/paxeer-enforce-labels.yml"
+lines = 82
+verdict = "clean"
+note = "Reviewed PR label policy conditions and pinned read-only label check; no application mutation or retired network interface is invoked."
+
+[file.027]
+path = ".github/workflows/paxeer-eth-blocktests.yml"
+lines = 248
+verdict = "clean"
+note = "Reviewed runner-index matrix, isolated chain directories, explicit image recipe and Ethereum block-test commands/timeouts."
+
+[file.028]
+path = ".github/workflows/paxeer-forge-test.yml"
+lines = 182
+verdict = "clean"
+note = "Reviewed Foundry configuration, explicit image inputs, checkout and test execution; current contract tests remain in the gate."
+
+[file.029]
+path = ".github/workflows/paxeer-ghcr-integration-test-cleanup.yml"
+lines = 62
+verdict = "issues"
+note = "Reviewed pagination, age/tag exclusions, dry-run and delete branches; package owner differs from the integration publisher/consumer namespace."
+
+[file.030]
+path = ".github/workflows/paxeer-go-test.yml"
+lines = 358
+verdict = "clean"
+note = "Reviewed native setup, package selection, state DB inputs, coverage and timeout; current node tests exclude retired custody-module targets."
+
+[file.031]
+path = ".github/workflows/paxeer-golangci.yml"
+lines = 168
+verdict = "clean"
+note = "Reviewed Docker recipe setup, Go lint command and dependency inputs; linter remains tied to its declared Go configuration."
+
+[file.032]
+path = ".github/workflows/paxeer-hpx-registry.yml"
+lines = 93
+verdict = "clean"
+note = "Reviewed tag trigger, current tools/hpx registry module, release image arguments and registry publication configuration; hpx mirror is not treated as node RPC."
+
+[file.033]
+path = ".github/workflows/paxeer-integration-test.yml"
+lines = 701
+verdict = "clean"
+note = "Reviewed complete prepare/build/cluster/test/cleanup flow, registry run-id tags, actual Dockerfiles, scenario inputs and secret handling. It consistently produces/consumes sidiora-labs images; the separate cleanup workflow is the drifting consumer."
+
+[file.034]
+path = ".github/workflows/paxeer-libwasmvm.yml"
+lines = 150
+verdict = "clean"
+note = "Reviewed build matrix and digest-pinned runtime artifact verification; runtime artifact names and checksum consumers agree."
+
+[file.035]
+path = ".github/workflows/paxeer-mock-balances-build.yml"
+lines = 175
+verdict = "clean"
+note = "Reviewed mock_balances variant setup, recipe arguments and Go target; test-only balance behavior is selected explicitly."
+
+[file.036]
+path = ".github/workflows/paxeer-nightly-ecr.yml"
+lines = 106
+verdict = "issues"
+note = "Reviewed regular/mock/mock-validation outputs and downstream image labels; all three builds omit the required Dockerfile selection."
+
+[file.037]
+path = ".github/workflows/paxeer-pr-to-slack-codex.yml"
+lines = 280
+verdict = "issues"
+note = "Reviewed diff/review capture and Slack delivery; external upload ticket is printed with its temporary upload capability."
+
+[file.038]
+path = ".github/workflows/paxeer-proto-registry.yml"
+lines = 33
+verdict = "clean"
+note = "Reviewed generated proto registry publication, identity and schema inputs; no application signing keys are used as defaults."
+
+[file.039]
+path = ".github/workflows/paxeer-release-check.yml"
+lines = 127
+verdict = "issues"
+note = "Reviewed release build/verify prerequisites and artifact handling; PAXD_RELEASE_LAYERXD still requests a retired standalone executable."
+
+[file.040]
+path = ".github/workflows/paxeer-release-publish.yml"
+lines = 111
+verdict = "issues"
+note = "Reviewed tag-based publication, release build and artifact checks; the same live release flag adds the retired layerxd binary."
+
+[file.041]
+path = ".github/workflows/paxeer-rocksdb-unit-tests.yml"
+lines = 207
+verdict = "clean"
+note = "Reviewed RocksDB build/test configuration, cache inputs and source triggers; commands remain storage-unit qualification rather than network finality checks."
+
+[file.042]
+path = ".github/workflows/paxeer-uci-backport.yml"
+lines = 128
+verdict = "clean"
+note = "Reviewed scope job and pinned reusable backport workflow, explicit token permissions and event conditions."
+
+[file.043]
+path = ".github/workflows/paxeer-uci-go-lint.yml"
+lines = 198
+verdict = "clean"
+note = "Reviewed scoped Go reusable lint workflow and pinned invocation; caller inputs and current Go paths match."
+
+[file.044]
+path = ".github/workflows/paxeer-x-qualification.yml"
+lines = 74
+verdict = "clean"
+note = "Reviewed dispatch request identity, manifest preparation, real qualification runner and retained evidence; the runner does not substitute a fixture success for external evidence."
+
+[file.045]
+path = ".github/workflows/platform.yml"
+lines = 1705
+verdict = "issues"
+note = "Reviewed all workspace, Programs, replay, sanitizer/fuzz, real-device/framework journeys and registry release jobs; Go module post-publication checksum selection cannot match canonical go.sum. Replay matrix is not restored as a release prerequisite."
+
+[file.046]
+path = ".github/workflows/programs-conformance.yml"
+lines = 196
+verdict = "clean"
+note = "Reviewed acceptance, deterministic execution/evidence, differential replay and fuzz jobs, current Programs inputs and bounded targets."
+
+[file.047]
+path = ".github/workflows/publish-images.yml"
+lines = 366
+verdict = "clean"
+note = "Reviewed plan/build/publish/attest/promote dependency flow, actual Dockerfile input filters, signed digest evidence and explicit release candidate conditions."
+
+[file.048]
+path = ".github/workflows/ramp-sandbox.yml"
+lines = 60
+verdict = "clean"
+note = "Reviewed real ramp journey configuration, current interop/platform paths and fixture/evidence handoff; no synthetic success is accepted as sandbox execution."
+
+[file.049]
+path = ".github/workflows/runner-canary.yml"
+lines = 40
+verdict = "clean"
+note = "Reviewed scheduled/manual runner selection, prerequisites and canary output; it exercises runner readiness without network mutation defaults."
+
+[file.050]
+path = ".github/workflows/scorecard.yml"
+lines = 40
+verdict = "clean"
+note = "Reviewed Scorecard event trust, job-only security-events/id-token grants, pinned action and SARIF output handoff."
+
+[file.051]
+path = ".github/workflows/wallet-go-test.yml"
+lines = 72
+verdict = "issues"
+note = "Reviewed both Go wallet jobs and current manifests; trigger paths retain deleted layerx-wire wallet-vector producer references."
+
+[file.052]
+path = ".github/workflows/xweb-test.yml"
+lines = 190
+verdict = "issues"
+note = "Reviewed every job and both event filters; current chain xweb checks still list retired kernel web and batch inputs."
+
+[file.053]
+path = "tests/agent/sdk/python/conftest.py"
+lines = 6
+verdict = "clean"
+note = "Current services/agent/sdk/python path bootstrap points collection to the shipping package; no transport or mock endpoint is installed by this bootstrap."
+
+[file.054]
+path = "tests/agent/sdk/python/program_receipt_evidence.py"
+lines = 87
+verdict = "clean"
+note = "Sequencer-receipt-v1 fixture is bound to retained raw transaction, governed receipt key, transaction/log hashes, call graph and exact terminal bytes; byte mutations cannot silently become trusted evidence."
+
+[file.055]
+path = "tests/agent/sdk/python/test_account_derivation.py"
+lines = 619
+verdict = "clean"
+note = "Reviewed mnemonic/key derivation, account selectors, bind state and transaction signing vectors, including canonical bound and malformed input checks."
+
+[file.056]
+path = "tests/agent/sdk/python/test_agent_envelope_bootstrap_credential.py"
+lines = 84
+verdict = "clean"
+note = "Real bootstrap probe requires the complete protected owner-session credential and rejects malformed/missing credentials; preserves requirement 181293.4 authorization boundary."
+
+[file.057]
+path = "tests/agent/sdk/python/test_agent_envelope_not_ready.py"
+lines = 150
+verdict = "clean"
+note = "Not-ready real-agent probe validates typed error/status and availability behavior rather than treating pending or absent evidence as success."
+
+[file.058]
+path = "tests/agent/sdk/python/test_agent_operation_envelope.py"
+lines = 623
+verdict = "issues"
+note = "Reviewed real TLS credential, binding, idempotency, verification and restart probes; unknown-pending restart lacks a server-side durable admission barrier."
+
+[file.059]
+path = "tests/agent/sdk/python/test_binding_preflight.py"
+lines = 271
+verdict = "clean"
+note = "Reviewed preflight sequence/chain binding and failure taxonomy; signature/account mismatch refusals remain explicit."
+
+[file.060]
+path = "tests/agent/sdk/python/test_chains.py"
+lines = 159
+verdict = "clean"
+note = "Reviewed chain identity and canonical chain-response decoding, unsupported entries and bounds; custom fixture networks are test inputs, not production defaults."
+
+[file.061]
+path = "tests/agent/sdk/python/test_evm_transaction.py"
+lines = 532
+verdict = "issues"
+note = "Reviewed canonical ABI/RLP/signature encoders, real EVM proof entrypoints and error vectors. The actual Programs proof deliberately requires rejection of successful terminal-wrapper outputs, exposing the high round-trip defect."
+
+[file.062]
+path = "tests/agent/sdk/python/test_intent.py"
+lines = 258
+verdict = "clean"
+note = "Reviewed typed human intent request/response and submit binding, money, expiry, leg constraints and HTTP failure cases; declared intent codec remains distinct from node transaction transport."
+
+[file.063]
+path = "tests/agent/sdk/python/test_mirror_process.py"
+lines = 25
+verdict = "clean"
+note = "Reviewed real process/config identity, mirror retrieval/verification and failure evidence; process fixture requirements fail explicitly when absent."
+
+[file.064]
+path = "tests/agent/sdk/python/test_native_abi5.py"
+lines = 64
+verdict = "clean"
+note = "Reviewed internal guest ABI-5 layout, resource/capability bounds and malformed framing. Guest ABI payloads remain internal Programs data, not a standalone sequencer transport."
+
+[file.065]
+path = "tests/agent/sdk/python/test_native_batch_header.py"
+lines = 89
+verdict = "clean"
+note = "Current network view requires consensus committed height, layerx=None and chain id 125; rejects retired anchor finality, unavailable consensus and noncanonical/out-of-range heights."
+
+[file.066]
+path = "tests/agent/sdk/python/test_native_capabilities.py"
+lines = 97
+verdict = "clean"
+note = "Reviewed guest capability codec and limits, canonical ordering and rejection paths; capability validation remains inside current Programs execution."
+
+[file.067]
+path = "tests/agent/sdk/python/test_native_effect.py"
+lines = 191
+verdict = "clean"
+note = "Reviewed native effect binary layouts, limits and refusal vectors; internal guest effects are not advertised as an independent network endpoint."
+
+[file.068]
+path = "tests/agent/sdk/python/test_native_program_binding.py"
+lines = 42
+verdict = "clean"
+note = "Reviewed envelope/payload/program identity binding, malformed lengths and authorization commitments; codec cases explicitly exercise internal byte invariants."
+
+[file.069]
+path = "tests/agent/sdk/python/test_native_program_call.py"
+lines = 22
+verdict = "clean"
+note = "Reviewed retained native-call payload encoding, resource vector limits and canonical decoding; guest bytes remain payload data used by the current precompile ABI."
+
+[file.070]
+path = "tests/agent/sdk/python/test_precompile_calls.py"
+lines = 302
+verdict = "issues"
+note = "Reviewed every source ABI/event/write vector and current perps refusals. Legacy exchange requestSettlement is still a positive helper vector without an actual activated-chain retirement assertion."
+
+[file.071]
+path = "tests/agent/sdk/python/test_program_account_bound.py"
+lines = 100
+verdict = "issues"
+note = "Reviewed account-bound authorization-root tamper matrix; the named real-call proof still uses the legacy signed-Activity identity instead of a current transaction/precompile execution."
+
+[file.072]
+path = "tests/agent/sdk/python/test_program_executed_v3.py"
+lines = 45
+verdict = "clean"
+note = "Reviewed legacy terminal decode invariants alongside current ProgramReceiptEvidence, sequencer key and raw-transaction binding; no old fixture alone is accepted as current receipt proof."
+
+[file.073]
+path = "tests/agent/sdk/python/test_program_http.py"
+lines = 219
+verdict = "issues"
+note = "Reviewed protected real-process setup and every call/refusal/recovery assertion; source pin requires a deleted gateway native_call.rs and the retired mutation ingress."
+
+[file.074]
+path = "tests/agent/sdk/python/test_program_lifecycle.py"
+lines = 145
+verdict = "issues"
+note = "Reviewed all lifecycle payloads, recovery and signature/malformed checks; success transport fixtures remain signed Activity bodies instead of real 0x101d lifecycle transactions."
+
+[file.075]
+path = "tests/agent/sdk/python/test_program_pre_runtime.py"
+lines = 163
+verdict = "clean"
+note = "Reviewed original refusal layouts as explicit historical/internal codec cases; current ProgramReceiptEvidence proves retained signed transaction, sequencer receipt and tamper/refusal binding separately."
+
+[file.076]
+path = "tests/agent/sdk/python/test_program_response_code.py"
+lines = 45
+verdict = "clean"
+note = "Reviewed guest code versus protocol result separation using current ProgramReceiptEvidence; mutations to receipt status, log bytes and returnData fail authenticated bindings."
+
+[file.077]
+path = "tests/agent/sdk/python/test_program_trust.py"
+lines = 280
+verdict = "issues"
+note = "Reviewed freshness, rollback and concurrent head-change tests; local HTTP producer uses verification state/level fields not emitted by current agent RPC."
+
+[file.078]
+path = "tests/agent/sdk/python/test_program_typed_responses.py"
+lines = 76
+verdict = "issues"
+note = "Reviewed typed interface/source/discovery response assertions; the server fixture emits retired upper-case Unverified instead of the current lower-case envelope."
+
+[file.079]
+path = "tests/agent/sdk/python/test_px.py"
+lines = 641
+verdict = "issues"
+note = "Reviewed entire codec/transport, balances/assets, network and history suite; positive network fixture contradicts consensus finality and transport cases assert the retired unified /rpc path."
+
+[file.080]
+path = "tests/agent/sdk/python/test_receipt_fixture.py"
+lines = 128
+verdict = "clean"
+note = "Reviewed current sequencer receipt positives and refusal taxonomy, exact transaction/key/hash bindings and byte-flip failures; protocol naming in historical test names does not revive a running service."
+
+[file.081]
+path = "tests/agent/sdk/python/test_revert.py"
+lines = 144
+verdict = "issues"
+note = "Reviewed all 274 registry code and 37 retryability assertions and malformed error cases; import bootstrap still prepends the moved root agent/sdk/python path."
+
+[file.082]
+path = "tests/agent/sdk/python/test_supply_receipt.py"
+lines = 24
+verdict = "clean"
+note = "Reviewed sequencer-receipt-v1 supply/fee binding vectors and exact receipt errors; does not treat old receipt-supply-v2 bytes as current chain evidence."
+
+[file.083]
+path = "tests/agent/sdk/python/test_trading_payload.py"
+lines = 95
+verdict = "clean"
+note = "Reviewed trading payload binary layout, canonical bounds, sign/enum fields and invalid vectors; these are payload codec tests, not separate sequencer submission."
+
+[file.084]
+path = "tests/agent/sdk/python/test_web_search.py"
+lines = 912
+verdict = "issues"
+note = "Reviewed complete paid-search offers, fetch/metered settlements, refusals and digest/payment binding tests; positive recorded receipts still depend on authorized legacy batches."
+
+[file.085]
+path = "tests/agent/sdk/python/test_x402.py"
+lines = 485
+verdict = "issues"
+note = "Reviewed new raw EIP-1559 RPC path and refusal checks as well as all legacy vectors; positive v2/v3 batch-receipt fixtures remain a retired success authority."
+
+[file.086]
+path = "tests/agent/sdk/python/test_xweb_api.py"
+lines = 537
+verdict = "issues"
+note = "Reviewed xweb API constants/vectors, attestation and canonical ABI bounds; legacy exchange settlement write needs real upgraded-address refusal proof."
+
+[file.087]
+path = "tools/jev/__init__.py"
+lines = 0
+verdict = "clean"
+note = "Reviewed package declaration; no side effects, network writes or runtime configuration are introduced."
+
+[file.088]
+path = "tools/jev/__main__.py"
+lines = 9
+verdict = "clean"
+note = "Reviewed module entrypoint forwarding to the CLI; errors/exit status are not replaced by a success stub."
+
+[file.089]
+path = "tools/jev/checks/__init__.py"
+lines = 27
+verdict = "clean"
+note = "Reviewed explicit check registration and duplicate/unknown check selection behavior; registered CLI names agree with the implementations."
+
+[file.090]
+path = "tools/jev/checks/deps.py"
+lines = 517
+verdict = "issues"
+note = "Reviewed scanner, diagnostic parsing, graph classification, grouping and routing; moved workspace roots and ignored scanner completion can silently omit findings."
+
+[file.091]
+path = "tools/jev/checks/docs.py"
+lines = 322
+verdict = "issues"
+note = "Reviewed section parser, pairing, sanitization and advisory handoff; command/URL evidence is discarded and published site translations are omitted by default."
+
+[file.092]
+path = "tools/jev/checks/failures.py"
+lines = 606
+verdict = "clean"
+note = "Reviewed failure evidence parser, grouping and locations; historical test/checkpoint names in log fixtures are parser input and do not invoke retired runtime behavior."
+
+[file.093]
+path = "tools/jev/checks/ledger.py"
+lines = 400
+verdict = "clean"
+note = "Reviewed KVX decision parsing, dedup/severity sampling and deterministic pairing; quoted historical layerxd decisions are archived evidence, not new release instructions."
+
+[file.094]
+path = "tools/jev/checks/pr.py"
+lines = 584
+verdict = "clean"
+note = "Reviewed diff/body/commit collection and evidence anchoring. Missing-answer acceptance is owned at the client response-validation boundary and its explicit test finding; valid response finding transformations retain confidence and routes."
+
+[file.095]
+path = "tools/jev/cli.py"
+lines = 57
+verdict = "clean"
+note = "Reviewed argument parsing, check selection, dry-run/report output and error handling; network errors propagate through the declared client exception boundary."
+
+[file.096]
+path = "tools/jev/client.py"
+lines = 301
+verdict = "issues"
+note = "Reviewed canonical request digests, response parsing, retries, key resolution and dry-run behavior; response completeness and finite domain bounds are not validated."
+
+[file.097]
+path = "tools/jev/report.py"
+lines = 141
+verdict = "clean"
+note = "Reviewed finding serialization, report metadata/digests, confidence routing and revision capture; routing assumes validated client probabilities as described in the client findings."
+
+[file.098]
+path = "tools/jev/tests/__init__.py"
+lines = 0
+verdict = "clean"
+note = "Empty package marker read in full; it declares no producer, consumer or operational configuration."
+
+[file.099]
+path = "tools/jev/tests/test_client.py"
+lines = 285
+verdict = "clean"
+note = "Reviewed captured three-kind answer parsing, request-digest stability, key/error/retry and dry-run tests; valid-case coverage is consistent, while missing numeric/schema validation is recorded on the client producer."
+
+[file.100]
+path = "tools/jev/tests/test_deps.py"
+lines = 422
+verdict = "issues"
+note = "Reviewed full diagnostic/manifest/grouping/CLI tests; root agent manifests are gone and asserted services anchors differ from old workspace fixture identifiers."
+
+[file.101]
+path = "tools/jev/tests/test_docs.py"
+lines = 369
+verdict = "issues"
+note = "Reviewed full parser/pairing/drift/CLI tests; expected README and German section headings predate the actual maintained source structure."
+
+[file.102]
+path = "tools/jev/tests/test_failures.py"
+lines = 476
+verdict = "clean"
+note = "Reviewed failure-log fixture and parser coverage; legacy test names are intentionally quoted historical failure evidence and no old command is executed."
+
+[file.103]
+path = "tools/jev/tests/test_ledger.py"
+lines = 499
+verdict = "clean"
+note = "Reviewed historical KVX parsing, explicit ledger fixtures, dedup/severity and sampling checks; archived layerxd commands are data rather than live runtime instructions."
+
+[file.104]
+path = "tools/jev/tests/test_pr.py"
+lines = 738
+verdict = "issues"
+note = "Reviewed diff/body/commit finding cases and CLI behavior; an explicit assertion accepts missing requested answers as a clean advisory."
+
+[file.105]
+path = "tools/jev/tests/test_report.py"
+lines = 163
+verdict = "clean"
+note = "Reviewed stable report structure, Markdown/JSON routing and metadata round-trips for valid findings; no retired service is addressed."
+
+[file.106]
+path = "tools/qualification/paxeer-x/mcp_daemon_revocation.py"
+lines = 1518
+verdict = "issues"
+note = "Reviewed all 1518 lines: protected process/fixture identity, tenant and credential boundaries, durable unknown transmission evidence, baseline/restart/revocation/isolation phases and cleanup. Actual-outcome assertions use the retired verification level field and enum rather than the daemon rung contract."
+
+[file.107]
+path = "tools/qualification/test_retired_callers_12.py"
+lines = 37
+verdict = "clean"
+note = "Reviewed subprocess paths, four retired-component scans, producer help smoke checks, timeout and stdout/status assertions; checks inspect live producer source rather than declaring a mocked success."
+
+[finding.programs-terminal-response]
+file = "tests/agent/sdk/python/test_evm_transaction.py"
+line = 468
+class = "interface-mismatch"
+severity = "high"
+observed = "proof_layerxprograms_0x101d requires ReceiptMismatch for every real successful call and simulation with response_capacity=64. modules/lxphost/host.go:1232 and simulate.go:261 put terminal_payload into ProgramOutcome.Response; method_call.go and method_simulate.go ABI-pack that wrapper unchanged. ai_market.py:2326 rejects its length as exceeding the guest capacity."
+expected = "The served 0x101d call and simulateCall results must deliver the bounded guest response accepted by the shipping SDK. Valid successful calls must round-trip without relaxing canonical ABI, authentication or response-capacity checks, including the second execution and state-head observation."
+proposal = "In modules/lxphost and precompiles/layerxprograms, agree the authenticated terminal/guest response boundary with services/agent/sdk/python/layerx_sdk/ai_market.py and extract the bounded guest bytes at that boundary. Change the real Go-to-Python proof to require successful result decoding for calls and simulations before and after restart, retaining malformed-frame and overflow refusals."
+owner_domain = 13
+interface = "13.pc-0x101d-call"
+
+[finding.ecr-build-file]
+file = ".github/workflows/paxeer-ecr.yml"
+line = 115
+class = "wiring-gap"
+severity = "medium"
+observed = "The four release variants invoke docker/build-push-action with context=. and no file input. The checkout has no root Dockerfile, while the declared node image recipe is docker/layerx/Dockerfile. Docker therefore cannot build the images these jobs promise to publish."
+expected = "The ECR image producer must select the existing node Dockerfile and carry each release reference and mock-build variant into the recipe consumed by release and load jobs."
+proposal = "In .github/workflows/paxeer-ecr.yml, set file to docker/layerx/Dockerfile on every node build action, preserve PAX_CHAIN_REF and GO_BUILD_TAGS for each variant, and qualify the regular and mock image outputs against their downstream image contracts."
+owner_domain = 16
+interface = "16.cfg-gh-paxeer-ecr-job-publisher"
+
+[finding.nightly-build-file]
+file = ".github/workflows/paxeer-nightly-ecr.yml"
+line = 60
+class = "wiring-gap"
+severity = "medium"
+observed = "The three nightly variants invoke docker/build-push-action with context=. and no file input. The checkout has no root Dockerfile, while the declared node image recipe is docker/layerx/Dockerfile. Docker therefore cannot build the images these jobs promise to publish."
+expected = "The ECR image producer must select the existing node Dockerfile and carry each release reference and mock-build variant into the recipe consumed by release and load jobs."
+proposal = "In .github/workflows/paxeer-nightly-ecr.yml, set file to docker/layerx/Dockerfile on every node build action, preserve PAX_CHAIN_REF and GO_BUILD_TAGS for each variant, and qualify the regular and mock image outputs against their downstream image contracts."
+owner_domain = 16
+interface = "16.cfg-gh-paxeer-nightly-ecr-job-publish"
+
+[finding.ghcr-cleanup-owner]
+file = ".github/workflows/paxeer-ghcr-integration-test-cleanup.yml"
+line = 51
+class = "config-drift"
+severity = "medium"
+observed = "The cleanup API lists and deletes orgs/Paxeer-Network packages, whereas paxeer-integration-test.yml:173-174 and 254-255 push and pull ghcr.io/sidiora-labs/pax-chain-integration-test-{localnode,rpcnode}. The cleanup consumer never selects the producer namespace."
+expected = "Retention must act on the exact integration-image owner and package names used by the build and cluster consumers, with the existing age, tag and dry-run safeguards."
+proposal = "Use one reviewed registry-owner configuration shared by the integration publisher and cleanup workflow, scope the package token to that owner, and prove dry-run candidates correspond to the published run-id tags before enabling deletion."
+owner_domain = 16
+interface = "16.cfg-gh-paxeer-ghcr-integration-test-cleanup-job-cleanup"
+
+[finding.release-check-daemon]
+file = ".github/workflows/paxeer-release-check.yml"
+line = 126
+class = "retired-reference"
+severity = "medium"
+observed = "PAXD_RELEASE_LAYERXD is explicitly set to 1. tools/release/build-paxd.sh:116-121 consumes it by invoking make layerxd and copying a separate versioned layerxd executable into the node release artifacts."
+expected = "Brief network facts 1-2 retire the standalone kernel daemon: the release ships paxd with its embedded kernel and native libraries, without provisioning a separate sequencer process."
+proposal = "Remove the standalone-daemon artifact request from .github/workflows/paxeer-release-check.yml and the corresponding release-script branch in tools/release/build-paxd.sh; publish and verify the embedded paxd/native-library artifacts and update the release inventory to match."
+owner_domain = 16
+interface = "16.env-release-release-build-paxd-paxd-release-layerxd"
+
+[finding.release-publish-daemon]
+file = ".github/workflows/paxeer-release-publish.yml"
+line = 86
+class = "retired-reference"
+severity = "medium"
+observed = "PAXD_RELEASE_LAYERXD is explicitly set to 1. tools/release/build-paxd.sh:116-121 consumes it by invoking make layerxd and copying a separate versioned layerxd executable into the node release artifacts."
+expected = "Brief network facts 1-2 retire the standalone kernel daemon: the release ships paxd with its embedded kernel and native libraries, without provisioning a separate sequencer process."
+proposal = "Remove the standalone-daemon artifact request from .github/workflows/paxeer-release-publish.yml and the corresponding release-script branch in tools/release/build-paxd.sh; publish and verify the embedded paxd/native-library artifacts and update the release inventory to match."
+owner_domain = 16
+interface = "16.env-release-release-build-paxd-paxd-release-layerxd"
+
+[finding.xweb-retired-inputs]
+file = ".github/workflows/xweb-test.yml"
+line = 20
+class = "retired-reference"
+severity = "medium"
+observed = "Both event path filters include include/layerx/lx_web.h, include/layerx/lx_batch.h and src/modules/web/**. These name the retired kernel web and batch integration even though xweb now serves requests as a chain module."
+expected = "Requirement 16022.1 removes retired kernel-web CI inputs; kept xweb, sidecar, precompile and SDK jobs must follow the live origin-2 chain request and attestation inputs."
+proposal = "Replace the retired input entries in both filters of .github/workflows/xweb-test.yml with the actual xweb module, precompile, attestor and shared ABI producer paths consumed by its kept jobs; retain real request/escrow/receipt checks."
+owner_domain = 16
+interface = "16.cfg-gh-xweb-test-job-kernel-web"
+
+[finding.wallet-retired-vectors]
+file = ".github/workflows/wallet-go-test.yml"
+line = 11
+class = "retired-reference"
+severity = "medium"
+observed = "Push and pull_request filters still watch services/agent/crates/layerx-wire/tests/support/wallet_vectors/**. That crate is a deleted tree in retired.kvx component.wire-codec, so the wallet gate watches a retired fixture producer."
+expected = "Requirement 16023.1 and retirement 11030 replace layerx-wire with EIP-1559/RLP encoding; wallet checks must track the current wallet-vector producer despite the older path named by historical requirement 181086.1."
+proposal = "In .github/workflows/wallet-go-test.yml, derive the fixture filter from the live attestor/ceremony wallet-vector generator and its Makefile inputs, replacing layerx-wire paths while retaining every current Go attestor and ceremony test."
+owner_domain = 16
+
+[finding.go-publication-checksum]
+file = ".github/workflows/platform.yml"
+line = 1051
+class = "runtime-risk"
+severity = "medium"
+observed = "The Go publication install check greps go.sum for a pattern beginning with a space before $module. Go sum records begin with the module path in column one, so even a successful proxy install yields no matching checksum and fails the post-publication job."
+expected = "Requirement 18820.1 requires the tagged SDK to install from its real module path and retain the verified registry digest; the checksum check must accept the exact canonical go.sum record and reject a missing or different version."
+proposal = "In .github/workflows/platform.yml, parse go.sum as fields, require exactly the selected module and v$LAYERX_RELEASE_VERSION entry with an h1 digest, compare it with go mod download Sum, and retain that exact line as publication evidence."
+owner_domain = 16
+interface = "16.cfg-gh-platform-job-publish-go-modules"
+
+[finding.node-pr-input-coverage]
+file = ".github/workflows/node-build.yml"
+line = 7
+class = "test-gap"
+severity = "medium"
+observed = "The pull_request filter omits go.mod, go.sum, consensus/**, rpc/**, storage/** and this workflow itself. Those inputs affect paxd and its tests, yet a PR confined to them skips every Node / Build job; the unfiltered main push checks only after merge."
+expected = "The node build gate must qualify changes to all actual paxd and native-library inputs before merge, including Go dependency manifests, consensus, RPC and storage code."
+proposal = "Expand .github/workflows/node-build.yml pull_request input coverage to the complete paxd dependency roots and workflow configuration, or remove the incomplete filter; preserve native prerequisites, digest verification and all existing node-test targets."
+owner_domain = 16
+interface = "16.cfg-gh-node-build-job-paxd"
+
+[finding.review-upload-url-log]
+file = ".github/workflows/paxeer-pr-to-slack-codex.yml"
+line = 263
+class = "security"
+severity = "medium"
+observed = "The Slack upload step echoes the complete getUploadURLExternal ticket, including its upload_url, into the workflow log; the failure branch also prints the ticket. This exposes the temporary upload capability to log readers."
+expected = "Brief security check 8 requires credentials and temporary capabilities to stay out of logs; review delivery only needs a nonsecret status and file identifier."
+proposal = "In .github/workflows/paxeer-pr-to-slack-codex.yml, mask the returned upload URL before use and log only the ok/error code and nonsecret file identifier. Remove raw ticket output from success and error branches while preserving upload failure propagation."
+owner_domain = 16
+
+[finding.agent-restart-admission-proof]
+file = "tests/agent/sdk/python/test_agent_operation_envelope.py"
+line = 465
+class = "test-gap"
+severity = "medium"
+observed = "case_restart_unknown_pending closes its HTTPS connection immediately after sending and records only local request fields. It never proves server admission or a durable pending operation before the restart. Post-restart equality can therefore pass when the mutation first executes only after restart."
+expected = "Brief check 5 and requirement 21001.1 require real recovery evidence: an admitted unknown mutation survives restart and reconciles to the same operation with no duplicate effect."
+proposal = "In tests/agent/sdk/python/test_agent_operation_envelope.py and its fixture producer, wait for an authenticated durable admission/journal barrier before severing the reply and restarting; verify the same retained identity and exactly one committed effect after two retries."
+owner_domain = 16
+interface = "9.rs-agentd-agent-rpc-success-body-j43"
+
+[finding.program-http-missing-ingress]
+file = "tests/agent/sdk/python/test_program_http.py"
+line = 63
+class = "wiring-gap"
+severity = "medium"
+observed = "ProgramHttp.setUpClass unconditionally hashes services/platform/hosted/gateway/src/native_call.rs to bind a real gateway process. That source file is absent in this checkout. No protected fixture can satisfy the required candidate-source proof, and the suite still submits signed Activities through retired Programs HTTP mutation ingress."
+expected = "Requirements 21003.1 and 21001.1 require an executable real Programs path, while retirement 11037 moves mutations to EVM transactions at 0x101d and removes the REST mapping."
+proposal = "Rebind tests/agent/sdk/python/test_program_http.py and its protected fixture producer to the current node/0x101d transaction path and remaining gateway reads. Pin the actual binary and source inputs, exercise all required guest ABIs and unknown recovery, and keep the strict ownership, identity and signature checks."
+owner_domain = 9
+interface = "13.pc-0x101d-call"
+
+[finding.px-network-fixture-shape]
+file = "tests/agent/sdk/python/test_px.py"
+line = 205
+class = "test-gap"
+severity = "medium"
+observed = "The positive network-head fixture supplies layerx.node_info and anchor.latest_finalized_batch and asserts network.anchor, whereas test_native_batch_header.py and the current decoder require consensus.latest_height and reject retired anchor finality. This suite asserts a third, pre-merge finality shape."
+expected = "The retained px_ network view must describe chain-only data and committed height, agree with services/platform/hosted/gateway/openrpc.json, and preserve typed unavailable values and canonical numeric bounds."
+proposal = "Rewrite the network, balance and history fixtures in tests/agent/sdk/python/test_px.py from the current gateway producer/OpenRPC chain-only responses; preserve the null, pagination and numeric-bound assertions and add rejection of retired anchor/kernel joins."
+owner_domain = 9
+interface = "8.rpc-gateway-px-getnetwork"
+
+[finding.px-retired-rpc-path]
+file = "tests/agent/sdk/python/test_px.py"
+line = 256
+class = "retired-reference"
+severity = "medium"
+observed = "The positive local HTTP transport cases configure PxClient at /rpc and explicitly assert that request path. Other positive client constructions repeat the same retired unified router path."
+expected = "Brief network facts 2-3 retire the unified /rpc interface and place px_ methods at the hosted gateway according to its own contract, with node JSON-RPC served at the root."
+proposal = "Change the positive PxClient transport cases in tests/agent/sdk/python/test_px.py to the actual hosted gateway path and add a contract-bound producer/consumer request check. Keep invalid URL and unsupported-method refusal coverage independently."
+owner_domain = 9
+interface = "8.rpc-gateway-px-getnetwork"
+
+[finding.program-account-legacy-identity]
+file = "tests/agent/sdk/python/test_program_account_bound.py"
+line = 33
+class = "test-gap"
+severity = "medium"
+observed = "test_real_native_call_verifies_with_principal_account_binding uses signed-activity.hex and an activity_id defined as SHA256(LXP/v1/activity-id plus signed Activity). It proves the old envelope binding rather than the submitted raw EIP-1559 transaction identity used by the merged network."
+expected = "Brief facts 1 and 7 and retirement 11029 require the real Programs proof to bind the signed chain transaction, sender/account authority, precompile execution and committed receipt."
+proposal = "Add current raw-transaction and 0x101d execution evidence to tests/agent/sdk/python/test_program_account_bound.py and its fixture producer, asserting the transaction hash and principal binding. Retain the existing authorization-root tamper cases as explicit historical codec coverage."
+owner_domain = 9
+interface = "13.pc-0x101d-call"
+
+[finding.program-lifecycle-retired-transport]
+file = "tests/agent/sdk/python/test_program_lifecycle.py"
+line = 64
+class = "test-gap"
+severity = "medium"
+observed = "The lifecycle success/binding cases encode native-program-*-v3 signed_activity_hex as the complete mutation body and construct retained_signed_activity unknown results. They do not exercise the EVM deploy/upgrade/wind-down transaction transport replacing the retired REST mutations."
+expected = "Retirement 11037 and brief interface check 7 require lifecycle proof through actual 0x101d producer, transaction transport and SDK consumer, including committed receipts and restart recovery."
+proposal = "In tests/agent/sdk/python/test_program_lifecycle.py, add canonical signed EVM lifecycle transactions and real precompile receipts for deploy, upgrade and every wind-down operation, including unknown-to-committed recovery. Keep native payload codec and malformed-signature checks explicitly identified as historical/internal coverage."
+owner_domain = 9
+interface = "8.fmt-sdk-fixture-native-program-deploy-v3"
+
+[finding.program-trust-envelope-shape]
+file = "tests/agent/sdk/python/test_program_trust.py"
+line = 113
+class = "test-gap"
+severity = "medium"
+observed = "The local HTTP producer emits verification_status.state=Achieved and level=receipted (and Unverified elsewhere). The live agent_rpc.rs producer emits lower-case achieved/unverified and uses rung for achieved results, so these tests cannot prove agreement with its current response envelope."
+expected = "Requirement 8343.1 and agent_rpc.rs verification_json require exact current rung and state spellings; SDK trust/freshness checks must run on a response the real service produces."
+proposal = "Build tests/agent/sdk/python/test_program_trust.py envelopes from the current success_body/verification_json schema, require achieved.rung and lower-case states, and keep rollback, expiration and concurrent-head-change refusal tests. Add a real producer-to-SDK envelope case."
+owner_domain = 9
+interface = "9.rs-agentd-agent-rpc-success-body-j43"
+
+[finding.typed-program-verification-state]
+file = "tests/agent/sdk/python/test_program_typed_responses.py"
+line = 44
+class = "test-gap"
+severity = "medium"
+observed = "The discovery/interface HTTP fixture emits verification_status.state=Unverified with an upper-case U. The live agent RPC serializes unverified in lower case with current requested/achieved fields; the typed wrapper test accepts a fixture spelling absent from that producer."
+expected = "Requirement 8343.1 requires typed discovery responses to preserve the exact server verification contract and distinguish server-side evidence from achieved commitment."
+proposal = "Update tests/agent/sdk/python/test_program_typed_responses.py to use current producer-generated lower-case unverified and achieved.rung envelopes, then assert the typed SDK preserves both without upgrading server-only evidence to committed verification."
+owner_domain = 9
+interface = "9.rs-agentd-agent-rpc-success-body-j43"
+
+[finding.x402-retired-receipt-proof]
+file = "tests/agent/sdk/python/test_x402.py"
+line = 70
+class = "test-gap"
+severity = "medium"
+observed = "The positive payment fixture loader opens receipt-positive-v2.json and receipt-positive-v3.json; both files are absent in this checkout and the v3 registry row is retired. It then constructs AuthorizedReceiptBatch from the removed kernel-batch authority. The new raw-transaction RPC cases do not remove this unreachable legacy success setup."
+expected = "Requirements 16974.1-3 and retirement 11026 replace old receipt fixtures and authorized batches with sequencer-receipt-v1 bound to the raw transaction, governed receipt key and committed chain result."
+proposal = "Migrate the positive payment verification cases in tests/agent/sdk/python/test_x402.py to sequencer-receipt-v1 and actual RPC transaction/receipt evidence. Preserve payer, asset, amount, byte-flip and version refusal assertions; keep old layouts only as explicit rejection or historical decoder cases."
+owner_domain = 9
+interface = "8.fmt-sdk-fixture-receipt-positive-v3"
+
+[finding.web-search-authorized-batch]
+file = "tests/agent/sdk/python/test_web_search.py"
+line = 93
+class = "test-gap"
+severity = "medium"
+observed = "The paid web-search fixture helper reconstructs AuthorizedReceiptBatch from legacy receipt offsets, and successful fetch/settlement cases require protocol-version-three receipts. This can validate a payment the merged node never emits while missing the current receipt-to-request binding."
+expected = "Brief facts 1 and 7 and retirement 11026 require paid search to verify the current chain receipt against the raw transaction and committed header rather than an authorized kernel batch."
+proposal = "Update tests/agent/sdk/python/test_web_search.py and the recorded exchange fixture producer to use actual layerxpay raw transactions and sequencer-receipt-v1 at the committed height. Preserve asset/purpose/amount binding, digest mismatches and refusal-before-send checks."
+owner_domain = 11
+interface = "16.fmt-fixture-web-j59"
+
+[finding.legacy-exchange-write-proof]
+file = "tests/agent/sdk/python/test_xweb_api.py"
+line = 148
+class = "test-gap"
+severity = "medium"
+observed = "test_exchange_writes_match_the_typescript_legacy_signatures treats requestSettlement and other legacy exchange writes as successful encodings without proving their upgraded on-chain refusal. The retired.kvx exchange-intents disposition requires requestSettlement to refuse after the upgrade."
+expected = "Retirement 11005 requires no operational dependency on requestSettlement after the plan height; a current SDK/precompile test must distinguish legacy byte encoding from a usable write."
+proposal = "Retain explicitly historical encoding vectors in tests/agent/sdk/python/test_xweb_api.py, and add a real activated-address call proving the declared retirement error for requestSettlement plus the current direct order/position path. Ensure current SDK examples do not advertise the old write."
+owner_domain = 9
+
+[finding.precompile-legacy-write-proof]
+file = "tests/agent/sdk/python/test_precompile_calls.py"
+line = 115
+class = "test-gap"
+severity = "medium"
+observed = "WRITES includes layerxexchange requestSettlement(bytes32) as a positive write checked only against its legacy ABI. The perps retirement assertions later in the file reject that signature only in perps_call, leaving the old exchange helper without an activated-chain retirement proof."
+expected = "Retirement 11005 and brief interface checks require the shipped legacy helper to be tested against the actual upgraded address/error behavior, not merely a matching old ABI file."
+proposal = "In tests/agent/sdk/python/test_precompile_calls.py, label retained legacy ABI vectors as encoding compatibility and add the real post-activation requestSettlement refusal with the registry error code. Prove the current 0x1015 path separately without dropping existing perps rejection tests."
+owner_domain = 9
+
+[finding.revert-sdk-import-root]
+file = "tests/agent/sdk/python/test_revert.py"
+line = 8
+class = "config-drift"
+severity = "low"
+observed = "The test prepends ROOT/agent/sdk/python, which no longer contains the shipping SDK. Suite collection is rescued by conftest.py adding services/agent/sdk/python, leaving standalone invocation dependent on unrelated import setup."
+expected = "The revert registry proof must import the current shipping SDK consistently whether invoked through the suite or the declared focused test command."
+proposal = "Point tests/agent/sdk/python/test_revert.py at services/agent/sdk/python or use the shared supported test bootstrap, preserving the exact registry-code counts and every retryability and malformed-error assertion."
+owner_domain = 16
+
+[finding.mcp-recovery-rung-contract]
+file = "tools/qualification/paxeer-x/mcp_daemon_revocation.py"
+line = 621
+class = "test-gap"
+severity = "medium"
+observed = "Both actual-outcome checks require verification_status.level in StateProven/CheckpointFinalised, and the later check also reads receipt.verification_level. agent_rpc.rs:510-513 and 574-577 instead emit achieved.rung in submitted/receipted/committed. Genuine current success responses are rejected before recovery can qualify."
+expected = "Requirements 8343.1 and 8299.1 require qualification to consume the current verification ladder while still proving genuine authenticated outcome evidence and durable unknown reconciliation."
+proposal = "Update tools/qualification/paxeer-x/mcp_daemon_revocation.py and its real fixture producer to validate achieved.rung and the current committed receipt/header evidence, replacing retired level enums and receipt fields. Retain the executable/source pin, tenant binding, transmission-count and crash/restart checks."
+owner_domain = 16
+interface = "9.rs-agentd-agent-rpc-success-body-j43"
+
+[finding.jev-moved-workspaces]
+file = "tools/jev/checks/deps.py"
+line = 18
+class = "wiring-gap"
+severity = "medium"
+observed = "WORKSPACES names agent, human and interop at repository root; their Cargo.toml files are absent and the real workspaces are under services/. run_cargo_deny returns an empty string for each missing manifest, silently omitting three shipping dependency graphs from --run."
+expected = "The dependency advisory producer must scan every current shipping workspace and must not report an unperformed workspace scan as an empty advisory result."
+proposal = "In tools/jev/checks/deps.py, replace workspace roots with services/agent, services/human and services/interop alongside platform/programs, update classification and anchor normalization, and surface an explicit configuration error for a selected missing manifest."
+owner_domain = 16
+interface = "16.cli-jev-jev-checks-deps-opt-workspace"
+
+[finding.jev-scanner-failure-swallowed]
+file = "tools/jev/checks/deps.py"
+line = 441
+class = "runtime-risk"
+severity = "medium"
+observed = "run_cargo_deny invokes the scanner with check=False and returns only stderr, ignoring returncode. A scanner execution/configuration failure that emits no parseable advisory becomes an empty diagnostic list and an apparently clean dependency report."
+expected = "A dependency scan that did not complete must be distinguishable from a successful scan with no advisories, while cargo-deny advisory exit codes must still yield their full findings."
+proposal = "In tools/jev/checks/deps.py, validate the cargo-deny completion/status protocol and retain parseable advisory failures as findings; propagate tool/configuration failures with nonsecret evidence and a nonzero check result. Add cases for successful empty scans, advisory exits and malformed/non-diagnostic failures."
+owner_domain = 16
+interface = "16.cli-jev-jev-checks-deps"
+
+[finding.jev-deps-test-roots]
+file = "tools/jev/tests/test_deps.py"
+line = 160
+class = "test-gap"
+severity = "medium"
+observed = "DependencyScanTests opens ROOT/agent/Cargo.toml and deny_digests reads the old WORKSPACES roots, which are absent. Captured diagnostics are parsed as agent/interop while anchor assertions expect services/agent and services/interop, so fixture expectations and the producer disagree after relocation."
+expected = "The dependency tests must read actual workspace manifests and compare anchors emitted by the scanner for those exact roots, without treating missing shipping graphs as unknown or empty."
+proposal = "Update tools/jev/tests/test_deps.py, its captured workspace identifiers and manifest/deny digest paths to the current services roots together with the production scanner. Assert all five live graphs are scanned and their emitted anchors resolve to real lockfile lines."
+owner_domain = 16
+
+[finding.jev-docs-evidence-stripped]
+file = "tools/jev/checks/docs.py"
+line = 157
+class = "test-gap"
+severity = "medium"
+observed = "sanitize discards all fenced commands, Markdown link destinations and bare URLs before the drift evaluation. Yet DRIFT_KINDS promises to detect stale paths, commands and endpoints; a translation differing only in an RPC URL or executable command can supply identical evaluation text."
+expected = "The documentation checker must retain the operational evidence needed to detect the stale command, endpoint and path classes it advertises, including retired /rpc and layerxd guidance."
+proposal = "In tools/jev/checks/docs.py, preserve normalized code commands and link/URL destinations as explicit comparison inputs while removing presentation markup and image noise. Add translation cases where only the command, endpoint or target path changes and require a stale-reference finding."
+owner_domain = 16
+interface = "16.cli-jev-jev-checks-docs"
+
+[finding.jev-docs-site-coverage]
+file = "tools/jev/checks/docs.py"
+line = 17
+class = "wiring-gap"
+severity = "medium"
+observed = "The default translation glob covers docs/readme/README.*.md only. The seven published docs/site/docs/overview/i18n pages in this package are a second maintained translation tree and remain pre-merge, but the default advisory never reads them."
+expected = "The documentation drift check must cover the published translation pages consumers read as well as the repository README translations, with an explicit source mapping for each tree."
+proposal = "Define the maintained translation/source catalog in tools/jev/checks/docs.py and include docs/site/docs/overview/i18n along with docs/readme; report an explicit error when a configured catalog is empty, and retain separate path anchors for each published page."
+owner_domain = 16
+interface = "16.cli-jev-jev-checks-docs-opt-translations"
+
+[finding.jev-doc-test-headings]
+file = "tools/jev/tests/test_docs.py"
+line = 38
+class = "test-gap"
+severity = "medium"
+observed = "ENGLISH_TITLES requires What LayerX Network is, Try the testnet and the old README section order, while the actual README uses What is Paxeer X Network?, Client SDKs and Development and Release Process. GERMAN_TITLES similarly expects the older German headings rather than the current docs/readme page."
+expected = "The docs parser and pairing tests must assert the real maintained source/translation structure and still detect missing sections; obsolete snapshots cannot prove the current documentation checker."
+proposal = "Refresh the source/translation section expectations in tools/jev/tests/test_docs.py against the current README and docs/readme translations, preserving fenced-heading and missing-section checks and adding the published-site catalog plus command/URL drift cases."
+owner_domain = 16
+
+[finding.jev-incomplete-response]
+file = "tools/jev/client.py"
+line = 157
+class = "runtime-risk"
+severity = "medium"
+observed = "parse_evaluation accepts any answers dictionary, including empty or unrelated keys, and receives no requested question schema. Downstream checks skip missing answers, so an incomplete service response can produce a successful report with no findings instead of a request failure."
+expected = "Each advisory evaluation must answer the exact requested questions with the declared kinds and choices before the report can conclude that no issue was found."
+proposal = "Pass the requested question schema into response validation in tools/jev/client.py; reject missing/unknown answers, wrong kinds and undeclared choices with JevRequestError. Preserve response/request digests and make the CLI report the failed evaluation rather than a clean advisory."
+owner_domain = 16
+
+[finding.jev-answer-numeric-bounds]
+file = "tools/jev/client.py"
+line = 105
+class = "runtime-risk"
+severity = "medium"
+observed = "_number accepts nonfinite floats and unbounded numeric values; parse_answer uses it for noul probabilities, confidence and scores, and _probabilities does not enforce probability bounds. These values flow into finding confidence and automatic/escalation routing."
+expected = "A probability/confidence is finite and within zero through one, and a score is finite and within the requested scale; malformed service output must not affect routing or appear as valid evidence."
+proposal = "Validate finite bounded probabilities/confidence and requested score domains in tools/jev/client.py before constructing Answer objects. Require declared choice keys and coherent probability distributions, and add NaN, infinity, negative and over-range rejection cases."
+owner_domain = 16
+
+[finding.jev-missing-answer-test]
+file = "tools/jev/tests/test_pr.py"
+line = 443
+class = "test-gap"
+severity = "medium"
+observed = "test_missing_answers_produce_no_findings deliberately accepts a response containing only an unrelated answer as an empty PR advisory. That assertion institutionalizes the missing-response failure path instead of proving completion of the requested review questions."
+expected = "The PR review check must fail an incomplete or unrelated evaluation before claiming a clean report, while a complete response that finds no issue remains valid."
+proposal = "Replace this acceptance case in tools/jev/tests/test_pr.py with a request-boundary failure assertion for missing/unrelated answers, and add a complete valid no-issue response case. Keep all honesty, commit anchoring and production-certification checks."
+owner_domain = 16
+
+[finding.doc-i18n-zh-cn]
+file = "docs/site/docs/overview/i18n/zh-cn.md"
+line = 14
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 14-20 describe signed Activities on a separate LayerX network, periodic Paxeer checkpoints, guarantor bonds and ordinary actions needing no Paxeer transaction. The later quickstart/build/layout sections retain authorized batch receipts, standalone daemon guidance and old agent/human/interop roots."
+expected = "The published translation must describe one chain id 125 with the kernel embedded in paxd, EVM transaction submission, commit finality and current services paths; it must not direct users to a retired separate network."
+proposal = "Rewrite docs/site/docs/overview/i18n/zh-cn.md from the merged-network source documentation, replacing the separate Activity/checkpoint/guarantor operating model and examples with current node/gateway routes, signed EVM transactions and committed receipts. Synchronize the quickstart, build and repository layout sections."
+owner_domain = 17
+
+[finding.doc-i18n-ru]
+file = "docs/site/docs/overview/i18n/ru.md"
+line = 14
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 14-20 describe signed Activities on a separate LayerX network, periodic Paxeer checkpoints, guarantor bonds and ordinary actions needing no Paxeer transaction. The later quickstart/build/layout sections retain authorized batch receipts, standalone daemon guidance and old agent/human/interop roots."
+expected = "The published translation must describe one chain id 125 with the kernel embedded in paxd, EVM transaction submission, commit finality and current services paths; it must not direct users to a retired separate network."
+proposal = "Rewrite docs/site/docs/overview/i18n/ru.md from the merged-network source documentation, replacing the separate Activity/checkpoint/guarantor operating model and examples with current node/gateway routes, signed EVM transactions and committed receipts. Synchronize the quickstart, build and repository layout sections."
+owner_domain = 17
+
+[finding.doc-i18n-es]
+file = "docs/site/docs/overview/i18n/es.md"
+line = 14
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 14-20 describe signed Activities on a separate LayerX network, periodic Paxeer checkpoints, guarantor bonds and ordinary actions needing no Paxeer transaction. The later quickstart/build/layout sections retain authorized batch receipts, standalone daemon guidance and old agent/human/interop roots."
+expected = "The published translation must describe one chain id 125 with the kernel embedded in paxd, EVM transaction submission, commit finality and current services paths; it must not direct users to a retired separate network."
+proposal = "Rewrite docs/site/docs/overview/i18n/es.md from the merged-network source documentation, replacing the separate Activity/checkpoint/guarantor operating model and examples with current node/gateway routes, signed EVM transactions and committed receipts. Synchronize the quickstart, build and repository layout sections."
+owner_domain = 17
+
+[finding.doc-i18n-pt-br]
+file = "docs/site/docs/overview/i18n/pt-br.md"
+line = 14
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 14-20 describe signed Activities on a separate LayerX network, periodic Paxeer checkpoints, guarantor bonds and ordinary actions needing no Paxeer transaction. The later quickstart/build/layout sections retain authorized batch receipts, standalone daemon guidance and old agent/human/interop roots."
+expected = "The published translation must describe one chain id 125 with the kernel embedded in paxd, EVM transaction submission, commit finality and current services paths; it must not direct users to a retired separate network."
+proposal = "Rewrite docs/site/docs/overview/i18n/pt-br.md from the merged-network source documentation, replacing the separate Activity/checkpoint/guarantor operating model and examples with current node/gateway routes, signed EVM transactions and committed receipts. Synchronize the quickstart, build and repository layout sections."
+owner_domain = 17
+
+[finding.doc-i18n-ja]
+file = "docs/site/docs/overview/i18n/ja.md"
+line = 14
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 14-20 describe signed Activities on a separate LayerX network, periodic Paxeer checkpoints, guarantor bonds and ordinary actions needing no Paxeer transaction. The later quickstart/build/layout sections retain authorized batch receipts, standalone daemon guidance and old agent/human/interop roots."
+expected = "The published translation must describe one chain id 125 with the kernel embedded in paxd, EVM transaction submission, commit finality and current services paths; it must not direct users to a retired separate network."
+proposal = "Rewrite docs/site/docs/overview/i18n/ja.md from the merged-network source documentation, replacing the separate Activity/checkpoint/guarantor operating model and examples with current node/gateway routes, signed EVM transactions and committed receipts. Synchronize the quickstart, build and repository layout sections."
+owner_domain = 17
+
+[finding.doc-i18n-de]
+file = "docs/site/docs/overview/i18n/de.md"
+line = 14
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 14-20 describe signed Activities on a separate LayerX network, periodic Paxeer checkpoints, guarantor bonds and ordinary actions needing no Paxeer transaction. The later quickstart/build/layout sections retain authorized batch receipts, standalone daemon guidance and old agent/human/interop roots."
+expected = "The published translation must describe one chain id 125 with the kernel embedded in paxd, EVM transaction submission, commit finality and current services paths; it must not direct users to a retired separate network."
+proposal = "Rewrite docs/site/docs/overview/i18n/de.md from the merged-network source documentation, replacing the separate Activity/checkpoint/guarantor operating model and examples with current node/gateway routes, signed EVM transactions and committed receipts. Synchronize the quickstart, build and repository layout sections."
+owner_domain = 17
+
+[finding.doc-i18n-fr]
+file = "docs/site/docs/overview/i18n/fr.md"
+line = 14
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 14-20 describe signed Activities on a separate LayerX network, periodic Paxeer checkpoints, guarantor bonds and ordinary actions needing no Paxeer transaction. The later quickstart/build/layout sections retain authorized batch receipts, standalone daemon guidance and old agent/human/interop roots."
+expected = "The published translation must describe one chain id 125 with the kernel embedded in paxd, EVM transaction submission, commit finality and current services paths; it must not direct users to a retired separate network."
+proposal = "Rewrite docs/site/docs/overview/i18n/fr.md from the merged-network source documentation, replacing the separate Activity/checkpoint/guarantor operating model and examples with current node/gateway routes, signed EVM transactions and committed receipts. Synchronize the quickstart, build and repository layout sections."
+owner_domain = 17
+
+[finding.doc-index-7]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 47, 145 and 181 describe a separately running layerxd daemon, make layerxd and checkpoint settlement; the release section says the merge is still only a draft."
+expected = "Brief network facts 1-3 require current documentation to present one paxd network with the embedded kernel and current chain/gateway interfaces, without a live LNI, standalone layerxd or checkpoint settlement service."
+proposal = "In README.md, replace the architecture, build commands and release-state paragraph with one paxd process, embedded native libraries, signed EVM transactions and commit finality, matching the current release artifact inventory."
+owner_domain = 17
+
+[finding.doc-index-8]
+file = "docs/README.md"
+line = 17
+class = "doc-drift"
+severity = "medium"
+observed = "The protocol index advertises Activity envelope and the three rules, and the node-interface entry advertises LNI v1.7 as the current reading path. Those links frame the retired write transport as the active protocol."
+expected = "Brief network facts 1-3 require current documentation to present one paxd network with the embedded kernel and current chain/gateway interfaces, without a live LNI, standalone layerxd or checkpoint settlement service."
+proposal = "In docs/README.md, update the protocol and node-interface index descriptions and destinations to the current EIP-1559/precompile and root node JSON-RPC documentation, keeping historical documents explicitly labeled and outside the current quickstart path."
+owner_domain = 17
+
+[finding.doc-paxeer-network-9]
+file = "docs/paxeer-network.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-9 call Paxeer the settlement/custody layer for a separate LayerX sequencer, say ordinary activity stays on LayerX, and advertise periodic checkpoints and public faucet access."
+expected = "Brief network facts 1-3 require current documentation to present one paxd network with the embedded kernel and current chain/gateway interfaces, without a live LNI, standalone layerxd or checkpoint settlement service."
+proposal = "In docs/paxeer-network.md, rewrite the network overview around one chain id 125 with its embedded kernel and committed receipts, current root RPC hosts and gated developer funding; remove separate custody/checkpoint/sequencer operation instructions."
+owner_domain = 17
+
+[finding.doc-monorepo-10]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Line 3 calls layerxd a live kernel component; lines 66-72 retain split LayerX/chain trust boundaries and checkpoint, guarantor and emergency-exit authority as the current architecture."
+expected = "Brief network facts 1-3 require current documentation to present one paxd network with the embedded kernel and current chain/gateway interfaces, without a live LNI, standalone layerxd or checkpoint settlement service."
+proposal = "In docs/MONOREPO.md, rewrite the live tree and trust/build boundary sections for the embedded kernel in paxd, native chain balances and commit finality; replace retired daemon, settlement and guarantor guidance with current owning paths."
+owner_domain = 17
+
+[finding.doc-index-11]
+file = "docs/site/docs/index.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 11-14 describe ordinary LayerX Activity execution separately from periodic Paxeer checkpoint settlement and say ordinary actions do not need a Paxeer transaction."
+expected = "Brief network facts 1-3 require current documentation to present one paxd network with the embedded kernel and current chain/gateway interfaces, without a live LNI, standalone layerxd or checkpoint settlement service."
+proposal = "In docs/site/docs/index.md, rewrite the hosted landing page to describe one BFT chain, current EVM writes, root public JSON-RPC, hosted px_ reads and commit finality, and link the current merged-network quickstart."
+owner_domain = 17
+
+[finding.doc-german-readme]
+file = "docs/readme/README.de.md"
+line = 36
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 36-40 describe two execution domains including layerxd and checkpoint settlement; lines 80-86 retain moved workspace roots. The architecture section beginning at line 130 and its diagrams show LNI, guarantor submission and relay/archive as running components."
+expected = "The repository translation must present the same merged-network behavior as the published documentation: embedded kernel, one chain and native commit finality, with current workspace and API paths."
+proposal = "Rewrite docs/readme/README.de.md architecture, build/layout and diagrams from the corrected merged-network README; remove the separate daemon, LNI/guarantor and custody-credit edges and use current services/agent, services/human and services/interop roots."
+owner_domain = 17
+
+[doc.001]
+path = "docs/site/docs/overview/i18n/zh-cn.md"
+status = "misleading"
+notes = "Lines 14-20 give the retired two-network Activity/checkpoint model; quickstart and build/layout sections must be rewritten for embedded paxd, current transactions and services roots."
+
+[doc.002]
+path = "docs/site/docs/overview/i18n/ru.md"
+status = "misleading"
+notes = "Lines 14-20 give the retired two-network Activity/checkpoint model; quickstart and build/layout sections must be rewritten for embedded paxd, current transactions and services roots."
+
+[doc.003]
+path = "docs/site/docs/overview/i18n/es.md"
+status = "misleading"
+notes = "Lines 14-20 give the retired two-network Activity/checkpoint model; quickstart and build/layout sections must be rewritten for embedded paxd, current transactions and services roots."
+
+[doc.004]
+path = "docs/site/docs/overview/i18n/pt-br.md"
+status = "misleading"
+notes = "Lines 14-20 give the retired two-network Activity/checkpoint model; quickstart and build/layout sections must be rewritten for embedded paxd, current transactions and services roots."
+
+[doc.005]
+path = "docs/site/docs/overview/i18n/ja.md"
+status = "misleading"
+notes = "Lines 14-20 give the retired two-network Activity/checkpoint model; quickstart and build/layout sections must be rewritten for embedded paxd, current transactions and services roots."
+
+[doc.006]
+path = "docs/site/docs/overview/i18n/de.md"
+status = "misleading"
+notes = "Lines 14-20 give the retired two-network Activity/checkpoint model; quickstart and build/layout sections must be rewritten for embedded paxd, current transactions and services roots."
+
+[doc.007]
+path = "docs/site/docs/overview/i18n/fr.md"
+status = "misleading"
+notes = "Lines 14-20 give the retired two-network Activity/checkpoint model; quickstart and build/layout sections must be rewritten for embedded paxd, current transactions and services roots."
+
+[doc.008]
+path = "README.md"
+status = "misleading"
+notes = "Lines 47, 145 and 181 describe a separately running layerxd daemon, make layerxd and checkpoint settlement; the release section says the merge is still only a draft."
+
+[doc.009]
+path = "docs/README.md"
+status = "stale"
+notes = "The protocol index advertises Activity envelope and the three rules, and the node-interface entry advertises LNI v1.7 as the current reading path. Those links frame the retired write transport as the active protocol."
+
+[doc.010]
+path = "docs/paxeer-network.md"
+status = "misleading"
+notes = "Lines 3-9 call Paxeer the settlement/custody layer for a separate LayerX sequencer, say ordinary activity stays on LayerX, and advertise periodic checkpoints and public faucet access."
+
+[doc.011]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Line 3 calls layerxd a live kernel component; lines 66-72 retain split LayerX/chain trust boundaries and checkpoint, guarantor and emergency-exit authority as the current architecture."
+
+[doc.012]
+path = "docs/site/docs/index.md"
+status = "misleading"
+notes = "Lines 11-14 describe ordinary LayerX Activity execution separately from periodic Paxeer checkpoint settlement and say ordinary actions do not need a Paxeer transaction."
+
+[doc.013]
+path = "docs/readme/README.de.md"
+status = "misleading"
+notes = "Lines 36-40, 80-86 and architecture diagrams from line 130 retain separate layerxd/checkpoint settlement, moved workspace paths, LNI, guarantor and relay/archive operation."
+
+[doc.014]
+path = "spec/layerx-merge/contracts/operations.md"
+status = "accurate"
+notes = "Reviewed ci-workflows, jev-cli, jev-formats and the referenced release-env rows as a frozen source-revision 2a1033aa2 contract inventory. The page explicitly pins its historical declarations and leaves acceptance UNRUN; current ECR, release-daemon, Go checksum and Jev findings are recorded against the live consumers rather than treating the snapshot as operating guidance."
+
+[doc.015]
+path = "spec/layerx-merge/contracts/test-harness.md"
+status = "accurate"
+notes = "Reviewed fixture-format and retirement sections as explicitly frozen source-revision 2a1033aa2 declarations. The fixture table is historical inventory, not proof that an old receipt remains current; the retirement acceptance rows and current sequencer-receipt-v1 contract govern the x402/paid-search consumer findings."

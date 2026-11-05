@@ -162,9 +162,12 @@ defmodule Explorer.Chain.Address.MetadataPreloader do
 
   defp item_to_address_hash_strings(%InternalTransaction{
          to_address_hash: to_address_hash,
+         created_contract_address_hash: created_contract_address_hash,
          from_address_hash: from_address_hash
        }) do
-    [to_string(to_address_hash), to_string(from_address_hash)]
+    [to_address_hash, created_contract_address_hash, from_address_hash]
+    |> Enum.reject(&is_nil/1)
+    |> Enum.map(&to_string/1)
   end
 
   defp item_to_address_hash_strings(%Log{address_hash: address_hash}) do

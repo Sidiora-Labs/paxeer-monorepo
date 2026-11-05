@@ -1,5 +1,5 @@
 [sweep.go-cmd]
-revision = "c734f7cab11407251c7f4753b694b5b6a38ffee4"
+revision = "ace3608260f2ec826292dab08cd058031efe2f46"
 command = "CGO_ENABLED=1 go vet ./TARGET/ && CGO_ENABLED=1 go test -count=1 ./TARGET/"
 targets_total = 0
 targets_passed = 0

@@ -1,4 +1,4 @@
-//! Proves: DidRegistration, RecoveryRegistration, KeyRotation, BudgetCreate, BudgetFund, BudgetDefund and SendDebit -> IntentKind, compile, Payload and encode_send_envelope -> CompiledIntent::verify_disclosure, disclosure::bind, DisclosureCheck::verify_agent and RouteResolver::resolve.
+//! Proves: DidRegistration, RecoveryRegistration, KeyRotation, BudgetCreate, BudgetFund, BudgetDefund and SendDebit -> IntentKind, compile, Payload and ledger_payment_call -> CompiledIntent::verify_disclosure, disclosure::call::bind_call, DisclosureCheck::verify_agent and RouteResolver::resolve.
 //!
 //! The onboarding, agent creation, agent controls and custody session callers
 //! use the same consumer decoder exercised here. The event producer's send
@@ -23,8 +23,8 @@ use std::pin::pin;
 use std::sync::Arc;
 use std::task::{Context, Poll, Wake, Waker};
 
-use layerx_crypto::disclosure::{bind, AmountRole, CounterpartyRole};
-use layerx_crypto::send::{encode_send_envelope, EnvelopeOptions, SendDebit};
+use layerx_crypto::disclosure::{call::bind_call, AmountRole, CounterpartyRole};
+use layerx_crypto::send::{ledger_payment_call, CallOptions, SendDebit};
 use layerx_crypto::signer::{LocalSigner, Signer};
 use layerx_intents::{
     compile, inspect_intent, BudgetCreate, BudgetDefund, BudgetFund, CompileErrorReason,
@@ -95,7 +95,7 @@ fn budget_account() -> AccountId {
 fn activity(module: ModuleId, ordinal: u16) -> ActivityType {
     required(ActivityType::new(module, ordinal))
 }
-fn registry() -> ModuleRegistry {
+pub(crate) fn registry() -> ModuleRegistry {
     required(ModuleRegistry::new(&[
         required(ModuleRegistration::new(
             ModuleId::Governance,
@@ -135,7 +135,11 @@ fn budget_create(limit: u128) -> Result<BudgetCreate, IntentError> {
     )
 }
 
-fn signed_send() -> (LxpSend, SendRoute, Vec<u8>) {
+pub(crate) fn signed_send() -> (LxpSend, SendRoute, Vec<u8>) {
+    signed_send_for_network(125)
+}
+
+pub(crate) fn signed_send_for_network(network_id: u32) -> (LxpSend, SendRoute, Vec<u8>) {
     let signer = LocalSigner::new([0x42; 32]);
     let debit = SendDebit {
         from: required(hash::account_id(&owner())),
@@ -148,7 +152,7 @@ fn signed_send() -> (LxpSend, SendRoute, Vec<u8>) {
         context_hash: [0x55; 32],
         conditions: Vec::new(),
         authorization_kind: 1,
-        network_id: 77,
+        network_id,
         protocol_version: layerx_wire::limits::PROTOCOL_VERSION,
     };
     let canonical = required(debit.authorization_message());
@@ -446,33 +450,27 @@ fn consumer_keeps_the_original_producer_commitment_when_received_bytes_change() 
 }
 
 #[test]
-fn signed_send_crosses_the_real_envelope_and_agent_disclosure_consumer_twice() {
-    let (send, route, signed) = signed_send();
+fn signed_send_crosses_the_real_ledger_call_and_agent_disclosure_consumer_twice() {
+    let (send, _, signed) = signed_send();
     let intent = Intent::from(IntentKind::LxpSend(send));
     let compiled = required(compile(&intent, &registry()));
     assert_eq!(compiled.payload().as_bytes(), signed);
-    let options = EnvelopeOptions {
-        actor: "did:layerx:proof-human",
-        public_key: route.authorization.public_key().bytes(),
-        protocol_version: route.protocol_version.value(),
-        network_id: route.network_id.value(),
-        identity_sequence: 11,
-        idempotency_key: route.idempotency_key.bytes(),
-        fee_limit: 7,
-        not_before: 995,
-        not_after: 1_010,
+    let options = CallOptions {
+        from: [0x24; 20],
+        chain_id: 125,
+        nonce: 11,
+        max_priority_fee_per_gas: 2,
+        max_fee_per_gas: 7,
+        gas_limit: 100_000,
     };
-    let produced = required(encode_send_envelope(
-        compiled.payload().as_bytes(),
-        &options,
-    ));
+    let produced = required(ledger_payment_call(compiled.payload().as_bytes(), &options));
     for _ in 0..2 {
-        let observed = required(bind(&produced.canonical, &produced.registry));
+        let observed = required(bind_call(&produced.call, options.from));
         required(DisclosureCheck::verify_agent(&intent, &observed));
         assert_eq!(observed.activity_type, compiled.activity_type());
-        assert_eq!(observed.envelope_sequence(), 11);
+        assert_eq!(produced.call.nonce, 11);
         assert_eq!(required(observed.payload_sequence()), Some(7));
-        assert_eq!(observed.actor, b"did:layerx:proof-human");
+        assert_eq!(observed.actor, produced.disclosure.actor);
         assert_eq!(observed.counterparties.len(), 2);
         assert_eq!(observed.counterparties[0].role, CounterpartyRole::Payer);
         assert_eq!(
@@ -488,21 +486,20 @@ fn signed_send_crosses_the_real_envelope_and_agent_disclosure_consumer_twice() {
         assert_eq!(observed.amounts[0].role, AmountRole::Transfer);
         assert_eq!(observed.amounts[0].value, 25);
         assert_eq!(observed.asset, ASSET);
-        assert_eq!(observed.fee_limit, 7);
-        assert_eq!(required(observed.reencode()), produced.canonical);
-        for end in [0, 1, produced.canonical.len() - 1] {
-            assert!(bind(&produced.canonical[..end], &produced.registry).is_err());
+        assert_eq!(observed.fee_limit, produced.disclosure.fee_limit);
+        assert_eq!(observed, produced.disclosure);
+        for end in [0, 1, produced.call.data.len() - 1] {
+            let mut truncated = produced.call.clone();
+            truncated.data.truncate(end);
+            assert!(bind_call(&truncated, options.from).is_err());
         }
-        let mut trailing = produced.canonical.clone();
-        trailing.push(0);
-        assert!(bind(&trailing, &produced.registry).is_err());
+        let mut trailing = produced.call.clone();
+        trailing.data.push(0);
+        assert!(bind_call(&trailing, options.from).is_err());
         let mut corrupt = compiled.payload().as_bytes().to_vec();
         corrupt[0] ^= 1;
-        assert!(encode_send_envelope(&corrupt, &options).is_err());
-        assert_eq!(
-            required(bind(&produced.canonical, &produced.registry)),
-            observed
-        );
+        assert!(ledger_payment_call(&corrupt, &options).is_err());
+        assert_eq!(required(bind_call(&produced.call, options.from)), observed);
     }
 }
 

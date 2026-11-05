@@ -35,6 +35,7 @@ pub struct ReceiptView {
     pub gas_used: u64,
     pub cumulative_gas_used: u64,
     pub effective_gas_price: u64,
+    pub payment_denom: String,
     pub fee_denom: String,
     pub fee_amount: u128,
     pub sponsor: [u8; 20],
@@ -80,7 +81,7 @@ impl fmt::Display for ReceiptError {
 
 impl std::error::Error for ReceiptError {}
 
-const VIEW_FIELDS: [&str; 19] = [
+const VIEW_FIELDS: [&str; 21] = [
     "seq",
     "height",
     "index",
@@ -91,6 +92,7 @@ const VIEW_FIELDS: [&str; 19] = [
     "gasUsed",
     "cumulativeGasUsed",
     "effectiveGasPrice",
+    "paymentDenom",
     "feeDenom",
     "feeAmount",
     "sponsor",
@@ -99,6 +101,7 @@ const VIEW_FIELDS: [&str; 19] = [
     "contractAddress",
     "vmError",
     "keyId",
+    "signingKey",
     "receipt",
 ];
 
@@ -180,6 +183,7 @@ impl ReceiptView {
             gas_used: quantity(value, "gasUsed")?,
             cumulative_gas_used: quantity(value, "cumulativeGasUsed")?,
             effective_gas_price: quantity(value, "effectiveGasPrice")?,
+            payment_denom: text(value, "paymentDenom")?.to_owned(),
             fee_denom: text(value, "feeDenom")?.to_owned(),
             fee_amount: hex::parse_quantity_u128(quantity_text(value, "feeAmount")?)
                 .map_err(|_| ReceiptError::Malformed)?,
@@ -263,8 +267,8 @@ impl SequencerReceipt {
             (receipt.timestamp() == view.timestamp, "timestamp"),
             (receipt.fee_charged() == view.fee_amount, "feeAmount"),
             (
-                receipt.asset() == <[u8; 32]>::from(Sha256::digest(view.fee_denom.as_bytes())),
-                "feeDenom",
+                receipt.asset() == <[u8; 32]>::from(Sha256::digest(view.payment_denom.as_bytes())),
+                "paymentDenom",
             ),
             (
                 receipt.from()[..12] == [0; 12] && receipt.from()[12..] == view.from,

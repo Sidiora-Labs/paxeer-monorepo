@@ -1,0 +1,8 @@
+[repair.go-modules.86]
+target = "modules/mint/types"
+command = "make -s paxd-native-libs && CGO_ENABLED=1 go vet ./modules/mint/types/ && CGO_ENABLED=1 go test -count=1 -timeout 35m ./modules/mint/types/"
+revision = "5903ffbb1db92c2e133ddd0fa7f87c058af7b5ed"
+result = "repaired"
+change = "modules/mint/types/minter_test.go uses a real SDK context instead of full-node initialization in TestRecordSuccessfulMint and asserts mint metadata and the emitted event as well as the remaining amount."
+producer_input_tests = []
+wall_time_measurement = "The uncached go test result reports the measured package wall time."

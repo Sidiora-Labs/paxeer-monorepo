@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use layerx_human_schema_check::{parse_json, Json};
+use layerx_human_schema_check::{human_api_schema, parse_json, Json};
 
 fn real_schema_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../schema/human-api")
@@ -21,6 +21,76 @@ fn field<'a>(value: &'a Json, name: &str) -> &'a Json {
     value
         .field(name)
         .unwrap_or_else(|| panic!("missing {name} in {value:?}"))
+}
+
+fn canonical(value: Json) -> Json {
+    match value {
+        Json::Object(fields) => {
+            let mut fields: Vec<_> = fields
+                .into_iter()
+                .map(|(key, value)| (key, canonical(value)))
+                .collect();
+            fields.sort_by(|left, right| left.0.cmp(&right.0));
+            Json::Object(fields)
+        }
+        Json::Array(values) => Json::Array(values.into_iter().map(canonical).collect()),
+        other => other,
+    }
+}
+
+pub(crate) fn assert_retired_binding_failure(operation: &str) {
+    let report = human_api_schema(&real_schema_root())
+        .unwrap_or_else(|violations| panic!("real schema conformance: {violations:#?}"));
+    assert!(
+        report
+            .retired_operations
+            .iter()
+            .any(|name| name == operation),
+        "{operation} must be declared retired"
+    );
+    let vector = golden(&format!("{operation}.failure.json"));
+    assert_eq!(
+        field(&vector, "status"),
+        &Json::Number("410".to_owned()),
+        "{operation}"
+    );
+    let body = field(&vector, "body");
+    assert_eq!(field(body, "ok"), &Json::Bool(false), "{operation}");
+    assert!(
+        body.field("result").is_none(),
+        "{operation} returned a result"
+    );
+    let error = field(body, "error");
+    for (name, expected) in [
+        ("code", "operation-retired"),
+        ("copy_key", "error.operation.retired"),
+        ("retry", "final"),
+    ] {
+        assert_eq!(
+            field(error, name),
+            &Json::String(expected.to_owned()),
+            "{operation} error.{name}"
+        );
+    }
+    assert_eq!(error.field("field"), None, "{operation}");
+    assert_eq!(error.field("retry_after_ms"), None, "{operation}");
+
+    let expected_error = parse_json(
+        r#"{"code":"operation-retired","copy_key":"error.operation.retired","retry":"final"}"#,
+    )
+    .unwrap_or_else(|error| panic!("operation-retired contract: {error}"));
+    let expected = Json::Object(vec![
+        ("status".to_owned(), Json::Number("410".to_owned())),
+        (
+            "body".to_owned(),
+            Json::Object(vec![
+                ("ok".to_owned(), Json::Bool(false)),
+                ("error".to_owned(), expected_error),
+                ("trace".to_owned(), field(body, "trace").clone()),
+            ]),
+        ),
+    ]);
+    assert_eq!(canonical(vector), canonical(expected), "{operation}");
 }
 
 fn declared_version(key: &str) -> Json {
@@ -68,23 +138,7 @@ fn retired_binding_failure_vectors_answer_operation_retired() {
         "binding.rebind.action",
         "binding.rebind",
     ] {
-        let vector = golden(&format!("{operation}.failure.json"));
-        assert_eq!(
-            field(&vector, "status"),
-            &Json::Number("410".to_owned()),
-            "{operation}"
-        );
-        let body = field(&vector, "body");
-        assert_eq!(field(body, "ok"), &Json::Bool(false), "{operation}");
-        assert!(
-            body.field("result").is_none(),
-            "{operation} returned a result"
-        );
-        assert_eq!(
-            field(field(body, "error"), "code"),
-            &Json::String("operation-retired".to_owned()),
-            "{operation}"
-        );
+        assert_retired_binding_failure(operation);
     }
 }
 

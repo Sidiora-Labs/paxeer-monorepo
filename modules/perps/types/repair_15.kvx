@@ -1,0 +1,27 @@
+[repair.22.31.15]
+audit = "22.30.14"
+base_revision = "7a46d90eecc4435aea1d78bdd9590421997ccc7e"
+qualification = "The runner's hf-build/hf-done ledger and final evidence line identify the exact qualified candidate revision, command, exit and private log."
+baseline = "Not run: step 8 conflicts with the explicit implementation-first order and prohibition on running verify_cmd by hand; no baseline failures are claimed."
+gotcha = "SDK Error.Wrapf writes context before the sentinel; existing genesis context assertions must retain all details in the SDK's order."
+
+[finding.genesis-ownership-and-counts]
+tests = ["TestRepair_15_GenesisOwnershipAndCounts", "TestRepair_15_GenesisRecoveryMarginWithdrawal"]
+proof = "Actual matched partial fill and pending stop produce export JSON; the real keeper importer refuses omitted ownership, closed-order ownership, count and OI corruption without writes. Disk close/reopen and fresh-store import preserve margin and withdrawal limits."
+
+[finding.abci-type-genesis]
+tests = ["TestRepair_15_ABCITypeGenesis", "TestRepair_15_GenesisOwnershipAndCounts"]
+proof = "Actual invalidGenesis, parameter and market validation branches pass through ResponseDeliverTx, protobuf and ABCIError with perps/39, context, sentinel and LXP identity."
+
+[finding.abci-params]
+tests = ["TestRepair_15_ABCIParams"]
+proof = "Actual Params.Validate and Market.Validate pass through ResponseDeliverTx, protobuf and ABCIError with perps/2, context, sentinel and LXP identity."
+
+[finding.abci-math]
+tests = ["TestRepair_15_ABCIMath"]
+proof = "Both USD converters and all four MulDiv functions exercise operand/result overflow, signed bounds and ceiling overflow through ResponseDeliverTx, protobuf and ABCIError with perps/38, context, sentinel and LXP identity."
+
+[wiring]
+selectors = "precompiles/perps/errors_test.go; owner domain 3 (markets): exercise private revertOf on actual genesis/params/math producer errors and retain their PerpsInvalidGenesis/PerpsInvalidParams/PerpsOverflow selectors; this private consumer cannot be called from the scoped external types tests."
+keeper = "modules/perps/keeper/keeper.go and modules/perps/keeper/genesis.go; owner domain 3 (markets): sibling task 22.31.14 owns SDK wrapping at keeper boundaries, including GetMarket; its recorded undefined/1 behavior is not repaired here."
+module = "modules/perps/module.go; owner domain 3 (markets): preserve registered genesis error identity at the module JSON boundary under its separately owned audit repair."

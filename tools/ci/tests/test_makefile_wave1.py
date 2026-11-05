@@ -1,14 +1,10 @@
 import os
 import pathlib
-import re
 import subprocess
 import unittest
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
-LIBRARY_LINE = re.compile(
-    r"^\S+ .* -c src/\S+\.c -o build(?:-repro-[ab]|/(?:crypto-)?(?:a|t|ub)san)?/(?:obj|test-obj)/src/\S+\.o$|^\S+ rcsD build(?:-repro-[ab]|/(?:crypto-)?(?:a|t|ub)san)?/liblayerx(?:-testing)?\.a |^rm -f build(?:-repro-[ab]|/(?:crypto-)?(?:a|t|ub)san)?/liblayerx(?:-testing)?\.a$"
-)
 
 
 class MakefileWaveOneTest(unittest.TestCase):
@@ -63,17 +59,10 @@ class MakefileWaveOneTest(unittest.TestCase):
             "lx_web_root",
             "replay-golden",
             "lxp_checkpoint_cert",
-        ):
-            with self.subTest(retired=retired):
-                self.assertNotIn(retired, result.stdout)
-        non_library_stdout = "\n".join(
-            line for line in result.stdout.splitlines() if not LIBRARY_LINE.match(line)
-        )
-        for retired in (
             "lxp_idempotency",
         ):
             with self.subTest(retired=retired):
-                self.assertNotIn(retired, non_library_stdout)
+                self.assertNotIn(retired, result.stdout)
 
     def test_library_exclusions_exact(self):
         result = subprocess.run(

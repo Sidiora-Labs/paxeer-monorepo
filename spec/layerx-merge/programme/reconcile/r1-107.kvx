@@ -1,0 +1,27 @@
+[reconcile.r1-107]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 3
+
+[row.r1-107.1]
+interface = "interface.1.key-lxphost-blob-j22"
+verdict = "served"
+path = "modules/lxphost/host.go"
+line = 892
+symbol = "blobPrefix"
+evidence = "const blobPrefix byte = 0x05 is declared at host.go:892, matching the registered storage-key signature. The occurrence at line 1470 assigns this prefix in blobKey and is a use, not the declaration."
+
+[row.r1-107.2]
+interface = "interface.1.go-lxphost-account-record-j22"
+verdict = "served"
+path = "modules/lxphost/read.go"
+line = 317
+symbol = "AccountRecord"
+evidence = "type AccountRecord struct is declared at read.go:317, matching the registered type signature. ReadAccount uses it as a return type at line 601, a variable type at line 602 and composite literals at lines 612 and 629."
+
+[row.r1-107.3]
+interface = "interface.1.go-lxphost-asset-record-j22"
+verdict = "served"
+path = "modules/lxphost/read.go"
+line = 302
+symbol = "AssetRecord"
+evidence = "type AssetRecord struct is declared at read.go:302, matching the registered type signature. ReadAsset uses it as a return type at line 525, a variable type at line 526 and composite literals at lines 536 and 553."

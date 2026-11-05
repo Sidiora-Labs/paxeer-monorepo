@@ -855,14 +855,6 @@ fn loader_environment(
         ),
         ("LAYERX_HUMAN_IDENTITY_PEER_UID", "4020".to_owned()),
         ("LAYERX_HUMAN_IDENTITY_PEER_GID", "4020".to_owned()),
-        ("LAYERX_HUMAN_MOVEMENT_SOCKET", path("movement.sock")),
-        ("LAYERX_HUMAN_MOVEMENT_PEER_UID", "4020".to_owned()),
-        ("LAYERX_HUMAN_MOVEMENT_PEER_GID", "4020".to_owned()),
-        (
-            "LAYERX_HUMAN_MOVEMENT_MAX_FRAME_BYTES",
-            "1048576".to_owned(),
-        ),
-        ("LAYERX_HUMAN_MOVEMENT_DEADLINE_SECONDS", "5".to_owned()),
         ("LAYERX_HUMAN_ATTESTOR_NODES", nodes),
         ("LAYERX_HUMAN_ATTESTOR_SIGNERS", cluster::SIGNERS.join(",")),
         (
@@ -922,14 +914,11 @@ fn loader_environment(
         ),
         ("LAYERX_HUMAN_AGENT_RECOVERY_ROOT", secret(0x63)),
         ("LAYERX_HUMAN_AGENT_RECOVERY_THRESHOLD", "1".to_owned()),
-        ("LAYERX_HUMAN_EXIT_REQUIRED_CONFIRMATIONS", "12".to_owned()),
         ("LAYERX_HUMAN_ACTIVITY_FRESHNESS_SECONDS", "300".to_owned()),
         (
             "LAYERX_HUMAN_ACTIVITY_EXPORT_MAXIMUM_BYTES",
             "1048576".to_owned(),
         ),
-        ("LAYERX_HUMAN_EXIT_POLL_CADENCE_SECONDS", "5".to_owned()),
-        ("LAYERX_HUMAN_EXIT_DELAYED_AFTER_POLLS", "12".to_owned()),
         (
             "LAYERX_HUMAN_CONTINUATION_UNKNOWN_DEADLINE_SECONDS",
             "300".to_owned(),

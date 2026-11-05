@@ -1,0 +1,16 @@
+[repair.22.31.85]
+audit = "22.30.46"
+base_revision = "9b3c0edb83db2c918d37d3910bad522f5b067ca3"
+mode = "BUILD"
+scope = "consensus/light/proxy"
+build = "hf-build: go build ./consensus/light/proxy/..."
+verify = "hf-done: cg spec done 22.31.85 -f layerx-merge --root /work/paxeer-monorepo; go test -count=1 -run '^TestRepair_85_' ./consensus/light/proxy/"
+verified_revision_record = "/out/run/gates.jsonl: the final verify row records the exact candidate revision, command, exit code and private evidence log; qualification requires matching build and verify revisions with exit 0."
+baseline = "Not executed: the explicit task order forbids tests before the complete implementation and permits verification only via hf-done after hf-build. The contradictory do_5 baseline request was not used to bypass that order; no baseline failures are claimed."
+wiring_requests = "None; the delegation and real application/provider/proxy/consumer proof are entirely within scope."
+qualification_repair = "The first verify failed to compile the new test because this tree's RequestFinalizeBlock has no Height field. Remove the unsupported field; kvstore advances its own height, and the two exact committed-height assertions remain unchanged. Evidence: revision 9bcc28b49e852d2d0b0121f03caf5b4fb460c535, cg spec done 22.31.85 -f layerx-merge --root /work/paxeer-monorepo, exit 1, /out/logs/verify-1.log."
+
+[finding.11]
+repair = "Delegate proxyService.ABCIInfo to p.Client.ABCIInfo so the registered endpoint forwards the real application result or returns a typed transport refusal."
+tests = ["TestRepair_85_ABCIInfoRoundTrip", "TestRepair_85_UnavailableProviderRefusal"]
+proof = "The real kvstore application finalizes and commits transactions; the core Environment handler serves its Info result over JSON-RPC HTTP into the real HTTP and light RPC clients. Proxy.listen registers and starts the proxy endpoint; a second real HTTP client asserts every ResponseInfo field at two committed heights. Closing the provider proves the upstream transport fails and the proxy consumer receives RPCError CodeInternalError with no result. No light verifier is needed for the unproved ABCIInfo forwarding method."

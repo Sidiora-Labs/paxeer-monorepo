@@ -9,68 +9,90 @@ parent:
 
 ## Overview
 
-`x/capability` is an implementation of a Cosmos SDK module, per upstream Cosmos SDK ADR 003,
-that allows for provisioning, tracking, and authenticating multi-owner capabilities
-at runtime.
+`x/capability` implements multi-owner capabilities for modules in the merged
+Paxeer node, following the Cosmos SDK ADR 003 model. A scoped keeper lets a module
+create capabilities, claim references shared with it, authenticate a reference
+against a local name, retrieve owned capabilities and release ownership.
 
-The keeper maintains two states: persistent and ephemeral in-memory. The persistent
-store maintains a globally unique auto-incrementing index and a mapping from
-capability index to a set of capability owners that are defined as a module and
-capability name tuple. The in-memory ephemeral state keeps track of the actual
-capabilities, represented as addresses in local memory, with both forward and reverse indexes.
-The forward index maps module name and capability tuples to the capability name. The
-reverse index maps between the module and capability name and the capability itself.
+Persistent state holds a monotonically allocated index and the owner tuples
+`(module, name)` for each capability. Memory state holds forward mappings from
+module and capability reference to name, reverse mappings from module and name
+to index, and a shared map from index to a canonical `*Capability`. References
+are local to a running keeper; persisted owner identities allow their mappings
+to be reconstructed after restart. See [State](02_state.md) for the exact keys,
+owner ordering and genesis validation boundary.
 
-The keeper allows the creation of "scoped" sub-keepers which are tied to a particular
-module by name. Scoped keepers must be created at application initialization and
-passed to modules, which can then use them to claim capabilities they receive and
-retrieve capabilities which they own by name, in addition to creating new capabilities
-& authenticating capabilities passed by other modules. A scoped keeper cannot escape its scope,
-so a module cannot interfere with or inspect capabilities owned by other modules.
-
-The keeper provides no other core functionality that can be found in other modules
-like queriers, REST and CLI handlers, and genesis state.
+The application creates a scoped keeper for each participating module and
+passes it to that module. Lookup and authentication use the scoped module name.
+The global keeper's ability to create scopes stays with the application.
+The module provides no CLI transaction or query commands and no query service,
+but it does implement genesis defaults, validation, import and export through
+[types/genesis.go](../types/genesis.go), [genesis.go](../genesis.go) and
+[module.go](../module.go).
 
 ## Initialization
 
-During application initialization, the keeper must be instantiated with a persistent
-store key and an in-memory store key.
+Create the keeper with `keeper.NewKeeper`, a codec, a persistent store key, and
+a memory store key. The actual setup in [node/app.go](../../../../node/app.go)
+uses the `capabilitykeeper` package alias:
 
 ```go
-type App struct {
-  // ...
+import (
+  capabilitykeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/capability/keeper"
+  capabilitytypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/capability/types"
+)
 
-  capabilityKeeper *capability.Keeper
-}
-
-func NewApp(...) *App {
-  // ...
-
-  app.capabilityKeeper = capability.NewKeeper(codec, persistentStoreKey, memStoreKey)
-}
+// With appCodec, keys and memKeys supplied by application initialization:
+app.CapabilityKeeper = capabilitykeeper.NewKeeper(
+  appCodec,
+  keys[capabilitytypes.StoreKey],
+  memKeys[capabilitytypes.MemStoreKey],
+)
 ```
 
-After the keeper is created, it can be used to create scoped sub-keepers which
-are passed to other modules that can create, authenticate, and claim capabilities.
-After all the necessary scoped keepers are created, the application may call
-`Seal()` on the main capability keeper to prevent further scoped keepers from
-being created:
+The node creates scopes for IBC, IBC transfer and Wasm with `ScopeToModule` and
+passes them to their module keepers. Scoping panics on a blank module name, a
+duplicate module name or an already sealed keeper. Applications can call
+`Seal()` after creating all scopes to prevent further scope creation; the
+current node setup does not call it. Calling `Seal()` twice also panics.
 
-```go
-func NewApp(...) *App {
-  // ...
+Construction cannot populate the memory store because it has no SDK context.
+The application must mount an SDK memory store for `mem_capability` and initialize
+it before capability operations:
 
-  app.capabilityKeeper.Seal()
+1. At genesis, `InitGenesis` installs the next index and persisted owner sets,
+   then calls `InitMemStore`. Default genesis has index `1` and no owners.
+2. On restart, `BeginBlocker` calls `InitMemStore` to reconstruct references and
+   mappings from persistent owners loaded from the committed store. Recreate the
+   keeper and module scopes, then initialize memory before using those scopes;
+   do not reimport genesis into an already initialized persistent store. The node
+   invokes capability initialization before downstream IBC begin-block processing in
+   [legacyabci/begin_block.go](../../../../node/legacyabci/begin_block.go).
+3. Later calls return without reconstructing state once the memory store's
+   initialization flag is present.
 
-  return app
-}
-```
+`ExportGenesis` emits `GenesisState{Index, Owners}`: the next allocation index and
+nonempty `GenesisOwners{Index, IndexOwners}` records. Each owner is a persisted
+`Owner{Module, Name}` identity. Export preserves capability indices and gaps left
+by released capabilities; it exports neither memory mappings nor process-local
+references. Importing the exported state through `AppModule.InitGenesis` decodes
+the JSON with the application codec and delegates to `InitGenesis` above.
 
-The in-memory state is populated by `InitMemStore`, which the module calls
-from `InitGenesis` and from its `BeginBlocker`, so persistent capabilities are
-loaded into memory before the keeper is used.
+`AppModuleBasic.ValidateGenesis` decodes the JSON and calls `GenesisState.Validate`.
+Validation requires a nonzero next index, nonempty owner sets, unique capability
+indices in `[1, Index)`, nonblank module/name identities, unique module/name
+bindings across all indices, and owners strictly ordered by `Owner.Key()`.
+`InitGenesis` itself does not call validation: validate external genesis before
+importing it, since `SetOwners` stores the supplied lists directly.
+
+After import or restart, modules must use `ScopedKeeper.GetCapability` to obtain
+the reconstructed canonical `*Capability`. Owners of the same index receive the
+same pointer in that keeper. An old pointer or a newly allocated `Capability`
+with the same index does not carry the reconstructed forward mapping and cannot
+authenticate in place of that reference. Durable identity is the index and owner
+tuple; pointer addresses belong only to the running keeper.
 
 ## Contents
 
 1. **[Concepts](01_concepts.md)**
-1. **[State](02_state.md)**
+2. **[State](02_state.md)**

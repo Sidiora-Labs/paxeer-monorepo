@@ -3,11 +3,13 @@ package layerxprograms_test
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"math/big"
 	"sort"
 	"strings"
 	"testing"
 
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
 	lp "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxprograms"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -87,6 +89,12 @@ func FuzzProgramsDecodeArgs(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, methodIndex uint64, arguments []byte) {
 		method := lp.ProgramsABI.Methods[names[methodIndex%uint64(len(names))]]
+		decoded, decodeErr := method.Inputs.Unpack(arguments)
+		t.Logf("%s ABI decoded arguments: %#v; seed arguments: %#v; decode error: %v", method.Name, decoded, programsFuzzArguments(t, method), decodeErr)
+		if decodeErr == nil {
+			handlerArgs, handlerErr := lp.DecodeArgs(&method, decoded)
+			t.Logf("%s handler decoded arguments: %#v; handler decode error: %v", method.Name, handlerArgs, handlerErr)
+		}
 		input := append(bytes.Clone(method.ID), arguments...)
 		h := newHarness(t)
 		before := h.dump(h.stateDB.Ctx())
@@ -115,12 +123,29 @@ func FuzzProgramsDecodeArgs(f *testing.F) {
 		code, _, found := strings.Cut(reason, ":")
 		require.True(t, found, "%s returned an unnamed error: %q", method.Name, reason)
 		require.True(t, strings.HasPrefix(code, "LXP_"), "%s returned a non-LXP error: %q", method.Name, reason)
-		require.True(t, codeNames[code], "%s returned a code absent from LXPCodeName: %q", method.Name, reason)
 		underlying := h.stateDB.GetPrecompileError()
+		t.Logf("%s refused decoded arguments %#v: reason=%q underlying=%v", method.Name, decoded, reason, underlying)
 		require.Error(t, underlying, method.Name)
+		if !lp.GasTable[method.Name].Write && method.Name != "simulateCall" && errors.Is(underlying, lxphost.Code(-7)) {
+			expectedCode := "LXP_NOT_FOUND"
+			if method.Name == "getRetirementControl" {
+				expectedCode = "LXP_UNKNOWN_FIELD"
+			}
+			require.Equal(t, expectedCode, code, method.Name)
+		} else {
+			require.True(t, codeNames[code], "%s returned a code absent from LXPCodeName: %q", method.Name, reason)
+		}
 		require.Equal(t, pcommon.LXPReason(underlying), output, method.Name)
-		if _, decodeErr := method.Inputs.Unpack(arguments); decodeErr == nil {
-			require.ErrorIs(t, underlying, lp.ErrReadOnlyWrite, method.Name)
+		if decodeErr == nil {
+			if lp.GasTable[method.Name].Write {
+				require.ErrorIs(t, underlying, lp.ErrReadOnlyWrite, method.Name)
+			} else {
+				reference, _ := h.stateDB.Ctx().CacheContext()
+				_, expectedErr := h.executor.Execute(reference, &method, h.caller, h.precompile.Address(), decoded, big.NewInt(0), false, h.evm, nil)
+				require.Error(t, expectedErr, method.Name)
+				require.EqualError(t, underlying, expectedErr.Error(), method.Name)
+				require.Equal(t, pcommon.LXPReason(expectedErr), output, method.Name)
+			}
 		}
 	})
 }

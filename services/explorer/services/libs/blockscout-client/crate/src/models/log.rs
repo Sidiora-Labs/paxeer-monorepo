@@ -20,6 +20,7 @@ use serde_aux::prelude::*;
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize, derive_new::new)]
 pub struct Log {
     #[serde(default)]
+    #[serde(rename = "address")]
     pub address_hash: Option<models::AddressParam>,
 
     #[serde(default)]
@@ -29,9 +30,9 @@ pub struct Log {
     pub block_number: Option<Decimal>,
 
     pub data: String,
-    pub decoded: models::DecodedInputLog,
+    pub decoded: Option<models::DecodedInputLog>,
     pub index: Decimal,
-    pub smart_contract: models::AddressParam,
+    pub smart_contract: Option<models::AddressParam>,
     pub topics: Vec<Option<String>>,
     pub transaction_hash: String,
 }

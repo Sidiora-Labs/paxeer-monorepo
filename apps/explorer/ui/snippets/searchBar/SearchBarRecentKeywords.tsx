@@ -45,27 +45,27 @@ const SearchBarRecentKeywords = ({ onClick, onClear }: Props) => {
   return (
     <>
       { !isMobile && (
-        <Box pb={ 4 } mb={ 5 } borderColor="border.divider" borderBottomWidth="1px" _empty={{ display: 'none' }}>
+        <Box pb={ 4 } mb={ 5 } borderColor="hairline" borderBottomWidth="1px" _empty={{ display: 'none' }}>
           <TextAd textStyle={{ lg: 'sm' }}/>
         </Box>
       ) }
       <Flex mb={ 3 } justifyContent="space-between" fontSize="sm">
-        <Text fontWeight={ 600 } color="text.secondary">Recent</Text>
+        <Text textStyle="label">Recent</Text>
         <Link onClick={ clearKeywords } variant="secondary">Clear all</Link>
       </Flex>
       <Flex flexDirection="column" overflowY="auto">
         { keywords.map(kw => (
           <Flex
             key={ kw }
-            py={{ base: '9px', lg: 3 }}
+            py={ 2 }
             px={{ base: 0, lg: 1 }}
-            borderColor="border.divider"
+            borderColor="hairline"
             borderBottomWidth="1px"
             _last={{
               borderBottomWidth: '0',
             }}
             _hover={{
-              bgColor: { _light: 'blue.50', _dark: 'gray.800' },
+              bgColor: 'accent.soft',
             }}
             fontSize="sm"
             _first={{
@@ -76,12 +76,13 @@ const SearchBarRecentKeywords = ({ onClick, onClear }: Props) => {
             justifyContent="space-between"
             cursor="pointer"
             columnGap={ 2 }
-            fontWeight={{ base: 400, lg: 700 }}
+            fontWeight={ 400 }
+            color="text.primary"
             minW={ 0 }
             flexGrow={ 1 }
           >
             { kw.startsWith('0x') ? (
-              <Box overflow="hidden" whiteSpace="nowrap">
+              <Box overflow="hidden" whiteSpace="nowrap" fontFamily="mono" fontVariantNumeric="tabular-nums">
                 <HashStringShortenDynamic hash={ kw } noTooltip/>
               </Box>
             ) :

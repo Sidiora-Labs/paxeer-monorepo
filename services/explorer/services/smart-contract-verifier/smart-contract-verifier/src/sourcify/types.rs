@@ -39,67 +39,20 @@ impl TryFrom<sourcify::GetSourceFilesResponse> for Success {
     type Error = Error;
 
     fn try_from(value: sourcify::GetSourceFilesResponse) -> Result<Self, Self::Error> {
-        let metadata: foundry_compilers::artifacts::Metadata =
-            serde_json::from_value(value.metadata.clone()).map_err(|err| {
+        super::metadata::Metadata::from_value(value.metadata)
+            .and_then(|metadata| {
+                metadata.into_success(
+                    value.sources,
+                    value.constructor_arguments,
+                    MatchType::from(value.status),
+                )
+            })
+            .map_err(|err| {
                 tracing::error!(target: "sourcify", "returned metadata cannot be parsed: {err}");
                 Error::Internal(anyhow::anyhow!(
                     "error occurred when parsing sourcify response"
                 ))
-            })?;
-
-        let (compiler_settings, abi) = {
-            #[derive(Deserialize)]
-            #[serde(rename_all = "camelCase")]
-            struct CustomOutput {
-                abi: serde_json::Value,
-            }
-
-            #[derive(Deserialize)]
-            #[serde(rename_all = "camelCase")]
-            struct CustomMetadata {
-                settings: serde_json::Value,
-                output: CustomOutput,
-            }
-
-            let metadata: CustomMetadata = serde_json::from_value(value.metadata.clone())
-                .expect("metadata has already been parsed successfully");
-
-            let abi = metadata.output.abi;
-
-            let mut compiler_settings = metadata
-                .settings
-                .as_object()
-                .expect("metadata has been parsed successfully and 'settings' must be an object")
-                .clone();
-            compiler_settings.remove("compilationTarget");
-
-            (compiler_settings, abi)
-        };
-
-        let evm_version = compiler_settings
-            .get("evmVersion")
-            .and_then(|value| value.as_str().map(|value| value.to_string()));
-
-        let (file_name, contract_name) = metadata.settings.compilation_target.into_iter()
-            .next().ok_or_else(|| {
-            tracing::error!(target: "sourcify", "returned metadata does not contain any compilation target");
-            Error::Internal(anyhow::anyhow!("error occurred when parsing sourcify response"))
-        })?;
-
-        Ok(Success {
-            file_name,
-            contract_name,
-            compiler_version: metadata.compiler.version,
-            evm_version,
-            optimization: metadata.settings.optimizer.enabled,
-            optimization_runs: metadata.settings.optimizer.runs,
-            constructor_arguments: value.constructor_arguments,
-            contract_libraries: metadata.settings.libraries,
-            abi: serde_json::to_string(&abi).unwrap(),
-            sources: value.sources,
-            compiler_settings: serde_json::to_string(&compiler_settings).unwrap(),
-            match_type: MatchType::from(value.status),
-        })
+            })
     }
 }
 

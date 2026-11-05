@@ -4,6 +4,22 @@ use sha3::{Digest as _, Keccak256};
 
 pub use super::program::{decode_program_call, encode_program_call};
 
+/// Supported constructors (paths are relative to `services/agent/crates`):
+///
+/// * `LedgerSend`: `layerx-agentd/src/prepare/mod.rs`,
+///   `evm::PrecompileCall::ledger_transfer`.
+/// * `ProgramCall`: `layerx-agentd/src/ops/program.rs`,
+///   `ProgramOperations::call_precompile`.
+/// * `PayBudgetCreate` and `PayBudgetCreateNative`:
+///   `layerx-agentd/src/budget/create.rs`, `BudgetRequest::create_protocol_budget`
+///   (encoding versions 1 and 2 respectively).
+/// * `AuthSession`: `layerx-agentd/src/agent_rpc_dispatch.rs`, `session_open`.
+/// * `LedgerOpenAccount`, `LedgerRegister`, `LedgerMint`, `LedgerBurn`,
+///   `LedgerIssueGrant`, `LedgerDraw`, `LedgerRevokeGrant`: the additional ledger
+///   shapes emitted by `layerx-crypto/src/disclosure/call.rs::encode_payment_call`.
+/// * `PayBudgetFund`, `PayBudgetDefund`, `AuthLifecycle`, `PointerTransfer`,
+///   `BankSend`: additional ABI shapes accepted by this binder; there is no named
+///   constructor for these in the daemon's EVM preparation module.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ConstructMethod {
     ProgramCall {
@@ -48,6 +64,14 @@ pub enum ConstructMethod {
     PayBudgetCreate {
         payload: Vec<u8>,
     },
+    PayBudgetCreateNative {
+        budget: Box<DisclosedNativeBudgetCreate>,
+    },
+    AuthSession {
+        grant: IssuedSessionKey,
+        expiry_sequence: u64,
+        purpose: [u8; 32],
+    },
     PayBudgetFund {
         budget: [u8; 32],
         amount: u128,
@@ -56,6 +80,8 @@ pub enum ConstructMethod {
         budget: [u8; 32],
         amount: u128,
     },
+    /// Canonical governance payload. Ordinal 8 is submitted through
+    /// grantCapability(bytes); lifecycle ordinals use recordLifecycle.
     AuthLifecycle {
         payload: Vec<u8>,
         idempotency_key: [u8; 32],
@@ -71,6 +97,255 @@ pub enum ConstructMethod {
         denom: String,
         amount: [u8; 32],
     },
+}
+
+impl ConstructMethod {
+    /// Canonical ABI signature for every supported constructor. Registry consumers
+    /// must retain all variants, including bank and pointer transfers.
+    #[must_use]
+    pub const fn abi_signature(&self) -> &'static str {
+        match self {
+            Self::ProgramCall { .. } => "call(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128)",
+            Self::LedgerOpenAccount { .. } => "openAccount(bytes32)",
+            Self::LedgerRegister { .. } => "register(bytes32,bytes32,string,string,uint8,uint128,uint8,bytes)",
+            Self::LedgerMint { .. } => "mint(bytes32,bytes32,uint128)",
+            Self::LedgerBurn { .. } => "burn(bytes32,bytes32,uint128)",
+            Self::LedgerSend { .. } => "send(bytes)",
+            Self::LedgerIssueGrant { .. } => "issueGrant(bytes)",
+            Self::LedgerDraw { .. } => "draw(bytes32,bytes32,uint128,bytes32,uint64,bytes32,bytes32)",
+            Self::LedgerRevokeGrant { .. } => "revokeGrant(bytes32,uint64)",
+            Self::PayBudgetCreate { .. } => "budgetCreate(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8)",
+            Self::PayBudgetCreateNative { .. } => "budgetCreateNative(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8,bytes32,uint64)",
+            Self::AuthSession { .. } => "grantSession(bytes,uint64,bytes32)",
+            Self::PayBudgetFund { .. } => "budgetFund(bytes32,uint128)",
+            Self::PayBudgetDefund { .. } => "budgetDefund(bytes32,uint128)",
+            Self::AuthLifecycle { payload, .. }
+                if matches!(payload.as_slice(), [0x71, 8, 1, 1, ..]) => "grantCapability(bytes)",
+            Self::AuthLifecycle { .. } => "recordLifecycle(bytes,bytes32)",
+            Self::PointerTransfer { .. } => "transfer(address,uint256)",
+            Self::BankSend { .. } => "send(address,address,string,uint256)",
+        }
+    }
+}
+
+/// Amounts in the approval/policy view of a call. Consumers must explicitly
+/// distinguish bank uint256 denomination units from protocol uint128 units.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum CallMonetaryAmount {
+    Protocol {
+        role: AmountRole,
+        asset: [u8; 32],
+        value: u128,
+    },
+    Bank {
+        role: AmountRole,
+        denom: String,
+        /// Unsigned 256-bit integer in canonical big-endian order.
+        value: [u8; 32],
+    },
+    Pointer {
+        role: AmountRole,
+        pointer: [u8; 20],
+        value: u128,
+    },
+}
+
+fn uint256_decimal(mut value: [u8; 32]) -> String {
+    if value == [0; 32] {
+        return "0".to_owned();
+    }
+    let mut digits = Vec::with_capacity(78);
+    while value != [0; 32] {
+        let mut remainder = 0_u16;
+        for byte in &mut value {
+            let dividend = (remainder << 8) | u16::from(*byte);
+            *byte = (dividend / 10) as u8;
+            remainder = dividend % 10;
+        }
+        digits.push(char::from(b'0' + remainder as u8));
+    }
+    digits.into_iter().rev().collect()
+}
+
+impl fmt::Display for CallMonetaryAmount {
+    fn fmt(&self, out: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Bank { role, denom, value } => {
+                // Escape control characters in an untrusted denomination.
+                write!(
+                    out,
+                    "{role:?}: {} base units of {denom:?}",
+                    uint256_decimal(*value)
+                )
+            }
+            Self::Protocol { role, asset, value } => {
+                write!(out, "{role:?}: {value} base units of protocol asset 0x")?;
+                for byte in asset {
+                    write!(out, "{byte:02x}")?;
+                }
+                Ok(())
+            }
+            Self::Pointer {
+                role,
+                pointer,
+                value,
+            } => {
+                write!(out, "{role:?}: {value} base units of pointer 0x")?;
+                for byte in pointer {
+                    write!(out, "{byte:02x}")?;
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
+/// Execution fee assets are not encoded in the call ABI. Preparation must supply
+/// the asset from its verified program fee schedule; it is never inferred from gas.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CallFeeContext {
+    GasOnly,
+    ProgramExecution { fee_asset: [u8; 32] },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct GasFeeBound {
+    /// The chain's native EVM currency, in wei (gas * max_fee_per_gas).
+    pub chain_id: u64,
+    pub amount_wei: u128,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ExecutionFeeBound {
+    pub asset: [u8; 32],
+    pub amount_base_units: u128,
+}
+
+/// Complete monetary projection for call preparation, human approval and policy.
+/// The legacy `Disclosure.amounts` and `fee_limit` fields are ledger/gas views;
+/// they cannot represent bank amounts or a program's separate execution bound.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CallMonetaryDisclosure {
+    pub amounts: Vec<CallMonetaryAmount>,
+    pub gas_fee_bound: GasFeeBound,
+    pub execution_fee_bound: Option<ExecutionFeeBound>,
+}
+
+impl fmt::Display for CallMonetaryDisclosure {
+    fn fmt(&self, out: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for amount in &self.amounts {
+            writeln!(out, "{amount}")?;
+        }
+        writeln!(
+            out,
+            "Gas fee bound: {} wei of chain {} native currency",
+            self.gas_fee_bound.amount_wei, self.gas_fee_bound.chain_id
+        )?;
+        if let Some(execution) = self.execution_fee_bound {
+            write!(
+                out,
+                "Execution fee bound: {} base units of protocol asset 0x",
+                execution.amount_base_units
+            )?;
+            for byte in execution.asset {
+                write!(out, "{byte:02x}")?;
+            }
+            writeln!(out)?;
+        }
+        Ok(())
+    }
+}
+
+impl Disclosure {
+    /// Derives the complete monetary view from validated producer bytes.
+    ///
+    /// # Errors
+    /// Refuses altered disclosures, non-call sources, and missing or inapplicable
+    /// execution fee context. The caller must authenticate the fee schedule asset.
+    pub fn call_monetary(
+        &self,
+        context: CallFeeContext,
+    ) -> Result<CallMonetaryDisclosure, DisclosureError> {
+        self.validate()?;
+        let Source::Call(call) = &self.source else {
+            return Err(DisclosureError::FieldMismatch("source"));
+        };
+        let method = decode_method(call)?;
+        let execution_fee_bound = match (&method, context) {
+            (
+                ConstructMethod::ProgramCall { fee_limit, .. },
+                CallFeeContext::ProgramExecution { fee_asset },
+            ) if fee_asset != [0; 32] => Some(ExecutionFeeBound {
+                asset: fee_asset,
+                amount_base_units: *fee_limit,
+            }),
+            (ConstructMethod::ProgramCall { .. }, _)
+            | (_, CallFeeContext::ProgramExecution { .. }) => {
+                return Err(DisclosureError::FieldMismatch("execution_fee_asset"));
+            }
+            (_, CallFeeContext::GasOnly) => None,
+        };
+        let amounts = match method {
+            ConstructMethod::BankSend { denom, amount, .. } => vec![CallMonetaryAmount::Bank {
+                role: AmountRole::Transfer,
+                denom,
+                value: amount,
+            }],
+            ConstructMethod::PointerTransfer {
+                pointer, amount, ..
+            } => vec![CallMonetaryAmount::Pointer {
+                role: AmountRole::Transfer,
+                pointer,
+                value: u128::from_be_bytes(uint(amount)?),
+            }],
+            ConstructMethod::ProgramCall { .. }
+            | ConstructMethod::LedgerOpenAccount { .. }
+            | ConstructMethod::LedgerRegister { .. }
+            | ConstructMethod::LedgerMint { .. }
+            | ConstructMethod::LedgerBurn { .. }
+            | ConstructMethod::LedgerSend { .. }
+            | ConstructMethod::LedgerIssueGrant { .. }
+            | ConstructMethod::LedgerDraw { .. }
+            | ConstructMethod::LedgerRevokeGrant { .. }
+            | ConstructMethod::PayBudgetCreate { .. }
+            | ConstructMethod::PayBudgetCreateNative { .. }
+            | ConstructMethod::AuthSession { .. }
+            | ConstructMethod::PayBudgetFund { .. }
+            | ConstructMethod::PayBudgetDefund { .. }
+            | ConstructMethod::AuthLifecycle { .. } => self
+                .amounts
+                .iter()
+                .map(|amount| CallMonetaryAmount::Protocol {
+                    role: amount.role,
+                    asset: self.asset,
+                    value: amount.value,
+                })
+                .collect(),
+        };
+        Ok(CallMonetaryDisclosure {
+            amounts,
+            gas_fee_bound: GasFeeBound {
+                chain_id: call.chain_id,
+                amount_wei: self.fee_limit,
+            },
+            execution_fee_bound,
+        })
+    }
+}
+
+/// Encodes bank denomination units without narrowing the bank's uint256 amount.
+#[must_use]
+pub fn encode_bank_send(from: [u8; 20], to: [u8; 20], denom: &str, amount: [u8; 32]) -> Vec<u8> {
+    let mut from_word = [0; 32];
+    from_word[12..].copy_from_slice(&from);
+    let mut to_word = [0; 32];
+    to_word[12..].copy_from_slice(&to);
+    [
+        ledger_selector("send(address,address,string,uint256)").to_vec(),
+        [from_word, to_word, abi_word(128), amount].concat(),
+        abi_tail(denom.as_bytes()),
+    ]
+    .concat()
 }
 
 pub(super) fn word(args: &[u8], index: usize) -> Result<[u8; 32], DisclosureError> {
@@ -249,6 +524,19 @@ pub fn encode_payment_call(payment: &Payment, actor: &[u8]) -> Result<Vec<u8>, D
     Ok([ledger_selector(signature).to_vec(), args].concat())
 }
 
+/// Encodes the merged authorization precompile's raw kernel grant body.
+pub fn encode_authority_grant_call(grant: &AuthorityGrant) -> Result<Vec<u8>, DisclosureError> {
+    let body = grant
+        .encode()
+        .map_err(|_| DisclosureError::MalformedPayload)?;
+    Ok([
+        ledger_selector("grantCapability(bytes)").to_vec(),
+        abi_word(32).to_vec(),
+        abi_tail(&body),
+    ]
+    .concat())
+}
+
 fn target(address: &[u8; 20], suffix: [u8; 2]) -> bool {
     address[..18] == [0; 18] && address[18..] == suffix
 }
@@ -378,6 +666,35 @@ pub(super) fn decode_method(call: &Eip1559Call) -> Result<ConstructMethod, Discl
     }
     if target(&call.to, [0x10, 0x1b]) {
         return match selector {
+            value if value == ledger_selector("budgetCreateNative(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8,bytes32,uint64)") && args.len() == 14 * 32 => {
+                let budget = DisclosedNativeBudgetCreate {
+                    encoding_version: 2,
+                    budget_id: word(args, 0)?,
+                    budget_account: word(args, 1)?,
+                    asset: word(args, 2)?,
+                    purpose: word(args, 3)?,
+                    per_period_limit: u128::from_be_bytes(uint(word(args, 4)?)?),
+                    carry_cap: u128::from_be_bytes(uint(word(args, 5)?)?),
+                    initial_amount: u128::from_be_bytes(uint(word(args, 6)?)?),
+                    period_length_ms: u64::from_be_bytes(uint(word(args, 7)?)?),
+                    period_start_ms: u64::from_be_bytes(uint(word(args, 8)?)?),
+                    expiry_ms: u64::from_be_bytes(uint(word(args, 9)?)?),
+                    revocation_sequence: u64::from_be_bytes(uint(word(args, 10)?)?),
+                    rollover: uint::<1>(word(args, 11)?)?[0],
+                    source_account: word(args, 12)?,
+                    source_sequence: u64::from_be_bytes(uint(word(args, 13)?)?),
+                };
+                native::budget_create_terms(&budget.budget_id, &budget.budget_account,
+                    &budget.asset, budget.per_period_limit, budget.carry_cap,
+                    budget.initial_amount, budget.period_length_ms, budget.period_start_ms,
+                    budget.expiry_ms, budget.rollover)?;
+                if budget.source_account == [0; 32] || budget.source_sequence == 0
+                    || budget.source_account == budget.budget_account
+                    || budget.period_start_ms.checked_add(budget.period_length_ms).is_none() {
+                    return Err(DisclosureError::MalformedPayload);
+                }
+                Ok(ConstructMethod::PayBudgetCreateNative { budget: Box::new(budget) })
+            }
             value
                 if value
                     == ledger_selector(
@@ -452,6 +769,30 @@ pub(super) fn decode_method(call: &Eip1559Call) -> Result<ConstructMethod, Discl
         };
     }
     if target(&call.to, [0x10, 0x1c]) {
+        if selector == ledger_selector("grantCapability(bytes)") {
+            let grant = AuthorityGrant::decode(dynamic(args, 1, 0)?)
+                .map_err(|_| DisclosureError::MalformedPayload)?;
+            return Ok(ConstructMethod::AuthLifecycle {
+                payload: grant
+                    .payload()
+                    .map_err(|_| DisclosureError::MalformedPayload)?,
+                idempotency_key: [0; 32],
+            });
+        }
+        if selector == ledger_selector("grantSession(bytes,uint64,bytes32)") {
+            let grant = decode_session_key(dynamic(args, 3, 0)?)
+                .map_err(|_| DisclosureError::MalformedPayload)?;
+            let expiry_sequence = u64::from_be_bytes(uint(word(args, 1)?)?);
+            let purpose = word(args, 2)?;
+            if expiry_sequence == 0 || purpose == [0; 32] {
+                return Err(DisclosureError::MalformedPayload);
+            }
+            return Ok(ConstructMethod::AuthSession {
+                grant,
+                expiry_sequence,
+                purpose,
+            });
+        }
         if selector != ledger_selector("recordLifecycle(bytes,bytes32)") {
             return Err(DisclosureError::MalformedPayload);
         }
@@ -501,7 +842,10 @@ pub(super) fn fields(
     let ordinal = match &method {
         ConstructMethod::ProgramCall { .. } => 3,
         ConstructMethod::LedgerOpenAccount { .. } => 4,
-        ConstructMethod::LedgerRegister { .. } | ConstructMethod::PayBudgetCreate { .. } => 1,
+        ConstructMethod::LedgerRegister { .. }
+        | ConstructMethod::PayBudgetCreate { .. }
+        | ConstructMethod::PayBudgetCreateNative { .. } => 1,
+        ConstructMethod::AuthSession { .. } => 5,
         ConstructMethod::LedgerMint { .. } => 10,
         ConstructMethod::LedgerBurn { .. } => 11,
         ConstructMethod::LedgerSend { .. }
@@ -517,11 +861,15 @@ pub(super) fn fields(
     let module = if matches!(
         &method,
         ConstructMethod::PayBudgetCreate { .. }
+            | ConstructMethod::PayBudgetCreateNative { .. }
             | ConstructMethod::PayBudgetFund { .. }
             | ConstructMethod::PayBudgetDefund { .. }
     ) {
         ModuleId::Budget
-    } else if matches!(&method, ConstructMethod::AuthLifecycle { .. }) {
+    } else if matches!(
+        &method,
+        ConstructMethod::AuthLifecycle { .. } | ConstructMethod::AuthSession { .. }
+    ) {
         ModuleId::Governance
     } else if matches!(&method, ConstructMethod::ProgramCall { .. }) {
         ModuleId::Programs
@@ -640,6 +988,47 @@ pub(super) fn fields(
                 revocation_sequence,
             });
         }
+        ConstructMethod::PayBudgetCreateNative { budget } => {
+            disclose_party(
+                &mut fields.counterparties,
+                CounterpartyRole::Payer,
+                budget.source_account,
+            );
+            disclose_party(
+                &mut fields.counterparties,
+                CounterpartyRole::Recipient,
+                budget.budget_account,
+            );
+            disclose_amount(
+                &mut fields.amounts,
+                AmountRole::Transfer,
+                budget.initial_amount,
+            );
+            disclose_amount(
+                &mut fields.amounts,
+                AmountRole::SpendingLimit,
+                budget.per_period_limit,
+            );
+            fields.idempotency_key = budget.budget_id;
+            fields.asset = budget.asset;
+            fields.expiry.payload_expires_at = budget.expiry_ms;
+            fields.native_operation = Some(DisclosedNativeOperation::BudgetCreate(budget));
+        }
+        ConstructMethod::AuthSession {
+            grant,
+            expiry_sequence,
+            purpose,
+        } => {
+            fields.asset = grant.fee_budget.map_or([0; 32], |fee| fee.asset);
+            fields.expiry.payload_expires_at = grant.expires_at;
+            fields.idempotency_key = purpose;
+            fields.session_grant = Some(DisclosedSessionGrant {
+                grant,
+                expiry_sequence,
+                action_key: purpose,
+                replacement: None,
+            });
+        }
         ConstructMethod::PayBudgetCreate { payload } => {
             fields.idempotency_key = payload[2..34]
                 .try_into()
@@ -653,6 +1042,27 @@ pub(super) fn fields(
                     .map_err(|_| DisclosureError::MalformedPayload)?,
             );
             disclose_amount(&mut fields.amounts, AmountRole::Transfer, amount);
+            disclose_party(
+                &mut fields.counterparties,
+                CounterpartyRole::Recipient,
+                payload[34..66]
+                    .try_into()
+                    .map_err(|_| DisclosureError::MalformedPayload)?,
+            );
+            disclose_amount(
+                &mut fields.amounts,
+                AmountRole::SpendingLimit,
+                u128::from_be_bytes(
+                    payload[130..146]
+                        .try_into()
+                        .map_err(|_| DisclosureError::MalformedPayload)?,
+                ),
+            );
+            fields.expiry.payload_expires_at = u64::from_be_bytes(
+                payload[194..202]
+                    .try_into()
+                    .map_err(|_| DisclosureError::MalformedPayload)?,
+            );
         }
         ConstructMethod::PayBudgetFund { budget, amount } => {
             disclose_party(&mut fields.counterparties, CounterpartyRole::Payer, budget);
@@ -663,9 +1073,36 @@ pub(super) fn fields(
             disclose_amount(&mut fields.amounts, AmountRole::Transfer, amount);
         }
         ConstructMethod::AuthLifecycle {
-            idempotency_key, ..
+            payload,
+            idempotency_key,
         } => {
             fields.idempotency_key = idempotency_key;
+            if payload.starts_with(&[0x71, 8, 1, 1]) {
+                let grant = AuthorityGrant::from_payload(&payload)
+                    .map_err(|_| DisclosureError::MalformedPayload)?;
+                fields.asset = grant.scope.asset;
+                fields.expiry = Expiry {
+                    not_before: grant.not_before,
+                    not_after: grant.not_after,
+                    payload_expires_at: grant.not_after,
+                };
+                disclose_party(
+                    &mut fields.counterparties,
+                    CounterpartyRole::Payer,
+                    grant.grantor,
+                );
+                disclose_amount(
+                    &mut fields.amounts,
+                    AmountRole::PerDrawMaximum,
+                    grant.scope.maximum_per_activity,
+                );
+                disclose_amount(
+                    &mut fields.amounts,
+                    AmountRole::GrantAllowance,
+                    grant.scope.maximum_total,
+                );
+                fields.authority_grant = Some(grant);
+            }
         }
         ConstructMethod::PointerTransfer { to, amount, .. } => {
             let mut recipient = [0; 32];
@@ -705,6 +1142,7 @@ pub(super) fn payload_sequence(call: &Eip1559Call) -> Result<Option<u64>, Disclo
         ConstructMethod::LedgerDraw {
             receiver_sequence, ..
         } => Ok(Some(receiver_sequence)),
+        ConstructMethod::PayBudgetCreateNative { budget } => Ok(Some(budget.source_sequence)),
         ConstructMethod::AuthLifecycle { .. } => Ok(None),
         _ => Ok(None),
     }
@@ -741,6 +1179,32 @@ pub fn bind_call(call: &Eip1559Call, from: [u8; 20]) -> Result<Disclosure, Discl
         budget_context: None,
         call_sender: Some(from),
     })
+}
+
+/// Re-encodes a validated disclosure as the unsigned type-2 transaction bytes.
+///
+/// # Errors
+/// Refuses changed semantic fields or a disclosure from another source kind.
+pub fn reencode(disclosure: &Disclosure) -> Result<Vec<u8>, DisclosureError> {
+    disclosure.validate()?;
+    let Source::Call(call) = &disclosure.source else {
+        return Err(DisclosureError::FieldMismatch("source"));
+    };
+    Ok(call.encode_unsigned())
+}
+
+/// Validates canonical unsigned transaction bytes against the retained disclosure.
+///
+/// # Errors
+/// Refuses altered semantics, a different source, or different transaction bytes.
+pub fn validate_canonical(
+    disclosure: &Disclosure,
+    canonical: &[u8],
+) -> Result<(), DisclosureError> {
+    if reencode(disclosure)? != canonical {
+        return Err(DisclosureError::FieldMismatch("canonical_bytes"));
+    }
+    Ok(())
 }
 
 /// Validates a consumer's retained disclosure against the exact prepared call.

@@ -108,6 +108,22 @@ func (suite *TypesTestSuite) TestValidateGenesis() {
 			expPass: true,
 		},
 		{
+			name: "zero sequence requires a positive next sequence",
+			genState: types.NewGenesisState(
+				[]types.IdentifiedClientState{
+					types.NewIdentifiedClientState(
+						tmClientID0, ibctmtypes.NewClientState(chainID, ibctmtypes.DefaultTrustLevel, ibctesting.TrustingPeriod, ibctesting.UnbondingPeriod, ibctesting.MaxClockDrift, clientHeight, commitmenttypes.GetSDKSpecs(), ibctesting.UpgradePath, false, false),
+					),
+				},
+				nil,
+				nil,
+				types.NewParams(exported.Tendermint),
+				false,
+				0,
+			),
+			expPass: false,
+		},
+		{
 			name: "invalid clientid",
 			genState: types.NewGenesisState(
 				[]types.IdentifiedClientState{

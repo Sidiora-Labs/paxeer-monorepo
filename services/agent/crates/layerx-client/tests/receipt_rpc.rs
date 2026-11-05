@@ -39,7 +39,13 @@ fn hex(bytes: &[u8]) -> String {
     })
 }
 
-fn encoded_receipt(tx_hash: [u8; 32], success: bool, signature: Option<[u8; 64]>) -> Vec<u8> {
+fn encoded_receipt(
+    tx_hash: [u8; 32],
+    success: bool,
+    fee_denom: &str,
+    payment_denom: &str,
+    signature: Option<[u8; 64]>,
+) -> Vec<u8> {
     let previous = [4; 32];
     let mut sequence = b"PAXEER/v1/sequence\0".to_vec();
     sequence.extend_from_slice(&previous);
@@ -62,8 +68,8 @@ fn encoded_receipt(tx_hash: [u8; 32], success: bool, signature: Option<[u8; 64]>
     must(summary.fixed(&sha256(vm_error.as_bytes())));
     must(summary.u32(2));
     must(summary.u32(1));
-    must(summary.u8(4));
-    must(summary.fixed(b"upax"));
+    must(summary.u8(must(u8::try_from(fee_denom.len()))));
+    must(summary.fixed(fee_denom.as_bytes()));
     let mut log = vec![8; 20];
     log.push(1);
     log.extend_from_slice(&[9; 32]);
@@ -94,7 +100,7 @@ fn encoded_receipt(tx_hash: [u8; 32], success: bool, signature: Option<[u8; 64]>
     must(encoder.u32(1));
     must(encoder.u32(0));
     must(encoder.u8(2));
-    must(encoder.bytes(&sha256(b"upax"), 32));
+    must(encoder.bytes(&sha256(payment_denom.as_bytes()), 32));
     must(encoder.u128(1));
     must(encoder.bytes(&from, 32));
     must(encoder.u128(21_002));
@@ -115,10 +121,19 @@ fn encoded_receipt(tx_hash: [u8; 32], success: bool, signature: Option<[u8; 64]>
 }
 
 fn signed_receipt(tx_hash: [u8; 32], success: bool) -> (Value, Vec<u8>, ReceiptKeyEntry) {
+    signed_receipt_with_denoms(tx_hash, success, "uhpx", "uhpx")
+}
+
+fn signed_receipt_with_denoms(
+    tx_hash: [u8; 32],
+    success: bool,
+    fee_denom: &str,
+    payment_denom: &str,
+) -> (Value, Vec<u8>, ReceiptKeyEntry) {
     let signer = SigningKey::from_bytes(&[8; 32]);
-    let unsigned = encoded_receipt(tx_hash, success, None);
+    let unsigned = encoded_receipt(tx_hash, success, fee_denom, payment_denom, None);
     let signature = signer.sign(&must(receipt_digest(&unsigned))).to_bytes();
-    let bytes = encoded_receipt(tx_hash, success, Some(signature));
+    let bytes = encoded_receipt(tx_hash, success, fee_denom, payment_denom, Some(signature));
     let key = ReceiptKeyEntry {
         key_id: KEY_ID,
         public_key: signer.verifying_key().to_bytes(),
@@ -132,10 +147,10 @@ fn signed_receipt(tx_hash: [u8; 32], success: bool) -> (Value, Vec<u8>, ReceiptK
         "logs": [{"address": hex(&[8; 20]), "topics": [hex(&[9; 32])],
             "data": "0x0a0b", "logIndex": "0x0"}],
         "gasUsed": "0x5208", "cumulativeGasUsed": "0xa410", "effectiveGasPrice": "0x1",
-        "feeDenom": "upax", "feeAmount": "0x5208", "sponsor": hex(&[0; 20]),
+        "feeDenom": fee_denom, "paymentDenom": payment_denom, "feeAmount": "0x5208", "sponsor": hex(&[0; 20]),
         "from": hex(&[6; 20]), "to": hex(&[7; 20]), "contractAddress": hex(&[0; 20]),
         "vmError": if success { "" } else { "execution reverted" },
-        "keyId": hex(&KEY_ID), "receipt": hex(&bytes)
+        "keyId": hex(&KEY_ID), "receipt": hex(&bytes), "signingKey": hex(&key.public_key)
     });
     (view, bytes, key)
 }
@@ -444,4 +459,105 @@ fn lookup_authenticated_reaches_committed_from_the_transaction_receipt() {
     assert_eq!(receipt.rung(), Rung::Committed);
     assert_eq!(unknown.retry_bytes(), raw);
     must(server.join());
+}
+
+#[test]
+fn lookup_authenticated_accepts_the_regenerated_receipt_fixture() {
+    fn decode_hex(value: &Value) -> Vec<u8> {
+        let text = value.as_str().unwrap_or_else(|| panic!("hex string"));
+        let digits = text
+            .strip_prefix("0x")
+            .unwrap_or_else(|| panic!("hex prefix"));
+        assert_eq!(digits.len() % 2, 0);
+        digits
+            .as_bytes()
+            .chunks_exact(2)
+            .map(|pair| must(u8::from_str_radix(must(std::str::from_utf8(pair)), 16)))
+            .collect()
+    }
+
+    let fixture: Value = must(serde_json::from_str(include_str!(
+        "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+    )));
+    assert_eq!(
+        fixture["provenance"]["generator"],
+        "rpc/sequencer_receipt_vectors_test.go"
+    );
+    let case = &fixture["cases"][0];
+    assert_eq!(case["id"], "V1-pax-transfer");
+    let view = case["receiptJson"].clone();
+    let tx_hash = must(decode_hex(&view["txHash"]).try_into());
+    let keys = must(layerx_client::sequencer::decode_receipt_keys(
+        &json!({"keys": [case["pinnedKey"]]}),
+    ));
+    let (endpoint, server) = serve(vec![
+        receipt_exchange(tx_hash, view),
+        landing_exchange(tx_hash, Value::Null),
+    ]);
+    let receipt = verified(must(lookup_authenticated(
+        &endpoint,
+        tx_hash,
+        LookupContext {
+            receipt_keys: &keys,
+        },
+    )));
+    assert_eq!(receipt.execution().payment_denom, "uhpx");
+    assert_eq!(receipt.execution().fee_denom, "uhpx");
+    assert_eq!(
+        receipt.canonical_bytes(),
+        decode_hex(&case["signedReceipt"])
+    );
+    assert_eq!(
+        receipt
+            .receipt()
+            .protocol()
+            .unwrap_or_else(|| panic!("protocol receipt"))
+            .asset(),
+        sha256(b"uhpx")
+    );
+    assert_eq!(receipt.rung(), Rung::Receipted);
+    must(server.join());
+}
+
+#[test]
+fn lookup_authenticated_checks_the_payment_asset_when_fees_use_a_token() {
+    let (view, bytes, key) = signed_receipt_with_denoms(TX_HASH, true, "usid", "uhpx");
+    let keys = [key];
+    let context = LookupContext {
+        receipt_keys: &keys,
+    };
+    let (endpoint, server) = serve(vec![
+        receipt_exchange(TX_HASH, view.clone()),
+        landing_exchange(TX_HASH, Value::Null),
+    ]);
+    let receipt = verified(must(lookup_authenticated(&endpoint, TX_HASH, context)));
+    assert_eq!(receipt.execution().payment_denom, "uhpx");
+    assert_eq!(receipt.execution().fee_denom, "usid");
+    assert_eq!(receipt.canonical_bytes(), bytes);
+    assert_eq!(
+        receipt
+            .receipt()
+            .protocol()
+            .unwrap_or_else(|| panic!("protocol receipt"))
+            .asset(),
+        sha256(b"uhpx")
+    );
+    must(server.join());
+
+    let (mut wrong_asset, _, _) = signed_receipt_with_denoms(TX_HASH, true, "usid", "usid");
+    wrong_asset["paymentDenom"] = json!("uhpx");
+    let mut missing = view;
+    assert!(missing
+        .as_object_mut()
+        .unwrap_or_else(|| panic!("view object"))
+        .remove("paymentDenom")
+        .is_some());
+    for invalid in [wrong_asset, missing] {
+        let (endpoint, server) = serve(vec![receipt_exchange(TX_HASH, invalid)]);
+        assert_eq!(
+            lookup_authenticated(&endpoint, TX_HASH, context),
+            Err(ReceiptError::Sequencer(SequencerError::Malformed))
+        );
+        must(server.join());
+    }
 }

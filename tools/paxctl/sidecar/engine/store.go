@@ -1,11 +1,20 @@
 package engine
 
+import "errors"
+
+var ErrTaskGeneration = errors.New("task generation is no longer current")
+
 // ResultStore persists task results across all lifecycle states.
 // Implementations must be safe for concurrent use.
 type ResultStore interface {
-	// Save persists a TaskResult. If a result with the same ID already
-	// exists, it is overwritten (upsert).
+	// Save assigns a new persisted Generation to a new submission (or retry of
+	// a failed task). Updates require the same live Generation; obsolete writes
+	// return ErrTaskGeneration and never create a row.
 	Save(r *TaskResult) error
+
+	// ClearCancellation retires only this generation's deletion tombstone after
+	// its handler has stopped.
+	ClearCancellation(id, generation string) error
 
 	// Get returns a result by ID, or (nil, nil) when not found.
 	Get(id string) (*TaskResult, error)
@@ -32,6 +41,10 @@ type ResultStore interface {
 	// after the hold's own record has gone terminal (e.g. a failed purge
 	// persisted it Failed), which a stale-only scan would miss.
 	LatestByType(taskType string) (*TaskResult, error)
+
+	// Readiness restores the persisted release/hold lifecycle. Only a completed
+	// mark-ready newer than every hold attempt releases the gate; ties are held.
+	Readiness() (bool, error)
 
 	// Ping verifies the store is responsive. Used by liveness checks.
 	Ping() error

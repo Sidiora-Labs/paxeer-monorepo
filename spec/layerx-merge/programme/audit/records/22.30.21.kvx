@@ -1,0 +1,1275 @@
+# Pre-upgrade audit: launchpad widget, protocol, PnL and chart-history slice.
+# Findings propose owning-domain repairs; source files are unchanged.
+
+[audit.22.30.21]
+task = "22.30.21"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 148
+findings = 29
+docs_reviewed = 15
+upgrade_ready = false
+blocking = ["emitter-caller-evidence", "reward-request-schema"]
+requirements = ["20008.1", "22998.1", "181515.1", "22035.1", "4299.1", "4533.1", "22076.1", "21121.1"]
+produced_rows_reviewed = 114
+consumed_rows_reviewed = 400
+review_basis = "Full member-file source review against the audit brief, package requirements, interface registry and documentation. Line counts refer to the audited checkout. Product fixes are proposals only; no member build, unit suite, browser journey, historical measurement or deployment is claimed as executed."
+interface_review = "Compared package registry declarations, actual call sites and serialization: chain-125 ABI/receipts and persisted launch identity; cursor/quality/raw USDL SDK envelopes; session-authenticated social and livestream routes; canonical event authority and pinned getter evidence; reward HTTP mounting and durable SQL ownership; chart evidence CLI/config inputs. High findings identify the two producer/consumer paths that do not complete. Other findings identify paging, error, test and documentation gaps."
+recovery_review = "Submitted chain hashes outlive editable drafts and are reconciled without resubmission; creator streams rediscover service state and discard old revisions; ingest keys remain memory-only and expire; viewer renewal respects server hold-off; SQL folds are idempotent, with the separate canonical-order limitation recorded. Reward replay lacks provisioned request/audit tables."
+configuration_review = "Browser Sentry variables agree with deployment arguments; no endpoint or credential is defaulted by instrumentation. Chain creation targets chain 125 tenant registry; supported absent cup/squad capabilities surface refusal/empty states. Reviewed measurement inputs require explicit evidence digests and private output paths."
+
+[file.1]
+path = "apps/launchpad/web/instrumentation-client.ts"
+lines = 23
+verdict = "clean"
+note = "Reviewed browser Sentry initialization, navigation capture and six environment inputs against the web deployment arguments; no default credential, node endpoint or retired transport is introduced."
+
+[file.2]
+path = "apps/launchpad/web/src/widgets/coin/about-tab.tsx"
+lines = 39
+verdict = "clean"
+note = "Reviewed canonical snapshot identities, safe explorer destinations, token description and lazy chat mounting; absent facts render as unavailable rather than invented values."
+
+[file.3]
+path = "apps/launchpad/web/src/widgets/coin/chart-split.tsx"
+lines = 27
+verdict = "clean"
+note = "Reviewed chart/side-panel composition, small-screen behavior and supported toolbar props; no independent network or persisted state is introduced."
+
+[file.4]
+path = "apps/launchpad/web/src/widgets/coin/chart-toolbar.test.tsx"
+lines = 102
+verdict = "clean"
+note = "Reviewed interval, market-cap availability, marker and connection-state assertions against the toolbar public props; these are presentation tests."
+
+[file.5]
+path = "apps/launchpad/web/src/widgets/coin/chart-toolbar.tsx"
+lines = 103
+verdict = "clean"
+note = "Reviewed interval controls, disabled market-cap reasons, marker actors and chart freshness labels against the trading datafeed contract."
+
+[file.6]
+path = "apps/launchpad/web/src/widgets/coin/coin-not-found.test.tsx"
+lines = 82
+verdict = "clean"
+note = "Reviewed missing-pool, loading and refusal rendering tests; unknown pool identities are not turned into synthetic listings."
+
+[file.7]
+path = "apps/launchpad/web/src/widgets/coin/coin-tabs.test.ts"
+lines = 71
+verdict = "clean"
+note = "Reviewed stable tab keys, hash parsing and unavailable capability behavior against the coin tab implementation."
+
+[file.8]
+path = "apps/launchpad/web/src/widgets/coin/coin-tabs.tsx"
+lines = 72
+verdict = "clean"
+note = "Reviewed tab selection/hash state and actual pane imports; mounted panes share the page session and identify unavailable sources."
+
+[file.9]
+path = "apps/launchpad/web/src/widgets/coin/coin-units.render.test.tsx"
+lines = 166
+verdict = "clean"
+note = "Reviewed raw-amount, valuation, supply and concentration display fixtures and unknown-value assertions; it is a rendering/unit conversion suite, not deployment evidence."
+
+[file.10]
+path = "apps/launchpad/web/src/widgets/coin/creator-card.tsx"
+lines = 52
+verdict = "clean"
+note = "Reviewed creator identity lookup, profile navigation and ownership-related displayed facts; profile absence retains a short-address representation."
+
+[file.11]
+path = "apps/launchpad/web/src/widgets/coin/creator-rewards-card.tsx"
+lines = 78
+verdict = "clean"
+note = "Reviewed account/creator reward states and claim-view navigation; unavailable entitlement data is surfaced rather than replaced with a balance."
+
+[file.12]
+path = "apps/launchpad/web/src/widgets/coin/freshness-notice.tsx"
+lines = 62
+verdict = "clean"
+note = "Reviewed watermark and synchronization disclosures against market connection state; notice rendering has no stateful transport of its own."
+
+[file.13]
+path = "apps/launchpad/web/src/widgets/coin/holders-filters.tsx"
+lines = 41
+verdict = "clean"
+note = "Reviewed wallet/name input, available filter controls and disabled profit fields; unsupported holder PnL remains explicitly unavailable."
+
+[file.14]
+path = "apps/launchpad/web/src/widgets/coin/holders-table.tsx"
+lines = 198
+verdict = "issues"
+note = "Reviewed raw balances, ratio denominators, supply quality, identities, snapshot enrichment, all paging states and refresh effects; holder-page-refresh and holder-page-retry require repair."
+
+[file.15]
+path = "apps/launchpad/web/src/widgets/coin/mc-ath-card.tsx"
+lines = 45
+verdict = "clean"
+note = "Reviewed current/all-time valuation quality and reasons for missing values; no all-time value is inferred from an unverified token supply."
+
+[file.16]
+path = "apps/launchpad/web/src/widgets/coin/pool-info-card.tsx"
+lines = 50
+verdict = "clean"
+note = "Reviewed snapshot-driven registry/token facts and external links; unknown source values remain distinguishable from verified data."
+
+[file.17]
+path = "apps/launchpad/web/src/widgets/coin/stats-audit-panel.tsx"
+lines = 305
+verdict = "issues"
+note = "Reviewed candle windows, exact raw-volume accumulation, configured risk host, parser and every audit verdict; risk-unknown-booleans records the unsafe missing-field coercion."
+
+[file.18]
+path = "apps/launchpad/web/src/widgets/coin/tab-unavailable.tsx"
+lines = 16
+verdict = "clean"
+note = "Reviewed source failure classification, user-facing message and passed retry action; the component does not manufacture a successful tab state."
+
+[file.19]
+path = "apps/launchpad/web/src/widgets/coin/token-header.tsx"
+lines = 212
+verdict = "clean"
+note = "Reviewed canonical pool/token identity, decimals/supply quality, price and action links; token facts remain tied to the resolved pool snapshot."
+
+[file.20]
+path = "apps/launchpad/web/src/widgets/coin/trades-table.tsx"
+lines = 37
+verdict = "issues"
+note = "Reviewed the shared live session, paginated history merge, watermark and all errors; trade-page-retry records the missing failed-continuation action."
+
+[file.21]
+path = "apps/launchpad/web/src/widgets/coin/use-chart-settings.test.ts"
+lines = 64
+verdict = "clean"
+note = "Reviewed interval/mode/marker persistence cases against the settings parser, including invalid stored values and unavailable market-cap mode."
+
+[file.22]
+path = "apps/launchpad/web/src/widgets/coin/use-chart-settings.ts"
+lines = 116
+verdict = "clean"
+note = "Reviewed browser-only stored chart preferences and supported interval values; malformed preferences do not create an unsupported backend request."
+
+[file.23]
+path = "apps/launchpad/web/src/widgets/create-chain/chain-adapters.test.ts"
+lines = 293
+verdict = "clean"
+note = "Reviewed ABI-vector and receipt/registry agreement cases, timeout/revert classifications and submission counting; these adapter tests retain explicit constructed RPC inputs."
+
+[file.24]
+path = "apps/launchpad/web/src/widgets/create-chain/chain-adapters.ts"
+lines = 211
+verdict = "clean"
+note = "Reviewed params and name reads, chain/account checks, payable createChain arguments, receipt/event/registry reconciliation and wallet network parameters; unknown receipts retain their submitted hash."
+
+[file.25]
+path = "apps/launchpad/web/src/widgets/create-chain/chain-domain.test.ts"
+lines = 127
+verdict = "clean"
+note = "Reviewed name/size bounds, exact bond/fee arithmetic and explorer/RPC URL cases against the chain domain model."
+
+[file.26]
+path = "apps/launchpad/web/src/widgets/create-chain/chain-domain.ts"
+lines = 139
+verdict = "clean"
+note = "Reviewed chain 125, chains precompile, starter/growth/pro allowances and wallet-network derivation against requirement 20008.1; these are tenant identities, not provisioned infrastructure."
+
+[file.27]
+path = "apps/launchpad/web/src/widgets/create-chain/chain-storage.test.ts"
+lines = 131
+verdict = "clean"
+note = "Reviewed strict journal identity, owner/hash mutation guards and submitted-history survival beyond editable-draft expiry against requirement 181515.1."
+
+[file.28]
+path = "apps/launchpad/web/src/widgets/create-chain/chain-storage.ts"
+lines = 83
+verdict = "clean"
+note = "Reviewed draft expiry separately from confirm/reverted journal retention, strict shape checks and owner/hash compare-and-update; recovery evidence is preserved on unknown outcomes."
+
+[file.29]
+path = "apps/launchpad/web/src/widgets/create-chain/chain-wizard.hydration.test.tsx"
+lines = 128
+verdict = "clean"
+note = "Reviewed server/client hydration and stored-journal loading behavior without trusting mutable draft fields over a submitted snapshot."
+
+[file.30]
+path = "apps/launchpad/web/src/widgets/create-chain/chain-wizard.test.tsx"
+lines = 332
+verdict = "issues"
+note = "Reviewed all wizard success, account/chain change, single-submit and reload assertions; chain-launch-path-proof identifies the boundary replaced by adapter and RPC responses."
+
+[file.31]
+path = "apps/launchpad/web/src/widgets/create-chain/chain-wizard.tsx"
+lines = 267
+verdict = "clean"
+note = "Reviewed the three-step flow, stale name checks, params validation, persisted submission recovery, identity gates and explicit retry confirmation; unknown submission outcomes do not trigger automatic resubmission."
+
+[file.32]
+path = "apps/launchpad/web/src/widgets/explore/column-settings.tsx"
+lines = 151
+verdict = "clean"
+note = "Reviewed column definitions, persistence parser, density/view state and browser access; absent or invalid device preferences fall back to supported presentation values."
+
+[file.33]
+path = "apps/launchpad/web/src/widgets/explore/explore-chrome.test.tsx"
+lines = 308
+verdict = "clean"
+note = "Reviewed title, presets, layout and responsive controls against real component props; the suite asserts presentation rather than market producer provenance."
+
+[file.34]
+path = "apps/launchpad/web/src/widgets/explore/explore-grid.tsx"
+lines = 84
+verdict = "clean"
+note = "Reviewed pool-keyed cards and source availability handling against ExploreRow; it does not infer a token identity or price when enrichment is absent."
+
+[file.35]
+path = "apps/launchpad/web/src/widgets/explore/explore-row.tsx"
+lines = 131
+verdict = "clean"
+note = "Reviewed pool links, valuation/price/concentration fields, raw-value formatting and optional column behavior against the enriched row model."
+
+[file.36]
+path = "apps/launchpad/web/src/widgets/explore/explore-table.tsx"
+lines = 141
+verdict = "clean"
+note = "Reviewed column visibility, sort callbacks, source disclosure and loaded row rendering; table-local sort does not claim an independent server ranking."
+
+[file.37]
+path = "apps/launchpad/web/src/widgets/explore/explore-toolbar.tsx"
+lines = 77
+verdict = "clean"
+note = "Reviewed filtering, view/density selection, refresh and visible sort disclosures; all actions are delegated to the owning explore state."
+
+[file.38]
+path = "apps/launchpad/web/src/widgets/explore/explore-view.tsx"
+lines = 123
+verdict = "clean"
+note = "Reviewed ranking presets, enrichment status, local filters, continuation/retry and table/grid composition; capability errors remain distinct from an empty market."
+
+[file.39]
+path = "apps/launchpad/web/src/widgets/explore/explore-wire.render.test.tsx"
+lines = 108
+verdict = "clean"
+note = "Reviewed rendered SDK-wire fixtures, quality-dependent valuation and missing-value states; fixtures exercise decoding/presentation without claiming a live market service."
+
+[file.40]
+path = "apps/launchpad/web/src/widgets/explore/filter-panel.tsx"
+lines = 86
+verdict = "clean"
+note = "Reviewed age, valuation, volume and holder filter input parsing and clear/apply controls; unknown targeted facts remain excluded rather than treated as zero."
+
+[file.41]
+path = "apps/launchpad/web/src/widgets/explore/preset-tabs.tsx"
+lines = 146
+verdict = "clean"
+note = "Reviewed ranking category identifiers, labels and keyboard/click selection against the explore categories."
+
+[file.42]
+path = "apps/launchpad/web/src/widgets/explore/sort.test.ts"
+lines = 93
+verdict = "clean"
+note = "Reviewed stable rank tie-breaks, unknown-last ordering, filter boundaries and loaded-subset disclosure cases against the sort functions."
+
+[file.43]
+path = "apps/launchpad/web/src/widgets/explore/sort.ts"
+lines = 116
+verdict = "clean"
+note = "Reviewed comparator direction, rank ties, finite-number handling, filter parsing and explicit local-sort disclosure."
+
+[file.44]
+path = "apps/launchpad/web/src/widgets/explore/use-explore-rows.test.ts"
+lines = 101
+verdict = "clean"
+note = "Reviewed listing/stats/metadata join and ranking-page conflict fixtures, null enrichment behavior and row-quality semantics."
+
+[file.45]
+path = "apps/launchpad/web/src/widgets/explore/use-explore-rows.ts"
+lines = 256
+verdict = "clean"
+note = "Reviewed snapshot/cursor accumulation, two bounded stats chunks, listing/token identity and independent enrichment failures; the snapshot limit is explicit in the market session contract."
+
+[file.46]
+path = "apps/launchpad/web/src/widgets/explore/use-visible.ts"
+lines = 35
+verdict = "clean"
+note = "Reviewed observer setup, visibility state and unmount cleanup for deferred row enrichment; it owns no durable network state."
+
+[file.47]
+path = "apps/launchpad/web/src/widgets/holder-rewards/holder-reward-token-card.tsx"
+lines = 196
+verdict = "clean"
+note = "Reviewed card identity, links, strategy status and exact raw reward/market-cap formatting against HolderRewardRow fields."
+
+[file.48]
+path = "apps/launchpad/web/src/widgets/holder-rewards/holder-rewards-components.test.tsx"
+lines = 198
+verdict = "clean"
+note = "Reviewed table/card/control states, absent valuations and raw USDL rendering; tests remain component cases rather than a chain payout proof."
+
+[file.49]
+path = "apps/launchpad/web/src/widgets/holder-rewards/holder-rewards-contract.test.ts"
+lines = 182
+verdict = "clean"
+note = "Reviewed SDK requests, constructed HTTP envelopes, error mapping, chunk bounds and airdrop getter arguments; its local HTTP responder supplies fixtures rather than running the API producer."
+
+[file.50]
+path = "apps/launchpad/web/src/widgets/holder-rewards/holder-rewards-contract.ts"
+lines = 110
+verdict = "clean"
+note = "Reviewed operation names, cursor/limit bounds, SDK quality checks, raw-amount validation and the chain-125 getAirdropBalance ABI/address lookup."
+
+[file.51]
+path = "apps/launchpad/web/src/widgets/holder-rewards/holder-rewards-controls.tsx"
+lines = 69
+verdict = "clean"
+note = "Reviewed offered sort, view, active/priced filters and export availability controls against the view state model."
+
+[file.52]
+path = "apps/launchpad/web/src/widgets/holder-rewards/holder-rewards-header.tsx"
+lines = 30
+verdict = "clean"
+note = "Reviewed page title and passed statistics slot; the header owns no network or account state."
+
+[file.53]
+path = "apps/launchpad/web/src/widgets/holder-rewards/holder-rewards-presentation.test.ts"
+lines = 107
+verdict = "clean"
+note = "Reviewed exact raw USDL conversion, loaded-row order/filter behavior and CSV escaping/formula-neutralization assertions."
+
+[file.54]
+path = "apps/launchpad/web/src/widgets/holder-rewards/holder-rewards-presentation.ts"
+lines = 206
+verdict = "clean"
+note = "Reviewed pool/metadata joins, bigint reward ordering, unknown-last valuation, exact six-decimal CSV amounts and leading spreadsheet formula neutralization."
+
+[file.55]
+path = "apps/launchpad/web/src/widgets/holder-rewards/holder-rewards-table.tsx"
+lines = 222
+verdict = "clean"
+note = "Reviewed loaded rows, ranking caption, strategy quality, hover airdrop states and passed load-more/error controls; page-level sorting and grid continuation issues belong to holder-rewards-view.tsx."
+
+[file.56]
+path = "apps/launchpad/web/src/widgets/holder-rewards/holder-rewards-view.tsx"
+lines = 137
+verdict = "issues"
+note = "Reviewed page composition, server sort key, client direction/filter/export, top-paying rail and all view branches; rewards-grid-pagination and reward-sort-scope record missing user-facing guarantees."
+
+[file.57]
+path = "apps/launchpad/web/src/widgets/holder-rewards/stats-row.tsx"
+lines = 88
+verdict = "clean"
+note = "Reviewed statistics loading, source failure and exact cumulative reward/wallet formatting; an unavailable source does not become a zero total."
+
+[file.58]
+path = "apps/launchpad/web/src/widgets/holder-rewards/top-paying-rail.tsx"
+lines = 63
+verdict = "clean"
+note = "Reviewed the separate five-row rewards ordering, card navigation and unavailable/loading representation."
+
+[file.59]
+path = "apps/launchpad/web/src/widgets/holder-rewards/use-holder-rewards.ts"
+lines = 154
+verdict = "clean"
+note = "Reviewed server cursor chain, stats batches of at most 50, metadata joining and lazily enabled on-chain airdrop reads; failures retain missing prices instead of synthesizing them."
+
+[file.60]
+path = "apps/launchpad/web/src/widgets/leaderboard/cups/cup-hero.tsx"
+lines = 137
+verdict = "clean"
+note = "Reviewed scheduled/live/finished presentation, prize amounts, time boundaries and actual current-cup unavailable states."
+
+[file.61]
+path = "apps/launchpad/web/src/widgets/leaderboard/cups/cup-results-list.tsx"
+lines = 149
+verdict = "issues"
+note = "Reviewed final-result highlights, rank/profile rendering and live standing composition; cup-standings-pagination records the discarded continuation cursor."
+
+[file.62]
+path = "apps/launchpad/web/src/widgets/leaderboard/cups/cup-rules-disclosure.tsx"
+lines = 68
+verdict = "clean"
+note = "Reviewed rules, scoring, eligibility and prize disclosures from the served cup fields; the component supplies no invented competition data."
+
+[file.63]
+path = "apps/launchpad/web/src/widgets/leaderboard/cups/cups-contract.ts"
+lines = 135
+verdict = "clean"
+note = "Reviewed UUID/wallet/amount validation, schedule and ladder arithmetic, integrity checks and frozen cup operation inputs/outputs; page continuation is retained by the contract adapter."
+
+[file.64]
+path = "apps/launchpad/web/src/widgets/leaderboard/cups/use-cup.ts"
+lines = 52
+verdict = "clean"
+note = "Reviewed query identity, cursor/limit inputs and explicit unavailable states for unconfigured cup operations; the obsolete no-handler comment is nonoperational context, not a fabricated cup."
+
+[file.65]
+path = "apps/launchpad/web/src/widgets/leaderboard/leaderboard-view.test.tsx"
+lines = 162
+verdict = "clean"
+note = "Reviewed tabs, current-cup states and prize/rank rendering against SDK response fixtures and component imports."
+
+[file.66]
+path = "apps/launchpad/web/src/widgets/leaderboard/leaderboard-view.tsx"
+lines = 149
+verdict = "clean"
+note = "Reviewed rolling traders, cups, squads and account-gated rewards routing; missing backend capabilities are surfaced to the viewer."
+
+[file.67]
+path = "apps/launchpad/web/src/widgets/leaderboard/leaderboard.test.tsx"
+lines = 228
+verdict = "clean"
+note = "Reviewed trader ranking quality, identity/profile links, period selection and signed raw metric fixtures."
+
+[file.68]
+path = "apps/launchpad/web/src/widgets/leaderboard/period-control.tsx"
+lines = 43
+verdict = "clean"
+note = "Reviewed day/week/month labels and the exact 24h/7d/30d query-window mapping."
+
+[file.69]
+path = "apps/launchpad/web/src/widgets/leaderboard/rank-row.tsx"
+lines = 89
+verdict = "clean"
+note = "Reviewed normalized wallet/profile destinations, signed raw performance and optional prizes/quality notes; display values preserve their amount scale."
+
+[file.70]
+path = "apps/launchpad/web/src/widgets/leaderboard/rewards-tab.tsx"
+lines = 32
+verdict = "clean"
+note = "Reviewed account-session gating and delegation to the existing entitlement view without introducing an alternate claim transport."
+
+[file.71]
+path = "apps/launchpad/web/src/widgets/leaderboard/squads-tab.tsx"
+lines = 25
+verdict = "clean"
+note = "Reviewed explicit squad-ranking unavailability; the SDK has squad CRUD but no ranked PnL operation, so the view does not call an invented endpoint."
+
+[file.72]
+path = "apps/launchpad/web/src/widgets/leaderboard/traders-board.tsx"
+lines = 84
+verdict = "clean"
+note = "Reviewed trader/window operation input, quality-dependent signed metrics, batched identities, self-wallet marking and retry query identity."
+
+[file.73]
+path = "apps/launchpad/web/src/widgets/live/creator-console.test.tsx"
+lines = 167
+verdict = "clean"
+note = "Reviewed creator ownership/actions, revision handling, credential expiry and lifecycle fixtures against console and hook exports."
+
+[file.74]
+path = "apps/launchpad/web/src/widgets/live/creator-console.tsx"
+lines = 278
+verdict = "clean"
+note = "Reviewed pool creator/chain/account gates, signed actions, credentials visibility, restore/rotate controls and public preview composition."
+
+[file.75]
+path = "apps/launchpad/web/src/widgets/live/format.ts"
+lines = 43
+verdict = "clean"
+note = "Reviewed finite/raw integer conversion, missing-value ordering, short identities and display helpers; malformed numbers remain unavailable."
+
+[file.76]
+path = "apps/launchpad/web/src/widgets/live/go-live-entry.tsx"
+lines = 56
+verdict = "clean"
+note = "Reviewed navigation and creator entry affordance; authorization remains in the signed service control path and creator console."
+
+[file.77]
+path = "apps/launchpad/web/src/widgets/live/hero-carousel.tsx"
+lines = 236
+verdict = "clean"
+note = "Reviewed directory entry selection, navigation/resize cleanup and player/metadata composition without inventing editorial assets."
+
+[file.78]
+path = "apps/launchpad/web/src/widgets/live/hero-meta-panel.tsx"
+lines = 50
+verdict = "clean"
+note = "Reviewed creator/pool identity, viewer quality, market-cap chips and links against the same enriched directory entry."
+
+[file.79]
+path = "apps/launchpad/web/src/widgets/live/live-badge.tsx"
+lines = 17
+verdict = "clean"
+note = "Reviewed live state labels and accessible badge presentation; it does not assert service health independently."
+
+[file.80]
+path = "apps/launchpad/web/src/widgets/live/live-primitives.test.tsx"
+lines = 206
+verdict = "clean"
+note = "Reviewed constructed HTTP list envelopes, directory ordering/paging caps and missing enrichment cases; this suite does not operate the livestream database/provider."
+
+[file.81]
+path = "apps/launchpad/web/src/widgets/live/live-unavailable.tsx"
+lines = 57
+verdict = "clean"
+note = "Reviewed unavailable/error states and passed refresh action; a failed list remains distinguishable from a genuinely empty directory."
+
+[file.82]
+path = "apps/launchpad/web/src/widgets/live/livestream-errors.test.ts"
+lines = 193
+verdict = "clean"
+note = "Reviewed typed AUTH_EXPIRED, STATE_CONFLICT and RATE_LIMITED classifications, token renewal and backoff cadence assertions."
+
+[file.83]
+path = "apps/launchpad/web/src/widgets/live/market-cap-chip.tsx"
+lines = 38
+verdict = "clean"
+note = "Reviewed raw market-cap formatting, supply valuation quality and missing-value disclosure against directory enrichment."
+
+[file.84]
+path = "apps/launchpad/web/src/widgets/live/ranked-row.tsx"
+lines = 84
+verdict = "clean"
+note = "Reviewed stream/pool identity, viewer quality, rank and market-cap presentation against LiveDirectoryEntry."
+
+[file.85]
+path = "apps/launchpad/web/src/widgets/live/stream-card.tsx"
+lines = 129
+verdict = "clean"
+note = "Reviewed thumbnail/player navigation, creator attribution, viewer quality and linked pool identity against the public stream projection."
+
+[file.86]
+path = "apps/launchpad/web/src/widgets/live/stream-player.test.tsx"
+lines = 59
+verdict = "clean"
+note = "Reviewed lifecycle, HLS/native playback, credential renewal, approved origins and transient/rate-limit error fixtures; these are player boundary tests."
+
+[file.87]
+path = "apps/launchpad/web/src/widgets/live/stream-player.tsx"
+lines = 338
+verdict = "clean"
+note = "Reviewed polled revision monotonicity, terminal lifecycle states, approved playback/segment URLs, viewer sessions, finite media retries and teardown; secrets are scoped to playback requests."
+
+[file.88]
+path = "apps/launchpad/web/src/widgets/live/stream-sparkline.tsx"
+lines = 49
+verdict = "clean"
+note = "Reviewed bounded candle-backed closes, decorative versus informative failure behavior and actual retry delegation."
+
+[file.89]
+path = "apps/launchpad/web/src/widgets/live/use-creator-stream.ts"
+lines = 373
+verdict = "clean"
+note = "Reviewed session/pool epoch cancellation, discovery after reload, monotonic operation revisions, signed controls, rotation polling and memory-only expiring ingest credentials."
+
+[file.90]
+path = "apps/launchpad/web/src/widgets/live/use-live-directory.ts"
+lines = 301
+verdict = "issues"
+note = "Reviewed bounded list walking, deduplication, pool/token enrichment, raw cap/viewer ranking and continuation behavior; live-continuation-refresh records stale later pages."
+
+[file.91]
+path = "apps/launchpad/web/src/widgets/live/viewer-count-chip.tsx"
+lines = 36
+verdict = "clean"
+note = "Reviewed nullable counts and source quality labeling; unavailable counts are not presented as verified zero viewers."
+
+[file.92]
+path = "apps/launchpad/web/src/widgets/live/viewer-heartbeat.ts"
+lines = 128
+verdict = "clean"
+note = "Reviewed viewer-token renewal, live-state conflict handling, rate-limit delay and one-inflight scheduling with cleanup; the loop does not retry inside the server hold-off."
+
+[file.93]
+path = "apps/launchpad/web/src/widgets/social/callout-card.tsx"
+lines = 144
+verdict = "clean"
+note = "Reviewed removed/corrected posts, author identity, disclosures, body rendering, follow/report affordances and embedded coin facts."
+
+[file.94]
+path = "apps/launchpad/web/src/widgets/social/callout-composer.tsx"
+lines = 134
+verdict = "clean"
+note = "Reviewed session and pool identity, body/direction/disclosure input, submit pending/error states and cache invalidation on a completed post."
+
+[file.95]
+path = "apps/launchpad/web/src/widgets/social/callout-model.ts"
+lines = 101
+verdict = "clean"
+note = "Reviewed feed-versus-pool shape adaptation, opaque creator identities, corrected/tombstone states, pool address validation and bounded stats pool selection."
+
+[file.96]
+path = "apps/launchpad/web/src/widgets/social/callouts-rail.tsx"
+lines = 87
+verdict = "clean"
+note = "Reviewed pool callout window filtering and explicit empty/unavailable states; the rail is a bounded preview rather than the full scrolling feed."
+
+[file.97]
+path = "apps/launchpad/web/src/widgets/social/embedded-coin-card.tsx"
+lines = 84
+verdict = "clean"
+note = "Reviewed token/pool links, stats quality and missing market-cap display; enrichment failure does not overwrite the callout itself."
+
+[file.98]
+path = "apps/launchpad/web/src/widgets/social/feed-selector.tsx"
+lines = 40
+verdict = "clean"
+note = "Reviewed hot/latest/this-coin identifiers, disabled coin context and accessible selection callbacks."
+
+[file.99]
+path = "apps/launchpad/web/src/widgets/social/follow-button.tsx"
+lines = 73
+verdict = "clean"
+note = "Reviewed signed-out/self/busy states, follow/unfollow action handling and accessible action labels against useFollow."
+
+[file.100]
+path = "apps/launchpad/web/src/widgets/social/hot-callouts-panel.test.tsx"
+lines = 62
+verdict = "clean"
+note = "Reviewed hot/latest/pool fixtures, unavailable retry, composer behavior and batched embedded statistics; the local producer inputs are explicitly constructed."
+
+[file.101]
+path = "apps/launchpad/web/src/widgets/social/hot-callouts-panel.tsx"
+lines = 129
+verdict = "issues"
+note = "Reviewed both feed shapes, per-pool statistics, composing and every refusal/empty state; callout-pagination records inaccessible continuation pages."
+
+[file.102]
+path = "apps/launchpad/web/src/widgets/social/report-menu.tsx"
+lines = 76
+verdict = "clean"
+note = "Reviewed report reasons, authenticated operation inputs, pending/error recovery and explicit unsupported report paths."
+
+[file.103]
+path = "apps/launchpad/web/src/widgets/social/social-transport.ts"
+lines = 254
+verdict = "issues"
+note = "Reviewed SDK and authenticated proxy routes, response/address/count parsing, anonymous reads and fallback rules; social-request-deadline records the missing elapsed timeout."
+
+[file.104]
+path = "apps/launchpad/web/src/widgets/social/social.test.tsx"
+lines = 170
+verdict = "clean"
+note = "Reviewed follow graph, self/sign-in gates, error codes and proxy shape cases against constructed responses; tests do not claim deployed social availability."
+
+[file.105]
+path = "apps/launchpad/web/src/widgets/social/use-follow.ts"
+lines = 99
+verdict = "clean"
+note = "Reviewed viewer-scoped query identity, optimistic mutation rollback and invalidation, session-route reset and normalized wallet keys."
+
+[file.106]
+path = "sdk/launchpad/protocol/catalog/bounds.go"
+lines = 138
+verdict = "clean"
+note = "Reviewed recursive ABI head/tail, byte-length and element bounds before decoding; malformed offsets and overlarge dynamic collections are refused."
+
+[file.107]
+path = "sdk/launchpad/protocol/catalog/bounds_test.go"
+lines = 49
+verdict = "clean"
+note = "Reviewed oversized/truncated dynamic arrays and malformed payload refusals against ArgumentsBounded without weakening catalog limits."
+
+[file.108]
+path = "sdk/launchpad/protocol/catalog/catalog.go"
+lines = 230
+verdict = "clean"
+note = "Reviewed embedded ABI identity, chain/address activation ranges, canonical event decode and refusal statuses for unknown revisions and malformed log shapes."
+
+[file.109]
+path = "sdk/launchpad/protocol/catalog/catalog_test.go"
+lines = 162
+verdict = "clean"
+note = "Reviewed actual embedded ABI event/selector identity, indexed layouts, canonical re-encoding and unknown/malformed log cases."
+
+[file.110]
+path = "sdk/launchpad/protocol/catalog/index.go"
+lines = 76
+verdict = "clean"
+note = "Reviewed deterministic sorted machine-readable ABI index and compiled-source hashes; outputs bind argument layouts as well as signatures."
+
+[file.111]
+path = "sdk/launchpad/protocol/catalog/registry_input.go"
+lines = 188
+verdict = "clean"
+note = "Reviewed strict reviewed-artifact JSON, digest/provenance checks, archived family restrictions, disjoint activation intervals and immutable optional OpticalRegistry extension."
+
+[file.112]
+path = "sdk/launchpad/protocol/catalog/registry_input_test.go"
+lines = 135
+verdict = "issues"
+note = "Reviewed digest, traversal, unsupported archived family, explicit attestation and immutable base registry cases; catalog-checkout-artifacts records undeclared generated compiler inputs."
+
+[file.113]
+path = "sdk/launchpad/protocol/coverage/attribution.go"
+lines = 61
+verdict = "clean"
+note = "Reviewed EOA destination, executor and declared economic-actor separation; missing event facts do not become an attributed payer or recipient."
+
+[file.114]
+path = "sdk/launchpad/protocol/coverage/attribution_test.go"
+lines = 34
+verdict = "clean"
+note = "Reviewed trader/payer/recipient provenance, absent actor quality and routed-versus-direct attribution cases."
+
+[file.115]
+path = "sdk/launchpad/protocol/coverage/authorities.json"
+lines = 198
+verdict = "clean"
+note = "Reviewed all authority family/event/effect rules and exclusions as curated policy input; this is not vendored or generated code."
+
+[file.116]
+path = "sdk/launchpad/protocol/coverage/cmd/measure/main.go"
+lines = 191
+verdict = "clean"
+note = "Reviewed bounded reviewed manifest input, endpoint from secret reference, compiled-source binding, exclusive private evidence writes and blocked release result; emitter evidence loss is diagnosed in correlate.go."
+
+[file.117]
+path = "sdk/launchpad/protocol/coverage/correlate.go"
+lines = 642
+verdict = "issues"
+note = "Reviewed receipt/log identity, canonical ordering/deduplication, authority and pool attestation, effect provenance seals and pinned getters; emitter-caller-evidence records failure on internal producers."
+
+[file.118]
+path = "sdk/launchpad/protocol/coverage/correlate_test.go"
+lines = 211
+verdict = "clean"
+note = "Reviewed constructed canonical logs, duplicate/conflict, failure and unauthorized-mirror cases; direct-swap coverage remains explicitly a gap without caller evidence."
+
+[file.119]
+path = "sdk/launchpad/protocol/coverage/coverage.go"
+lines = 136
+verdict = "clean"
+note = "Reviewed authority lookup, typed versus native emission roles and direct-swap coverage-gap classification; declared-but-not-emitted events do not produce effects."
+
+[file.120]
+path = "sdk/launchpad/protocol/coverage/coverage_test.go"
+lines = 49
+verdict = "clean"
+note = "Reviewed family policy consistency and coverage classification against the curated authority manifest."
+
+[file.121]
+path = "sdk/launchpad/protocol/coverage/effects.go"
+lines = 265
+verdict = "clean"
+note = "Reviewed sealed-receipt admission, clone-before-commit, conflicting duplicate refusal and exact bigint balance/liability transitions; caller authority is supplied by correlation."
+
+[file.122]
+path = "sdk/launchpad/protocol/coverage/effects_test.go"
+lines = 148
+verdict = "clean"
+note = "Reviewed balance, NFT/liability, duplicate and whole-receipt rollback assertions against correlated effect fixtures."
+
+[file.123]
+path = "sdk/launchpad/protocol/coverage/lifecycle.go"
+lines = 167
+verdict = "clean"
+note = "Reviewed ordered canonical positions, order transitions, control state and code/flags review invalidation; unreviewed implementations cannot regain write permission implicitly."
+
+[file.124]
+path = "sdk/launchpad/protocol/coverage/lifecycle_test.go"
+lines = 75
+verdict = "clean"
+note = "Reviewed lifecycle ordering, review/renewal and invalidation behavior against explicit implementation/flag evidence."
+
+[file.125]
+path = "sdk/launchpad/protocol/coverage/measure.go"
+lines = 767
+verdict = "clean"
+note = "Reviewed reviewed source/manifest bounds, real history capture, deterministic double replay, missing-family/blocker handling, fixed throughput windows and guarded RPC dialing."
+
+[file.126]
+path = "sdk/launchpad/protocol/coverage/measure_test.go"
+lines = 122
+verdict = "clean"
+note = "Reviewed invalid/missing review refusals and real historical measurement prerequisites; the actual reviewed-RPC test requires external evidence and is not claimed as run by this audit."
+
+[file.127]
+path = "sdk/launchpad/protocol/coverage/permissions.go"
+lines = 85
+verdict = "clean"
+note = "Reviewed chain/emitter/caller/selector identity and canonical permission epochs; a revocation applies at its event position rather than only by block."
+
+[file.128]
+path = "services/launchpad/pnl-tracker/internal/app/app.go"
+lines = 1093
+verdict = "issues"
+note = "Reviewed development/production composition, authenticated route registration, consumer/outbox/recovery guards, pool/secret lifecycle and shutdown; reward-request-schema records absent runtime persistence tables."
+
+[file.129]
+path = "services/launchpad/pnl-tracker/internal/app/app_test.go"
+lines = 144
+verdict = "clean"
+note = "Reviewed production boot refusals and service composition checks against explicitly required runtime inputs; no unconfigured dependency becomes healthy by default."
+
+[file.130]
+path = "services/launchpad/pnl-tracker/internal/app/proof_launchpad_pnl_tracker_test.go"
+lines = 487
+verdict = "issues"
+note = "Reviewed real chain ownership, signed HTTP preparation, damaged-response refusals, reconnect/replay and NFT ownership transfer; reward-proof-schema records production SQL provisioned only by the test."
+
+[file.131]
+path = "services/launchpad/pnl-tracker/internal/app/reward_routes_test.go"
+lines = 76
+verdict = "clean"
+note = "Reviewed the exact frozen rewards method/path pairs and rejection of the retired /v2/me/rewards/claim route against registerRewardRoutes."
+
+[file.132]
+path = "services/launchpad/pnl-tracker/internal/store/cards.go"
+lines = 96
+verdict = "clean"
+note = "Reviewed exact raw PnL card storage, ownership/lifetime reads and parameterized database access; card state remains persisted instead of held in a process map."
+
+[file.133]
+path = "services/launchpad/pnl-tracker/internal/store/cards_test.go"
+lines = 101
+verdict = "clean"
+note = "Reviewed persisted card creation/read, ownership and absent-record cases against the store schema."
+
+[file.134]
+path = "services/launchpad/pnl-tracker/internal/store/portfolio.go"
+lines = 82
+verdict = "clean"
+note = "Reviewed schema-qualified market/metadata joins, nullable enrichment and bigint holding valuation; database/source errors are returned rather than represented as a zero portfolio."
+
+[file.135]
+path = "services/launchpad/pnl-tracker/internal/store/portfolio_test.go"
+lines = 71
+verdict = "clean"
+note = "Reviewed multi-pool valuation, missing metadata/marks and amount-scale assertions against actual PostgreSQL fixtures."
+
+[file.136]
+path = "services/launchpad/pnl-tracker/internal/store/positions.go"
+lines = 284
+verdict = "issues"
+note = "Reviewed transactional deduplication, per-user/pool advisory locks, raw amount persistence and bounded query defaults; legacy-fold-order records arrival-order dependence during backfill."
+
+[file.137]
+path = "services/launchpad/pnl-tracker/internal/store/positions_test.go"
+lines = 149
+verdict = "clean"
+note = "Reviewed exact-cost/PnL, redelivery, lowercased identity, signed loss and trade query cases against actual store transactions; replay of an older unseen trade is outside these cases."
+
+[file.138]
+path = "services/launchpad/pnl-tracker/internal/store/reconcile.go"
+lines = 112
+verdict = "clean"
+note = "Reviewed persistent singleton cursor, block/log keyset scans and schema-qualified swap/token joins; cursor advancement is separate from idempotent per-trade commits."
+
+[file.139]
+path = "services/launchpad/pnl-tracker/internal/store/reconcile_test.go"
+lines = 96
+verdict = "clean"
+note = "Reviewed initial cursor, within-block pagination, joined token identity and consumer/indexer head reads with real SQL fixtures."
+
+[file.140]
+path = "services/launchpad/pnl-tracker/internal/store/referrals.go"
+lines = 167
+verdict = "clean"
+note = "Reviewed referral code/attribution/commission persistence and parameterized user identity queries; mutable state is owned by the database."
+
+[file.141]
+path = "services/launchpad/pnl-tracker/internal/store/referrals_test.go"
+lines = 103
+verdict = "clean"
+note = "Reviewed referral persistence, normalization and aggregation cases against the real store schema."
+
+[file.142]
+path = "services/launchpad/pnl-tracker/internal/store/store.go"
+lines = 130
+verdict = "clean"
+note = "Reviewed pool ownership, transaction-scoped advisory locking, rollback/commit error handling and nullable cross-schema market/token metadata reads."
+
+[file.143]
+path = "services/launchpad/pnl-tracker/internal/store/store_test.go"
+lines = 112
+verdict = "clean"
+note = "Reviewed store fixture lifecycle and shared schema setup; the tests use isolated database-backed storage rather than an in-memory persistence substitute."
+
+[file.144]
+path = "tools/launchpad/production/charts-history/chart-license-manifest.schema.json"
+lines = 76
+verdict = "clean"
+note = "Reviewed exact required manifest/evidence fields, deployment domains and bounded asset records as an authored schema; runtime phase2 validation also rejects unknown fields."
+
+[file.145]
+path = "tools/launchpad/production/charts-history/check.py"
+lines = 15
+verdict = "clean"
+note = "Reviewed the precise HTTP primitive test filter, module cwd, read-only Go flags and finite subprocess timeout; this is a gate entry point, not a claimed successful measurement."
+
+[file.146]
+path = "tools/launchpad/production/charts-history/golden.json"
+lines = 129
+verdict = "clean"
+note = "Reviewed authored history/resolution/quality expectation vectors and raw-value scales against the chart history contract."
+
+[file.147]
+path = "tools/launchpad/production/charts-history/phase2.py"
+lines = 110
+verdict = "clean"
+note = "Reviewed reviewed artifact digests, duplicate JSON rejection, asset/domain bounds, browser evidence revision/journey requirements, negative cases and bounded Go qualification command."
+
+[file.148]
+path = "tools/launchpad/production/charts-history/phase4.py"
+lines = 595
+verdict = "clean"
+note = "Reviewed strict candidate/topology/dataset/license/deployment binding, owned TLS origins, bounded concurrency/duration, real reads/writes and private capture; it explicitly withholds final capacity qualification without shared-soak evidence."
+
+[finding.emitter-caller-evidence]
+file = "sdk/launchpad/protocol/coverage/correlate.go"
+line = 440
+class = "interface-mismatch"
+severity = "high"
+observed = "RPCSource.CallerAt requires tx.To() == id.Emitter and uses the outer transaction sender and selector. SidioraPool.swap calls EventEmitter.emitSwap internally (contracts/launchpad/contracts/core/SidioraPool.sol:271-273); the outer destination and selector belong to the pool or router. Correlate consequently assigns caller_evidence_unavailable and drops core_fill. The measure command constructs this RPCSource without a trace provider."
+expected = "Registry rows 4.go-protocol-coverage-rpcsource-caller-at and 4.sevt-ieventemitter-swap-a234ab85 require the actual pool emitter call to reach the coverage consumer with authenticated caller and selector provenance. A valid pool swap must round-trip without losing its fill."
+proposal = "In sdk/launchpad/protocol/coverage/correlate.go provide block-bound authenticated internal-call evidence, including call-frame caller, selector and log association, and wire it through coverage/cmd/measure/main.go. Support the native launchpad producer with its verified receipt evidence. Prove a real pool/router swap and a forged caller refusal without treating the EOA as the internal caller."
+owner_domain = 4
+interface = "4.go-protocol-coverage-rpcsource-caller-at"
+
+[finding.reward-request-schema]
+file = "services/launchpad/pnl-tracker/internal/app/app.go"
+line = 791
+class = "wiring-gap"
+severity = "high"
+observed = "Production composition opens l18.NewRuntimeLedger in runtime.Schema and exposes reward preparation, but l18.JourneyService.PrepareClaim selects and inserts l18_requests and l18_audit. Neither table is declared by the checked-in l18 schema, legacy migrations or launchpad deployment SQL. proof_launchpad_pnl_tracker_test.go creates both tables explicitly at lines 82-90. A normally provisioned schema cannot persist or replay a successful preparation."
+expected = "The served 4.http-pnl-tracker-post-v2-me-rewards-prepare-claim-j29 interface and requirements 4299.1 and 21121.1 require preparation, durable idempotency and replay after reopen using the deployed schema, including its request and audit tables."
+proposal = "Add owner-reviewed migrations for l18_requests and l18_audit under services/launchpad/pnl-tracker and apply them through the production schema deployment path before reward routes become ready. Preserve existing request identities during upgrades and verify claim preparation plus replay after service/database reconnect using only those migrations."
+owner_domain = 4
+interface = "4.http-pnl-tracker-post-v2-me-rewards-prepare-claim-j29"
+
+[finding.reward-proof-schema]
+file = "services/launchpad/pnl-tracker/internal/app/proof_launchpad_pnl_tracker_test.go"
+line = 82
+class = "test-gap"
+severity = "medium"
+observed = "TestProofLaunchpadPnlTracker provisions l18_requests and l18_audit with test-local CREATE TABLE statements before the HTTP path runs. The real contracts, HTTP and decoder steps are useful, but this setup bypasses the production provisioning gap and therefore cannot establish that an upgraded operator installation can perform the same request."
+expected = "Requirement 21121.1 and brief check_7 require the real producer-to-consumer path, with production persistence and restart behavior. Setup must exercise the migration contract rather than supply a schema the deployed producer does not receive."
+proposal = "In services/launchpad/pnl-tracker/internal/app/proof_launchpad_pnl_tracker_test.go provision reward tables through the production migration entry point and retain the real-chain ownership, malformed-response and reopen assertions. Add a fresh-install and existing-schema upgrade case that both prepare and replay a claim."
+owner_domain = 4
+
+[finding.holder-page-refresh]
+file = "apps/launchpad/web/src/widgets/coin/holders-table.tsx"
+line = 103
+class = "runtime-risk"
+severity = "medium"
+observed = "HoldersBody stores the first readyPage for each cursor and returns current whenever that key already exists. Later successful useHolders refreshes for that cursor never replace its balance, share, coverage or nextCursor; a long-open coin page therefore continues to display the original holder snapshot."
+expected = "A successful holder refresh must update displayed holder facts and pagination provenance. Brief check_4 and the holder/statistics interfaces require current source values to remain distinguishable from an old snapshot."
+proposal = "In apps/launchpad/web/src/widgets/coin/holders-table.tsx replace a cached page when its revision changes and keep one consistent snapshot/cursor chain across refreshes. Reset or refetch subsequent pages when the first-page snapshot changes and cover a changed balance and cursor after refresh."
+owner_domain = 4
+
+[finding.holder-page-retry]
+file = "apps/launchpad/web/src/widgets/coin/holders-table.tsx"
+line = 189
+class = "wiring-gap"
+severity = "medium"
+observed = "The LoadMore error action calls setCursor(last.nextCursor). After a failed request for that cursor, last is still the previous loaded page and the cursor state already equals last.nextCursor; clicking the retry makes no state change and never calls holders.retry."
+expected = "A visible retry for a failed holder page must actually request that same page again while preserving the pages that succeeded."
+proposal = "In apps/launchpad/web/src/widgets/coin/holders-table.tsx dispatch holders.retry for an error on the current page and advance the cursor only for a new page. Exercise one failed continuation followed by a successful click-driven retry."
+owner_domain = 4
+
+[finding.risk-unknown-booleans]
+file = "apps/launchpad/web/src/widgets/coin/stats-audit-panel.tsx"
+line = 90
+class = "runtime-risk"
+severity = "medium"
+observed = "parseRisk converts missing, null and nonboolean hasCreatorSold/isNew fields to false, and AuditRows renders those values as green pass/No. A malformed or older risk response with a valid rating can therefore assert that a creator has not sold and the coin is not new without providing either fact."
+expected = "Brief checks 1 and 4 require unknown source facts to remain unknown. The stats-workers risk producer supplies boolean fields; a missing or differently typed field must not be interpreted as an affirmative safety assessment."
+proposal = "In apps/launchpad/web/src/widgets/coin/stats-audit-panel.tsx require actual booleans or retain a nullable unknown state and render the unknown icon and explanation. Add missing, null, string and valid true/false response cases against the producer shape."
+owner_domain = 4
+
+[finding.trade-page-retry]
+file = "apps/launchpad/web/src/widgets/coin/trades-table.tsx"
+line = 26
+class = "wiring-gap"
+severity = "medium"
+observed = "TradesLive passes an error flag to LoadMore but its action only sets trades.data.nextCursor when data exists. When a newly selected older-page query fails without data the control disappears; after a failed refetch with cached data it can advance past the failed page. There is no explicit continuation retry calling trades.refetch."
+expected = "A failed older-trades request must leave loaded trades available and provide an action that retries the failed cursor before moving farther into history."
+proposal = "In apps/launchpad/web/src/widgets/coin/trades-table.tsx retain the requested continuation separately from its response and expose trades.refetch on the failure control even when that query has no data. Cover initial continuation failure and cached-page refetch failure."
+owner_domain = 4
+
+[finding.rewards-grid-pagination]
+file = "apps/launchpad/web/src/widgets/holder-rewards/holder-rewards-view.tsx"
+line = 113
+class = "wiring-gap"
+severity = "medium"
+observed = "HolderRewardsView mounts GridView for a nonempty grid, but the only LoadMore control is inside the alternative HolderRewardsTable. The grid receives no hasMore, loadMore or error state, so a visitor cannot reach the next IF_HOLDER_REWARDS_POOLS page without switching views."
+expected = "The cursor-paged holder rewards product must allow continuation and recovery in both offered views; changing presentation must not silently restrict the available coins."
+proposal = "In apps/launchpad/web/src/widgets/holder-rewards/holder-rewards-view.tsx render shared pagination below both presentations or pass the same continuation actions to GridView. Retain loaded rows and add a grid case with a second page and a failed-page retry."
+owner_domain = 4
+interface = "4.http-api-get-v2-holder-rewards-pools-compatibility"
+
+[finding.cup-standings-pagination]
+file = "apps/launchpad/web/src/widgets/leaderboard/cups/cup-results-list.tsx"
+line = 130
+class = "wiring-gap"
+severity = "medium"
+observed = "LiveStandings calls useCupStandings with its default null cursor and StandingsPanel only renders items and generatedAt. The returned CupStandingsPage.nextCursor is discarded and there is no page state or continuation action; standings stop at the first 100 participants."
+expected = "IF_CUP_STANDINGS is a cursor-paged contract. When a serving cup backend has more than one page, users must be able to find participants beyond the first page without the view implying the page is the entire standings list."
+proposal = "In apps/launchpad/web/src/widgets/leaderboard/cups/cup-results-list.tsx carry nextCursor through the panel, append pages with stable rank/wallet identity checks and expose load-more/retry controls. Preserve the actual unavailable response while the cup backend is unconfigured."
+owner_domain = 4
+interface = "4.http-api-get-v2-cups-cup-id-standings"
+
+[finding.callout-pagination]
+file = "apps/launchpad/web/src/widgets/social/hot-callouts-panel.tsx"
+line = 71
+class = "wiring-gap"
+severity = "medium"
+observed = "HotCalloutsPanel always requests the null-cursor feed or pool-callout page. feedViews and poolViews reduce their responses to arrays, discarding continuation metadata, and the scrolling panel has no load-more state or control. Older entries become unreachable after the first 50."
+expected = "IF_CONNECTED_FEED and IF_CALLOUT_LIST expose cursor pages; a scrolling callout feed must either offer continuation or explicitly identify itself as a bounded preview with a route to the rest."
+proposal = "In apps/launchpad/web/src/widgets/social/hot-callouts-panel.tsx preserve each feed cursor, append distinct post identities and expose continuation and retry. Reset the cursor on pool/order changes and exercise two real service pages, including removed posts and unavailable errors."
+owner_domain = 4
+
+[finding.live-continuation-refresh]
+file = "apps/launchpad/web/src/widgets/live/use-live-directory.ts"
+line = 286
+class = "runtime-risk"
+severity = "medium"
+observed = "useLiveDirectory refreshes the first five pages every ten seconds, but useLiveDirectoryContinuation caches later pages with infinite staleTime and has no refetch interval or invalidation link to that refresh. If the boundary cursor stays the same, later streams and viewer counts can remain permanently stale in an active directory, including streams that have ended."
+expected = "Directory pages shown together must reflect compatible stream lifecycle information. Brief checks 1 and 5 require ended/suspended status and recovery to propagate to every displayed page, rather than only the first page set."
+proposal = "In apps/launchpad/web/src/widgets/live/use-live-directory.ts refresh or invalidate continuation pages with the base directory, or bind them to an explicit snapshot generation and restart the walk when it changes. Test an ended continuation stream with an unchanged boundary cursor."
+owner_domain = 4
+
+[finding.social-request-deadline]
+file = "apps/launchpad/web/src/widgets/social/social-transport.ts"
+line = 144
+class = "runtime-risk"
+severity = "medium"
+observed = "proxyRequest uses raw fetch with only a caller-provided signal. setFollowing passes no signal, and a live query signal alone imposes no elapsed deadline. A social fallback host that accepts a connection and never responds can leave follow actions pending indefinitely, unlike SDK operations with their configured timeout."
+expected = "Brief check_4 requires bounded external requests and recoverable errors. Falling back from the SDK operation to the authenticated social proxy must retain an effective request deadline."
+proposal = "In apps/launchpad/web/src/widgets/social/social-transport.ts compose caller cancellation with a finite timeout for proxy reads and writes, map deadline errors to a retryable product error and retain the idempotency key for retry. Exercise a connected upstream that never completes its response."
+owner_domain = 4
+
+[finding.chain-launch-path-proof]
+file = "apps/launchpad/web/src/widgets/create-chain/chain-wizard.test.tsx"
+line = 81
+class = "test-gap"
+severity = "medium"
+observed = "The wizard success test replaces readParams, isNameAvailable and launch on ChainLaunchAdapter, and walletRequests supplies RPC answers in the recovery cases. These tests prove UI transitions and one-submit bookkeeping against constructed receipts, but do not establish that a real chains registry emits the event/record consumed by the mounted wizard."
+expected = "Requirements 20008.1 and 22035.1 plus brief fact_7 require the real createChain producer, wallet transport, ChainCreated receipt/registry read and reload recovery to agree end to end."
+proposal = "Add a chains-enabled local-node proof alongside apps/launchpad/web/src/widgets/create-chain/chain-wizard.test.tsx that launches through the real adapter, decodes the node receipt, reloads the persisted submitted journal and reaches readiness with exactly one submission. Keep the focused UI tests and typed timeout/revert cases."
+owner_domain = 4
+
+[finding.catalog-checkout-artifacts]
+file = "sdk/launchpad/protocol/catalog/registry_input_test.go"
+line = 66
+class = "test-gap"
+severity = "medium"
+observed = "TestOpticalRegistryReviewUsesRealCompiledArtifactAndExplicitAttestation reads OpticalRegistry.json, its .dbg.json and compiler build-info from contracts/launchpad/artifacts. These generated files are untracked and the artifacts directory is absent in the audited checkout. The test therefore depends on a prior external Hardhat build despite its checkout-hermetic requirement."
+expected = "Requirement 4533.1 says the catalog test runs from a checkout. Reviewed ABI/source/compiler provenance must be available through declared, reproducible inputs without silently relying on another task having populated an ignored build directory."
+proposal = "In sdk/launchpad/protocol/catalog/registry_input_test.go use a reviewed checked-in provenance fixture containing the actual compiler artifact and build inputs, or explicitly provision the real artifact through the declared test/build setup. Keep digest, attestation and base-registry immutability refusals intact."
+owner_domain = 4
+
+[finding.legacy-fold-order]
+file = "services/launchpad/pnl-tracker/internal/store/positions.go"
+line = 100
+class = "runtime-risk"
+severity = "medium"
+observed = "FoldTrade serializes arrival with an advisory lock but folds each newly inserted trade immediately without checking its canonical position. The legacy position.Consumer and reconcile.Reconciler both call it. If a later buy arrives before a missed earlier sell, the later buy changes remaining cost before the sell is replayed; idempotency prevents duplicates but cannot restore the correct historical cost basis."
+expected = "The legacy webhook/backfill path claims convergence and must derive PnL from canonical trade order after downtime. Arrival order is not canonical order; the production inventory pipeline is a separate path and does not repair this legacy fold."
+proposal = "In services/launchpad/pnl-tracker/internal/store/positions.go retain canonical transaction/log positions and rebuild the affected position transactionally when an earlier unseen trade arrives, or route the legacy consumer through an ordered projection. Cover delayed buys/sells and mixed realtime/backfill delivery with equal final positions."
+owner_domain = 4
+
+[finding.reward-sort-scope]
+file = "apps/launchpad/web/src/widgets/holder-rewards/holder-rewards-view.tsx"
+line = 86
+class = "runtime-risk"
+severity = "medium"
+observed = "HolderRewardsView sends only order.key to the server, then applies ascending or descending order locally to the pages already loaded. A header switch to ascending reverses the loaded top-ranked subset, so the smallest items in the full reward population need not appear, and the page provides no loaded-subset sorting disclosure."
+expected = "A user selecting lowest-first must receive the lowest entries in the requested population, or be told clearly that the order applies only to loaded rows. Client sorting cannot invert a truncated server ranking globally."
+proposal = "In apps/launchpad/web/src/widgets/holder-rewards/holder-rewards-view.tsx add loaded-row scope disclosure and counts, or extend the owner-controlled pools sort contract to request direction and restart pagination. Cover more than one server page with values below the first page range."
+owner_domain = 4
+
+[finding.cli-site-rpc]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The CLI guide requires --rpc to end in /rpc at line 8, repeats the path restriction at line 131 and sends eth_sendRawTransaction to /rpc at line 298."
+expected = "Brief facts 1-3 specify one merged network, public node JSON-RPC at the root and hosted px_ methods under their own declared gateway contract."
+proposal = "Rewrite docs/site/docs/platform/cli.md and the owning CLI endpoint guidance around chain 125 root JSON-RPC and the explicit hosted gateway contract; remove the retired unified-path requirement and update examples and error guidance together."
+owner_domain = 8
+
+[finding.cli-wiki-rpc]
+file = "docs/wiki/Cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki CLI guide requires a /rpc suffix at line 8 and repeats the retired path in configuration and transaction submission at lines 131 and 298."
+expected = "Brief facts 1-3 specify root node JSON-RPC and prohibit a separate LayerX interface or unified /rpc route."
+proposal = "Update docs/wiki/Cli.md from the same corrected endpoint source as the site CLI guide, preserving key/receipt safety guidance while replacing every active /rpc instruction with the merged endpoint contract."
+owner_domain = 8
+
+[finding.beta-site-daemon]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 50
+class = "doc-drift"
+severity = "medium"
+observed = "The operator guide mounts a custody profile into layerxd --custody-profile at line 50 and describes a separate native node/custody bootstrap beside the disposable Paxeer chain."
+expected = "Brief facts 1-2 and retired components custody-deposit and lni specify paxd execution, with no running layerxd daemon or separate native custody domain."
+proposal = "Rewrite docs/site/docs/operators/beta-cluster.md and its cluster workflow source for paxd genesis and committed chain state. Clearly archive any retained pre-merge fixture procedure and replace the custody-profile/daemon startup with supported merged-node provisioning."
+owner_domain = 8
+
+[finding.beta-wiki-daemon]
+file = "docs/wiki/BetaCluster.md"
+line = 42
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki cluster guide directs operators to mount a custody profile into layerxd --custody-profile at line 42 and retains the split native/Paxeer bootstrap model."
+expected = "Brief facts 1-2 require one paxd network and classify instructions to operate the retired layerxd daemon as documentation drift."
+proposal = "Replace docs/wiki/BetaCluster.md from the corrected cluster guide and keep retained material/recovery instructions aligned with the merged node lifecycle, without presenting the retired daemon bootstrap as the active operator path."
+owner_domain = 8
+
+[finding.agent-site-rpc]
+file = "docs/site/docs/agents/running.md"
+line = 512
+class = "doc-drift"
+severity = "medium"
+observed = "The agent running guide states that activity.submit sends eth_sendRawTransaction to /rpc at line 512. Its connection guidance therefore directs a client to a retired unified RPC path."
+expected = "Brief facts 2-3 require agent submission to use the merged node root JSON-RPC contract and hosted methods only through the declared gateway interface."
+proposal = "Update docs/site/docs/agents/running.md and the corresponding agent transport guidance to the merged submission URL, preserving submitted-versus-committed distinctions and the actual receipt verification lifecycle."
+owner_domain = 9
+
+[finding.agent-wiki-rpc]
+file = "docs/wiki/RunningAnAgent.md"
+line = 512
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki agent guide sends activity.submit to /rpc at line 512, reproducing the obsolete endpoint instruction in the site guide."
+expected = "Brief facts 2-3 retire the unified /rpc interface; the active agent transport must agree with the merged node and hosted contracts."
+proposal = "Regenerate or update docs/wiki/RunningAnAgent.md from the corrected agent guide, verify all endpoint examples against chain 125 and keep session revocation and unknown-outcome recovery guidance intact."
+owner_domain = 9
+
+[finding.gateway-site-rpc]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 50
+class = "doc-drift"
+severity = "medium"
+observed = "The hosted gateway guide advertises POST /rpc, GET /rpc/schema and GET /rpc/ws at lines 50-51 and repeats them in its route table at lines 198-200 and later text."
+expected = "Brief facts 2-3 prohibit the separate LayerX/unified-RPC interface and distinguish root node namespaces from hosted px_ methods declared in services/platform/hosted/gateway/openrpc.json."
+proposal = "Rewrite docs/site/docs/platform/hosted-gateway.md around the supported hosted method and authentication contract, replace the retired route table and separate the node root RPC examples from hosted-only method examples."
+owner_domain = 8
+
+[finding.gateway-wiki-rpc]
+file = "docs/wiki/HostedGateway.md"
+line = 50
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki gateway page advertises /rpc, /rpc/schema and /rpc/ws at lines 50-51 and 198-200, retaining the pre-merge public surface."
+expected = "The merged network brief facts 2-3 retire these paths and make the node root JSON-RPC and hosted px_ contract the endpoint authorities."
+proposal = "Update docs/wiki/HostedGateway.md in sync with the corrected site gateway guide and the active OpenRPC contract; remove obsolete unified-route examples while preserving supported bearer, scope and refusal rules."
+owner_domain = 8
+
+[finding.human-retired-custody]
+file = "docs/wiki/HumanOwnerRegistration.md"
+line = 105
+class = "doc-drift"
+severity = "medium"
+observed = "The Human owner guide calls 0x1013 native custody, bootstraps layerxcustody and directs deposit(bytes32) at lines 102-111. It still requires a native daemon identity admission before execution at lines 94-100."
+expected = "The retired custody-deposit contract marks layerxcustody disabled after the upgrade, and the merged network funds derived kernel subaccounts through native bank movement rather than a second custody credit."
+proposal = "Rewrite docs/wiki/HumanOwnerRegistration.md with the Human owner admission and bank/subaccount funding path, using committed chain evidence and the supported outward bridge where needed. Label the old 0x1013 and LNI procedure as retired instead of an active setup step."
+owner_domain = 10
+
+[finding.system-cli-separate-core]
+file = "docs/system/cli.md"
+line = 76
+class = "doc-drift"
+severity = "medium"
+observed = "The generated CLI catalogue describes emulator up as a gateway around a separate real protocol core and emulator provision as generating the sequencer seed at lines 74-76, without distinguishing the retired pre-merge runtime from the supported merged-node local environment."
+expected = "Brief facts 1-2 require paxd to execute and propose the network state and prohibit a separate LayerX runtime being presented as the current network interface."
+proposal = "Amend the owning command descriptions in tools/platform/cli and regenerate docs/system/cli.md through tools/docs/gen-system-docs.sh. Describe the supported merged local-node setup and label any retained legacy emulator commands with their actual limited status."
+owner_domain = 16
+
+[finding.system-routes-router]
+file = "docs/system/routes.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The generated route guide is titled Router routes at line 3, describes a separate kernel sequencer service at line 31, and advertises /rpc/evm/ws at line 908; its namespace table at line 911 also lists web3_* as a public node namespace."
+expected = "Brief facts 1-3 remove the router and separate sequencer service, place node RPC at the root and enumerate the actual debug, echo, eth, net, pax, test and txpool node namespaces."
+proposal = "Correct tools/paxeer-x/route-catalogue.json and the owning route descriptions, then regenerate docs/system/routes.md. Show the supported node and hosted service surfaces without a retired router, RPC path or obsolete namespace claim."
+owner_domain = 16
+
+[finding.service-contract-router]
+file = "spec/layerx-merge/contracts/services.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "The service catalogue row for sequencer at line 37 says node JSON-RPC is private to the router and registered hosted senders. That wording preserves a separate router/service boundary in an otherwise merged service contract."
+expected = "Brief facts 1-3 require the proposer/executor to be part of paxd, public node root RPC and no running router component."
+proposal = "Amend the owning service specification for sequencer and regenerate spec/layerx-merge/contracts/services.md so its route/exposure and lifecycle describe the integrated node and the actual authenticated hosted surfaces."
+owner_domain = 5
+
+[finding.gateway-method-counts]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 51
+class = "doc-drift"
+severity = "low"
+observed = "The site gateway guide calls OpenRPC a 15-method contract at line 51 while docs/wiki/HostedGateway.md calls the same contract 18-method; services/platform/hosted/gateway/openrpc.json currently declares 17 methods. The mirrors and the declared method inventory disagree independently of the retired URL wording."
+expected = "Documentation describing the hosted method set must derive its count and names from the same OpenRPC contract instead of carrying mutually inconsistent literal totals."
+proposal = "Generate the method summary in docs/site/docs/platform/hosted-gateway.md and docs/wiki/HostedGateway.md from services/platform/hosted/gateway/openrpc.json when publishing the endpoint rewrite, or omit the brittle numeric count and link the versioned method list."
+owner_domain = 8
+
+[doc.1]
+path = "docs/site/docs/platform/cli.md"
+status = "stale"
+notes = "Reviewed the page and its package-facing guidance; exact drift and owner rewrite proposals are recorded in cli-site-rpc."
+
+[doc.2]
+path = "docs/wiki/Cli.md"
+status = "stale"
+notes = "Reviewed the page and its package-facing guidance; exact drift and owner rewrite proposals are recorded in cli-wiki-rpc."
+
+[doc.3]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "stale"
+notes = "Reviewed the page and its package-facing guidance; exact drift and owner rewrite proposals are recorded in beta-site-daemon."
+
+[doc.4]
+path = "docs/site/docs/agents/running.md"
+status = "stale"
+notes = "Reviewed the page and its package-facing guidance; exact drift and owner rewrite proposals are recorded in agent-site-rpc."
+
+[doc.5]
+path = "docs/site/docs/platform/hosted-gateway.md"
+status = "stale"
+notes = "Reviewed the page and its package-facing guidance; exact drift and owner rewrite proposals are recorded in gateway-site-rpc, gateway-method-counts."
+
+[doc.6]
+path = "docs/wiki/HostedGateway.md"
+status = "stale"
+notes = "Reviewed the page and its package-facing guidance; exact drift and owner rewrite proposals are recorded in gateway-wiki-rpc."
+
+[doc.7]
+path = "docs/wiki/HumanOwnerRegistration.md"
+status = "stale"
+notes = "Reviewed the page and its package-facing guidance; exact drift and owner rewrite proposals are recorded in human-retired-custody."
+
+[doc.8]
+path = "docs/wiki/BetaCluster.md"
+status = "stale"
+notes = "Reviewed the page and its package-facing guidance; exact drift and owner rewrite proposals are recorded in beta-wiki-daemon."
+
+[doc.9]
+path = "docs/wiki/RunningAnAgent.md"
+status = "stale"
+notes = "Reviewed the page and its package-facing guidance; exact drift and owner rewrite proposals are recorded in agent-wiki-rpc."
+
+[doc.10]
+path = "docs/system/cli.md"
+status = "stale"
+notes = "Reviewed the page and its package-facing guidance; exact drift and owner rewrite proposals are recorded in system-cli-separate-core."
+
+[doc.11]
+path = "docs/system/routes.md"
+status = "stale"
+notes = "Reviewed the page and its package-facing guidance; exact drift and owner rewrite proposals are recorded in system-routes-router."
+
+[doc.12]
+path = "contracts/launchpad/operations/README.md"
+status = "accurate"
+notes = "Reviewed the full launchpad operations runbook: chain 125, six-decimal USDL, governed ownership/resume, incident pause/refund boundaries and artifact-bound qualification are consistent. It does not claim that local evidence qualifies a deployed release."
+
+[doc.13]
+path = "spec/layerx-merge/contracts/clients.md"
+status = "accurate"
+notes = "Reviewed launchpad-sdk-protocol-go and launchpad-web-app sections and their ABI, source provenance and client acceptance references. They identify frozen interfaces and planned changes rather than certify a live deployment."
+
+[doc.14]
+path = "spec/layerx-merge/contracts/services.md"
+status = "stale"
+notes = "Reviewed common service rules and launchpad API, livestream, PnL, social, stats and chart sections. Reward route spelling matches the frozen operation; the separate router wording at line 37 needs the service-contract-router correction."
+
+[doc.15]
+path = "spec/layerx-merge/contracts/launchpad.md"
+status = "accurate"
+notes = "Reviewed scope and the consumed IEventEmitter authority/event signatures, including Swap indexed poolId/sender and raw amounts. The signatures agree with the Solidity declaration; the RPCSource caller-evidence consumer gap is a code finding."

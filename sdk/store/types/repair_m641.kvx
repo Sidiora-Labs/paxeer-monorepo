@@ -1,0 +1,22 @@
+[task.22.33.641]
+audit = "22.30.165"
+baseline = "Not run: the explicit implementation-first order and allowed gates prohibit the conflicting pre-change verification step; no baseline failure is claimed."
+wiring_requests = []
+qualification = "The hf-done private evidence ledger records the verified candidate revision, command, exit code and log; no unrun gate is claimed here."
+
+[finding.gas-multiplier-arithmetic]
+tests = ["TestRepairM_641_FullWidthRatiosThroughAnte", "TestRepairM_641_RejectZeroDenominatorAtConstruction", "TestRepairM_641_QuotientOverflowSaturates", "TestRepairM_641_AccumulationOverflowSaturates", "TestRepairM_641_RefundOverflowPreservesConsumption", "TestRepairM_641_FractionalFiniteLimitThroughAnte"]
+proof = "Real SDK ratio constructors, Context multiplier inheritance and ante.SetGasMeter for finite, simulation and genesis modes; a real GasKV store charges Has against an in-memory store. Full-width consume/refund ratios, constructor validation, quotient/accumulation saturation and panic identity, refund atomicity and finite limits are asserted."
+overflow_policy = "Consume overflow saturates consumed at MaxUint64 and panics ErrorGasOverflow, including when the scaled quotient itself is unrepresentable. Refund overflow panics ErrorGasOverflow without mutation. Representable ratios round down after full-width multiplication."
+
+[finding.infinite-gas-refund-test-wrap]
+tests = ["TestRepairM_641_InfiniteRefundRegression"]
+proof = "The existing TestInfiniteGasMeter keeps its overflow panic assertion, explicitly asserts saturation, and rejects a representable over-refund on a separate meter; the focused gate proves the same production path and successful refund after rejection."
+
+[gotcha.gate_order]
+symptom = "The embedded repair step requests a baseline verification while the explicit order forbids testing before full implementation."
+do = "Follow the explicit bounded gate order; record the absent baseline honestly and keep the gotcha in this scoped record because root GOTCHA.kvx is outside scope."
+
+[gotcha.patch_context]
+symptom = "An atomic multi-file patch failed to match an assumed blank line in gas_test.go; no edit was applied."
+do = "Read the exact context and apply the corrected patch before qualification."

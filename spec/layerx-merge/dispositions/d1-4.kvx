@@ -1,0 +1,59 @@
+[disposition.1.0.1]
+finding = "1.0.1"
+status = "resolved"
+evidence = "834517742 added the kernel test pattern rule now at Makefile:1139, which builds tests/codec/lxp_test_case_dispatch.c supplied by 850a1ad8d as build/tests/kernel/codec/lxp_test_case_dispatch."
+follow_up = "closure"
+
+[disposition.1.2.3]
+finding = "1.2.3"
+status = "resolved"
+evidence = "1379ed3e0 removed the kernel capacity-receipt canonical lookup, and 5af20d0e8 deleted the idempotency implementation together with the remaining module-context reserve call and snapshot-test append call."
+follow_up = "closure"
+
+[disposition.1.17.2.1]
+finding = "1.17.2.1"
+status = "resolved"
+evidence = "1379ed3e0 removed both the lxp_handover.h include and lxp_handover_state member from include/layerx/lxp_kernel.h while deleting the handover source and header, so the kept kernel header no longer requires the retired header."
+follow_up = "closure"
+
+[disposition.1.1.5.1]
+finding = "1.1.5.1"
+status = "superseded"
+evidence = "801921d37 retired src/guarantor/lxp_da_possession.c in full, removing the reported LXP_ERR_DA_MISSING emitters before f8721c8e3 retired the result-code row."
+follow_up = "closure"
+
+[disposition.1.6.3.1]
+finding = "1.6.3.1"
+status = "superseded"
+evidence = "c05755eb8, 9747724b2 and 218551f29 retired src/network/lxp_da_bundle.c, src/network/lxp_da_kernel.c and src/replica/lxp_replay.c respectively, removing all three reported consumers before 6660e2f33 deleted the state-diff codec and header."
+follow_up = "closure"
+
+[disposition.1.1.5.2]
+finding = "1.1.5.2"
+status = "resolved"
+evidence = "f8721c8e3 placed the permanently reserved -804 comment at include/layerx/lxp_result.h:32 above the code-table macro at line 34, whose body contains only rows accepted by services/agent/crates/layerx-types/build.rs:54."
+follow_up = "closure"
+
+[disposition.1.38.2.1]
+finding = "1.38.2.1"
+status = "superseded"
+evidence = "1379ed3e0 retired src/protocol/lxp_handover.c in full, including its layerx/lxp_da.h include, before 8583cfb20 deleted the DA header."
+follow_up = "closure"
+
+[disposition.1.1.5.3]
+finding = "1.1.5.3"
+status = "resolved"
+evidence = "9b9f71f04 removed the stale KnownResult::DaMissing expectation from services/agent/crates/layerx-types/tests/errors.rs, whose current unknown_success_and_malformed_reasons_fail_closed test ends at line 319 without referencing the retired variant."
+follow_up = "closure"
+
+[disposition.1.0.9.1]
+finding = "1.0.9.1"
+status = "resolved"
+evidence = "7d4418060 deleted lxp_batch_body and the lxp_batch_timestamp_select and lxp_batch_timestamp_validate prototypes from include/layerx/lxp_batch.h, while 0fed8627d retains their absence checks in the kernel completion gate."
+follow_up = "closure"
+
+[disposition.1.18.2.1]
+finding = "1.18.2.1"
+status = "open"
+evidence = "tests/programs/test_language_abi.c:8 still includes layerx/lx_web.h deleted by 285bd6769, and language_inputs at line 257 still declares lx_web_observation and commits it at line 292, so the fixture still depends on the retired web module."
+follow_up = "22.1.12"

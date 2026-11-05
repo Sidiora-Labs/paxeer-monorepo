@@ -1,6 +1,7 @@
 package tx
 
 import (
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -13,6 +14,7 @@ import (
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	txtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/tx"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/tx/signing"
+	authsigning "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/signing"
 )
 
 func TestTxBuilder(t *testing.T) {
@@ -312,4 +314,81 @@ func TestBuilderFeeGranter(t *testing.T) {
 	// set fee granter
 	txBuilder.SetFeeGranter(addr1)
 	require.Equal(t, addr1, txBuilder.GetTx().FeeGranter())
+}
+
+func TestBuilderGasEstimateRoundTrip(t *testing.T) {
+	testBuilderGasEstimateRoundTrip(t)
+}
+
+func testBuilderGasEstimateRoundTrip(t *testing.T) {
+	for _, prime := range []string{"encode_then_set", "decode_then_set", "sign_bytes_then_set"} {
+		t.Run(prime, func(t *testing.T) {
+			registry := codectypes.NewInterfaceRegistry()
+			testdata.RegisterInterfaces(registry)
+			marshaler := codec.NewProtoCodec(registry)
+			txConfig := NewTxConfig(marshaler, []signing.SignMode{signing.SignMode_SIGN_MODE_DIRECT})
+			builder := txConfig.NewTxBuilder()
+			_, _, addr := testdata.KeyTestPubAddr()
+			require.NoError(t, builder.SetMsgs(testdata.NewTestMsg(addr)))
+			builder.SetMemo("gas estimate round trip")
+			builder.SetGasLimit(200000)
+			builder.SetFeeAmount(sdk.NewCoins(sdk.NewInt64Coin("atom", 150)))
+			builder.SetGasEstimate(100000)
+			signer := authsigning.SignerData{ChainID: "repair-303", AccountNumber: 7}
+			var initial []byte
+			var err error
+			if prime == "sign_bytes_then_set" {
+				initial, err = txConfig.SignModeHandler().GetSignBytes(signing.SignMode_SIGN_MODE_DIRECT, signer, builder.GetTx())
+			} else {
+				initial, err = txConfig.TxEncoder()(builder.GetTx())
+			}
+			require.NoError(t, err)
+			require.NotEmpty(t, initial)
+			if prime == "decode_then_set" {
+				decoded, err := txConfig.TxDecoder()(initial)
+				require.NoError(t, err)
+				builder, err = txConfig.WrapTxBuilder(decoded)
+				require.NoError(t, err)
+			}
+
+			for _, estimate := range []uint64{123456, 0, math.MaxUint64} {
+				builder.SetGasEstimate(estimate)
+				require.Equal(t, estimate, builder.GetTx().GetGasEstimate())
+
+				signBytes, err := txConfig.SignModeHandler().GetSignBytes(signing.SignMode_SIGN_MODE_DIRECT, signer, builder.GetTx())
+				require.NoError(t, err)
+				var doc txtypes.SignDoc
+				require.NoError(t, doc.Unmarshal(signBytes))
+				var signedAuth txtypes.AuthInfo
+				require.NoError(t, signedAuth.Unmarshal(doc.AuthInfoBytes))
+				require.Equal(t, estimate, signedAuth.Fee.GasEstimate)
+				require.Equal(t, signer.ChainID, doc.ChainId)
+				require.Equal(t, signer.AccountNumber, doc.AccountNumber)
+
+				encoded, err := txConfig.TxEncoder()(builder.GetTx())
+				require.NoError(t, err)
+				var raw txtypes.TxRaw
+				require.NoError(t, raw.Unmarshal(encoded))
+				var binaryAuth txtypes.AuthInfo
+				require.NoError(t, binaryAuth.Unmarshal(raw.AuthInfoBytes))
+				require.Equal(t, estimate, binaryAuth.Fee.GasEstimate)
+				require.Equal(t, doc.AuthInfoBytes, raw.AuthInfoBytes)
+				decoded, err := txConfig.TxDecoder()(encoded)
+				require.NoError(t, err)
+				require.Equal(t, estimate, decoded.GetGasEstimate())
+
+				jsonBytes, err := txConfig.TxJSONEncoder()(builder.GetTx())
+				require.NoError(t, err)
+				var jsonTx txtypes.Tx
+				require.NoError(t, marshaler.UnmarshalAsJSON(jsonBytes, &jsonTx))
+				require.Equal(t, estimate, jsonTx.AuthInfo.Fee.GasEstimate)
+				jsonDecoded, err := txConfig.TxJSONDecoder()(jsonBytes)
+				require.NoError(t, err)
+				require.Equal(t, estimate, jsonDecoded.GetGasEstimate())
+				require.Equal(t, uint64(200000), binaryAuth.Fee.GasLimit)
+				require.Equal(t, sdk.NewCoins(sdk.NewInt64Coin("atom", 150)), binaryAuth.Fee.Amount)
+				require.Equal(t, "gas estimate round trip", jsonTx.Body.Memo)
+			}
+		})
+	}
 }

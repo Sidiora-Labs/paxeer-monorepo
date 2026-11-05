@@ -205,6 +205,8 @@ func (b *BatchHTTP) Count() int {
 // baseRPCClient
 
 // ErrInvalidStatusResponse identifies a status response without a chain identity.
+// Both full nodes and light proxies identify the chain in NodeInfo.Network;
+// light proxies may leave full-node SyncInfo and ValidatorInfo fields empty.
 var ErrInvalidStatusResponse = errors.New("status response has no chain identity")
 
 // statusResponse validates at decode time, including deferred batch responses.

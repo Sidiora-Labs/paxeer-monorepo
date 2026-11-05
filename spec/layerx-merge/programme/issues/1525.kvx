@@ -1,0 +1,48 @@
+[issue.1525]
+number = 1525
+title = "[Coherence] Deleting go.sum from core/deps/db-backend and core/deps/tm-db leaves both modules unable to verify or build"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "task"
+evidence = "Commit e0b4d6cbfc695f2351c61353aab24be12f725a79 deleted core/deps/db-backend/go.sum and core/deps/tm-db/go.sum and neither module has changed since that commit at this revision, while core/deps/db-backend/go.mod:14 still requires grpc v1.83.1, core/deps/tm-db/go.mod:27 still requires compress v1.18.7, and spec/layerx-merge/spec.kvx:137859 requires regenerated lock files with module verification and builds at spec/layerx-merge/spec.kvx:137867."
+close_comment = "Both vendored database modules still need their generated checksum files restored for builds with dependency changes disabled. The follow-up task restores those files and adds a regression check covering dependency resolution in both modules."
+
+[task.18.1525.1]
+title = "Issue #1525: Restore the vendored database module checksums"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181525.1"]
+capabilities = []
+interfaces = []
+do_1 = "Regenerate core/deps/db-backend/go.sum and core/deps/tm-db/go.sum using Go's module commands against the existing manifests, including grpc v1.83.1 at core/deps/db-backend/go.mod:14 and compress v1.18.7 at core/deps/tm-db/go.mod:27; retain the dependency floors in tools/deps/floors/go-vendored.json:11-25 and do not restore obsolete checksums from before the dependency update."
+do_2 = "Add tools/deps/tests/test_vendored_checksums.py::test_vendored_database_checksums as one real integration test of both modules: require each go.sum to exist and be nonempty, run go mod verify and go list -mod=readonly -deps ./... in each module with GOWORK=off and GOFLAGS=-mod=readonly, assert successful exit codes and a nonempty dependency list, and assert byte-for-byte unchanged go.mod and go.sum files afterward; resolve the imports used by core/deps/db-backend/remotedb/grpcdb/server.go:9-10 and core/deps/tm-db/backends/arweave.go:8-9 without mocks or checksum generation during the test."
+symbols = ["test_vendored_database_checksums"]
+touches = ["core/deps/db-backend/go.sum", "core/deps/tm-db/go.sum", "tools/deps/tests/test_vendored_checksums.py"]
+tests = ["tools/deps/tests/test_vendored_checksums.py::test_vendored_database_checksums"]
+planned_paths = ["core/deps/db-backend/go.sum", "core/deps/tm-db/go.sum", "tools/deps/tests/test_vendored_checksums.py"]
+build_cmd = "(cd core/deps/db-backend && GOWORK=off go build -mod=readonly ./...) && (cd core/deps/tm-db && GOWORK=off go build -mod=readonly ./...)"
+verify_cmd = "python3 -m pytest tools/deps/tests/test_vendored_checksums.py::test_vendored_database_checksums -q"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181525]
+title = "Vendored database dependencies resolve without changing committed manifests or checksums"
+ac_1 = "Given the dependencies required by core/deps/db-backend/go.mod:5-38 and core/deps/tm-db/go.mod:5-37, both modules have nonempty generated go.sum files, pass go mod verify, resolve all package dependencies with GOWORK=off and -mod=readonly, and build without modifying either module's go.mod or go.sum."
+
+[acceptance.18.1525.1]
+feature = "18"
+req = "181525.1"
+scenario = "Given the regenerated checksum files of both vendored database modules, when test_vendored_database_checksums verifies and resolves their real dependency graphs with module writes disabled, then both commands succeed for each module and its manifest and checksum bytes remain unchanged."
+contract = "contracts/programme.md#programme"
+test = "tools/deps/tests/test_vendored_checksums.py::test_vendored_database_checksums (planned)"
+qualification = "UNRUN"

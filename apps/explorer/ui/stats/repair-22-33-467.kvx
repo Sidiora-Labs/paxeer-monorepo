@@ -1,0 +1,8 @@
+[repair.22.33.467]
+stats-percent-is-not-delta = "statsPercentIsNotDelta: recorded utilization travels through loopback HTTP, useApiQuery, JSON decoding and NumberWidgetsList and remains neutral without declared comparison semantics."
+stats-fixture-asserts-false-trend = "statsFixtureAssertsFalseTrend and the imported NumberWidgetsList.spec.tsx suite: producer-derived absolute utilization remains neutral while explicitly declared price changes retain both directions."
+baseline = "Not run: the task order forbids testing before the complete implementation and permits verification only through hf-done; both neutral-utilization assertions contradict the original units-based implementation. No pre-change failure is claimed."
+producer = "Committed mocks/stats/index.ts and stubs/stats.ts supply network_utilization_percentage and coin_price_change_percentage; test fixtures preserve their absolute and change meanings."
+wiring_request = "apps/explorer/ui/pages/Stats.tsx, explorer domain 14: supply counterSemantics for a counter only when the stats producer explicitly declares it a change; the current Counter API declares no comparison metadata, so existing measurements stay neutral."
+qualification = "Exact candidate revision, command, exit and private log are recorded by hf-build/hf-done in /out/run/gates.jsonl and the final evidence line."
+gotcha = "The previous attempt's pnpm type-check stopped on an out-of-scope ganache import; the current gates install with the committed Yarn lock and type-check through corepack Yarn."

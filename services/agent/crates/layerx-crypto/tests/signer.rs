@@ -7,10 +7,9 @@ use std::time::Duration;
 
 mod support;
 
-use layerx_crypto::disclosure::bind;
 use layerx_crypto::ed25519;
 use layerx_crypto::signer::{
-    sign_disclosed, DidSignature, KeystoreSigner, LocalSigner, SignError, Signer,
+    sign_disclosed, BindSigner, DidSignature, KeystoreSigner, LocalSigner, SignError, Signer,
 };
 use layerx_crypto::SignatureMessage;
 use layerx_wire::hash::Domain;
@@ -35,33 +34,39 @@ fn ready<F: Future>(future: F) -> F::Output {
 #[test]
 fn local_signer_is_object_safe_and_never_renders_key_material() {
     let seed = [0x53; 32];
-    let signer: Box<dyn Signer> = Box::new(LocalSigner::new(seed));
+    let signer: Box<dyn BindSigner> = Box::new(LocalSigner::new(seed));
     let rendered = format!("{signer:?}");
     assert_eq!(rendered, "LocalSigner([redacted key])");
     assert!(!rendered.contains("53535353"));
-    let canonical = support::canonical_send(25);
-    let registry = support::registry();
-    let Ok(disclosure) = bind(&canonical, &registry) else {
-        panic!("canonical send disclosure rejected");
-    };
-    let signature: Result<DidSignature, SignError> = ready(sign_disclosed(
-        signer.as_ref(),
-        &canonical,
-        &disclosure,
-        &registry,
-    ));
+    let debit = support::debit(25);
+    let canonical = debit.authorization_message().expect("native payer message");
+    let request = debit
+        .signing_request(&canonical)
+        .expect("typed payer request");
+    let signature: Result<DidSignature, SignError> = ready(signer.sign(request));
     let Ok(signature) = signature else {
         panic!("local signer refused valid request");
     };
     assert_eq!(format!("{signature:?}"), "DidSignature([public signature])");
-    let Ok(message) =
-        SignatureMessage::new(Domain::SignaturePreimage, PROTOCOL_VERSION, 17, &canonical)
-    else {
-        panic!("valid verification message rejected");
-    };
     assert_eq!(
-        ed25519::verify(&signer.public_key(), signature.as_bytes(), message),
+        ed25519::verify_message(
+            &signer.public_key(),
+            signature.as_bytes(),
+            &SignatureMessage::new(Domain::SignaturePreimage, PROTOCOL_VERSION, 17, &canonical)
+                .expect("payer scope")
+                .digest()
+        ),
         Ok(())
+    );
+    let old = support::signing::old_envelope(signer.public_key());
+    assert_eq!(
+        ready(sign_disclosed(
+            signer.as_ref(),
+            &old.canonical,
+            &old.disclosure,
+            &old.registry
+        )),
+        Err(SignError::InvalidDisclosure)
     );
     let panic = std::panic::catch_unwind(|| panic!("{rendered}"));
     let Err(payload) = panic else {
@@ -76,16 +81,27 @@ fn local_signer_is_object_safe_and_never_renders_key_material() {
 
 #[test]
 fn mismatched_disclosure_is_refused_before_a_signer_runs() {
-    let canonical = support::canonical_send(25);
-    let registry = support::registry();
-    let Ok(mut disclosure) = bind(&canonical, &registry) else {
-        panic!("canonical send disclosure rejected");
-    };
-    disclosure.amounts[0].value = 1;
+    let debit = support::debit(25);
+    let canonical = debit.authorization_message().expect("native payer message");
+    let mut changed = debit.clone();
+    changed.amount = 1;
     let signer = LocalSigner::new([0x53; 32]);
     assert_eq!(
-        ready(sign_disclosed(&signer, &canonical, &disclosure, &registry,)),
-        Err(SignError::DisclosureMismatch("amounts"))
+        changed.signing_request(&canonical).err(),
+        Some(SignError::DisclosureMismatch("send_authorization"))
+    );
+    let produced = support::send_call(25, 7);
+    let mut disclosure = produced.disclosure.clone();
+    disclosure.amounts[0].value = 1;
+    // Validate semantics before a keyless signer could be asked to sign.
+    assert_eq!(
+        ready(layerx_crypto::signer::sign_disclosed_call(
+            &signer,
+            &produced.call,
+            &disclosure,
+            support::call_options(7).from,
+        )),
+        Err(SignError::DisclosureMismatch("call"))
     );
 }
 
@@ -202,13 +218,28 @@ fn operating_system_keystore_signer_uses_a_real_ssh_agent() {
         panic!("real external key was rejected");
     };
     assert_eq!(format!("{signer:?}"), "KeystoreSigner([external key])");
-    let canonical = support::canonical_send(25);
-    let registry = support::registry();
-    let Ok(disclosure) = bind(&canonical, &registry) else {
-        panic!("canonical send disclosure rejected");
-    };
-    let signature: Result<DidSignature, SignError> =
-        ready(sign_disclosed(&signer, &canonical, &disclosure, &registry));
+    let old = support::signing::old_envelope(public_key);
+    for candidate in [
+        &signer,
+        &KeystoreSigner::new(fixture.directory.join("unavailable.sock"), public_key)
+            .expect("public key"),
+    ] {
+        assert_eq!(
+            ready(sign_disclosed(
+                candidate,
+                &old.canonical,
+                &old.disclosure,
+                &old.registry
+            )),
+            Err(SignError::InvalidDisclosure)
+        );
+    }
+    let debit = support::debit(25);
+    let canonical = debit.authorization_message().expect("native payer message");
+    let request = debit
+        .signing_request(&canonical)
+        .expect("typed payer request");
+    let signature: Result<DidSignature, SignError> = ready(signer.sign(request));
     let Ok(signature) = signature else {
         panic!("real ssh-agent refused valid request");
     };
@@ -221,5 +252,8 @@ fn operating_system_keystore_signer_uses_a_real_ssh_agent() {
         ed25519::verify(&public_key, signature.as_bytes(), message),
         Ok(())
     );
+    let binding = support::signing::binding();
+    let signature = ready(signer.sign_bind(&binding)).expect("real SSH-agent bind signature");
+    assert_eq!(binding.verify(&public_key, signature.as_bytes()), Ok(()));
     drop(fixture);
 }

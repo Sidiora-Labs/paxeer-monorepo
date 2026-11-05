@@ -61,6 +61,23 @@ public final class PortableReceipt {
                                 LocalVerifier.ReceiptKey receiptKey, Committed.Header blockHeader,
                                 Committed.ReceiptInclusion receiptInclusion, Committed.Commit commit,
                                 List<Committed.Validator> validatorSet) {
+        return export(rawTransaction, receiptJson, receiptKey, blockHeader, receiptInclusion,
+            commit, validatorSet, null, List.of());
+    }
+
+    public static byte[] export(byte[] rawTransaction, byte[] receiptJson,
+            LocalVerifier.ReceiptKey receiptKey, Committed.Header blockHeader,
+            Committed.ReceiptInclusion receiptInclusion, Committed.Commit commit,
+            List<Committed.Validator> validatorSet, ConsensusTrust consensusTrust) {
+        return export(rawTransaction, receiptJson, receiptKey, blockHeader, receiptInclusion,
+            commit, validatorSet, consensusTrust, List.of());
+    }
+
+    public static byte[] export(byte[] rawTransaction, byte[] receiptJson,
+            LocalVerifier.ReceiptKey receiptKey, Committed.Header blockHeader,
+            Committed.ReceiptInclusion receiptInclusion, Committed.Commit commit,
+            List<Committed.Validator> validatorSet, ConsensusTrust consensusTrust,
+            List<ConsensusTrust.Step> transitions) {
         ObjectNode bundle = base(rawTransaction, receiptJson, receiptKey);
         bundle.put("verificationLevel", "committed");
         bundle.set("blockHeader", Committed.encodeHeader(blockHeader));
@@ -68,7 +85,7 @@ public final class PortableReceipt {
         bundle.set("commit", Committed.encodeCommit(commit));
         bundle.set("validatorSet", Committed.encodeValidators(validatorSet));
         byte[] encoded = encode(bundle);
-        verify(encoded, new LocalVerifier.ReceiptKeys(List.of(receiptKey)));
+        verify(encoded, new LocalVerifier.ReceiptKeys(List.of(receiptKey)), consensusTrust, transitions);
         return encoded;
     }
 
@@ -78,6 +95,16 @@ public final class PortableReceipt {
     }
 
     public static Verification verify(byte[] bundle, LocalVerifier.ReceiptKeys receiptKeys) {
+        return verify(bundle, receiptKeys, null, List.of());
+    }
+
+    public static Verification verify(byte[] bundle, LocalVerifier.ReceiptKeys receiptKeys,
+                                      ConsensusTrust consensusTrust) {
+        return verify(bundle, receiptKeys, consensusTrust, List.of());
+    }
+
+    public static Verification verify(byte[] bundle, LocalVerifier.ReceiptKeys receiptKeys,
+            ConsensusTrust consensusTrust, List<ConsensusTrust.Step> transitions) {
         try {
             require(bundle != null && bundle.length > 0 && bundle.length <= MAX_BUNDLE_BYTES);
             byte[] snapshot = bundle.clone();
@@ -112,7 +139,14 @@ public final class PortableReceipt {
                 var inclusion = Committed.decodeInclusion(document.required("receiptInclusion"));
                 var commit = Committed.decodeCommit(document.required("commit"));
                 var validatorSet = Committed.decodeValidators(document.required("validatorSet"));
+                require(consensusTrust != null);
+                consensusTrust.authenticate(header, transitions);
                 committed = Committed.verify(receipted, rawTransaction, header, inclusion, commit, validatorSet);
+                JsonNode view = document.required("receiptJson");
+                if ("committed".equals(text(view, "rung"))) {
+                    require(quantity(view, "blockNumber").equals(BigInteger.valueOf(committed.height()))
+                        && MessageDigest.isEqual(hex(view, "blockHash", 32, 32), committed.blockHash()));
+                }
             }
             return new Verification(snapshot, receipted, committed);
         } catch (PlatformSdkException error) {
@@ -149,11 +183,14 @@ public final class PortableReceipt {
         require(view != null && view.isObject());
         Set<String> fields = Set.of("rung", "txHash", "nonce", "seq", "height", "index", "timestamp",
             "status", "returnData", "logs", "gasUsed", "cumulativeGasUsed", "effectiveGasPrice",
-            "feeDenom", "feeAmount", "sponsor", "from", "to", "contractAddress", "vmError", "keyId", "receipt");
+            "paymentDenom", "feeDenom", "feeAmount", "sponsor", "from", "to", "contractAddress", "vmError", "keyId", "receipt");
         var actual = new HashSet<String>();
         view.fieldNames().forEachRemaining(actual::add);
         if (actual.remove("signingKey"))
             require(MessageDigest.isEqual(hex(view, "signingKey", 32, 32), key.publicKey()));
+        if ("committed".equals(text(view, "rung"))) {
+            require(actual.remove("blockNumber") && actual.remove("blockHash"));
+        }
         require(actual.equals(fields));
         require(view.required("logs").isArray());
         for (JsonNode log : view.required("logs")) shape(log, Set.of("address", "topics", "data", "logIndex"));

@@ -11,6 +11,12 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[3]
 SCHEMA = 'paxeer-x.program-interface-artifacts.v1'
+ARTIFACTS = frozenset({'native-library', 'sandbox-staticlib', 'protocol-tests', 'legacy-tests'})
+BUILD_LOG_COUNT = 3
+NATIVE_EVIDENCE_SCHEMA = 'paxeer-x.program-interface-native-evidence.v1'
+NATIVE_FIXTURE_CASES = ('abi1', 'abi2', 'abi2-dynamic', 'abi3', 'abi3-dynamic',
+                        'abi4', 'abi4-dynamic', 'upgrade-widening', 'upgrade-breaking',
+                        'upgrade-narrowing', 'upgrade-downgrade')
 PROTOCOL_CASES = {
     'canonical_abi_domains_and_legacy_vectors',
     'exact_capabilities_exports_and_upgrade_policy',
@@ -129,6 +135,56 @@ def rust_executables(log):
     return found
 
 
+def publish_native_evidence(directory, source, cases):
+    artifacts = {case + '/' + name: artifact(cases / case / name)
+                 for case in NATIVE_FIXTURE_CASES
+                 for name in ('module.wasm', 'interface.bin', 'evidence.kvx')}
+    path = directory / 'native-evidence.json'
+    write_private(path, {'schema': NATIVE_EVIDENCE_SCHEMA, 'source': source,
+                         'artifacts': artifacts})
+    return path
+
+
+def publish_manifest(directory, record, artifacts, logs):
+    require(record.get('schema') == SCHEMA, 'unsupported interface artifact schema')
+    require(record.get('required_protocol_cases') == sorted(PROTOCOL_CASES)
+            and record.get('required_legacy_cases') == sorted(LEGACY_CASES),
+            'incomplete required case inventory')
+    require(len(record.get('commands', [])) == BUILD_LOG_COUNT,
+            'missing explicit build commands')
+    require(set(artifacts) == ARTIFACTS, 'incomplete artifact inventory')
+    require(len(logs) == BUILD_LOG_COUNT, 'missing explicit build command logs')
+    record = dict(record, artifacts={name: artifact(path) for name, path in artifacts.items()},
+                  logs=[artifact(path) for path in logs])
+    write_private(directory / 'manifest.json', record)
+    return directory / 'manifest.json'
+
+
+def build_inputs(source, native_dir, jobs, toolchains):
+    require(1 <= jobs <= 16, 'build jobs must be between 1 and 16')
+    cargo = ['cargo', '+1.91.1']
+    library = native_dir / 'liblayerx.a'
+    commands = [
+        ['make', '--no-print-directory', '-j' + str(jobs),
+         'BUILD_DIR=' + str(native_dir), 'LXP_REVISION=' + source['revision'],
+         str(library)],
+        cargo + ['build', '--locked', '--manifest-path', str(ROOT / 'programs/Cargo.toml'),
+                 '-p', 'layerx-programs-sandbox', '--features', 'host-ffi'],
+        cargo + ['test', '--locked', '--manifest-path', str(ROOT / 'programs/Cargo.toml'),
+                 '-p', 'layerx-programs-registry', '--lib', '--test', 'interface_protocol',
+                 '--no-run', '--message-format=json'],
+    ]
+    working_directories = [ROOT, ROOT / 'programs', ROOT / 'programs']
+    return {'schema': SCHEMA, 'source': source, 'producer_root': str(ROOT),
+            'commands': commands,
+            'working_directories': [str(path) for path in working_directories],
+            'profiles': {'dev_debug': 0, 'test_debug': 0, 'incremental': False},
+            'features': {'sandbox': ['host-ffi'], 'registry-tests': []},
+            'toolchains': toolchains,
+            'required_protocol_cases': sorted(PROTOCOL_CASES),
+            'required_legacy_cases': sorted(LEGACY_CASES)}
+
+
 def build(output):
     source = identity()
     directory = private_directory(output, create=True)
@@ -143,29 +199,14 @@ def build(output):
     environment['CARGO_BUILD_JOBS'] = str(jobs)
     cargo = ['cargo', '+1.91.1']
     library = native_dir / 'liblayerx.a'
-    header = native_dir / 'generated/lxp_checkpoint_settlement.h'
     staticlib = cargo_dir / 'debug/liblayerx_programs_sandbox.a'
-    commands = [
-        ['make', '--no-print-directory', '-j' + str(jobs),
-         'BUILD_DIR=' + str(native_dir), 'LXP_REVISION=' + source['revision'],
-         str(library), str(header)],
-        cargo + ['build', '--locked', '--manifest-path', str(ROOT / 'programs/Cargo.toml'),
-                 '-p', 'layerx-programs-sandbox', '--features', 'host-ffi'],
-        cargo + ['test', '--locked', '--manifest-path', str(ROOT / 'programs/Cargo.toml'),
-                 '-p', 'layerx-programs-registry', '--lib', '--test', 'interface_protocol',
-                 '--no-run', '--message-format=json'],
-    ]
-    working_directories = [ROOT, ROOT / 'programs', ROOT / 'programs']
-    record = {'schema': SCHEMA, 'source': source, 'producer_root': str(ROOT),
-              'commands': commands,
-              'working_directories': [str(path) for path in working_directories],
-              'profiles': {'dev_debug': 0, 'test_debug': 0, 'incremental': False},
-              'features': {'sandbox': ['host-ffi'], 'registry-tests': []},
-              'toolchains': {'cargo': capture(cargo + ['--version']),
-                             'rustc': capture(['rustc', '+1.91.1', '-vV']),
-                             'cc': capture(['cc', '--version'])},
-              'required_protocol_cases': sorted(PROTOCOL_CASES),
-              'required_legacy_cases': sorted(LEGACY_CASES)}
+    record = build_inputs(source, native_dir, jobs, {
+        'cargo': capture(cargo + ['--version']),
+        'rustc': capture(['rustc', '+1.91.1', '-vV']),
+        'cc': capture(['cc', '--version']),
+    })
+    commands = record['commands']
+    working_directories = record['working_directories']
     write_private(directory / 'build-inputs.json', record)
     logs = []
     for index, command in enumerate(commands):
@@ -178,14 +219,12 @@ def build(output):
         shutil.copyfile(path, target)
         target.chmod(0o700)
     require(identity() == source, 'source changed during build')
-    record['artifacts'] = {
-        'native-library': artifact(library),
-        'sandbox-staticlib': artifact(staticlib), 'generated-header': artifact(header),
-        'protocol-tests': artifact(directory / 'interface_protocol'),
-        'legacy-tests': artifact(directory / 'layerx_programs'),
-    }
-    record['logs'] = [artifact(log) for log in logs]
-    write_private(directory / 'manifest.json', record)
+    publish_manifest(directory, record, {
+        'native-library': library,
+        'sandbox-staticlib': staticlib,
+        'protocol-tests': directory / 'interface_protocol',
+        'legacy-tests': directory / 'layerx_programs',
+    }, logs)
     print('INTERFACE_BUILD_MANIFEST ' + str(directory / 'manifest.json'))
 
 

@@ -1,0 +1,243 @@
+[reconcile.r9-158]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r9-158.1]
+interface = "interface.9.rs-agentd-budget-program-settlement-verifiedprogramdebitsettlement-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/budget/program_settlement.rs"
+line = 367
+symbol = "VerifiedProgramDebitSettlement"
+evidence = "The pub struct VerifiedProgramDebitSettlement declaration owns reservation_id, reservation_digest, terminal_receipt, activity_id, global_sequence and debits; the later impl and result types reference it. Registered line 180 has drifted to declaration line 367."
+
+[row.r9-158.2]
+interface = "interface.9.rs-agentd-budget-program-sources-read-program-budget-sources-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/budget/program_sources.rs"
+line = 339
+symbol = "read_program_budget_sources"
+evidence = "The pub fn read_program_budget_sources declaration accepts a SequencerEndpoint, ProgramOperations, Prepared, CommittedCaps and timing inputs and returns VerifiedResolvedProgramCharges; the later occurrence references the function. Registered line 205 has drifted to declaration line 339."
+
+[row.r9-158.3]
+interface = "interface.9.rs-agentd-capability-effects-derive-native-profile-effects-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/capability/effects.rs"
+line = 341
+symbol = "derive_native_profile_effects"
+evidence = "The pub fn derive_native_profile_effects declaration accepts Disclosure and NativeAdmissionProfile and returns Result<SemanticPlan, EffectsError>; later occurrences are test calls. Registered line 296 has drifted to declaration line 341."
+
+[row.r9-158.4]
+interface = "interface.9.rs-agentd-capability-effects-native-registration-commitment-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/capability/effects.rs"
+line = 420
+symbol = "native_registration_commitment"
+evidence = "The pub fn native_registration_commitment declaration takes disclosure, protocol_version, network_id, canonical_digest and fee_asset and returns Result<[u8; 32], EffectsError>; later occurrences are calls. Registered line 368 has drifted to declaration line 420."
+
+[row.r9-158.5]
+interface = "interface.9.rs-agentd-capability-effects-native-registration-profile-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/capability/effects.rs"
+line = 318
+symbol = "NATIVE_REGISTRATION_PROFILE"
+evidence = "The pub const NATIVE_REGISTRATION_PROFILE declaration still has type &str and value native-registration-v1; the other occurrence uses the constant in the profile label. Registered line 275 has drifted to declaration line 318."
+
+[row.r9-158.6]
+interface = "interface.9.rs-agentd-capability-effects-nativeadmissionprofile-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/capability/effects.rs"
+line = 321
+symbol = "NativeAdmissionProfile"
+evidence = "The pub enum NativeAdmissionProfile declaration defines Effect and Registration with fee_asset; the impl, function parameter and match arms reference this enum. Registered line 278 has drifted to declaration line 321."
+
+[row.r9-158.7]
+interface = "interface.9.rs-agentd-events-gap-gapauthorization-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/events/gap.rs"
+line = 689
+symbol = "GapAuthorization"
+evidence = "The pub struct GapAuthorization<'a> declaration holds borrowed sessions, token and mutable observability plus core_sequence; earlier occurrences are parameters and destructuring patterns. Registered line 552 has drifted to declaration line 689."
+
+[row.r9-158.8]
+interface = "interface.9.rs-agentd-events-subscription-durableguard-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/events/subscription.rs"
+line = 203
+symbol = "DurableGuard"
+evidence = "The exact pub struct DurableGuard<'a>(DurableGuardInner<'a>); tuple declaration wraps durable read access; the Deref impl and durable method reference or construct it. Registered line 158 has drifted to declaration line 203."
+
+[row.r9-158.9]
+interface = "interface.9.rs-agentd-events-subscription-subscriptionerror-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/events/subscription.rs"
+line = 131
+symbol = "SubscriptionError"
+evidence = "The pub enum SubscriptionError declaration defines durable subscription failures including InvalidScope, InvalidFilter and CursorOutOfOrder; later result types and error expressions reference it. Registered line 88 has drifted to declaration line 131."
+
+[row.r9-158.10]
+interface = "interface.9.rs-agentd-store-open-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/events/subscription.rs"
+line = 237
+symbol = "open"
+evidence = "The pub fn open declaration inside impl Store exactly accepts mut durable: DurableStore and tenant: TenantId and returns Result<Self, SubscriptionError>; it loads records and creates owned durable backing. Registered line 192 has drifted to declaration line 237."
+
+[row.r9-158.11]
+interface = "interface.9.rs-agentd-export-exportownercontext-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/export.rs"
+line = 87
+symbol = "ExportOwnerContext"
+evidence = "The pub struct ExportOwnerContext<'a> declaration contains borrowed store, tenant, registry, authority and trust plus export limits; the later occurrence is a function parameter. Registered line 131 has drifted to declaration line 87."
+
+[row.r9-158.12]
+interface = "interface.9.rs-agentd-finality-augment-verified-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/finality.rs"
+line = 319
+symbol = "augment_verified"
+evidence = "The pub fn augment_verified declaration accepts durable Store, tenant, idempotency_key, VerifiedReceipt and optional VerifiedBlock and returns FinalityRecord; the earlier occurrence calls it. Registered line 173 has drifted to declaration line 319."
+
+[row.r9-158.13]
+interface = "interface.9.rs-agentd-finality-finalityrecord-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/finality.rs"
+line = 277
+symbol = "FinalityRecord"
+evidence = "The pub struct FinalityRecord declaration stores idempotency_key, tx_hash, rung, receipt bytes and key, height and optional block; later occurrences are return types, construction and encoding. Registered line 34 has drifted to declaration line 277."
+
+[row.r9-158.14]
+interface = "interface.9.rs-agentd-finality-verificationprogress-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/finality.rs"
+line = 476
+symbol = "VerificationProgress"
+evidence = "The pub trait VerificationProgress declaration defines rung_at with idempotency_key and observed_at_ms returning Result<Rung, FinalityError>; the later impl and generic bound reference it. Registered line 260 has drifted to declaration line 476."
+
+[row.r9-158.15]
+interface = "interface.9.rs-agentd-finality-waitresult-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/finality.rs"
+line = 504
+symbol = "WaitResult"
+evidence = "The pub struct WaitResult declaration defines requested and reached rungs, observed_at_ms and deadline_elapsed; later occurrences are a return type and a constructor. Registered line 275 has drifted to declaration line 504."
+
+[row.r9-158.16]
+interface = "interface.9.rs-agentd-human-budgetstate-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 1449
+symbol = "BudgetState"
+evidence = "The pub struct BudgetState declaration contains BudgetRecord, balance, proven_head and optional activity_id; earlier AuthorityResponse return types reference it. Registered line 1372 has drifted to declaration line 1449."
+
+[row.r9-158.17]
+interface = "interface.9.rs-agentd-human-humanagentjourneykind-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 414
+symbol = "HumanAgentJourneyKind"
+evidence = "The pub enum HumanAgentJourneyKind declaration defines owner rotation, reclaim, rotate and recovery variants; request fields and decoder expressions reference it. Registered line 362 has drifted to declaration line 414."
+
+[row.r9-158.18]
+interface = "interface.9.rs-agentd-human-humanlistenerconfig"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 1610
+symbol = "HumanListenerConfig"
+evidence = "The pub struct HumanListenerConfig declaration defines endpoint, owner uid and gid, mode, maximum frame bytes, deadline and peer mappings; the server field and bind parameter reference it. Registered line 1533 has drifted to declaration line 1610."
+
+[row.r9-158.19]
+interface = "interface.9.rs-agentd-human-humanoperations-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 721
+symbol = "HumanOperations"
+evidence = "The pub trait HumanOperations declaration defines daemon operation adapters beginning with native_owner_context_v1; later generic bounds constrain server and request dispatch implementations. Registered line 644 has drifted to declaration line 721."
+
+[row.r9-158.20]
+interface = "interface.9.rs-agentd-human-humanprotocolerror-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 1602
+symbol = "HumanProtocolError"
+evidence = "The pub enum HumanProtocolError declaration defines Unauthenticated, Malformed and Transport(TransportError); other occurrences are result types or error values. Registered line 1525 has drifted to declaration line 1602."
+
+[row.r9-158.21]
+interface = "interface.9.rs-agentd-human-humanrefusal-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 1492
+symbol = "HumanRefusal"
+evidence = "The pub enum HumanRefusal declaration defines typed terminal refusals including StaleNonce, StalePinnedHead and FeeSnapshotSkew; validation, error wrapping and the impl reference it. Registered line 1415 has drifted to declaration line 1492."
+
+[row.r9-158.22]
+interface = "interface.9.rs-agentd-human-humanrequest-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 433
+symbol = "HumanRequest"
+evidence = "The pub enum HumanRequest declaration begins with native owner context and send preview variants; later occurrences are boxed fields, decode return types, constructors and dispatch matches. Registered line 381 has drifted to declaration line 433."
+
+[row.r9-158.23]
+interface = "interface.9.rs-agentd-human-humanresponse-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 660
+symbol = "HumanResponse"
+evidence = "The exact pub struct HumanResponse(Vec<u8>); tuple declaration owns response bytes; the following Debug, Drop and inherent impl blocks and operation return types reference it. Registered line 608 has drifted to declaration line 660."
+
+[row.r9-158.24]
+interface = "interface.9.rs-agentd-human-humanunixserver"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 1620
+symbol = "HumanUnixServer"
+evidence = "The pub struct HumanUnixServer<O> declaration owns listener, HumanListenerConfig and operations; the following impl<O: HumanOperations> implements bind and serving on that type. Registered line 1543 has drifted to declaration line 1620."
+
+[row.r9-158.25]
+interface = "interface.9.rs-agentd-human-policycontextfield-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 1465
+symbol = "PolicyContextField"
+evidence = "The pub enum PolicyContextField declaration defines Tenant, AgentDid, AuthorityRef, PermittedActivityTypes, Expiry, Client and PolicyVersion; the impl and refusal formatting reference it. Registered line 1388 has drifted to declaration line 1465."
+
+[row.r9-158.26]
+interface = "interface.9.rs-agentd-human-runtime-balancecontext-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 1191
+symbol = "BalanceContext"
+evidence = "The pub type BalanceContext tuple alias contains two 32-byte arrays, two Strings, two u64 values and SequencerAuthorization; balance_context later uses it as its result type. Registered line 815 has drifted to declaration line 1191."
+
+[row.r9-158.27]
+interface = "interface.9.rs-agentd-human-runtime-budgetrecoveryrequest-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 2274
+symbol = "BudgetRecoveryRequest"
+evidence = "The pub struct BudgetRecoveryRequest<'a> declaration carries budget_id, protocol state, verifier, borrowed receipt collections, ceiling and sequence; the recovery parameter and later constructor reference it. Registered line 1896 has drifted to declaration line 2274."
+
+[row.r9-158.28]
+interface = "interface.9.rs-agentd-human-runtime-corebudgetstate-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 1511
+symbol = "CoreBudgetState"
+evidence = "The pub struct CoreBudgetState declaration contains revocation and head sequences, verification, evidence and receipt digests, checkpoint, age limits, remaining and asset; other occurrences use or construct it. Registered line 1135 has drifted to declaration line 1511."
+
+[row.r9-158.29]
+interface = "interface.9.rs-agentd-human-runtime-corecapabilityscope-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 1500
+symbol = "CoreCapabilityScope"
+evidence = "The pub struct CoreCapabilityScope declaration contains ProtocolScope, time bounds, module_mask, observed_sequence, verification and evidence_digest; other occurrences are return types and construction. Registered line 1124 has drifted to declaration line 1500."
+
+[row.r9-158.30]
+interface = "interface.9.rs-agentd-human-runtime-corekeypolicy-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 1523
+symbol = "CoreKeyPolicy"
+evidence = "The pub struct CoreKeyPolicy declaration contains policy_revision, delay bounds, effective and observed sequences, verification, evidence and checkpoint digests and age limits; other occurrences use or construct it. Registered line 1147 has drifted to declaration line 1523."

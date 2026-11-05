@@ -1,5 +1,6 @@
 from pathlib import Path
 import subprocess
+import runpy
 import unittest
 
 
@@ -12,6 +13,12 @@ PRODUCERS = (
 
 
 class RetiredCallers17Test(unittest.TestCase):
+    def test_checkpoint_settlement_schema_is_retained(self):
+        reader = runpy.run_path(str(ROOT / 'tests/bridge/retired/kernel_retirement.py'))
+        document = reader['checkpoint_settlement'](ROOT)
+        self.assertEqual(next(iter(document)), 'schema')
+        self.assertEqual(document['finality_policy']['certificate_threshold'], 2)
+
     def test_producers_name_no_retired_construct(self):
         command = [
             'python3', 'tools/paxeer-x/tests/retired_callers_test.py',

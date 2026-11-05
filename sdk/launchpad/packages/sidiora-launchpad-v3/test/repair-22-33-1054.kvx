@@ -1,0 +1,13 @@
+[repair.22.33.1054]
+audit = "22.30.41"
+finding_29 = "sidioraAbisMatchPrecompileRoleAbis; finding29RejectsWireLayoutDrift; finding29And28LaunchpadWalkthroughOverHttp"
+finding_28 = "provenanceArtifactsResolveInRepository; finding28RejectsSourceAndExportDrift; finding29And28LaunchpadWalkthroughOverHttp"
+baseline = "No baseline gate ran: the explicit gate order prohibits testing before implementation and running verify_cmd by hand; the initial gate ledger had no runs. No baseline test failure is claimed."
+evidence = "The hf-build/hf-done private gate ledger records the exact candidate revision, command, exit code and log; no qualification is claimed without a passing hf-done."
+wiring_request = "None: the continuation includes provenance.json in scope and uses existing tracked ABIs and Solidity sources; no generated Hardhat artifact or out-of-path change is required."
+observed = "Attempt 1 at 7e4687a4dd158071478c0fe61c2f28338b43b12b failed provenanceArtifactsResolveInRepository on the absent factory ABI artifact, as reported in the continuation ruling; the initial continuation ledger has no runs."
+repair = "Every provenance entry now binds the exported role to its tracked precompiles/launchpad/abi ABI array and contracts/launchpad/contracts Solidity source, with SHA-256 digests recomputed from those bytes, including SidioraERC20 rather than ERC20Base."
+
+[gotcha.native_test_imports]
+symptom = "The declared gate installs dependencies but never emits the dist modules imported by existing tests."
+resolution = "Tests import the real source ABI with native Node TypeScript support; the HTTP walkthrough resolves only the SDK source index's relative ABI import to its TypeScript source, without a subprocess or compiler."

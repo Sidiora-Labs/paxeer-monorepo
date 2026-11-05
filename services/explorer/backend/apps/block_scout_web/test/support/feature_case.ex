@@ -20,17 +20,17 @@ defmodule BlockScoutWeb.FeatureCase do
     end
   end
 
+  @doc false
+  def setup_cache_fixture, do: BlockScoutWeb.CacheFixture.checkout!()
+
   setup tags do
+    :ok = setup_cache_fixture()
+
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(Explorer.Repo)
 
     if !tags[:async] do
       Ecto.Adapters.SQL.Sandbox.mode(Explorer.Repo, {:shared, self()})
     end
-
-    Supervisor.terminate_child(Explorer.Supervisor, Explorer.Chain.Cache.Transactions.child_id())
-    Supervisor.restart_child(Explorer.Supervisor, Explorer.Chain.Cache.Transactions.child_id())
-    Supervisor.terminate_child(Explorer.Supervisor, Explorer.Chain.Cache.Accounts.child_id())
-    Supervisor.restart_child(Explorer.Supervisor, Explorer.Chain.Cache.Accounts.child_id())
 
     metadata = Phoenix.Ecto.SQL.Sandbox.metadata_for(Explorer.Repo, self())
     {:ok, session} = Wallaby.start_session(metadata: metadata)

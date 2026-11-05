@@ -845,9 +845,12 @@ static lxp_result snapshot_load(
             status = LXP_ERR_NON_CANONICAL;
     }
     state->count = status == LXP_OK ? count : 0U;
-    if (status == LXP_OK) status = lxp_codec_read_u32(&reader, &count);
-    if (status == LXP_OK && count != 0U)
-        status = LXP_ERR_SNAPSHOT_MISMATCH;
+    if (status == LXP_OK) {
+        uint32_t reserved_count = 0U;
+        status = lxp_codec_read_u32(&reader, &reserved_count);
+        if (status == LXP_OK && reserved_count != 0U)
+            status = LXP_ERR_SNAPSHOT_MISMATCH;
+    }
     if (status == LXP_OK) status = lxp_codec_read_u32(&reader, &count);
     if (status == LXP_OK && count != kernel->module_count)
         status = LXP_ERR_SNAPSHOT_MISMATCH;

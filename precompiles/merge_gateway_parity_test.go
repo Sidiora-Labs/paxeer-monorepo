@@ -25,10 +25,11 @@ func (gatewayParityChecks) MissingMergeConstructors() map[common.Address]struct{
 }
 
 func TestGatewayUnservedMatchesMissingConstructors(t *testing.T) {
+	require.Equal(t, MergeAddressTable(), precompiles.MergeAddressTable)
 	source, err := os.ReadFile("../services/wallet/gateway/src/precompiles.ts")
 	require.NoError(t, err)
 
-	addressTables := regexp.MustCompile(`(?s)export const PRECOMPILE_ADDRESSES\s*=\s*\{(.*?)\}\s*as const`).FindAllStringSubmatch(string(source), -1)
+	addressTables := regexp.MustCompile(`(?s)export const PRECOMPILE_ADDRESSES\s*=\s*(?:Object\.freeze\(\s*)?\{(.*?)\}\s*as const`).FindAllStringSubmatch(string(source), -1)
 	require.Len(t, addressTables, 1, "expected one gateway address table")
 	addressPattern := regexp.MustCompile(`(?m)^\s+(\w+): '(0x[0-9a-fA-F]{40})',\s*$`)
 	routes := make(map[string]common.Address)

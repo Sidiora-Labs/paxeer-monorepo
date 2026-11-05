@@ -60,6 +60,7 @@ type Generator struct {
 	phase          Phase
 	warmupCounter  int // counts blocks during warmup phase
 	pendingDeploys map[common.Hash]*scenarioState
+	stateChanged   chan struct{}
 
 	loadGenerator generator.Generator
 	txsPerBatch   int
@@ -84,15 +85,18 @@ func NewGenerator(cfg *config.LoadConfig, txConfig client.TxConfig) (*Generator,
 		chainID:        cfg.GetChainID(),
 		deployer:       loadtypes.GenerateAccounts(1)[0],
 		pendingDeploys: make(map[common.Hash]*scenarioState),
+		stateChanged:   make(chan struct{}),
 		phase:          PhaseWarmup, // Start with warmup to let chain initialize
 		warmupCounter:  0,
 		txsPerBatch:    txsPerBatch,
 	}
 	logger.Info("benchmark: Generator will wait for warmup blocks before deploying", "warmupBlocks", WarmupBlocks)
 
+	totalAccounts := 0
 	// Create shared account pool
 	if cfg.Accounts != nil {
 		accounts := loadtypes.GenerateAccounts(cfg.Accounts.Accounts)
+		totalAccounts += len(accounts)
 		bg.sharedAccounts = loadtypes.NewAccountPool(&loadtypes.AccountConfig{
 			Accounts:       accounts,
 			NewAccountRate: cfg.Accounts.NewAccountRate,
@@ -109,6 +113,7 @@ func NewGenerator(cfg *config.LoadConfig, txConfig client.TxConfig) (*Generator,
 		if scenarioCfg.Accounts != nil {
 			// Scenario defines its own account settings - create separate pool
 			accounts := loadtypes.GenerateAccounts(scenarioCfg.Accounts.Accounts)
+			totalAccounts += len(accounts)
 			accountPool = loadtypes.NewAccountPool(&loadtypes.AccountConfig{
 				Accounts:       accounts,
 				NewAccountRate: scenarioCfg.Accounts.NewAccountRate,
@@ -130,7 +135,7 @@ func NewGenerator(cfg *config.LoadConfig, txConfig client.TxConfig) (*Generator,
 
 	logger.Info("Benchmark generator created",
 		"scenarios", len(bg.scenarios),
-		"accounts", cfg.Accounts.Accounts,
+		"accounts", totalAccounts,
 	)
 
 	return bg, nil
@@ -407,6 +412,7 @@ func (g *Generator) ProcessReceipts(receipts map[common.Hash]*evmtypes.Receipt) 
 		state.address = addr
 		state.deployed = true
 		delete(g.pendingDeploys, txHash)
+		g.notifyStateChanged()
 	}
 
 	// Transition to load phase once all deployments are confirmed
@@ -444,31 +450,44 @@ func (g *Generator) transitionToLoadPhase() {
 	}
 
 	g.loadGenerator = generator.NewWeightedGenerator(weightedConfigs...)
+	g.notifyStateChanged()
 	logger.Info("benchmark: Load generator initialized and ready", "scenarios", len(weightedConfigs))
 }
 
-// Generate returns the next batch of encoded txs.
-func (g *Generator) Generate() [][]byte {
-	g.mu.Lock()
-	phase := g.phase
+// notifyStateChanged wakes proposal generation. The caller holds g.mu.
+func (g *Generator) notifyStateChanged() {
+	close(g.stateChanged)
+	g.stateChanged = make(chan struct{})
+}
 
-	// Handle warmup phase - just count blocks and transition to setup
-	if phase == PhaseWarmup {
+// blockCommitted advances warmup once per commit notification, independently of
+// how often transactions are requested or generated.
+func (g *Generator) blockCommitted() {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	if g.phase == PhaseWarmup {
 		g.warmupCounter++
 		if g.warmupCounter >= WarmupBlocks {
 			logger.Info("benchmark: Warmup complete, transitioning to setup phase",
 				"blocksWaited", g.warmupCounter)
 			g.phase = PhaseSetup
-			phase = PhaseSetup
 		} else {
 			logger.Info("benchmark: Warming up, waiting for chain to initialize",
 				"block", g.warmupCounter,
 				"needed", WarmupBlocks)
-			g.mu.Unlock()
-			return nil // Return empty during warmup
 		}
+		g.notifyStateChanged()
 	}
-	g.mu.Unlock()
+}
+
+// Generate returns the next batch of encoded txs. Warmup advances on commits,
+// and setup advances when deployment receipts arrive.
+func (g *Generator) Generate() [][]byte {
+	phase := g.Phase()
+	if phase == PhaseWarmup {
+		return nil
+	}
 
 	if phase == PhaseSetup {
 		return g.generateSetupBlock()
@@ -490,8 +509,11 @@ func (g *Generator) GetPendingDeployHashes() []common.Hash {
 }
 
 // StartProposalChannel creates a channel that generates raw tx batches.
-func (g *Generator) StartProposalChannel(ctx context.Context, logger *Logger) <-chan [][]byte {
+func (g *Generator) StartProposalChannel(ctx context.Context, benchLogger *Logger) <-chan [][]byte {
 	ch := make(chan [][]byte, 100)
+	benchLogger.mx.Lock()
+	benchLogger.onCommit = g.blockCommitted
+	benchLogger.mx.Unlock()
 
 	go func() {
 		defer close(ch)
@@ -500,8 +522,18 @@ func (g *Generator) StartProposalChannel(ctx context.Context, logger *Logger) <-
 				return
 			}
 
+			// Subscribe before generating so a concurrent receipt or commit cannot
+			// be lost between the empty result and the wait.
+			g.mu.RLock()
+			changed := g.stateChanged
+			g.mu.RUnlock()
 			txs := g.Generate()
 			if len(txs) == 0 {
+				select {
+				case <-changed:
+				case <-ctx.Done():
+					return
+				}
 				continue
 			}
 

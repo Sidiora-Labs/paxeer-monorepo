@@ -67,7 +67,7 @@ func writeV6120UpgradeInfo(t *testing.T, a *App, height int64) {
 
 func TestV6120IsAKnownPlanWithAHandler(t *testing.T) {
 	require.Equal(t, "v6.12.0", V6120Upgrade)
-	require.Equal(t, []string{ActivationUpgrade, V610Upgrade, V6120Upgrade, MergeUpgrade}, knownUpgradePlans())
+	require.Equal(t, []string{ActivationUpgrade, V610Upgrade, V6120Upgrade, MergeUpgrade, AnchorStoreDeleteUpgrade}, knownUpgradePlans())
 	a := NewTestWrapper(t, time.Now().UTC(), secp256k1.GenPrivKey().PubKey(), false).App
 	require.True(t, a.UpgradeKeeper.HasHandler("v6.12.0"))
 	require.False(t, a.UpgradeKeeper.HasHandler("v6.11"))

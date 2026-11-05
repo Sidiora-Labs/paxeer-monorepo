@@ -79,6 +79,8 @@ const OG_TYPE_DICT: Record<Route['pathname'], OGPageType> = {
   '/cross-chain-tx/[id]': 'Regular page',
 
   // multichain routes
+  '/chains': 'Root page',
+  '/chains/[id]': 'Regular page',
   '/chain/[chain_slug]/accounts/label/[slug]': 'Root page',
   '/chain/[chain_slug]/advanced-filter': 'Regular page',
   '/chain/[chain_slug]/block/[height_or_hash]': 'Regular page',

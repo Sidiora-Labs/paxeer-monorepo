@@ -308,9 +308,9 @@ export function decodeJourneyKind(value: JsonValue | undefined, at: string): Jou
   throw new HumanApiDecodeError(at + " must be a declared JourneyKind variant");
 }
 
-export type JourneyState = "getting-ready" | "sending" | "processing" | "done" | "done-finalised" | "still-checking" | "refused" | "waiting-for-you";
+export type JourneyState = "getting-ready" | "sending" | "processing" | "done" | "done-finalised" | "still-checking" | "refused" | "waiting-for-you" | "closed" | "awaiting-approval";
 
-export const journeyStateVariants: readonly JourneyState[] = ["getting-ready", "sending", "processing", "done", "done-finalised", "still-checking", "refused", "waiting-for-you"];
+export const journeyStateVariants: readonly JourneyState[] = ["getting-ready", "sending", "processing", "done", "done-finalised", "still-checking", "refused", "waiting-for-you", "closed", "awaiting-approval"];
 
 export function decodeJourneyState(value: JsonValue | undefined, at: string): JourneyState {
   const text = expectString(value, at);
@@ -1359,7 +1359,7 @@ export function encodeApiError(value: ApiError): JsonValue {
 }
 
 export interface ApprovalApproveRequest {
-  step_up_evidence: EvidenceId;
+  step_up_evidence: StepUpChallengeId;
 }
 
 export function decodeApprovalApproveRequest(value: JsonValue | undefined, at: string): ApprovalApproveRequest {
@@ -1422,6 +1422,7 @@ export interface ApprovalDetail {
   budget_remaining_after: VerifiedMoney;
   created_at: Timestamp;
   evidence: EvidenceRef[];
+  operation_digest?: OperationDigest;
 }
 
 export function decodeApprovalDetail(value: JsonValue | undefined, at: string): ApprovalDetail {
@@ -1438,6 +1439,9 @@ export function decodeApprovalDetail(value: JsonValue | undefined, at: string): 
     created_at: expectString(object["created_at"], at + ".created_at"),
     evidence: decodeArray(object["evidence"], at + ".evidence", decodeEvidenceRef),
   };
+  if (object["operation_digest"] !== undefined) {
+    result.operation_digest = expectString(object["operation_digest"], at + ".operation_digest");
+  }
   return result;
 }
 
@@ -1454,6 +1458,9 @@ export function encodeApprovalDetail(value: ApprovalDetail): JsonValue {
     created_at: value.created_at,
     evidence: value.evidence.map(encodeEvidenceRef),
   };
+  if (value.operation_digest !== undefined) {
+    result["operation_digest"] = value.operation_digest;
+  }
   return result;
 }
 
@@ -3818,7 +3825,7 @@ export function encodeProgramApprovalDecision(value: ProgramApprovalDecision): J
 
 export interface ProgramApprovalDecisionRequest {
   held_digest: string;
-  step_up_evidence: EvidenceId;
+  step_up_evidence: StepUpChallengeId;
 }
 
 export function decodeProgramApprovalDecisionRequest(value: JsonValue | undefined, at: string): ProgramApprovalDecisionRequest {

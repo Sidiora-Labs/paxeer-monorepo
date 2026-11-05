@@ -51,11 +51,15 @@ type Precompile struct {
 
 var _ vm.DynamicGasPrecompiledContract = (*Precompile)(nil)
 
+func GetABI() (abi.ABI, error) {
+	return abi.JSON(bytes.NewReader(abiJSON))
+}
+
 func NewPrecompile(keeper *paykeeper.Keeper) (*pcommon.Precompile, error) {
 	if keeper == nil {
 		return nil, fmt.Errorf("LXP_PRECOMPILE_NO_CONTEXT: layerxpay keeper is unavailable")
 	}
-	a, err := abi.JSON(bytes.NewReader(abiJSON))
+	a, err := GetABI()
 	if err != nil {
 		return nil, err
 	}

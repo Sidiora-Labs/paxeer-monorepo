@@ -1,0 +1,10 @@
+[repair.22.33.969]
+finding = "reward-claim-recovery"
+test = "repair-22-33-969.test.ts:reward_claim_recovery_reopens_with_saved_hash_and_committed_result"
+additional_tests = ["reward_claim_recovery_unknown_broadcast_requires_explicit_matching_hash", "reward_claim_recovery_keeps_late_hash_after_component_stops", "reward_claim_recovery_revalidates_account_chain_authority_and_storage", "reward_claim_recovery_rejects_uncommitted_or_mismatched_receipts", "reward_claim_recovery_preserves_record_when_account_changes_during_receipt_read", "reward_claim_recovery_reopens_reverted_transaction_without_rebroadcast", "reward_claim_recovery_requires_durable_storage_before_wallet_invocation"]
+base_revision = "0e1d5eb94cabe89e2260279a849b7154911ef8ee"
+change = "RewardsView uses account-scoped durable recovery before wallet invocation, saves late hashes to the original owner, restores through the production hook only with a current account and matching deployment authority, and offers explicit reconciliation without rebroadcast."
+proof = "Real prepareRewardClaim and accountRequest -> loopback HTTP -> frozen response codec -> RewardClaimRecovery -> real viem wallet signer transport -> browser localStorage -> stop and reopen the production hook -> real viem RPC decoder -> saved transaction and committed canonical receipt validation."
+baseline = "Not run: the explicit implementation, hf-build, hf-done order and allowed-gate budget prohibit an unchanged-tree verify; no baseline test failure is claimed. The original widget has no durable recovery module."
+evidence = "The exact verified revision, command, exit code and private log location are recorded by hf-done in /out/run/gates.jsonl; the runner publishes that candidate."
+wiring_requests = []

@@ -8,6 +8,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
 	evmkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
+	xwebkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/xweb/keeper"
 	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -19,7 +20,7 @@ import (
 type PrecompileExecutor struct {
 	host      *lxphost.Host
 	evmKeeper *evmkeeper.Keeper
-	assets    assetDenoms
+	xweb      *xwebkeeper.Keeper
 	handlers  handlerTable
 }
 

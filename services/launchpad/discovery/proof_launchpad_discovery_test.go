@@ -403,7 +403,7 @@ func TestProofLaunchpadDiscovery(t *testing.T) {
 		t.Fatalf("persisted role: %+v", m)
 	}
 	for range 2 {
-		body, err := AdaptV2SquadMembership(requestID, m, at)
+		body, err := AdaptV2SquadMembership(requestID, m, q, at)
 		if err != nil {
 			t.Fatal(err)
 		}

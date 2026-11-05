@@ -1,0 +1,7 @@
+[repair.go-services.28]
+target = "services/platform/perps-data/internal/portal"
+command = "cd services/platform/perps-data && go vet ./internal/portal/ && go test -count=1 ./internal/portal/"
+revision = "cea04b0a20fed9621b2f2580398024b38b76ff2e"
+result = "already-passing"
+change = "server_test.go names the PostgreSQL schema permissions and chain 125 RPC input required by missing-input failures; no product behavior or test assertions changed."
+producer_input_tests = ["TestPortalChainMarketPage: PERPS_DATA_TEST_DATABASE_URL pointing to a PostgreSQL database allowing perps schema recreation and migrations", "TestPortalPages: PERPS_DATA_TEST_DATABASE_URL pointing to a PostgreSQL database allowing perps schema recreation and migrations; PERPS_DATA_TEST_RPC pointing to a chain 125 node", "TestPortalServer: PERPS_DATA_TEST_DATABASE_URL pointing to a PostgreSQL database allowing perps schema recreation and migrations; PERPS_DATA_TEST_RPC pointing to a chain 125 node"]

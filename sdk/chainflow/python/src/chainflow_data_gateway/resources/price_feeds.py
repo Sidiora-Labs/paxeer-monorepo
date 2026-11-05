@@ -93,7 +93,11 @@ class PriceFeedsResource(SyncAPIResource):
         return self._get(
             path_template("/api/{market}/price", **{"market": market}),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                security={"RestApiKey": True},
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
             ),
             cast_to=PriceFeedListResponse,
         )
@@ -153,7 +157,11 @@ class PriceFeedsResource(SyncAPIResource):
         return self._get(
             path_template("/api/{market}/health", **{"market": market}),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                security={"RestApiKey": True},
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
             ),
             cast_to=FeedHealth,
         )
@@ -213,7 +221,11 @@ class PriceFeedsResource(SyncAPIResource):
         return self._get(
             path_template("/api/{market}/stats", **{"market": market}),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                security={"RestApiKey": True},
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
             ),
             cast_to=Stats,
         )
@@ -273,7 +285,11 @@ class PriceFeedsResource(SyncAPIResource):
         return self._get(
             path_template("/api/{market}/perp_stats", **{"market": market}),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                security={"RestApiKey": True},
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
             ),
             cast_to=PerpStats,
         )
@@ -333,7 +349,11 @@ class PriceFeedsResource(SyncAPIResource):
         return self._get(
             path_template("/api/{market}/trades", **{"market": market}),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                security={"RestApiKey": True},
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
             ),
             cast_to=TradeTapeStatus,
         )
@@ -401,6 +421,7 @@ class PriceFeedsResource(SyncAPIResource):
         return self._get(
             path_template("/api/{market}/trades/{symbol}", **{"market": market, "symbol": symbol}),
             options=make_request_options(
+                security={"RestApiKey": True},
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
@@ -476,6 +497,7 @@ class PriceFeedsResource(SyncAPIResource):
         return self._get(
             path_template("/api/{market}/perp_trades/{symbol}", **{"market": market, "symbol": symbol}),
             options=make_request_options(
+                security={"RestApiKey": True},
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
@@ -553,7 +575,11 @@ class AsyncPriceFeedsResource(AsyncAPIResource):
         return await self._get(
             path_template("/api/{market}/price", **{"market": market}),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                security={"RestApiKey": True},
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
             ),
             cast_to=PriceFeedListResponse,
         )
@@ -613,7 +639,11 @@ class AsyncPriceFeedsResource(AsyncAPIResource):
         return await self._get(
             path_template("/api/{market}/health", **{"market": market}),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                security={"RestApiKey": True},
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
             ),
             cast_to=FeedHealth,
         )
@@ -673,7 +703,11 @@ class AsyncPriceFeedsResource(AsyncAPIResource):
         return await self._get(
             path_template("/api/{market}/stats", **{"market": market}),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                security={"RestApiKey": True},
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
             ),
             cast_to=Stats,
         )
@@ -733,7 +767,11 @@ class AsyncPriceFeedsResource(AsyncAPIResource):
         return await self._get(
             path_template("/api/{market}/perp_stats", **{"market": market}),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                security={"RestApiKey": True},
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
             ),
             cast_to=PerpStats,
         )
@@ -793,7 +831,11 @@ class AsyncPriceFeedsResource(AsyncAPIResource):
         return await self._get(
             path_template("/api/{market}/trades", **{"market": market}),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                security={"RestApiKey": True},
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
             ),
             cast_to=TradeTapeStatus,
         )
@@ -861,6 +903,7 @@ class AsyncPriceFeedsResource(AsyncAPIResource):
         return await self._get(
             path_template("/api/{market}/trades/{symbol}", **{"market": market, "symbol": symbol}),
             options=make_request_options(
+                security={"RestApiKey": True},
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
@@ -936,6 +979,7 @@ class AsyncPriceFeedsResource(AsyncAPIResource):
         return await self._get(
             path_template("/api/{market}/perp_trades/{symbol}", **{"market": market, "symbol": symbol}),
             options=make_request_options(
+                security={"RestApiKey": True},
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,

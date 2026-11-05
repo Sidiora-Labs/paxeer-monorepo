@@ -1401,21 +1401,8 @@ lxp_result lxp_module_ctx_preview_state_root(
         return status;
     }
     preview_state->count = journal->store->count;
-    preview_state->idempotency_retention =
-        journal->store->idempotency_retention;
     (void)memcpy(preview_state->cells, journal->store->cells,
                  sizeof(preview_state->cells));
-    if (journal->store->idempotency_count != 0U) {
-        status = lxp_idempotency_reserve(preview_state);
-        if (status == LXP_OK) {
-            (void)memcpy(preview_state->idempotency,
-                         journal->store->idempotency,
-                         journal->store->idempotency_count *
-                             sizeof(preview_state->idempotency[0]));
-            preview_state->idempotency_count =
-                journal->store->idempotency_count;
-        }
-    }
     if (status == LXP_OK && journal->store->accounts != NULL) {
         preview_accounts = (lx_account_registry *)malloc(
             sizeof(*preview_accounts));
@@ -2051,6 +2038,13 @@ static lxp_result emit_transfer_set(lxp_module_ctx *ctx,
     lxp_u128 balances[LXP_MAX_TRANSFER_SET_LEGS * 2U + 1U];
     size_t i;
     if (ctx == NULL || set == NULL || receipt == NULL)
+        return LXP_ERR_NON_CANONICAL;
+    if (set->leg_count == 0U ||
+        set->leg_count > LXP_MAX_TRANSFER_SET_LEGS ||
+        set->context.source_authorities == NULL ||
+        set->context.source_authority_count == 0U ||
+        set->context.source_authority_count > set->leg_count ||
+        set->context.source_authority_count > LXP_MAX_TRANSFER_SET_LEGS)
         return LXP_ERR_NON_CANONICAL;
     if (!ctx->mutable || ctx->kernel->apply_transfer_set == NULL)
         return LXP_ERR_BALANCE_BYPASS;
@@ -2884,14 +2878,100 @@ lxp_result lxp_ctx_arena_alloc(lxp_module_ctx *ctx, size_t size,
     return lxp_arena_alloc(ctx->arena, size, alignment, allocation);
 }
 
+/* Before-images live in the activity arena, including blob bytes, so neither
+ * accepting nor abandoning a savepoint leaves heap-owned backup buffers. */
+typedef struct module_savepoint_state {
+    lxp_module_ctx *ctx;
+    lxp_module_savepoint *owner;
+    lxp_module_kv_change *staged;
+    lxp_module_blob blobs[LXP_KERNEL_MAX_STAGED_BLOBS];
+    size_t staged_reserve;
+    size_t end_mark;
+} module_savepoint_state;
+
+static module_savepoint_state *savepoint_state(
+    const lxp_module_ctx *ctx, const lxp_module_savepoint *savepoint)
+{
+    size_t padding;
+    size_t offset;
+    uintptr_t address;
+    module_savepoint_state *state;
+    if (ctx->arena == NULL || ctx->arena->buffer == NULL ||
+        ctx->arena->offset > ctx->arena->capacity ||
+        savepoint->arena_mark > ctx->arena->offset)
+        return NULL;
+    address = (uintptr_t)(ctx->arena->buffer + savepoint->arena_mark);
+    padding = (size_t)((0U - address) &
+                       (_Alignof(module_savepoint_state) - 1U));
+    if (padding > ctx->arena->offset - savepoint->arena_mark)
+        return NULL;
+    offset = savepoint->arena_mark + padding;
+    if (sizeof(*state) > ctx->arena->offset - offset)
+        return NULL;
+    state = (module_savepoint_state *)(ctx->arena->buffer + offset);
+    if (state->ctx != ctx || state->owner != savepoint ||
+        state->end_mark > ctx->arena->offset)
+        return NULL;
+    return state;
+}
+
 lxp_result lxp_module_savepoint_begin(lxp_module_ctx *ctx,
                                       lxp_module_savepoint *savepoint)
 {
+    module_savepoint_state *state;
+    void *allocation = NULL;
+    size_t mark;
+    size_t index;
+    lxp_result status;
     if (ctx == NULL || savepoint == NULL || savepoint->active ||
-        ctx->effects == NULL || ctx->commit_prepared || ctx->identity_staged || ctx->owner_rotation_staged)
+        ctx->arena == NULL || ctx->effects == NULL ||
+        ctx->staged_count > LXP_MODULE_MAX_STAGED_WRITES ||
+        ctx->staged_blob_count > LXP_KERNEL_MAX_STAGED_BLOBS ||
+        ctx->commit_prepared || ctx->identity_staged || ctx->owner_rotation_staged)
         return LXP_ERR_NON_CANONICAL;
+    mark = lxp_arena_mark(ctx->arena);
+    status = lxp_arena_alloc(ctx->arena, sizeof(*state),
+                             _Alignof(module_savepoint_state), &allocation);
+    if (status != LXP_OK) return status;
+    state = allocation;
+    (void)memset(state, 0, sizeof(*state));
+    state->ctx = ctx;
+    state->owner = savepoint;
+    state->staged_reserve = ctx->staged_reserve;
+    if (ctx->staged_count != 0U) {
+        status = lxp_arena_alloc(ctx->arena,
+            ctx->staged_count * sizeof(ctx->staged[0]),
+            _Alignof(lxp_module_kv_change), &allocation);
+        if (status == LXP_OK) {
+            state->staged = allocation;
+            (void)memcpy(state->staged, ctx->staged,
+                         ctx->staged_count * sizeof(ctx->staged[0]));
+        }
+    }
+    for (index = 0U; status == LXP_OK && index < ctx->staged_blob_count;
+         ++index) {
+        const lxp_module_blob *blob = &ctx->staged_blobs[index];
+        state->blobs[index] = *blob;
+        state->blobs[index].bytes = NULL;
+        if (blob->deleted) continue;
+        if (blob->bytes == NULL || blob->length == 0U ||
+            blob->length > LXP_KERNEL_MAX_BLOB_BYTES) {
+            status = LXP_FATAL_INVARIANT;
+            break;
+        }
+        status = lxp_arena_alloc(ctx->arena, blob->length, 1U, &allocation);
+        if (status == LXP_OK) {
+            state->blobs[index].bytes = allocation;
+            (void)memcpy(allocation, blob->bytes, blob->length);
+        }
+    }
+    if (status != LXP_OK) {
+        (void)lxp_arena_reset(ctx->arena, mark);
+        return status;
+    }
+    state->end_mark = lxp_arena_mark(ctx->arena);
     *savepoint = (lxp_module_savepoint){
-        lxp_arena_mark(ctx->arena), ctx->staged_count,
+        mark, ctx->staged_count,
         ctx->staged_account_count, ctx->transfer_snapshot_count,
         ctx->staged_blob_count, ctx->effects->count,
         ctx->next_effect_ordinal, ctx->transfer_applied, true
@@ -2902,6 +2982,8 @@ lxp_result lxp_module_savepoint_begin(lxp_module_ctx *ctx,
 lxp_result lxp_module_savepoint_discard(lxp_module_ctx *ctx,
                                         lxp_module_savepoint *savepoint)
 {
+    module_savepoint_state *state;
+    uint8_t *blob_copies[LXP_KERNEL_MAX_STAGED_BLOBS] = {NULL};
     size_t index;
     lxp_result status;
     if (ctx == NULL || savepoint == NULL || !savepoint->active ||
@@ -2910,12 +2992,35 @@ lxp_result lxp_module_savepoint_discard(lxp_module_ctx *ctx,
         ctx->transfer_snapshot_count != savepoint->transfer_snapshot_count ||
         ctx->transfer_applied != savepoint->transfer_applied)
         return LXP_FATAL_INVARIANT;
-    for (index = savepoint->staged_blob_count;
-         index < ctx->staged_blob_count; ++index) {
-        free(ctx->staged_blobs[index].bytes);
-        (void)memset(&ctx->staged_blobs[index], 0,
-                     sizeof(ctx->staged_blobs[index]));
+    state = savepoint_state(ctx, savepoint);
+    if (state == NULL) return LXP_FATAL_INVARIANT;
+    /* Allocate every restored blob before changing the live overlay. */
+    for (index = 0U; index < savepoint->staged_blob_count; ++index) {
+        const lxp_module_blob *blob = &state->blobs[index];
+        if (blob->deleted) continue;
+        blob_copies[index] = malloc(blob->length);
+        if (blob_copies[index] == NULL) {
+            while (index != 0U) free(blob_copies[--index]);
+            return LXP_ERR_ARENA_EXHAUSTED;
+        }
+        (void)memcpy(blob_copies[index], blob->bytes, blob->length);
     }
+    for (index = 0U; index < ctx->staged_blob_count; ++index) {
+        free(ctx->staged_blobs[index].bytes);
+    }
+    (void)memset(ctx->staged_blobs, 0, sizeof(ctx->staged_blobs));
+    for (index = 0U; index < savepoint->staged_blob_count; ++index) {
+        ctx->staged_blobs[index] = state->blobs[index];
+        ctx->staged_blobs[index].bytes = blob_copies[index];
+    }
+    if (savepoint->staged_count != 0U)
+        (void)memcpy(ctx->staged, state->staged,
+                     savepoint->staged_count * sizeof(ctx->staged[0]));
+    if (ctx->staged_count > savepoint->staged_count)
+        (void)memset(&ctx->staged[savepoint->staged_count], 0,
+                     (ctx->staged_count - savepoint->staged_count) *
+                         sizeof(ctx->staged[0]));
+    ctx->staged_reserve = state->staged_reserve;
     ctx->staged_blob_count = savepoint->staged_blob_count;
     ctx->staged_count = savepoint->staged_count;
     ctx->effects->count = savepoint->effect_count;
@@ -2928,8 +3033,12 @@ lxp_result lxp_module_savepoint_discard(lxp_module_ctx *ctx,
 lxp_result lxp_module_savepoint_accept(lxp_module_ctx *ctx,
                                        lxp_module_savepoint *savepoint)
 {
+    module_savepoint_state *state;
     if (ctx == NULL || savepoint == NULL || !savepoint->active)
         return LXP_ERR_NON_CANONICAL;
+    state = savepoint_state(ctx, savepoint);
+    if (state == NULL) return LXP_ERR_NON_CANONICAL;
+    state->owner = NULL;
     savepoint->active = false;
     return LXP_OK;
 }

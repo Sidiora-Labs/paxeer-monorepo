@@ -14,10 +14,16 @@ import sys
 import tempfile
 import time
 
-from generation_transport import GENESIS, PUBLIC_FIELDS, environment
+from generation_transport import (
+    CORE_FIELDS, GENESIS, NATIVE_CORE_VERSION, PUBLIC_FIELDS, environment,
+)
 from reset_state import StoreError, canonical, decode, open_directory
 
-CORE_FIELDS = {"LAYERX_CORE_SEQUENCER_ID", "LAYERX_CORE_TREASURY_ASSET"}
+RETIRED_FIELDS = frozenset({
+    "LAYERX_NODE_SNAPSHOT", "LAYERX_NODE_SEQUENCER_PRIVATE_KEY",
+    "LAYERX_NODE_SEQUENCER_KEY_FILE", "LAYERX_NODE_SETTLEMENT_ENV",
+    "LAYERX_CORE_LNI_SOCKET",
+})
 
 
 def close_descriptors(descriptors):
@@ -40,7 +46,7 @@ def receive(
     ):
         raise StoreError("unsafe_generation_socket")
     request = {
-        "version": 1,
+        "version": NATIVE_CORE_VERSION,
         "operation": operation,
         "expected_generation": expected_generation,
     }
@@ -86,13 +92,13 @@ def receive(
             if not raw.endswith(b"\n") or raw.count(b"\n") != 1:
                 raise StoreError("invalid_generation")
             result = decode(bytes(raw[:-1]))
-            names = ("core.env",) + GENESIS
+            names = GENESIS
             if (
                 not isinstance(result, dict)
                 or set(result)
                 != {"version", "generation", "reset_id", "artifacts", "public"}
                 or type(result["version"]) is not int
-                or result["version"] != 1
+                or result["version"] != NATIVE_CORE_VERSION
                 or type(result["generation"]) is not int
                 or not 1 <= result["generation"] <= 0x7FFFFFFFFFFFFFFF
                 or (
@@ -117,15 +123,13 @@ def receive(
             public = result["public"]
             if (
                 any(not isinstance(value, str) for value in public.values())
-                or not public[PUBLIC_FIELDS[0]].isdecimal()
-                or not 0 <= int(public[PUBLIC_FIELDS[0]]) <= 0xFFFFFFFF
-                or any(
-                    not re.fullmatch(r"[0-9a-f]{64}", public[key])
-                    for key in ("LAYERX_NODE_SEQUENCER_ID", "LAYERX_NODE_REPLICA_ID")
-                )
-                or not re.fullmatch(
-                    r"[0-9a-f]{64}", public["LAYERX_NODE_SEQUENCER_PUBLIC_KEY"]
-                )
+                or not public["LAYERX_NODE_NETWORK_ID"].isdecimal()
+                or not 1 <= int(public["LAYERX_NODE_NETWORK_ID"]) <= 0xFFFFFFFF
+                or not public["LAYERX_NODE_EVM_CHAIN_ID"].isdecimal()
+                or not 1 <= int(public["LAYERX_NODE_EVM_CHAIN_ID"]) <= 0xFFFFFFFFFFFFFFFF
+                or not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", public["LAYERX_NODE_CHAIN_ID"])
+                or any(not re.fullmatch(r"[0-9a-f]{64}", public[key]) for key in
+                       ("LAYERX_NODE_SEQUENCER_ID", "LAYERX_NODE_SEQUENCER_PUBLIC_KEY"))
             ):
                 raise StoreError("unsafe_environment")
             for descriptor in descriptors:
@@ -149,42 +153,31 @@ def receive(
 def child_environment(result, descriptors, operation):
     if operation != "core":
         raise StoreError("invalid_operation")
+    if any(key in RETIRED_FIELDS or key.startswith(("LAYERX_AUTHORITY_", "LAYERX_GUARANTOR_"))
+           for key in os.environ):
+        raise StoreError("retired_environment")
     files = dict(zip(result["artifacts"], descriptors))
     raw = os.pread(files["core.env"], 65537, 0)
     if len(raw) > 65536:
         raise StoreError("unsafe_environment")
     adopted = environment(raw)
     public = result["public"]
-    if set(adopted) not in (
-        CORE_FIELDS,
-        CORE_FIELDS | {"LAYERX_CORE_TREASURY_SIGNER_SOCKET"},
-    ):
+    if set(adopted) != CORE_FIELDS:
         raise StoreError("unsafe_environment")
-    if any(not re.fullmatch(r"[0-9a-f]{64}", adopted[key]) for key in CORE_FIELDS):
-        raise StoreError("unsafe_environment")
+    for key in ("LAYERX_CORE_SEQUENCER_ID", "LAYERX_CORE_TREASURY_ASSET"):
+        if not re.fullmatch(r"[0-9a-f]{64}", adopted[key]) or adopted[key] == "0" * 64:
+            raise StoreError("unsafe_environment")
     if adopted["LAYERX_CORE_SEQUENCER_ID"] != public["LAYERX_NODE_SEQUENCER_ID"]:
         raise StoreError("unsafe_environment")
-    if "LAYERX_CORE_TREASURY_SIGNER_SOCKET" in adopted and (
-        not adopted["LAYERX_CORE_TREASURY_SIGNER_SOCKET"].startswith("/")
-        or any(c.isspace() for c in adopted["LAYERX_CORE_TREASURY_SIGNER_SOCKET"])
-    ):
-        raise StoreError("unsafe_environment")
+    from native_runtime import validate_core_inputs
+
+    validate_core_inputs(adopted)
     adopted.update(public)
-    adopted.update(
-        LAYERX_CORE_NETWORK_ID=public["LAYERX_NODE_NETWORK_ID"],
-        LAYERX_AUTHORITY_PROTOCOL_NETWORK_ID=public["LAYERX_NODE_NETWORK_ID"],
-        LAYERX_AUTHORITY_SEQUENCER_ID=public["LAYERX_NODE_SEQUENCER_ID"],
-        LAYERX_AUTHORITY_SEQUENCER_PUBLIC_KEY=public[
-            "LAYERX_NODE_SEQUENCER_PUBLIC_KEY"
-        ],
-        LAYERX_AUTHORITY_REPLICA_ID=public["LAYERX_NODE_REPLICA_ID"],
-    )
+    adopted["LAYERX_CORE_NETWORK_ID"] = public["LAYERX_NODE_NETWORK_ID"]
     adopted["LAYERX_CORE_ENV_FILE"] = "/proc/self/fd/" + str(files["core.env"])
-    adopted["LAYERX_NODE_GENESIS_MANIFEST"] = "/proc/self/fd/" + str(files[GENESIS[0]])
-    adopted["LAYERX_NODE_GENESIS_REGISTRATION"] = "/proc/self/fd/" + str(
-        files[GENESIS[2]]
-    )
-    adopted["LAYERX_NODE_SNAPSHOT"] = "/proc/self/fd/" + str(files[GENESIS[3]])
+    adopted["LAYERX_CORE_SEQUENCER_TRUST_ANCHOR_DER"] = "/proc/self/fd/" + str(files["rpc-ca.der"])
+    if "LAYERX_CORE_FUNDING_SENDER_KMS_KEY_ID" in os.environ:
+        raise StoreError("ambiguous_funding_sender")
     result_env = os.environ.copy()
     result_env.update(adopted)
     result_env["LAYERX_GENERATION_FD_MODE"] = "1"
@@ -254,9 +247,7 @@ def materialize(result, descriptors, operation, adopted):
             paths[name] = os.path.join(view.name, filename)
         os.fsync(directory)
         adopted["LAYERX_CORE_ENV_FILE"] = paths["core.env"]
-        adopted["LAYERX_NODE_GENESIS_MANIFEST"] = paths[GENESIS[0]]
-        adopted["LAYERX_NODE_GENESIS_REGISTRATION"] = paths[GENESIS[2]]
-        adopted["LAYERX_NODE_SNAPSHOT"] = paths[GENESIS[3]]
+        adopted["LAYERX_CORE_SEQUENCER_TRUST_ANCHOR_DER"] = paths["rpc-ca.der"]
         return view, adopted
     except BaseException:
         view.cleanup()
@@ -295,7 +286,7 @@ def supervise(args, command):
             received = []
             try:
                 result, received = receive(
-                    args.socket, args.operation, broker_uid=args.broker_uid
+                    args.socket, args.operation, broker_uid=args.broker_uid, broker_gid=args.broker_gid
                 )
                 token = (result["generation"], result["reset_id"])
                 env = child_environment(result, received, args.operation)
@@ -343,12 +334,14 @@ def main():
     parser.add_argument("--socket", required=True)
     parser.add_argument("--watch-seconds", type=float, default=1)
     parser.add_argument("--broker-uid", type=int, default=4020)
+    parser.add_argument("--broker-gid", type=int, default=4020)
     args = parser.parse_args(sys.argv[1:separator])
     command = sys.argv[separator + 1 :]
     if (
         not command
         or not 0.1 <= args.watch_seconds <= 30
         or not 0 <= args.broker_uid <= 0xFFFFFFFF
+        or not 0 <= args.broker_gid <= 0xFFFFFFFF
     ):
         parser.error("invalid generation consumer")
     return supervise(args, command)

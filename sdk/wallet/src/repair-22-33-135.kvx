@@ -1,0 +1,39 @@
+[repair.22.33.135]
+audit = "22.30.115"
+base_revision = "de8ab245609a7e0707cc32c502b6dcbe17ce3aca"
+mode = "BUILD"
+qualification = "The runner hf-build and hf-done ledger records identify the exact candidate revision, command, exit and private evidence location; this record makes no qualification claim."
+baseline = "No unchanged-tree gate was run: the task's explicit ordered instructions forbid building or testing before the complete implementation and forbid running verify_cmd by hand. The source-derived regressions below are not baseline execution claims."
+
+[finding.review-storage-environment]
+tests = ["review_storage_environment_recovers_isolated_gateway_and_principal_artifacts", "review_storage_environment_serializes_shared_clients_and_refuses_ambiguous_legacy"]
+repair = "Version-2 keys include normalized gateway origin and principal; clients sharing a storage object serialize writes with the same namespaced lock; persisted artifacts retain chain identity, and replacement must match the retained identity. Nonempty or malformed unscoped version-1 entries are explicitly refused as ambiguous; empty version-1 stores may start a version-2 collection. Legacy data is never rewritten or silently assigned an origin."
+proof = "Real PaxeerWallet review, approval and status requests cross loopback HTTP; clients sign out and reopen over the same in-memory storage, with colliding review IDs at two gateway origins, two principals and two chain IDs. Concurrent clients at the same origin retain both writes."
+regression = "The old principal-only key merges both gateway collections and old instance-local serialization loses one of two simultaneous client writes; legacy entries were accepted without an issuing-origin discriminator."
+
+[finding.react-auth-refresh]
+tests = ["react_auth_refresh_tracks_stable_client_and_discards_replaced_reads"]
+repair = "Both account hooks subscribe before reading the initial session, clear old values and errors on auth events, and invalidate every pending request by auth generation and request sequence. Reads begin after Supabase releases its auth callback lock; cleanup unsubscribes and invalidates work."
+proof = "Real React DOM mounts both hooks with one production PaxeerWallet, uses real Supabase setSession/signOut over loopback HTTP, and observes sign-in, sign-out, account replacement and late success/error responses from superseded account reads. React DOM and jsdom are the demo workspace's committed dependencies."
+regression = "With a stable client the old hooks never subscribe to auth, so signing in after the first signed-out read leaves both hooks empty; pending old reads can repopulate prior account data."
+
+[finding.rpc-has-no-request-bound]
+tests = ["rpc_has_no_request_bound_limits_headers_body_and_decoded_bytes", "rpc_has_no_request_bound_cancels_each_receipt_transport_and_authenticates_success"]
+repair = "JSON-RPC calls and batches have validated configurable deadlines and response byte limits, bounded streaming decode, explicit timeout errors and caller cancellation. TransferRpc carries request options through receipt, governed key and raw transaction reads; receipt polling forwards its signal into those reads. Existing JSON-RPC envelope and signed receipt checks remain enforced."
+proof = "Real loopback HTTP stalls before headers and during the body, exceeds declared and streamed byte bounds including gzip expansion, and observes socket closure when cancellation interrupts each stage of receipt authentication. A producer-emitted conformance receipt, key pin and raw transaction traverse HTTP and authenticate successfully."
+regression = "The old post waits indefinitely and buffers the full body; receipt waiting rejects on abort while its underlying HTTP request remains open."
+
+[wiring.dependencies]
+request = "Domain 12: sdk/wallet/package.json should declare react-dom and jsdom as development dependencies for independently installed hook tests; this scoped repair consumes the existing services/wallet/demo/package.json declarations without modifying manifests."
+
+[gotcha.baseline-order]
+observed = "The inherited task step requests a baseline run but the explicit ordered gate instructions prohibit it; implementation-first hf-build and hf-done take precedence."
+
+[gotcha.shared-store-lock]
+observed = "A per-client lock cannot serialize read-modify-write operations across two clients sharing the same storage object; the lock registry must share the storage object's lifetime and include the environment namespace."
+
+[gotcha.loopback-jwt]
+observed = "The previous attempt's literal JWT signature was not decodable base64url and Supabase rejected it before the recovery and auth assertions; the loopback peer now issues an HS256 token with an encoded HMAC signature."
+
+[gotcha.loopback-logout]
+observed = "Supabase sends its logout scope as a query parameter; the loopback auth peer must route by parsed pathname and assert the global scope separately so successful behavioral assertions are not followed by unexpected-request failures."

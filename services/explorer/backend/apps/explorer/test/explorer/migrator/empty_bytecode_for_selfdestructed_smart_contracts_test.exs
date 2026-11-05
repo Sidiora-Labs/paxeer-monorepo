@@ -1,5 +1,9 @@
+Code.require_file("selfdestruct_chain_data.exs", __DIR__)
+
 defmodule Explorer.Migrator.EmptyBytecodeForSelfdestructedSmartContractsTest do
   use Explorer.DataCase, async: false
+
+  import Explorer.Migrator.SelfdestructChainData
 
   alias Explorer.Chain.{Address, Data}
   alias Explorer.Migrator.EmptyBytecodeForSelfdestructedSmartContracts
@@ -18,6 +22,7 @@ defmodule Explorer.Migrator.EmptyBytecodeForSelfdestructedSmartContractsTest do
     end
 
     test "returns {:ok, []} when no selfdestruct transactions exist in blocks" do
+      configure_cancun_block(:never)
       block = insert(:block, number: 100)
       transaction = insert(:transaction) |> with_block(block)
 
@@ -33,159 +38,51 @@ defmodule Explorer.Migrator.EmptyBytecodeForSelfdestructedSmartContractsTest do
       assert {:ok, []} = EmptyBytecodeForSelfdestructedSmartContracts.update_batch([block.number])
     end
 
-    test "empties contract_code for address with selfdestruct transaction" do
-      block = insert(:block, number: 200)
-      contract_code = %Data{bytes: <<1, 2, 3, 4, 5>>}
+    test "empties historically deleted pre-Cancun code confirmed at a committed height" do
+      recording = import_recording("shanghai_existing")
+      assert recording["before"]["response"]["result"] == recording["cached_code"]
+      assert recording["at_destruction"]["response"]["result"] == "0x"
 
-      # Create a contract with bytecode
-      contract_address = insert(:address, contract_code: contract_code)
-      recipient_address = insert(:address)
+      assert {:ok, 1} =
+               EmptyBytecodeForSelfdestructedSmartContracts.update_batch([quantity(recording["destruction_block"])])
 
-      # Create a transaction with selfdestruct
-      transaction = insert(:transaction) |> with_block(block)
-
-      insert(:internal_transaction,
-        transaction: transaction,
-        block_hash: transaction.block_hash,
-        block_number: transaction.block_number,
-        index: 0,
-        transaction_index: transaction.index,
-        type: :selfdestruct,
-        from_address: contract_address,
-        to_address: recipient_address,
-        gas: nil
-      )
-
-      assert {:ok, 1} = EmptyBytecodeForSelfdestructedSmartContracts.update_batch([block.number])
-
-      # Verify contract_code is now empty
-      updated_address = Repo.get(Address, contract_address.hash)
-      assert updated_address.contract_code == %Data{bytes: <<>>}
+      assert_committed_code(recording)
     end
 
-    test "does NOT empty contract_code when contract created and selfdestructed in same transaction" do
-      block = insert(:block, number: 300)
-      contract_code = %Data{bytes: <<1, 2, 3, 4, 5>>}
-
-      # Create a contract with bytecode
-      contract_address = insert(:address, contract_code: contract_code)
-      recipient_address = insert(:address)
-
-      # Create a transaction with both create and selfdestruct
-      transaction = insert(:transaction) |> with_block(block)
-
-      insert(:internal_transaction_create,
-        transaction: transaction,
-        block_hash: transaction.block_hash,
-        block_number: transaction.block_number,
-        index: 0,
-        transaction_index: transaction.index,
-        created_contract_address: contract_address,
-        created_contract_code: contract_code
-      )
-
-      insert(:internal_transaction,
-        transaction: transaction,
-        block_hash: transaction.block_hash,
-        block_number: transaction.block_number,
-        index: 1,
-        transaction_index: transaction.index,
-        type: :selfdestruct,
-        from_address: contract_address,
-        to_address: recipient_address,
-        gas: nil
-      )
-
-      assert {:ok, []} = EmptyBytecodeForSelfdestructedSmartContracts.update_batch([block.number])
-
-      # Verify contract_code is still present
-      updated_address = Repo.get(Address, contract_address.hash)
-      assert updated_address.contract_code == contract_code
+    test "preserves a live post-Cancun contract despite its SELFDESTRUCT trace" do
+      recording = import_recording("cancun_existing")
+      assert recording["at_destruction"]["response"]["result"] == recording["cached_code"]
+      assert_committed_code(recording)
     end
 
-    test "does NOT empty contract_code when contract created with create2 and selfdestructed in same transaction" do
-      block = insert(:block, number: 350)
-      contract_code = %Data{bytes: <<1, 2, 3, 4, 5>>}
+    test "empties deleted code when CREATE and SELFDESTRUCT occur in the same transaction" do
+      recording = import_recording("cancun_same_transaction_create")
+      assert recording["current"]["response"]["result"] == "0x"
+      assert_committed_code(recording)
+    end
 
-      # Create a contract with bytecode
-      contract_address = insert(:address, contract_code: contract_code)
-      recipient_address = insert(:address)
-
-      # Create a transaction with both create2 and selfdestruct
-      transaction = insert(:transaction) |> with_block(block)
-
-      insert(:internal_transaction_create,
-        transaction: transaction,
-        block_hash: transaction.block_hash,
-        block_number: transaction.block_number,
-        index: 0,
-        transaction_index: transaction.index,
-        type: :create2,
-        created_contract_address: contract_address,
-        created_contract_code: contract_code
-      )
-
-      insert(:internal_transaction,
-        transaction: transaction,
-        block_hash: transaction.block_hash,
-        block_number: transaction.block_number,
-        index: 1,
-        transaction_index: transaction.index,
-        type: :selfdestruct,
-        from_address: contract_address,
-        to_address: recipient_address,
-        gas: nil
-      )
-
-      assert {:ok, []} = EmptyBytecodeForSelfdestructedSmartContracts.update_batch([block.number])
-
-      # Verify contract_code is still present
-      updated_address = Repo.get(Address, contract_address.hash)
-      assert updated_address.contract_code == contract_code
+    test "empties deleted code when CREATE2 and SELFDESTRUCT occur in the same transaction" do
+      recording = import_recording("cancun_same_transaction_create2")
+      assert recording["current"]["response"]["result"] == "0x"
+      assert_committed_code(recording)
     end
 
     test "handles multiple selfdestruct transactions in same block" do
-      block = insert(:block, number: 400)
-      contract_code_1 = %Data{bytes: <<1, 2, 3>>}
-      contract_code_2 = %Data{bytes: <<4, 5, 6>>}
+      history = import_recording("geth_history")
+      first = contract_recording(history, "first")
+      second = contract_recording(history, "second")
+      assert first["destruction_block"] == second["destruction_block"]
+      contract_code_1 = contract_data(first["cached_code"])
+      contract_code_2 = contract_data(second["cached_code"])
+      contract_address_1 = Repo.get!(Address, first["stored_address_hash"])
+      contract_address_2 = Repo.get!(Address, second["stored_address_hash"])
+      assert contract_address_1.contract_code == contract_code_1
+      assert contract_address_2.contract_code == contract_code_2
+      assert contract_address_1.hash != contract_address_2.hash
 
-      # Create two contracts with bytecode
-      contract_address_1 = insert(:address, contract_code: contract_code_1)
-      contract_address_2 = insert(:address, contract_code: contract_code_2)
-      recipient_address_1 = insert(:address)
-      recipient_address_2 = insert(:address)
+      assert {:ok, 2} =
+               EmptyBytecodeForSelfdestructedSmartContracts.update_batch([quantity(first["destruction_block"])])
 
-      # Create separate transactions for each selfdestruct
-      transaction_1 = insert(:transaction, gas: 21_000) |> with_block(block)
-      transaction_2 = insert(:transaction, gas: 22_000) |> with_block(block)
-
-      insert(:internal_transaction,
-        transaction: transaction_1,
-        block_hash: transaction_1.block_hash,
-        block_number: transaction_1.block_number,
-        index: 0,
-        transaction_index: transaction_1.index,
-        type: :selfdestruct,
-        from_address: contract_address_1,
-        to_address: recipient_address_1,
-        gas: nil
-      )
-
-      insert(:internal_transaction,
-        transaction: transaction_2,
-        block_hash: transaction_2.block_hash,
-        block_number: transaction_2.block_number,
-        index: 0,
-        transaction_index: transaction_2.index,
-        type: :selfdestruct,
-        from_address: contract_address_2,
-        to_address: recipient_address_2,
-        gas: nil
-      )
-
-      assert {:ok, 2} = EmptyBytecodeForSelfdestructedSmartContracts.update_batch([block.number])
-
-      # Verify both contracts have empty contract_code
       updated_address_1 = Repo.get(Address, contract_address_1.hash)
       updated_address_2 = Repo.get(Address, contract_address_2.hash)
       assert updated_address_1.contract_code == %Data{bytes: <<>>}
@@ -193,6 +90,7 @@ defmodule Explorer.Migrator.EmptyBytecodeForSelfdestructedSmartContractsTest do
     end
 
     test "does NOT update address that already has empty contract_code" do
+      configure_cancun_block(:never)
       block = insert(:block, number: 500)
       empty_contract_code = %Data{bytes: <<>>}
 
@@ -223,6 +121,7 @@ defmodule Explorer.Migrator.EmptyBytecodeForSelfdestructedSmartContractsTest do
     end
 
     test "does NOT update address with nil contract_code" do
+      configure_cancun_block(:never)
       block = insert(:block, number: 550)
 
       # Create a regular address (not a contract, contract_code is nil)
@@ -252,160 +151,61 @@ defmodule Explorer.Migrator.EmptyBytecodeForSelfdestructedSmartContractsTest do
     end
 
     test "handles multiple blocks in one batch" do
-      block_1 = insert(:block, number: 600)
-      block_2 = insert(:block, number: 601)
-      contract_code_1 = %Data{bytes: <<1, 2, 3>>}
-      contract_code_2 = %Data{bytes: <<4, 5, 6>>}
+      history = import_recording("geth_history")
+      first = contract_recording(history, "third")
+      third = contract_recording(history, "repeated")
+      assert first["destruction_block"] != third["destruction_block"]
 
-      # Create two contracts with bytecode
-      contract_address_1 = insert(:address, contract_code: contract_code_1)
-      contract_address_2 = insert(:address, contract_code: contract_code_2)
-      recipient_address_1 = insert(:address)
-      recipient_address_2 = insert(:address)
-
-      # Create selfdestruct in first block
-      transaction_1 = insert(:transaction, gas: 21_000) |> with_block(block_1)
-
-      insert(:internal_transaction,
-        transaction: transaction_1,
-        block_hash: transaction_1.block_hash,
-        block_number: transaction_1.block_number,
-        index: 0,
-        transaction_index: transaction_1.index,
-        type: :selfdestruct,
-        from_address: contract_address_1,
-        to_address: recipient_address_1,
-        gas: nil
-      )
-
-      # Create selfdestruct in second block
-      transaction_2 = insert(:transaction, gas: 22_000) |> with_block(block_2)
-
-      insert(:internal_transaction,
-        transaction: transaction_2,
-        block_hash: transaction_2.block_hash,
-        block_number: transaction_2.block_number,
-        index: 0,
-        transaction_index: transaction_2.index,
-        type: :selfdestruct,
-        from_address: contract_address_2,
-        to_address: recipient_address_2,
-        gas: nil
-      )
+      contract_address_1 = Repo.get!(Address, first["stored_address_hash"])
+      contract_address_2 = Repo.get!(Address, third["stored_address_hash"])
+      assert contract_address_1.contract_code == contract_data(first["cached_code"])
+      assert contract_address_2.contract_code == contract_data(third["cached_code"])
 
       assert {:ok, 2} =
                EmptyBytecodeForSelfdestructedSmartContracts.update_batch([
-                 block_1.number,
-                 block_2.number
+                 quantity(first["destruction_block"]),
+                 quantity(third["destruction_block"])
                ])
 
-      # Verify both contracts have empty contract_code
       updated_address_1 = Repo.get(Address, contract_address_1.hash)
       updated_address_2 = Repo.get(Address, contract_address_2.hash)
       assert updated_address_1.contract_code == %Data{bytes: <<>>}
       assert updated_address_2.contract_code == %Data{bytes: <<>>}
     end
 
-    test "handles mixed scenario: one should empty, one should not" do
-      block = insert(:block, number: 700)
-      contract_code_1 = %Data{bytes: <<1, 2, 3>>}
-      contract_code_2 = %Data{bytes: <<4, 5, 6>>}
+    test "handles mixed fork history: deleted pre-Cancun code and live post-Cancun code" do
+      history = import_recording("geth_history")
+      historical = contract_recording(history, "third")
+      current = contract_recording(history, "survivor")
+      block_numbers = Enum.map([historical, current], &quantity(&1["destruction_block"]))
 
-      # Create two contracts
-      contract_address_1 = insert(:address, contract_code: contract_code_1)
-      contract_address_2 = insert(:address, contract_code: contract_code_2)
-      recipient_address_1 = insert(:address)
-      recipient_address_2 = insert(:address)
-
-      # First transaction: selfdestruct without create (should empty)
-      transaction_1 = insert(:transaction, gas: 21_000) |> with_block(block)
-
-      insert(:internal_transaction,
-        transaction_hash: transaction_1.hash,
-        block_hash: transaction_1.block_hash,
-        block_number: transaction_1.block_number,
-        index: 0,
-        transaction_index: transaction_1.index,
-        type: :selfdestruct,
-        from_address: contract_address_1,
-        to_address: recipient_address_1,
-        gas: nil
-      )
-
-      # Second transaction: create + selfdestruct (should NOT empty)
-      transaction_2 = insert(:transaction, gas: 22_000) |> with_block(block)
-
-      insert(:internal_transaction_create,
-        transaction_hash: transaction_2.hash,
-        block_hash: transaction_2.block_hash,
-        block_number: transaction_2.block_number,
-        index: 0,
-        transaction_index: transaction_2.index,
-        created_contract_address: contract_address_2,
-        created_contract_code: contract_code_2
-      )
-
-      insert(:internal_transaction,
-        transaction_hash: transaction_2.hash,
-        block_hash: transaction_2.block_hash,
-        block_number: transaction_2.block_number,
-        index: 1,
-        transaction_index: transaction_2.index,
-        type: :selfdestruct,
-        from_address: contract_address_2,
-        to_address: recipient_address_2,
-        gas: nil
-      )
-
-      assert {:ok, 1} = EmptyBytecodeForSelfdestructedSmartContracts.update_batch([block.number])
-
-      # Verify first contract is empty, second is not
-      updated_address_1 = Repo.get(Address, contract_address_1.hash)
-      updated_address_2 = Repo.get(Address, contract_address_2.hash)
-      assert updated_address_1.contract_code == %Data{bytes: <<>>}
-      assert updated_address_2.contract_code == contract_code_2
+      assert {:ok, 1} = EmptyBytecodeForSelfdestructedSmartContracts.update_batch(block_numbers)
+      assert Repo.get!(Address, historical["stored_address_hash"]).contract_code == contract_data("0x")
+      assert Repo.get!(Address, current["stored_address_hash"]).contract_code == contract_data(current["cached_code"])
     end
 
     test "handles same contract selfdestructed multiple times in different transactions" do
-      block = insert(:block, number: 800)
-      contract_code = %Data{bytes: <<1, 2, 3, 4, 5>>}
+      history = import_recording("geth_history")
+      recording = contract_recording(history, "repeated")
+      contract_address = Repo.get!(Address, recording["stored_address_hash"])
+      assert contract_address.contract_code == contract_data(recording["cached_code"])
 
-      # Create a contract with bytecode
-      contract_address = insert(:address, contract_code: contract_code)
-      recipient_address = insert(:address)
+      destructions =
+        Repo.all(
+          from(it in Explorer.Chain.InternalTransaction,
+            where: it.type == :selfdestruct and it.from_address_hash == ^contract_address.hash,
+            select: it.transaction_hash
+          )
+        )
 
-      # Create two different transactions with selfdestruct for the same address
-      transaction_1 = insert(:transaction, gas: 21_000) |> with_block(block)
-      transaction_2 = insert(:transaction, gas: 22_000) |> with_block(block)
+      assert length(Enum.uniq(destructions)) == 2
 
-      insert(:internal_transaction,
-        transaction_hash: transaction_1.hash,
-        block_hash: transaction_1.block_hash,
-        block_number: transaction_1.block_number,
-        index: 0,
-        transaction_index: transaction_1.index,
-        type: :selfdestruct,
-        from_address: contract_address,
-        to_address: recipient_address,
-        gas: nil
-      )
+      assert {:ok, 1} =
+               EmptyBytecodeForSelfdestructedSmartContracts.update_batch([
+                 quantity(recording["first_destruction_block"]),
+                 quantity(recording["destruction_block"])
+               ])
 
-      insert(:internal_transaction,
-        transaction_hash: transaction_2.hash,
-        block_hash: transaction_2.block_hash,
-        block_number: transaction_2.block_number,
-        index: 0,
-        transaction_index: transaction_2.index,
-        type: :selfdestruct,
-        from_address: contract_address,
-        to_address: recipient_address,
-        gas: nil
-      )
-
-      # Should still only update once since it's the same address
-      assert {:ok, 1} = EmptyBytecodeForSelfdestructedSmartContracts.update_batch([block.number])
-
-      # Verify contract_code is empty
       updated_address = Repo.get(Address, contract_address.hash)
       assert updated_address.contract_code == %Data{bytes: <<>>}
     end

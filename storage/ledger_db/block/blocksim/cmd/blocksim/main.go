@@ -13,11 +13,7 @@ import (
 )
 
 func main() {
-	err := run()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
+	os.Exit(blocksim.CLIExitCode(run(), os.Stderr))
 }
 
 func run() error {
@@ -82,7 +78,5 @@ func run() error {
 		}()
 	}
 
-	bs.BlockUntilHalted()
-
-	return nil
+	return bs.BlockUntilHalted()
 }

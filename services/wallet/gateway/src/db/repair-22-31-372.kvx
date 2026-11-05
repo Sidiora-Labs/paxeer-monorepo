@@ -1,0 +1,9 @@
+[repair.22.31.372]
+finding = "signature-ledger-write-loss"
+test = "services/wallet/gateway/test/repair-22-31-372.test.ts:signatureLedgerWriteLossSurvivesRestart"
+proof = "Real custody signing, PostgreSQL protocol, database constraint and trigger failures, database close/reopen, human policy and agent accounting consumers, request and transaction reconciliation, and replay of retained evidence after restart while completion writes fail."
+baseline = "No pre-change baseline was recorded by the previous attempt; its two repair tests passed at revision 2d02ad75fd5eb931834928922645a8523b1628a0 but qualification was held because the build and verify revisions differed. The continuation preserves that implementation and follows the authorized hf-build then hf-done order."
+evidence = "The runner records the verified candidate revision, exact command, exit and private log in the hf-done receipt."
+wiring_sign = "Wallet gateway domain: services/wallet/gateway/src/routes/sign.ts walletSigner must pass the authenticated subject, route and stable request hash as CustodyAuditContext and reconcile its existing daily reservation with the signature reservation to avoid duplicate charges; missing context refuses signing before custody is invoked."
+wiring_actions = "Wallet gateway domain: services/wallet/gateway/src/agent/actions/orchestrator.ts broadcastLeg must scope its request hash to the action leg and retained transaction draft, including fee replacements; different transactions cannot share one reservation request hash."
+recovery = "Unresolved reservations remain charged even if custody or completion fails; retry only the identical operation and request, or the identical transaction, to reconcile retained evidence."

@@ -6,6 +6,9 @@ use std::sync::{Mutex, MutexGuard};
 use std::time::Duration;
 
 use layerx_crypto::disclosure::call::{bind_call, ConstructMethod};
+
+#[path = "call.rs"]
+pub mod call;
 use layerx_crypto::disclosure::{
     AmountRole, Counterparty, CounterpartyRole, DisclosedAmount, Disclosure,
 };
@@ -208,6 +211,7 @@ impl AttestorSignature {
 pub struct AttestorClient {
     agent: ureq::Agent,
     nodes: BTreeMap<String, SocketAddr>,
+    deadline: Duration,
 }
 
 impl fmt::Debug for AttestorClient {
@@ -288,6 +292,7 @@ impl AttestorClient {
         Ok(Self {
             agent,
             nodes: table,
+            deadline,
         })
     }
 
@@ -464,6 +469,7 @@ impl AttestorClient {
         path: &str,
         body: &[u8],
         bearer: Option<&str>,
+        budget: Option<Duration>,
     ) -> Result<Vec<u8>, AttestorError> {
         let address = self.address(node)?;
         let mut request = self
@@ -475,6 +481,9 @@ impl AttestorClient {
             request = request.header("authorization", format!("Bearer {token}"));
         }
         let response = request
+            .config()
+            .timeout_global(Some(budget.unwrap_or(self.deadline).min(self.deadline)))
+            .build()
             .send(body)
             .map_err(|error| transport_error(node, &error))?;
         let (status, body) = read_body(node, response)?;
@@ -492,13 +501,23 @@ impl AttestorClient {
         body: &[u8],
         bearer: Option<&str>,
     ) -> Vec<(String, Result<Vec<u8>, AttestorError>)> {
+        self.post_all_bounded(nodes, path, body, bearer, None)
+    }
+    fn post_all_bounded(
+        &self,
+        nodes: &[String],
+        path: &str,
+        body: &[u8],
+        bearer: Option<&str>,
+        budget: Option<Duration>,
+    ) -> Vec<(String, Result<Vec<u8>, AttestorError>)> {
         std::thread::scope(|scope| {
             let handles: Vec<_> = nodes
                 .iter()
                 .map(|node| {
                     (
                         node,
-                        scope.spawn(move || self.post(node, path, body, bearer)),
+                        scope.spawn(move || self.post(node, path, body, bearer, budget)),
                     )
                 })
                 .collect();
@@ -526,6 +545,9 @@ pub struct AttestorSigner {
     network: u32,
     audit: Mutex<BTreeMap<String, u64>>,
     native_replays: Mutex<BTreeMap<String, NativeReplay>>,
+    session: Mutex<()>,
+    native_journal: Option<NativeJournal>,
+    native_clock: Option<std::sync::Arc<dyn layerx_types::clock::Clock>>,
 }
 
 #[derive(Clone, Debug, serde::Serialize, Deserialize)]
@@ -650,6 +672,21 @@ impl AttestorSigner {
         unsigned: &[u8],
         chain_id: u64,
     ) -> Result<[u8; 65], AttestorError> {
+        self.sign_evm_transaction_bounded(unsigned, chain_id, None)
+    }
+    /// Signs the exact transaction within the smaller of the caller's remaining budget
+    /// and the configured attestor timeout, preserving the same quorum and key checks.
+    pub fn sign_evm_transaction_bounded(
+        &self,
+        unsigned: &[u8],
+        chain_id: u64,
+        budget: Option<Duration>,
+    ) -> Result<[u8; 65], AttestorError> {
+        if budget.is_some_and(|budget| budget.is_zero()) {
+            return Err(AttestorError::Timeout {
+                node: self.key_id.clone(),
+            });
+        }
         if !valid_identifier(&self.evm_key_id) {
             return Err(AttestorError::Configuration("EVM key id"));
         }
@@ -657,8 +694,14 @@ impl AttestorSigner {
             .evm_assertion
             .as_ref()
             .ok_or(AttestorError::Configuration("EVM owner assertion"))?;
-        self.sign_evm_transaction_with_assertion(unsigned, chain_id, assertion, &session_id("evm")?)
-            .map(|signed| signed.signature)
+        self.sign_evm_transaction_with_assertion(
+            unsigned,
+            chain_id,
+            assertion,
+            &session_id("evm")?,
+            budget,
+        )
+        .map(|signed| signed.signature)
     }
 
     fn sign_evm_transaction_with_assertion(
@@ -667,15 +710,40 @@ impl AttestorSigner {
         chain_id: u64,
         assertion: &str,
         session: &str,
+        budget: Option<Duration>,
     ) -> Result<AttestorCallSignature, AttestorError> {
-        if !valid_identifier(&self.evm_key_id) {
+        self.sign_evm_transaction_for_key(
+            unsigned,
+            chain_id,
+            assertion,
+            session,
+            budget,
+            &self.evm_key_id,
+            self.evm_address,
+        )
+    }
+    fn sign_evm_transaction_for_key(
+        &self,
+        unsigned: &[u8],
+        chain_id: u64,
+        assertion: &str,
+        session: &str,
+        budget: Option<Duration>,
+        key_id: &str,
+        address: [u8; 20],
+    ) -> Result<AttestorCallSignature, AttestorError> {
+        if !valid_identifier(&key_id) {
             return Err(AttestorError::Configuration("EVM key id"));
         }
+        let _session = self
+            .session
+            .lock()
+            .map_err(|_| AttestorError::Configuration("signing session lock"))?;
         let (digest, transaction) = evm_transaction(unsigned, chain_id)?;
         let body = Zeroizing::new(
             serde_json::to_vec(&serde_json::json!({
                 "session_id": session,
-                "key_id": self.evm_key_id,
+                "key_id": key_id,
                 "kind": "evm_tx",
                 "signers": self.signers,
                 "transaction": encode_hex(&transaction),
@@ -684,9 +752,9 @@ impl AttestorSigner {
         );
         let mut signature = None;
         let mut audit = BTreeMap::new();
-        for (node, result) in self
-            .client
-            .post_all(&self.signers, PATH_SIGN, &body, Some(assertion))
+        for (node, result) in
+            self.client
+                .post_all_bounded(&self.signers, PATH_SIGN, &body, Some(assertion), budget)
         {
             let raw = result?;
             let response: SignResponseBody =
@@ -694,7 +762,7 @@ impl AttestorSigner {
             let returned =
                 decode_fixed::<65>(&response.signature).ok_or_else(|| malformed(&node))?;
             if response.node_id != node
-                || response.key_id != self.evm_key_id
+                || response.key_id != key_id
                 || response.kind != "evm_tx"
                 || response.recovery_id != Some(returned[64])
                 || returned[64] > 1
@@ -713,7 +781,7 @@ impl AttestorSigner {
                 k256::ecdsa::VerifyingKey::recover_from_prehash(&digest, &compact, recovery)
                     .map_err(|_| invalid())?;
             let point = recovered.to_encoded_point(false);
-            if sha3::Keccak256::digest(&point.as_bytes()[1..])[12..] != self.evm_address {
+            if sha3::Keccak256::digest(&point.as_bytes()[1..])[12..] != address {
                 return Err(invalid());
             }
             if signature.is_some_and(|agreed| agreed != returned) {
@@ -790,6 +858,9 @@ impl AttestorSigner {
             network,
             audit: Mutex::new(BTreeMap::new()),
             native_replays: Mutex::new(BTreeMap::new()),
+            session: Mutex::new(()),
+            native_journal: None,
+            native_clock: None,
         })
     }
 
@@ -859,7 +930,17 @@ impl AttestorSigner {
                 actual: chain,
             });
         }
-        if from != self.evm_address {
+        let (key_id, address) = if self.evm_address == [0; 20] {
+            self.client.public_wallet_key(
+                &self.key_id,
+                &self.public_key,
+                approval.principal,
+                assertion,
+            )?
+        } else {
+            (self.evm_key_id.clone(), self.evm_address)
+        };
+        if from != address {
             return Err(AttestorError::Disclosure(SignError::DisclosureMismatch(
                 "from",
             )));
@@ -878,6 +959,8 @@ impl AttestorSigner {
         )?;
         let signer = AttestorTransactionSigner {
             signer: self,
+            key_id: &key_id,
+            address,
             assertion,
             session: approval.session_id,
             result: Mutex::new(None),
@@ -915,6 +998,7 @@ impl AttestorSigner {
         if &decoded != purpose {
             return Err(native_invalid());
         }
+        let purpose_expiry = purpose.expires_at_ms;
         let purpose = encode_hex(&canonical);
         self.request_native_signature(
             NativeSignBody {
@@ -930,6 +1014,7 @@ impl AttestorSigner {
                 expiry_ms: None,
             },
             Sha256::digest(&canonical).into(),
+            purpose_expiry,
             assertion,
         )
     }
@@ -947,6 +1032,7 @@ impl AttestorSigner {
         if &decoded != purpose || purpose.owner_public_key != self.public_key {
             return Err(native_invalid());
         }
+        let purpose_expiry = purpose.expires_at_ms;
         let purpose = encode_hex(&canonical);
         self.request_native_signature(
             NativeSignBody {
@@ -962,6 +1048,7 @@ impl AttestorSigner {
                 expiry_ms: None,
             },
             Sha256::digest(&canonical).into(),
+            purpose_expiry,
             assertion,
         )
     }
@@ -994,6 +1081,7 @@ impl AttestorSigner {
                 expiry_ms: Some(&expiry),
             },
             Sha256::digest(&canonical).into(),
+            grant.expires_at_ms,
             assertion,
         )
     }
@@ -1026,6 +1114,7 @@ impl AttestorSigner {
             &grant.signature,
         ]
         .concat();
+        let expiry = grant.expiration;
         let grant = encode_hex(&canonical);
         self.request_native_signature(
             NativeSignBody {
@@ -1041,6 +1130,7 @@ impl AttestorSigner {
                 expiry_ms: None,
             },
             digest,
+            expiry,
             assertion,
         )
     }
@@ -1060,10 +1150,33 @@ impl AttestorSigner {
         &self,
         body: NativeSignBody<'_>,
         digest: [u8; 32],
+        expires_at_ms: u64,
         assertion: &str,
     ) -> Result<AttestorSignature, AttestorError> {
         if !valid_identifier(body.session_id) || assertion.is_empty() {
             return Err(AttestorError::Configuration("native assertion/session"));
+        }
+        let _session = self
+            .session
+            .lock()
+            .map_err(|_| AttestorError::Configuration("signing session lock"))?;
+        let runtime;
+        let clock = if let Some(clock) = &self.native_clock {
+            clock.as_ref()
+        } else {
+            runtime = layerx_client::runtime_clock::RuntimeClock::from_environment()
+                .map_err(|_| AttestorError::Configuration("native replay clock"))?;
+            runtime.as_ref()
+        };
+        let now = clock
+            .sample(Duration::from_secs(1))
+            .map_err(|_| AttestorError::Configuration("native replay clock"))?
+            .unix_seconds();
+        let claims = assertion_claims(assertion)?;
+        claims.check(now)?;
+        let retain_until = claims.retain_until(expires_at_ms);
+        if now >= retain_until {
+            return Err(assertion_expired());
         }
         let bytes = Zeroizing::new(
             serde_json::to_vec(&body)
@@ -1074,14 +1187,38 @@ impl AttestorSigner {
             .native_replays
             .lock()
             .map_err(|_| AttestorError::Configuration("native replay lock"))?;
-        let previous = replays.get(body.session_id).cloned();
+        let mut staged = replays.clone();
+        staged.retain(|_, record| record.retain_until > now);
+        let previous = staged.get(body.session_id).cloned();
         if previous
             .as_ref()
             .is_some_and(|record| record.request_digest != request_digest)
-            || (previous.is_none() && replays.len() >= 512)
         {
             return Err(native_invalid());
         }
+        // Without a local journal, the native-v2 attestor's durable key/session request binding
+        // is authoritative. This cache only recognizes recent exact replies; evicted stale
+        // replies remain refused by the monotonic audit check below.
+        if previous.is_none() && self.native_journal.is_none() && staged.len() >= 512 {
+            let oldest = staged
+                .iter()
+                .min_by_key(|(_, record)| record.audit.values().copied().min().unwrap_or(0))
+                .map(|(key, _)| key.clone());
+            if let Some(oldest) = oldest {
+                staged.remove(&oldest);
+            }
+        }
+        staged
+            .entry(body.session_id.to_owned())
+            .or_insert_with(|| NativeReplay {
+                request_digest,
+                signature: Vec::new(),
+                digest,
+                audit: BTreeMap::new(),
+                retain_until,
+            });
+        self.persist_native(&staged)?;
+        *replays = staged;
         let results =
             self.client
                 .post_all(&self.signers, PATH_SIGN_NATIVE, &bytes, Some(assertion));
@@ -1141,11 +1278,13 @@ impl AttestorSigner {
             body.session_id.to_owned(),
             NativeReplay {
                 request_digest,
-                signature,
+                signature: signature.to_vec(),
                 digest,
                 audit: audit.clone(),
+                retain_until,
             },
         );
+        self.persist_native(&replays)?;
         Ok(AttestorSignature {
             signature,
             digest,
@@ -1153,6 +1292,148 @@ impl AttestorSigner {
         })
     }
 
+    /// Retains native-v2 key/session bindings through restart until the earlier of the
+    /// consent expiry and the owner assertion's one-hour authorization horizon. The
+    /// protected journal is byte bounded; capacity is refused before contacting attestors.
+    pub fn with_native_replay_journal(
+        mut self,
+        path: PathBuf,
+        clock: std::sync::Arc<dyn layerx_types::clock::Clock>,
+    ) -> Result<Self, AttestorError> {
+        use std::os::unix::fs::OpenOptionsExt;
+        if !path.is_absolute() {
+            return Err(AttestorError::Configuration("native journal path"));
+        }
+        let lock = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .mode(0o600)
+            .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as i32)
+            .open(path.with_extension("lock"))
+            .map_err(|_| AttestorError::Configuration("native journal lock"))?;
+        use std::os::unix::fs::MetadataExt;
+        let metadata = lock
+            .metadata()
+            .map_err(|_| AttestorError::Configuration("native journal metadata"))?;
+        if !metadata.is_file()
+            || metadata.uid() != rustix::process::geteuid().as_raw()
+            || metadata.mode() & 0o077 != 0
+        {
+            return Err(AttestorError::Configuration("native journal ownership"));
+        }
+        lock.try_lock()
+            .map_err(|_| AttestorError::Configuration("native journal already owned"))?;
+        let records = if path
+            .try_exists()
+            .map_err(|_| AttestorError::Configuration("native journal lookup"))?
+        {
+            let bytes = crate::config::protected(&path, NATIVE_JOURNAL_BYTES, true)
+                .map_err(|_| AttestorError::Configuration("native journal source"))?;
+            let journal: NativeJournalData = serde_json::from_slice(&bytes)
+                .map_err(|_| AttestorError::Configuration("native journal encoding"))?;
+            if journal.key_id != self.key_id
+                || journal.public_key != self.public_key
+                || journal.network != self.network
+                || journal.signers != self.signers
+            {
+                return Err(AttestorError::Configuration("native journal key binding"));
+            }
+            journal.records
+        } else {
+            BTreeMap::new()
+        };
+        let now = clock
+            .sample(Duration::from_secs(1))
+            .map_err(|_| AttestorError::Configuration("native replay clock"))?
+            .unix_seconds();
+        let mut records = records;
+        records.retain(|_, record| record.retain_until > now);
+        for record in records.values() {
+            if !record.signature.is_empty() && record.signature.len() != 64 {
+                return Err(native_invalid());
+            }
+            if !record.signature.is_empty() {
+                let signature: [u8; 64] = record
+                    .signature
+                    .as_slice()
+                    .try_into()
+                    .map_err(|_| native_invalid())?;
+                layerx_crypto::ed25519::verify_digest(&self.public_key, &signature, &record.digest)
+                    .map_err(|_| native_invalid())?;
+                if record.audit.len() != self.signers.len()
+                    || record
+                        .audit
+                        .iter()
+                        .any(|(node, sequence)| *sequence == 0 || !self.signers.contains(node))
+                {
+                    return Err(native_invalid());
+                }
+            }
+            for (node, sequence) in &record.audit {
+                let mut audit = self.recorded();
+                let value = audit.entry(node.clone()).or_default();
+                *value = (*value).max(*sequence);
+            }
+        }
+        self.native_replays = Mutex::new(records);
+        self.native_clock = Some(clock);
+        self.native_journal = Some(NativeJournal { path, _lock: lock });
+        {
+            let replays = self.native_replays.lock().map_err(|_| native_invalid())?;
+            self.persist_native(&replays)?;
+        }
+        Ok(self)
+    }
+    fn persist_native(
+        &self,
+        records: &BTreeMap<String, NativeReplay>,
+    ) -> Result<(), AttestorError> {
+        use std::io::Write;
+        use std::os::unix::fs::OpenOptionsExt;
+        let Some(journal) = &self.native_journal else {
+            return Ok(());
+        };
+        let data = NativeJournalData {
+            key_id: self.key_id.clone(),
+            public_key: self.public_key,
+            network: self.network,
+            signers: self.signers.clone(),
+            records: records.clone(),
+        };
+        let bytes = Zeroizing::new(serde_json::to_vec(&data).map_err(|_| native_invalid())?);
+        let reserved = records
+            .values()
+            .filter(|record| record.signature.is_empty())
+            .count()
+            .saturating_mul(2048);
+        if bytes.len().saturating_add(reserved) > NATIVE_JOURNAL_BYTES {
+            return Err(AttestorError::Configuration("native journal capacity"));
+        }
+        let temp = journal.path.with_extension("next");
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .mode(0o600)
+            .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as i32)
+            .open(&temp)
+            .map_err(|_| AttestorError::Configuration("native journal write"))?;
+        file.write_all(&bytes)
+            .and_then(|()| file.sync_all())
+            .map_err(|_| AttestorError::Configuration("native journal sync"))?;
+        std::fs::rename(temp, &journal.path)
+            .and_then(|()| {
+                std::fs::File::open(
+                    journal
+                        .path
+                        .parent()
+                        .ok_or_else(|| std::io::Error::other("journal parent"))?,
+                )
+                .and_then(|file| file.sync_all())
+            })
+            .map_err(|_| AttestorError::Configuration("native journal publish"))
+    }
     fn recorded(&self) -> MutexGuard<'_, BTreeMap<String, u64>> {
         match self.audit.lock() {
             Ok(guard) => guard,
@@ -1228,6 +1509,8 @@ impl AttestorCallSignature {
 struct AttestorTransactionSigner<'a> {
     signer: &'a AttestorSigner,
     assertion: &'a str,
+    key_id: &'a str,
+    address: [u8; 20],
     session: &'a str,
     result: Mutex<Option<Result<AttestorCallSignature, AttestorError>>>,
 }
@@ -1255,7 +1538,7 @@ impl layerx_crypto::signer::Signer for AttestorTransactionSigner<'_> {
     }
 
     fn evm_address(&self) -> Option<[u8; 20]> {
-        Some(self.signer.evm_address)
+        Some(self.address)
     }
 
     fn sign_transaction<'a>(
@@ -1263,11 +1546,14 @@ impl layerx_crypto::signer::Signer for AttestorTransactionSigner<'_> {
         call: &'a Eip1559Call,
     ) -> layerx_crypto::signer::TransactionSignFuture<'a> {
         Box::pin(async move {
-            let result = self.signer.sign_evm_transaction_with_assertion(
+            let result = self.signer.sign_evm_transaction_for_key(
                 &unsigned_evm_transaction(call),
                 call.chain_id,
                 self.assertion,
                 self.session,
+                None,
+                self.key_id,
+                self.address,
             );
             let signature = match &result {
                 Ok(signed) => {
@@ -2107,10 +2393,96 @@ pub fn validate_native_local_grant(
     })
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct NativeReplay {
     request_digest: [u8; 32],
-    signature: [u8; 64],
+    signature: Vec<u8>,
     digest: [u8; 32],
     audit: BTreeMap<String, u64>,
+    retain_until: u64,
+}
+
+const NATIVE_JOURNAL_BYTES: usize = 8 * 1024 * 1024;
+struct NativeJournal {
+    path: PathBuf,
+    _lock: std::fs::File,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct NativeJournalData {
+    key_id: String,
+    public_key: [u8; 32],
+    network: u32,
+    signers: Vec<String>,
+    records: BTreeMap<String, NativeReplay>,
+}
+
+fn assertion_expired() -> AttestorError {
+    AttestorError::Refused {
+        node: "owner-assertion".into(),
+        status: 401,
+        category: "authorization".into(),
+        code: "assertion.expired".into(),
+        policy_code: None,
+    }
+}
+
+/// Owner identity and lifetime claims; attestors verify the assertion's signature.
+pub struct AssertionClaims {
+    pub subject: String,
+    issued: u64,
+    expires: u64,
+}
+impl AssertionClaims {
+    pub fn retain_until(&self, consent_expires_at_ms: u64) -> u64 {
+        (consent_expires_at_ms / 1000)
+            .min(self.expires)
+            .min(self.issued.saturating_add(3600))
+    }
+    pub fn check(&self, now: u64) -> Result<(), AttestorError> {
+        if self.issued > now || self.expires <= now || now.saturating_sub(self.issued) >= 3600 {
+            return Err(AttestorError::Refused {
+                node: "owner-assertion".into(),
+                status: 401,
+                category: "authorization".into(),
+                code: "assertion.expired".into(),
+                policy_code: None,
+            });
+        }
+        Ok(())
+    }
+}
+/// Decodes the bounded owner claims used for refresh and replay retention.
+pub fn assertion_claims(assertion: &str) -> Result<AssertionClaims, AttestorError> {
+    use base64::Engine;
+    let invalid = || AttestorError::Configuration("owner assertion claims");
+    let mut parts = assertion.split('.');
+    let header = parts.next().ok_or_else(invalid)?;
+    let payload = parts.next().ok_or_else(invalid)?;
+    let signature = parts.next().ok_or_else(invalid)?;
+    if header.is_empty() || signature.is_empty() || parts.next().is_some() {
+        return Err(invalid());
+    }
+    let bytes = Zeroizing::new(
+        base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .decode(payload)
+            .map_err(|_| invalid())?,
+    );
+    let value: serde_json::Value = serde_json::from_slice(&bytes).map_err(|_| invalid())?;
+    let subject = value["sub"]
+        .as_str()
+        .filter(|subject| !subject.is_empty() && subject.len() <= 1024)
+        .ok_or_else(invalid)?
+        .to_owned();
+    let issued = value["iat"].as_u64().ok_or_else(invalid)?;
+    let expires = value["exp"].as_u64().ok_or_else(invalid)?;
+    if expires <= issued {
+        return Err(invalid());
+    }
+    Ok(AssertionClaims {
+        subject,
+        issued,
+        expires,
+    })
 }

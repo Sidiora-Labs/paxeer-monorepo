@@ -5,7 +5,7 @@ import React from 'react';
 import type { NavGroupItem } from 'types/client/navigation';
 
 import useNavItems, { isGroupItem } from 'lib/hooks/useNavItems';
-import { render } from 'ui/shared/layout/testWrapper';
+import { render, Wrapper } from 'ui/shared/layout/testWrapper';
 import { describe, it, expect, vi } from 'vitest';
 import { fireEvent, renderHook } from 'vitest/lib';
 
@@ -22,8 +22,8 @@ vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper'))
 import NavLinkGroup from './NavLinkGroup';
 
 const groupItem = (text: string): NavGroupItem => {
-  const { result } = renderHook(() => useNavItems());
-  const item = result.current.mainNavItems.find((candidate) => candidate.text === text);
+  const { result } = renderHook(() => useNavItems(), { wrapper: Wrapper });
+  const item = result.current.shellNavItems.find((candidate) => candidate.text === text);
 
   if (!item || !isGroupItem(item)) {
     throw new Error(`${ text } is not a menu group`);
@@ -34,16 +34,16 @@ const groupItem = (text: string): NavGroupItem => {
 
 describe('NavLinkGroup', () => {
   it('names the group and keeps its panel closed until it is asked for', () => {
-    const { container } = render(<NavLinkGroup item={ groupItem('Kernel') }/>);
+    const { container } = render(<NavLinkGroup item={ groupItem('Explore') }/>);
 
     const trigger = container.querySelector('[data-label="nav-group"]');
 
-    expect(trigger?.textContent?.trim()).toBe('Kernel');
+    expect(trigger?.textContent?.trim()).toBe('Explore');
     expect(trigger?.hasAttribute('data-active')).toBe(false);
   });
 
   it('opens the panel on a click and lists the pages of the group', () => {
-    const { container } = render(<NavLinkGroup item={ groupItem('Kernel') }/>);
+    const { container } = render(<NavLinkGroup item={ groupItem('Explore') }/>);
 
     const trigger = container.querySelector('[data-label="nav-group"]') as HTMLElement;
 
@@ -51,14 +51,16 @@ describe('NavLinkGroup', () => {
 
     expect(trigger.hasAttribute('data-active')).toBe(true);
 
-    const panel = document.querySelector('[data-scope="tooltip"][data-part="content"]');
+    const panel = document.querySelector('[data-scope="popover"][data-part="content"]');
 
-    expect(Array.from(panel?.querySelectorAll('li') ?? []).map((item) => item.textContent?.trim()))
-      .toEqual([ 'Anchor checkpoints', 'Kernel receipts' ]);
+    expect(Array.from(panel?.querySelectorAll('a[href="/blocks"], a[href="/txs"], a[href="/accounts"]') ?? [])
+      .map((item) => [ item.querySelector('span > span')?.textContent?.trim(), item.getAttribute('href') ]))
+      .toEqual([ [ 'Blocks', '/blocks' ], [ 'Transactions', '/txs' ], [ 'Accounts', '/accounts' ] ]);
+    expect(panel?.querySelector('a[href^="/paxeer-x/anchors"], a[href^="/paxeer-x/receipts"]')).toBeNull();
   });
 
   it('closes the panel on a second click', () => {
-    const { container } = render(<NavLinkGroup item={ groupItem('Kernel') }/>);
+    const { container } = render(<NavLinkGroup item={ groupItem('Explore') }/>);
 
     const trigger = container.querySelector('[data-label="nav-group"]') as HTMLElement;
 

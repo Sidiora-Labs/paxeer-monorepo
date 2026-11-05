@@ -108,8 +108,8 @@ func (k Keeper) setProgramCommittedCount(ctx sdk.Context, count uint64) {
 // pending record (LXP_UNKNOWN_FIELD), a fulfilled one (LXP_SEQUENCE_REUSED),
 // a kind or payload hash other than the recorded ones (LXP_CONTEXT_MISMATCH),
 // an invalid attestor set or signatures that do not reach its threshold over
-// the origin-2 preimage (verifyProgramSignatures) and a full answer store
-// (LXP_ARENA_EXHAUSTED). In one cached context it then writes the answer
+// the origin-2 preimage (verifyProgramSignatures). In one cached context it
+// reclaims a completed hot answer if needed, then writes the answer
 // parts, splits the fee among the signers, marks the record fulfilled and
 // moves it from the pending to the committed count; a failure of any of
 // these writes nothing.
@@ -145,16 +145,18 @@ func (k Keeper) FulfilProgram(ctx sdk.Context, raw []byte) error {
 	if err != nil {
 		return err
 	}
-	committed := k.ProgramCommittedCount(ctx)
-	if committed >= ProgramCommittedCapacity {
-		return errProgramArenaExhausted
-	}
 	pending := k.ProgramPendingCount(ctx)
 	if pending == 0 {
 		return errProgramFatalInvariant
 	}
 
 	cached, write := ctx.CacheContext()
+	// Legacy accepted requests have no reservation. Recover them by archiving
+	// a completed answer when needed rather than stranding their paid fee.
+	if err := k.reserveProgramAnswer(cached, 1); err != nil {
+		return err
+	}
+	committed := k.ProgramCommittedCount(cached)
 	k.putProgramAnswer(cached, observation)
 	if err := k.splitProgramFee(cached, set, record, signers); err != nil {
 		return err

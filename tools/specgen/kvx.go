@@ -74,8 +74,18 @@ func parse(r io.Reader, path string) (*Doc, error) {
 		if _, seen := doc.sections[section][key]; seen {
 			return nil, fmt.Errorf("%s line %d: duplicate key %q in [%s]", path, lineNo, key, section)
 		}
+		val = strings.TrimSpace(val)
+		parts := []string{val}
+		if strings.HasPrefix(val, "[") && strings.HasSuffix(val, "]") {
+			parts = splitList(val[1 : len(val)-1])
+		}
+		for _, part := range parts {
+			if _, err := decodeString(part); err != nil {
+				return nil, fmt.Errorf("%s line %d: invalid value for %q: %w", path, lineNo, key, err)
+			}
+		}
 		doc.keyOrder[section] = append(doc.keyOrder[section], key)
-		doc.sections[section][key] = strings.TrimSpace(val)
+		doc.sections[section][key] = val
 	}
 	if err := sc.Err(); err != nil {
 		return nil, err
@@ -90,16 +100,32 @@ func (d *Doc) ensure(section string) {
 	}
 }
 
+type quoteScanner struct {
+	inQuote bool
+	escaped bool
+}
+
+func (q *quoteScanner) outside(c byte) bool {
+	if q.escaped {
+		q.escaped = false
+		return false
+	}
+	if q.inQuote && c == '\\' {
+		q.escaped = true
+		return false
+	}
+	if c == '"' {
+		q.inQuote = !q.inQuote
+		return false
+	}
+	return !q.inQuote
+}
+
 func stripComment(line string) string {
-	inQuote := false
+	var q quoteScanner
 	for i := 0; i < len(line); i++ {
-		switch line[i] {
-		case '"':
-			inQuote = !inQuote
-		case '#':
-			if !inQuote {
-				return strings.TrimSpace(line[:i])
-			}
+		if q.outside(line[i]) && line[i] == '#' {
+			return strings.TrimSpace(line[:i])
 		}
 	}
 	return line
@@ -227,28 +253,30 @@ func (d *Doc) UintOr(section, key string, fallback uint64) uint64 {
 
 func splitList(s string) []string {
 	var parts []string
-	inQuote := false
+	var q quoteScanner
 	start := 0
 	for i := 0; i < len(s); i++ {
-		switch s[i] {
-		case '"':
-			inQuote = !inQuote
-		case ',':
-			if !inQuote {
-				parts = append(parts, s[start:i])
-				start = i + 1
-			}
+		if q.outside(s[i]) && s[i] == ',' {
+			parts = append(parts, s[start:i])
+			start = i + 1
 		}
 	}
 	return append(parts, s[start:])
 }
 
-func unquote(s string) string {
+func decodeString(s string) (string, error) {
 	s = strings.TrimSpace(s)
-	if len(s) >= 2 && s[0] == '"' && s[len(s)-1] == '"' {
-		return s[1 : len(s)-1]
+	if strings.HasPrefix(s, "\"") {
+		return strconv.Unquote(s)
 	}
-	return s
+	return s, nil
+}
+
+func unquote(s string) string {
+	// parse validates every scalar and list element before exposing the Doc.
+	v, err := decodeString(s)
+	must(err)
+	return v
 }
 
 func interpolate(s string) string {

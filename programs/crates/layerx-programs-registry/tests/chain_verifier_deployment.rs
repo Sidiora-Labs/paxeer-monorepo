@@ -17,8 +17,8 @@ use layerx_programs::{
         vote::{vote_sign_bytes, BlockIdFlag, CommitSig, Timestamp},
         Commit,
     },
-    InterfaceEntryPoint, ProgramId, ProgramInterface, ProtocolDeploymentVerifier,
-    ProtocolEvidenceError, ReadFreshness, UpgradePolicy, ValueSchema, ValueType,
+    ProgramInterface, ProtocolDeploymentVerifier, ProtocolEvidenceError, ReadFreshness,
+    UpgradePolicy,
 };
 use sha2::{Digest, Sha256};
 use verify_deployment::{deployment_at, historical_deployment_at};
@@ -27,48 +27,36 @@ const CHAIN_ID: &str = "paxeer-deployment-verifier-test";
 const SEEDS: [[u8; 32]; 4] = [[1; 32], [2; 32], [3; 32], [4; 32]];
 const MAX_AGE_MS: u64 = 1_000;
 
-fn deployment_fixture() -> (chain::ChainFixture, ChainDeploymentProof, ProgramInterface) {
-    let program = ProgramId::new([31; 32]).unwrap();
-    let mut key = b"program\0".to_vec();
-    key.extend_from_slice(&program.bytes());
-    let key = chain_evidence::programs_state_key(&key);
-    let mut value = vec![1];
-    value.extend_from_slice(&[32; 32]);
-    value.extend_from_slice(&Sha256::digest(support::WASM_V1));
-    value.extend_from_slice(&1_u16.to_be_bytes());
-    value.extend_from_slice(&7_u32.to_be_bytes());
-    let fixture = chain::ChainFixture::new(
-        CHAIN_ID,
-        &SEEDS,
-        vec![
-            (chain_evidence::programs_state_key(b"a"), vec![1]),
-            (key.clone(), value),
-            (chain_evidence::programs_state_key(b"z"), vec![2]),
-        ],
+fn deployment_fixture(
+    published: bool,
+) -> (chain::ChainFixture, ChainDeploymentProof, ProgramInterface) {
+    let program = repair_22_33_221::program();
+    let key = repair_22_33_221::program_key();
+    let interface = repair_22_33_221::descriptor(1);
+    let record = repair_22_33_221::runtime_records()[0].clone();
+    let interface_key =
+        chain_evidence::programs_state_key(&layerx_programs::interface_state_key(program));
+    let mut rows = vec![(key.clone(), repair_22_33_221::state_value(&record))];
+    if published {
+        rows.push((
+            interface_key.clone(),
+            layerx_programs::interface_state_value(program, 1, &interface).unwrap(),
+        ));
+    }
+    let fixture = chain::ChainFixture::new(CHAIN_ID, &SEEDS, rows).unwrap();
+    let witness = layerx_programs::chain_proof::decode::decode_commitment_proof(
+        &fixture.encode_key(&interface_key).unwrap(),
     )
     .unwrap();
-    let interface = ProgramInterface::bind(
-        support::WASM_V1,
-        1,
-        vec![InterfaceEntryPoint {
-            name: "call".to_owned(),
-            discriminator: [1, 2, 3, 4],
-            calldata: ValueSchema::layerx(ValueType::Bytes { max_len: 64 }),
-            response: ValueSchema::layerx(ValueType::Bytes { max_len: 64 }),
-            capabilities: Vec::new(),
-            event_topics: Vec::new(),
-            failures: Vec::new(),
-        }],
-    )
-    .unwrap();
-    let proof = ChainDeploymentProof {
-        program_state: ChainProgramStateProof {
+    let proof = ChainDeploymentProof::from_state_proofs(
+        ChainProgramStateProof {
             program,
             ops: fixture.prove(&key).unwrap(),
         },
-        code: support::WASM_V1.to_vec(),
-        interface: Some(interface.canonical_encoding().to_vec()),
-    };
+        record.module,
+        &witness,
+    )
+    .unwrap();
     (fixture, proof, interface)
 }
 
@@ -107,7 +95,7 @@ fn sign_header(header: &ChainHeader, template: &Commit, seeds: &[[u8; 32]]) -> C
 
 #[test]
 fn chain_deployment_current_and_historical_verify() {
-    let (fixture, mut proof, interface) = deployment_fixture();
+    let (mut fixture, proof, interface) = deployment_fixture(true);
     let verifier = ProtocolDeploymentVerifier::from_chain_trust(
         CHAIN_ID,
         fixture.verifier.validators.validators().to_vec(),
@@ -118,24 +106,28 @@ fn chain_deployment_current_and_historical_verify() {
     let old = trust.verify_head(&fixture.header, &fixture.commit).unwrap();
     let old_time = u64::try_from(old.time_ms()).unwrap();
     let expected_hash: [u8; 32] = Sha256::digest(support::WASM_V1).into();
-    for supplied_interface in [None, Some(interface.canonical_encoding().to_vec())] {
-        proof.interface = supplied_interface;
+    for published in [false, true] {
+        let (case_fixture, proof, _) = deployment_fixture(published);
+        let old = trust
+            .verify_head(&case_fixture.header, &case_fixture.commit)
+            .unwrap();
+        let old_time = old.time_ms() as u64;
         let evidence = deployment_at(&verifier, &proof, &old, old_time).unwrap();
         assert_eq!(evidence.program(), proof.program_state.program);
-        assert_eq!(evidence.version(), 7);
+        assert_eq!(evidence.version(), 1);
         assert_eq!(evidence.code_hash(), expected_hash);
         assert_eq!(evidence.abi_version(), 1);
         assert_eq!(
             evidence.upgrade_policy(),
-            UpgradePolicy::Authority([32; 32])
+            UpgradePolicy::Authority([0x51; 32])
         );
         assert_eq!(evidence.module(), support::WASM_V1);
         assert_eq!(evidence.state_height(), chain::STATE_HEIGHT);
         assert_eq!(evidence.state_root(), old.app_hash());
-        assert_eq!(evidence.interface_present(), proof.interface.is_some());
+        assert_eq!(evidence.interface_present(), published);
         assert_eq!(
             evidence.interface(),
-            proof.interface.as_ref().map(|_| &interface)
+            if published { Some(&interface) } else { None }
         );
         assert_eq!(
             evidence.freshness(),
@@ -203,7 +195,21 @@ fn chain_deployment_current_and_historical_verify() {
         historical,
         deployment_at(&verifier, &proof, &old, old_time).unwrap()
     );
-    let current_evidence = deployment_at(&verifier, &proof, &current, now).unwrap();
+    // Refresh the witness framing for the actual current head. The unchanged
+    // state root alone cannot authorize borrowing an old interface witness.
+    assert_eq!(
+        deployment_at(&verifier, &proof, &current, now),
+        Err(ProtocolEvidenceError::StateProof)
+    );
+    fixture.header = trust_chain[2].0.clone();
+    fixture.commit = trust_chain[2].1.clone();
+    fixture.verifier.validators = trust_chain[2].2.clone();
+    let mut current_proof = proof.clone();
+    let key = chain_evidence::programs_state_key(&layerx_programs::interface_state_key(
+        repair_22_33_221::program(),
+    ));
+    current_proof.interface = Some(fixture.encode_key(&key).unwrap());
+    let current_evidence = deployment_at(&verifier, &current_proof, &current, now).unwrap();
     assert_eq!(current_evidence.state_height(), current.height() - 1);
     assert_eq!(current_evidence.state_root(), current.app_hash());
     assert_eq!(current_evidence.module(), historical.module());
@@ -271,7 +277,7 @@ fn chain_deployment_current_and_historical_verify() {
 
 #[test]
 fn chain_deployment_refuses_code_hash_mismatch() {
-    let (fixture, mut proof, _) = deployment_fixture();
+    let (fixture, mut proof, _) = deployment_fixture(true);
     let verifier = ProtocolDeploymentVerifier::from_chain_trust(
         CHAIN_ID,
         fixture.verifier.validators.validators().to_vec(),
@@ -302,4 +308,12 @@ fn chain_deployment_refuses_code_hash_mismatch() {
             Err(ProtocolEvidenceError::DeploymentMismatch)
         );
     }
+}
+
+#[path = "support/repair_22_33_221.rs"]
+mod repair_22_33_221;
+
+#[test]
+fn node_interface_presence_absence_current_historical() {
+    repair_22_33_221::verifier_interface_coverage();
 }

@@ -1,0 +1,24 @@
+[task]
+id = "22.33.1408"
+base_revision = "72c91077cb966f1c4c640ded61b4b259f41cad90"
+verify_cmd = "node --test services/platform/examples/test/repair-22-33-1408.test.mjs"
+evidence = "The runner's private gates.jsonl records the exact candidate revision, command, exit and log; hf-build and hf-done must qualify the same candidate."
+baseline = "Not run: Order 1 forbids testing before full implementation and Order 4 forbids running verify_cmd by hand before hf-done; no prior gate ledger exists, so no baseline failures are claimed."
+
+[finding.022]
+tests = ["marketplaceAnchorConsumesRecordedNodeResponses", "marketplaceAnchorRefusesInvalidIdentity", "marketplaceAnchorRejectsUntrustedNodeResponses"]
+proof = "Production readLifecycleAnchor consumes committed chain-125 producer block/nonce transcripts over the retained root listener, with exact HTTP, authorization, JSON-RPC, pending selector, lifecycle fields and typed refusals asserted."
+contract = "The base already uses eth_getBlockByNumber and eth_getTransactionCount with the supplied EVM sender; the audit's px_resolveAccount step predates the current production interface."
+wiring_request = "services/platform/examples/marketplace/deploy-payload.mjs — owning domain 8 (platform): reconcile the audit's px_resolveAccount requirement with the current explicit EVM sender interface; production changes are outside this repair's paths."
+
+[finding.023]
+tests = ["programOutcomeCompletesOnSuccessfulReceipt", "programOutcomeRefusesReceiptUnderUnpinnedKey"]
+proof = "Unmodified Go producer receipts V1-layerxprograms-call and V2-layerxledger-revert pass through loopback raw-transaction and receipt RPCs, SequencerReceiptClient and verifyProgramOutcome; exact outcome fields, canonical SHA-256 signing digest, failed resultCode and unpinned-key refusals are asserted."
+
+[gotcha.source_loading]
+observed = "Installed SDK dependencies have no compiled SDK dist entry point."
+resolution = "The declared repair test loads production TypeScript source in-process with Node module hooks, without building or invoking a subprocess."
+
+[gotcha.refusal_status]
+observed = "First verification applied a nonce refusal HTTP status to the earlier block response; the exact two-call assertion caught it."
+resolution = "Apply the selected HTTP status only to the last expected exchange; preceding recorded responses retain HTTP 200."

@@ -1,6 +1,7 @@
 package tempfile
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -121,9 +122,23 @@ func WriteFileAtomic(filename string, data []byte, perm os.FileMode) (err error)
 	} else if n < len(data) {
 		return io.ErrShortWrite
 	}
+	if err := f.Sync(); err != nil {
+		return err
+	}
 	// Close the file before renaming it, otherwise it will cause "The process
 	// cannot access the file because it is being used by another process." on windows.
-	_ = f.Close()
+	if err := f.Close(); err != nil {
+		return err
+	}
 
-	return os.Rename(f.Name(), filename)
+	if err := os.Rename(f.Name(), filename); err != nil {
+		return err
+	}
+	parent, err := os.Open(dir)
+	if err != nil {
+		return err
+	}
+	syncErr := parent.Sync()
+	closeErr := parent.Close()
+	return errors.Join(syncErr, closeErr)
 }

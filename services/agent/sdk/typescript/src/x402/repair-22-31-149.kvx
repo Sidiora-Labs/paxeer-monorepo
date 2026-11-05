@@ -1,0 +1,9 @@
+[repair.22.31.149]
+finding = "draw-restart"
+audit = "spec/layerx-merge/programme/audit/records/22.30.101.kvx"
+tests = ["draw_restart_recovers_a_crash_before_send", "draw_restart_redelivers_after_an_uncertain_send_acknowledgement", "draw_restart_recovers_a_send_failure_before_admission", "draw_restart_migrates_legacy_attempts_without_losing_the_payment"]
+test_file = "services/agent/sdk/typescript/test/repair-22-31-149.test.ts"
+repair = "Persist prepared, unknown and admitted states; migrate legacy attempts to unknown; reconcile the retained hash before exact-byte redelivery without replacing idempotency or subscription period keys. Preserve transport errors and all receipt verification."
+baseline = "Not run: Order 1 prohibits testing before implementation and Order 4 prohibits running verify_cmd before hf-done. No prior gate runs were present. The old implementation has no admission_state and never redelivers attempted transactions."
+wiring_requests = []
+revision_evidence = "The hf-done gate ledger records the exact verified candidate revision, command, exit code and private evidence location; its JSON evidence is included in the task handoff."

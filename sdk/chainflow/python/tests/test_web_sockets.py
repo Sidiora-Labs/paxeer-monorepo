@@ -61,7 +61,7 @@ def _async_client() -> AsyncChainflowDataGateway:
 
 
 ENDPOINTS = [
-    ("connect_price_feed", ("BTC-USD",), "/api/ws/BTC-USD"),
+    ("connect_price_feed", ("btc",), "/api/ws/btc"),
     ("connect_markets", (), "/api/ws/markets"),
     ("connect_explorer", (), "/api/ws/explorer"),
     ("connect_explorer_alias", (), "/api/explorer"),

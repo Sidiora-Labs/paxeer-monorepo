@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { generateKeyPairSync } from "node:crypto";
 import { PlatformSdkError } from "@sidiora/layerx-sdk";
 import {
   MiddlewareError,
@@ -7,6 +8,14 @@ import {
   decodePaymentRequiredHeader,
   paymentCommitment,
 } from "../dist/index.js";
+
+const pair = generateKeyPairSync("ed25519");
+const pin = {
+  keyId: new Uint8Array(32).fill(0x55),
+  publicKey: new Uint8Array(pair.publicKey.export({ type: "spki", format: "der" }).subarray(-32)),
+  first_height: 1n,
+  last_height: 1000n,
+};
 
 function paymentCommitmentParsesRungNames() {
   for (const extra of [undefined, null, {}, { other: "terms" }]) {
@@ -47,7 +56,7 @@ function sellerRefusesLayerxNetworkIdentifiers() {
     }],
   };
   const sellerFor = (network) => new SellerMiddleware({
-    protocolVersion: 3,
+    receiptKeys: [pin],
     paymentRequired: {
       ...paymentRequired,
       accepts: [{ ...paymentRequired.accepts[0], network }],

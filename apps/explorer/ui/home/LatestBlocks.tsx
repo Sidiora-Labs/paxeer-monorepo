@@ -129,18 +129,19 @@ const LatestBlocks = () => {
   const dataToShow = React.useMemo(() => data?.slice(0, blocksMaxCount) ?? [], [ data, blocksMaxCount ]);
   const durations = React.useMemo(() => isPlaceholderData ? [] : getBlockDurations(dataToShow), [ dataToShow, isPlaceholderData ]);
 
-  const networkUtilization = getNetworkUtilizationParams(statsQueryResult.data?.network_utilization_percentage ?? 0);
+  const utilization = statsQueryResult.data?.network_utilization_percentage;
+  const networkUtilization = typeof utilization === 'number' ? getNetworkUtilizationParams(utilization) : undefined;
 
   const note = (
     <>
-      { statsQueryResult.data?.network_utilization_percentage !== undefined && (
+      { typeof utilization === 'number' && networkUtilization && (
         <Skeleton loading={ statsQueryResult.isPlaceholderData } display="inline-block" textStyle="xs">
           <Text as="span" color="text.muted">
             Network utilization:{ nbsp }
           </Text>
           <Tooltip content={ `${ upperFirst(networkUtilization.load) } load` }>
             <Text as="span" color={ networkUtilization.color } fontWeight="700">
-              { statsQueryResult.data?.network_utilization_percentage.toFixed(2) }%
+              { utilization.toFixed(2) }%
             </Text>
           </Tooltip>
         </Skeleton>

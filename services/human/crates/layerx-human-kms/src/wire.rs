@@ -1,5 +1,39 @@
 use layerx_crypto::disclosure::{AmountRole, CounterpartyRole, Disclosure};
 
+/// LXKP Sign migration boundary shared with protocol integrators.
+///
+/// Sign is exclusively version 7, operation 5. Version 1 activity signing is
+/// retired and returns status 1 (`Refused`) before payload decoding or dispatch;
+/// there is no negotiation, downgrade, or interpretation of an old activity as
+/// an EVM transaction. Other operations retain their own version numbers.
+///
+/// All integers are big endian and every blob has a u32 byte-length prefix.
+/// The request is `LXKP || version:u16 || operation:u8 || provider:blob(256) ||
+/// binding:[u8;32] || network:u32 || class:u8 || reference:blob(4096) ||
+/// digest:[u8;32] || from:[u8;20] || unsigned_eip1559:blob || disclosure:blob`.
+/// The complete frame is bounded by 2,097,152 bytes. The digest is Keccak-256 of
+/// the canonical unsigned type-2 EIP-1559 transaction. The sender must be the
+/// held wallet's public EVM address; the network and every disclosed call field
+/// must match that transaction. The disclosure uses the binary encoding emitted
+/// by the Human service's `RemoteKmsProvider::encode_signing_request`.
+///
+/// Success echoes `LXKP || version:u16 || operation:u8 || status:0` followed by
+/// exactly 65 bytes `r || s || v`, where v is 27 or 28 and the signature recovers
+/// the declared 20-byte sender. Failure echoes the header plus a nonzero status
+/// without signature bytes. Version 1's activity payload and 64-byte Ed25519
+/// result are incompatible; migrate both the request encoder and signature
+/// verifier together. Native consent signing retains its separate attestor API.
+pub mod signing_contract {
+    /// The only supported LXKP Sign request version.
+    pub const VERSION: u16 = 7;
+    /// The LXKP Sign operation code.
+    pub const OPERATION: u8 = 5;
+    /// Length of the public EVM sender address in a Sign request.
+    pub const SENDER_BYTES: usize = 20;
+    /// Length of the recoverable EVM signature in a successful Sign response.
+    pub const SIGNATURE_BYTES: usize = 65;
+}
+
 pub(crate) const MAX_FRAME: usize = 2_097_152;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum Error {
@@ -9,6 +43,8 @@ pub(crate) enum Error {
     Unavailable = 4,
     Integrity = 5,
     SelfCustodied = 6,
+    Capacity = 7,
+    Expired = 8,
 }
 pub(crate) type Result<T> = std::result::Result<T, Error>;
 
@@ -32,6 +68,7 @@ pub(crate) enum Operation {
     /// Returns the signed type-2 transaction bytes.
     AuthorizeSend,
     ExportPrimary,
+    AcknowledgeExport,
     /// The read-only movement executor probe: admitted only for the
     /// restricted executor identity, it echoes the caller's challenge and the
     /// provider network without touching or persisting any record.
@@ -46,17 +83,21 @@ impl Operation {
             (1, 3) => Self::Rotate,
             (2, 3) => Self::RotateIfCurrent,
             (1, 4) => Self::Destroy,
-            (7, 5) => Self::Sign,
+            (signing_contract::VERSION, signing_contract::OPERATION) => Self::Sign,
             (3, 6) => Self::EvmWallet,
             (3, 7..=10 | 12) => Self::Evm,
             (3, 11) => Self::AuthorizeSend,
-            (5, 14) => Self::ExportPrimary,
+            (8, 14) => Self::ExportPrimary,
+            (8, 16) => Self::AcknowledgeExport,
             (6, 15) => Self::ExecutorProbe,
             _ => return Err(Error::Refused),
         })
     }
     const fn carries_payload(self) -> bool {
-        matches!(self, Self::Evm | Self::AuthorizeSend)
+        matches!(
+            self,
+            Self::Evm | Self::AuthorizeSend | Self::ExportPrimary | Self::AcknowledgeExport
+        )
     }
 }
 
@@ -71,7 +112,7 @@ pub(crate) struct Request<'a> {
     pub reference: &'a [u8],
     pub expected: Option<[u8; 32]>,
     pub digest: [u8; 32],
-    pub from: [u8; 20],
+    pub from: [u8; signing_contract::SENDER_BYTES],
     pub challenge: [u8; 32],
     pub canonical: &'a [u8],
     pub evm: &'a [u8],

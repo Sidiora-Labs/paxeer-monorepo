@@ -1,0 +1,12 @@
+[repair.22.33.214]
+finding = "arbiter-proof-pins-payer-gap"
+proving_test = "repair_22_33_214::arbiter_proof_pins_payer_and_verifies_every_genuine_adjacent_pair"
+refusal_test = "repair_22_33_214::arbiter_proof_rejects_unauthorized_payer_activity_and_context"
+producer = "Executor::execute_authorized_authenticated with an admitted payer distinct from the principal, for ABI 2 and ABI 5"
+transport = "Encoded IAVL existence proofs, signed receipt and batch header, portable boundaries and native authority bytes"
+consumer = "Fresh receipt-derived authority and catalogue twice; both VerifiedReplay constructors verify every genuine adjacent pair"
+tampering = "Principal substituted for payer, malformed authority, signed receipt, receipt-key proof, batch signature, boundary index and boundary leaf are refused"
+baseline_revision = "b060b9536c5877f1590e0e2a8e973fd279bf76bb"
+baseline = "Prerequisite 22.31.252 already supplies authenticated execution and positive adjacent-pair assertions. No pre-change gate ran: the required target was absent and the explicit gate order requires completed implementation before hf-build and hf-done. No pre-existing test failure is claimed."
+wiring_requests = []
+evidence_source = "Private hf-done gate ledger records the verified candidate revision, command, exit code and log; the final task response copies that evidence."

@@ -1,31 +1,25 @@
 [sweep.rust-build-human]
-revision = "03e2d849d7f3e9ca51cada79f6d3cfe90938a0fb"
+revision = "ace3608260f2ec826292dab08cd058031efe2f46"
 command = "cargo build --locked --manifest-path services/human/Cargo.toml -p TARGET --all-targets"
 targets_total = 7
-targets_passed = 2
-targets_failed = 5
+targets_passed = 7
+targets_failed = 0
 targets_not_run = 0
 
 [target.rust-build-human.1]
 target = "layerx-human-security-provider"
-result = "failed"
-exit_code = 101
-observed = "services/human/crates/layerx-human-service/src/agents/create.rs:610:49 fails with E0004 because the match does not cover Some(ConstructMethod::ProgramCall { .. })."
-assumption = "The lifecycle disclosure match appears to be stale relative to the ConstructMethod enum and lacks an explicit ProgramCall arm."
+result = "passed"
+exit_code = 0
 
 [target.rust-build-human.2]
 target = "layerx-human-service"
-result = "failed"
-exit_code = 101
-observed = "services/human/crates/layerx-human-service/src/agents/create.rs:610:49 fails with E0004 because the match does not cover Some(ConstructMethod::ProgramCall { .. })."
-assumption = "The lifecycle disclosure match appears to be stale relative to the ConstructMethod enum and lacks an explicit ProgramCall arm."
+result = "passed"
+exit_code = 0
 
 [target.rust-build-human.3]
 target = "layerx-human-kms"
-result = "failed"
-exit_code = 101
-observed = "services/human/crates/layerx-human-service/src/agents/create.rs:610:49 fails with E0004 because the match does not cover Some(ConstructMethod::ProgramCall { .. })."
-assumption = "The lifecycle disclosure match appears to be stale relative to the ConstructMethod enum and lacks an explicit ProgramCall arm."
+result = "passed"
+exit_code = 0
 
 [target.rust-build-human.4]
 target = "layerx-intents"
@@ -39,14 +33,10 @@ exit_code = 0
 
 [target.rust-build-human.6]
 target = "layerx-human-identity-provider"
-result = "failed"
-exit_code = 101
-observed = "services/human/crates/layerx-human-service/src/agents/create.rs:610:49 fails with E0004 because the match does not cover Some(ConstructMethod::ProgramCall { .. })."
-assumption = "The lifecycle disclosure match appears to be stale relative to the ConstructMethod enum and lacks an explicit ProgramCall arm."
+result = "passed"
+exit_code = 0
 
 [target.rust-build-human.7]
 target = "layerx-human-test-support"
-result = "failed"
-exit_code = 101
-observed = "services/human/crates/layerx-human-service/src/agents/create.rs:610:49 fails with E0004 because the match does not cover Some(ConstructMethod::ProgramCall { .. })."
-assumption = "The lifecycle disclosure match appears to be stale relative to the ConstructMethod enum and lacks an explicit ProgramCall arm."
+result = "passed"
+exit_code = 0

@@ -124,7 +124,9 @@ static lxp_result order_decode(const uint8_t *bytes, size_t length,
         status = lxp_u128_from_be(bytes + 177U, &decoded.escrowed);
     if (status != LXP_OK) return status;
     decoded.global_sequence = lx_spot_get_u64(bytes + 193U);
-    if (lxp_u128_is_zero(decoded.remaining) ||
+    if (lx_spot_zero_id(decoded.order_id) ||
+        lx_spot_zero_id(decoded.market_id) ||
+        lxp_u128_is_zero(decoded.remaining) ||
         lxp_u128_is_zero(decoded.escrowed) ||
         lxp_u128_cmp(decoded.remaining, decoded.quantity) > 0)
         return LXP_ERR_NON_CANONICAL;
@@ -139,13 +141,19 @@ lxp_result lx_spot_market_lookup(lxp_module_ctx *ctx,
     uint8_t key[LX_SPOT_MARKET_KEY_BYTES];
     const uint8_t *value = NULL;
     size_t value_length = 0U;
+    lx_spot_market decoded;
     lxp_result status;
     if (!spot_ctx(ctx) || market_id == NULL || market == NULL)
         return LXP_ERR_NON_CANONICAL;
     market_key(key, market_id);
     status = lxp_ctx_kv_get(ctx, key, sizeof(key), &value, &value_length);
     if (status != LXP_OK) return status;
-    return market_record_decode(value, value_length, market);
+    status = market_record_decode(value, value_length, &decoded);
+    if (status != LXP_OK) return status;
+    if (memcmp(decoded.market_id, market_id, 32U) != 0)
+        return LXP_ERR_NON_CANONICAL;
+    *market = decoded;
+    return LXP_OK;
 }
 
 lxp_result lx_spot_market_put(lxp_module_ctx *ctx,
@@ -190,6 +198,7 @@ lxp_result lx_spot_order_lookup(lxp_module_ctx *ctx,
     uint8_t key[LX_SPOT_ORDER_KEY_BYTES];
     const uint8_t *value = NULL;
     size_t value_length = 0U;
+    lx_spot_order decoded;
     lxp_result status;
     if (!spot_ctx(ctx) || market_id == NULL || order_id == NULL ||
         order == NULL)
@@ -197,7 +206,13 @@ lxp_result lx_spot_order_lookup(lxp_module_ctx *ctx,
     order_key(key, market_id, order_id);
     status = lxp_ctx_kv_get(ctx, key, sizeof(key), &value, &value_length);
     if (status != LXP_OK) return status;
-    return order_decode(value, value_length, order);
+    status = order_decode(value, value_length, &decoded);
+    if (status != LXP_OK) return status;
+    if (memcmp(decoded.market_id, market_id, 32U) != 0 ||
+        memcmp(decoded.order_id, order_id, 32U) != 0)
+        return LXP_ERR_NON_CANONICAL;
+    *order = decoded;
+    return LXP_OK;
 }
 
 lxp_result lx_spot_order_put(lxp_module_ctx *ctx, const lx_spot_order *order)
@@ -234,7 +249,10 @@ static lxp_result visit_order(const uint8_t *key, size_t key_length,
         return LXP_ERR_NON_CANONICAL;
     status = order_decode(value, value_length, &order);
     if (status != LXP_OK) return status;
-    if (memcmp(order.market_id, adapter->market_id, 32U) != 0)
+    if (memcmp(order.market_id, adapter->market_id, 32U) != 0 ||
+        memcmp(key, order_prefix, sizeof(order_prefix) - 1U) != 0 ||
+        memcmp(key + sizeof(order_prefix) - 1U, order.market_id, 32U) != 0 ||
+        memcmp(key + sizeof(order_prefix) - 1U + 32U, order.order_id, 32U) != 0)
         return LXP_ERR_NON_CANONICAL;
     if (adapter->book->count == LX_SPOT_BOOK_CAPACITY)
         return LXP_ERR_LENGTH_LIMIT;

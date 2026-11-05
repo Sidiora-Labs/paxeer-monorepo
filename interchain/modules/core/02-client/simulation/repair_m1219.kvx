@@ -1,0 +1,8 @@
+[repair.22.33.1219]
+audit = "22.30.58"
+base_revision = "72c91077cb966f1c4c640ded61b4b259f41cad90"
+client-metadata-decoder = "TestRepairM_1219_ClientMetadataDecoder: real keeper initialization stores every client, consensus, processed-time, processed-height and iteration entry; complete paired snapshots traverse the production AppModule-registered aggregate decoder with exact readable output. TestRepairM_1219_ExactKeyShapes preserves unknown-key rejection; TestRepairM_1219_MetadataEncodings covers binary slash bytes, uint64 boundaries and corrupt metadata rejection."
+metadata-decoder-fixture-gap = "TestRepairM_1219_MetadataDecoderFixtureGap: a real signed Tendermint header passes keeper UpdateClient in two independent cache stores; all resulting entries traverse the registered aggregate decoder, new metadata matches the processing contexts, the client advances and prior consensus metadata survives. TestDecodeStoreKeeperMetadata extends decoder_test.go with the same producer-backed lifecycle."
+baseline = "Not run: the explicit task order requires complete implementation before any gate and forbids manual verify_cmd execution; no prior gate ledger or repair tests existed, so no baseline failure is claimed."
+wiring_requests = []
+evidence = "The runner's private hf-build/hf-done ledger records the exact candidate revision, command, exit code and log; this record makes no unexecuted gate claim."

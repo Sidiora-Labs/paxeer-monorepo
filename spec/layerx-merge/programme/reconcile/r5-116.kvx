@@ -1,0 +1,243 @@
+[reconcile.r5-116]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r5-116.1]
+interface = "interface.5.go-node-app-handle-close"
+verdict = "served"
+path = "node/app.go"
+line = 1461
+symbol = "HandleClose"
+evidence = "Declaration at node/app.go:1461 matches the registered signature func (app *App) HandleClose() error; the registered line 1332 has drifted. The App method closes the LayerX host and gathers close errors; the earlier occurrence installs its handler."
+
+[row.r5-116.2]
+interface = "interface.5.go-node-app-handle-pre-commit"
+verdict = "served"
+path = "node/app.go"
+line = 1447
+symbol = "HandlePreCommit"
+evidence = "Declaration at node/app.go:1447 matches the registered signature func (app *App) HandlePreCommit(ctx sdk.Context) error; the registered line 1327 has drifted. The App method flushes transient EVM receipts before commit; the earlier occurrence installs its handler."
+
+[row.r5-116.3]
+interface = "interface.5.go-node-app-init-chainer"
+verdict = "served"
+path = "node/app.go"
+line = 1643
+symbol = "InitChainer"
+evidence = "Declaration at node/app.go:1643 matches the registered signature func (app *App) InitChainer(ctx sdk.Context, req abci.RequestInitChain) abci.ResponseInitChain; the registered line 1507 has drifted. The App method accepts the SDK context and ABCI init request and returns the ABCI init response; SetInitChainer only registers it."
+
+[row.r5-116.4]
+interface = "interface.5.go-node-app-interface-registry"
+verdict = "served"
+path = "node/app.go"
+line = 3254
+symbol = "InterfaceRegistry"
+evidence = "Declaration at node/app.go:3254 matches the registered signature func (app *App) InterfaceRegistry() types.InterfaceRegistry; the registered line 2979 has drifted. The App method returns app.interfaceRegistry; other occurrences name the registry type or its initialization."
+
+[row.r5-116.5]
+interface = "interface.5.go-node-app-latest-ctx"
+verdict = "served"
+path = "node/app.go"
+line = 3411
+symbol = "LatestCtx"
+evidence = "Declaration at node/app.go:3411 matches the registered signature func (app *App) LatestCtx() sdk.Context; the registered line 3055 has drifted. The App method returns an isolated open-block snapshot when available and otherwise the check context; LatestCtxGetter only references it."
+
+[row.r5-116.6]
+interface = "interface.5.go-node-app-legacy-amino"
+verdict = "served"
+path = "node/app.go"
+line = 3225
+symbol = "LegacyAmino"
+evidence = "Declaration at node/app.go:3225 matches the registered signature func (app *App) LegacyAmino() *codec.LegacyAmino; the registered line 2950 has drifted. The App method returns app.cdc; other occurrences name codec.LegacyAmino types or describe the method."
+
+[row.r5-116.7]
+interface = "interface.5.go-node-app-load-height"
+verdict = "served"
+path = "node/app.go"
+line = 3207
+symbol = "LoadHeight"
+evidence = "Declaration at node/app.go:3207 matches the registered signature func (app *App) LoadHeight(height int64) error; the registered line 2932 has drifted. The App method delegates the int64 height to LoadVersionWithoutInit; the preceding occurrence is its documentation comment."
+
+[row.r5-116.8]
+interface = "interface.5.go-node-app-mid-blocker"
+verdict = "served"
+path = "node/app.go"
+line = 1638
+symbol = "MidBlocker"
+evidence = "Declaration at node/app.go:1638 matches the registered signature func (app *App) MidBlocker(ctx sdk.Context, height int64) []abci.Event; the registered line 1502 has drifted. The App method delegates to app.mm.MidBlock and returns ABCI events; SetMidBlocker only registers it."
+
+[row.r5-116.9]
+interface = "interface.5.go-node-app-module-account-addrs"
+verdict = "served"
+path = "node/app.go"
+line = 3212
+symbol = "ModuleAccountAddrs"
+evidence = "Declaration at node/app.go:3212 matches the registered signature func (app *App) ModuleAccountAddrs() map[string]bool; the registered line 2937 has drifted. The App method builds a map of module account addresses from maccPerms; the earlier occurrence calls it during keeper setup."
+
+[row.r5-116.10]
+interface = "interface.5.go-node-app-option"
+verdict = "served"
+path = "node/app.go"
+line = 660
+symbol = "AppOption"
+evidence = "Declaration at node/app.go:660 matches the registered signature type AppOption func(*App); the registered line 597 has drifted. This is the named function type accepting *App; the other occurrences use it for option slices."
+
+[row.r5-116.11]
+interface = "interface.5.go-node-app-pending-snapshot"
+verdict = "served"
+path = "node/app.go"
+line = 3423
+symbol = "PendingSnapshot"
+evidence = "Declaration at node/app.go:3423 matches the registered signature func (app *App) PendingSnapshot() (sdk.Context, error); the registered line 3067 has drifted. The App method returns (sdk.Context, error) from the open-block snapshot; RPCPendingSnapshot instead returns evmrpc.PendingSnapshot."
+
+[row.r5-116.12]
+interface = "interface.5.go-node-app-process-t-xs-with-occ-giga"
+verdict = "served"
+path = "node/app.go"
+line = 2290
+symbol = "ProcessTXsWithOCCGiga"
+evidence = "Declaration at node/app.go:2290 matches the registered signature func (app *App) ProcessTXsWithOCCGiga(ctx sdk.Context, txs [][]byte, typedTxs []sdk.Tx, firstTx int) ([]*abci.ExecTxResult, sdk.Context); the registered line 2073 has drifted. The App method is the OCC Giga implementation returning execution results and the SDK context; the earlier occurrence calls it."
+
+[row.r5-116.13]
+interface = "interface.5.go-node-app-process-t-xs-with-occv2"
+verdict = "served"
+path = "node/app.go"
+line = 2218
+symbol = "ProcessTXsWithOCCV2"
+evidence = "Declaration at node/app.go:2218 matches the registered signature func (app *App) ProcessTXsWithOCCV2(ctx sdk.Context, txs [][]byte, typedTxs []sdk.Tx, firstTx int) ([]*abci.ExecTxResult, sdk.Context); the registered line 2001 has drifted. The App method is the OCC V2 implementation returning execution results and the SDK context; the other occurrences call it."
+
+[row.r5-116.14]
+interface = "interface.5.go-node-app-process-txs-synchronous-giga"
+verdict = "served"
+path = "node/app.go"
+line = 2034
+symbol = "ProcessTxsSynchronousGiga"
+evidence = "Declaration at node/app.go:2034 matches the registered signature func (app *App) ProcessTxsSynchronousGiga(ctx sdk.Context, txs [][]byte, typedTxs []sdk.Tx, firstTx int) []*abci.ExecTxResult; the registered line 1817 has drifted. The App method is the synchronous Giga implementation returning only execution results; the other occurrence calls it from the dispatcher."
+
+[row.r5-116.15]
+interface = "interface.5.go-node-app-process-txs-synchronous-v2"
+verdict = "served"
+path = "node/app.go"
+line = 2012
+symbol = "ProcessTxsSynchronousV2"
+evidence = "Declaration at node/app.go:2012 matches the registered signature func (app *App) ProcessTxsSynchronousV2(ctx sdk.Context, txs [][]byte, typedTxs []sdk.Tx, firstTx int) []*abci.ExecTxResult; the registered line 1795 has drifted. The App method is the synchronous V2 implementation returning only execution results; the other occurrences call it from the dispatcher."
+
+[row.r5-116.16]
+interface = "interface.5.go-node-app-register-api-routes"
+verdict = "served"
+path = "node/app.go"
+line = 3289
+symbol = "RegisterAPIRoutes"
+evidence = "Declaration at node/app.go:3289 matches the registered signature func (app *App) RegisterAPIRoutes(apiSvr *api.Server, apiConfig config.APIConfig); the registered line 3014 has drifted. The App method takes the API server and API configuration and registers routes; the preceding occurrence is its documentation comment."
+
+[row.r5-116.17]
+interface = "interface.5.go-node-app-rpc-context-provider"
+verdict = "served"
+path = "node/app.go"
+line = 3533
+symbol = "RPCContextProvider"
+evidence = "Declaration at node/app.go:3533 matches the registered signature func (app *App) RPCContextProvider(i int64) sdk.Context; the registered line 3173 has drifted. The App method takes an int64 height and returns sdk.Context; the other occurrences reference it for snapshot fallback or RPC setup."
+
+[row.r5-116.18]
+interface = "interface.5.go-node-app-sequenced-tx-root"
+verdict = "served"
+path = "node/app.go"
+line = 3515
+symbol = "SequencedTxRoot"
+evidence = "Declaration at node/app.go:3515 matches the registered signature func (app *App) SequencedTxRoot(txs [][]byte, typedTxs []sdk.Tx) [32]byte; the registered line 3157 has drifted. The App method returns the 32-byte root via seqtypes.TxRoot over sequenced activity IDs; the preceding occurrence is its documentation comment."
+
+[row.r5-116.19]
+interface = "interface.5.go-node-app-set-store-upgrade-handlers"
+verdict = "served"
+path = "node/app.go"
+line = 1501
+symbol = "SetStoreUpgradeHandlers"
+evidence = "Declaration at node/app.go:1501 matches the registered signature func (app *App) SetStoreUpgradeHandlers(); the registered line 1369 has drifted. The App method reads upgrade information and configures store upgrade handlers; the earlier occurrence invokes it during construction."
+
+[row.r5-116.20]
+interface = "interface.5.go-node-app-simulation-manager"
+verdict = "served"
+path = "node/app.go"
+line = 3869
+symbol = "SimulationManager"
+evidence = "Declaration at node/app.go:3869 matches the registered signature func (app *App) SimulationManager() *module.SimulationManager; the registered line 3479 has drifted. The App method returns app.sm as *module.SimulationManager; the earlier occurrence declares the field type."
+
+[row.r5-116.21]
+interface = "interface.5.go-node-app-snapshot-aware-rpc-context-provider"
+verdict = "served"
+path = "node/app.go"
+line = 3571
+symbol = "SnapshotAwareRPCContextProvider"
+evidence = "Declaration at node/app.go:3571 matches the registered signature func (app *App) SnapshotAwareRPCContextProvider() evmrpc.TraceContextProvider; the registered line 3206 has drifted. The App method returns evmrpc.TraceContextProvider using the trace snapshot store; the later occurrence invokes it during RPC setup."
+
+[row.r5-116.22]
+interface = "interface.5.go-node-decode-sequence-batch"
+verdict = "served"
+path = "node/app.go"
+line = 3509
+symbol = "DecodeSequenceBatch"
+evidence = "Declaration at node/app.go:3509 matches the registered signature func DecodeSequenceBatch(tx []byte) (seqtypes.MsgSequenceBatch, error); the registered line 3129 has drifted. The package function delegates to seqtypes.DecodeSequenceBatchTx and returns (seqtypes.MsgSequenceBatch, error); earlier occurrences call it."
+
+[row.r5-116.23]
+interface = "interface.5.go-node-encode-sequence-batch"
+verdict = "served"
+path = "node/app.go"
+line = 3504
+symbol = "EncodeSequenceBatch"
+evidence = "Declaration at node/app.go:3504 matches the registered signature func EncodeSequenceBatch(m seqtypes.MsgSequenceBatch) ([]byte, error); the registered line 3112 has drifted. The package function delegates to seqtypes.EncodeSequenceBatchTx and returns ([]byte, error); the preceding occurrence is its documentation comment."
+
+[row.r5-116.24]
+interface = "interface.5.go-node-err-pending-served-by-sequencer"
+verdict = "served"
+path = "node/app.go"
+line = 3314
+symbol = "ErrPendingServedBySequencer"
+evidence = "Declaration at node/app.go:3314 matches the registered signature var ErrPendingServedBySequencer = errors.New(\"pending served by sequencer\"); the registered line 3039 has drifted. This is the package variable initialized with errors.New; the other occurrences document it or return it on pending-read refusal."
+
+[row.r5-116.25]
+interface = "interface.5.go-node-evm-receipt-module-id"
+verdict = "served"
+path = "node/app.go"
+line = 3485
+symbol = "EVMReceiptModuleID"
+evidence = "Declaration at node/app.go:3485 matches the registered signature const EVMReceiptModuleID = lxpModuleReservedCount + 1; the registered line 3092 has drifted. This is the constant declaration initialized to lxpModuleReservedCount + 1; the preceding occurrence is its documentation comment."
+
+[row.r5-116.26]
+interface = "interface.5.go-node-get-macc-perms"
+verdict = "served"
+path = "node/app.go"
+line = 3836
+symbol = "GetMaccPerms"
+evidence = "Declaration at node/app.go:3836 matches the registered signature func GetMaccPerms() map[string][]string; the registered line 3446 has drifted. The package function copies maccPerms into map[string][]string; the preceding occurrence is its documentation comment."
+
+[row.r5-116.27]
+interface = "interface.5.go-node-new"
+verdict = "served"
+path = "node/app.go"
+line = 663
+symbol = "New"
+evidence = "Declaration at node/app.go:663 matches the registered signature func New(; the registered line 600 has drifted. The registered prefix identifies the package-level blockchain application constructor returning *App; errors.New calls and the comment are not this declaration."
+
+[row.r5-116.28]
+interface = "interface.5.go-node-pending-ctx-height"
+verdict = "served"
+path = "node/app.go"
+line = 3311
+symbol = "PendingCtxHeight"
+evidence = "Declaration at node/app.go:3311 matches the registered signature const PendingCtxHeight int64 = evmrpc.LatestCtxHeight - 1; the registered line 3036 has drifted. This is the int64 constant initialized to evmrpc.LatestCtxHeight - 1; the later occurrence compares RPC heights against it."
+
+[row.r5-116.29]
+interface = "interface.5.go-node-precompile-keepers-launchpad-v610-k"
+verdict = "served"
+path = "node/precompiles.go"
+line = 187
+symbol = "LaunchpadV610K"
+evidence = "Declaration at node/precompiles.go:187 matches the registered signature func (pk *PrecompileKeepers) LaunchpadV610K() *launchpadv610keeper.Keeper; the registered line 122 has drifted. The PrecompileKeepers method returns pk.launchpadV610 as *launchpadv610keeper.Keeper; the earlier occurrence is its documentation comment."
+
+[row.r5-116.30]
+interface = "interface.5.go-node-precompile-keepers-perps-k"
+verdict = "served"
+path = "node/precompiles.go"
+line = 201
+symbol = "PerpsK"
+evidence = "Declaration at node/precompiles.go:201 matches the registered signature func (pk *PrecompileKeepers) PerpsK() *perpskeeper.Keeper; the registered line 132 has drifted. The PrecompileKeepers method returns pk.PerpsKeeper as *perpskeeper.Keeper; the earlier occurrence is its documentation comment."

@@ -1,0 +1,22 @@
+[repair.22.33.407]
+audit = "22.30.143"
+path = "apps/explorer/ui/home/fallbacks/rpcDataContext.tsx"
+test_file = "apps/explorer/ui/home/fallbacks/repair-22-33-407.spec.ts"
+rpc-feed-stops-updating = "rpcFeedStopsUpdating: successive recorded blocks beyond five rows, independent cumulative count, replay deduplication"
+rpc-empty-block-loading = "rpcEmptyBlockLoading: recorded empty-block sequence reaches the provider and degraded block and transaction views without receipt requests"
+rpc-reverted-status = "rpcRevertedStatus: recorded reverted receipt crosses HTTP, viem and React Query into failed desktop and mobile transaction rows"
+rpc-subscriber-lifecycle = "rpcSubscriberLifecycle: two real consumers, duplicate enable, removal of one, final removal, re-subscription and provider reopening with the same query cache"
+fixtures = "repair-22-33-407.rpc.json.gz: unmodified Ethereum block and receipt results recorded from public JSON-RPC; tests serve these committed records over loopback HTTP"
+baseline = "Not executed: the task's explicit gate order prohibits tests before complete implementation and permits verification only through hf-done after hf-build. The four tests target the audited pre-repair behaviors."
+wiring_requests = "None; every proposed production change is within scope."
+evidence = "Exact candidate revision, command, exit and private log are emitted by hf-build and hf-done and retained in the runner's gate ledger; the final response copies the last gate evidence."
+formatter = "ESLint formats the touched TypeScript files; its legacy vitest/valid-title and vitest/expect-expect rules do not recognize the task-required test(namedFunction) registration. Assertions remain in the named functions and no lint rule is disabled."
+gotcha = "Use paths relative to the command working directory when running the explorer formatter; task scope prohibits updating the root gotcha ledger."
+
+[qualification.unrelated]
+revision = "a1c206202432aee2422f2bef9fe180dd1cf2f998"
+command = "pnpm --dir apps/explorer exec tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "ui/marketplace/essentialDapps/revoke/hooks/repair-22-31-381.spec.ts:2 imports ganache, which is missing from the installed explorer dependencies."
+assumption = "The marketplace domain owns its existing test and dependency wiring; this task cannot change that out-of-scope interface or weaken the project check."

@@ -1,0 +1,1260 @@
+# Pre-upgrade markets/perps audit. Proposals only; no implementation is repaired here.
+
+[audit.22.30.16]
+task = "22.30.16"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 121
+findings = 39
+docs_reviewed = 22
+upgrade_ready = false
+blocking = ["mint-same-day-release-stalls"]
+review_basis = "All 121 members read in full except generated abi/abi.json assigned generated verdict; all nine brief checks applied. Consulted 335 produced and all 400 explicitly listed consumed registry rows. Package consumes_total is 509 although its explicit list has 400; no unlisted IDs were invented. Legacy replay/negative retirement references are intentional."
+qualification = "Source audit only; no Go, browser, dependency or live-network qualification is claimed. Exact task build/audit-check evidence is retained by the bounded runner."
+
+[file.001]
+path = "apps/perps/Dockerfile"
+lines = 93
+verdict = "clean"
+note = "Reviewed every stage: digest-pinned Node/chart assets, frozen pnpm install, explicit build environment, standalone output, non-root runtime, tini and build-id health probe."
+
+[file.002]
+path = "apps/perps/components.json"
+lines = 20
+verdict = "clean"
+note = "Reviewed component-generator configuration, Tailwind path and aliases; no runtime RPC or wallet authorization surface."
+
+[file.003]
+path = "apps/perps/postcss.config.js"
+lines = 6
+verdict = "clean"
+note = "Reviewed Tailwind and Autoprefixer plugin registration; build-time styling only."
+
+[file.004]
+path = "apps/perps/sentry.server.config.ts"
+lines = 23
+verdict = "clean"
+note = "Reviewed DSN/environment/release and exception-only capture with default PII disabled. Policy disagreement is recorded on CookiePolicy.tsx."
+
+[file.005]
+path = "apps/perps/src/page-modules/analytics/index.tsx"
+lines = 106
+verdict = "clean"
+note = "Reviewed complete catalog loading, selected-market state and analytics widget wiring; market IDs derive from the live catalog with distinct error/loading states."
+
+[file.006]
+path = "apps/perps/src/page-modules/block-detail/index.tsx"
+lines = 25
+verdict = "issues"
+note = "Reviewed complete redirect, optional height/hash parameter and encoding. Destination does not consume block identity; see block-deep-link."
+
+[file.007]
+path = "apps/perps/src/page-modules/competitions/index.tsx"
+lines = 537
+verdict = "clean"
+note = "Reviewed complete list/detail states, metric/status rendering, signed authentication and join/refusal actions against the competition hooks."
+
+[file.008]
+path = "apps/perps/src/page-modules/explorer/index.tsx"
+lines = 253
+verdict = "issues"
+note = "Reviewed every block/transaction panel, stream state and link. Live lists do not consume the query parameters produced by legacy detail redirects."
+
+[file.009]
+path = "apps/perps/src/page-modules/home/index.tsx"
+lines = 25
+verdict = "clean"
+note = "Reviewed readiness-gated root redirect and preservation of the legacy market query. No network transaction is initiated."
+
+[file.010]
+path = "apps/perps/src/page-modules/index.ts"
+lines = 13
+verdict = "clean"
+note = "Reviewed all barrel re-exports and pages-router consumers; detail server props are separately re-exported by the actual page shims."
+
+[file.011]
+path = "apps/perps/src/page-modules/leaderboard/index.tsx"
+lines = 394
+verdict = "clean"
+note = "Reviewed exact bigint comparison, total-PnL aggregation, filtering/ranking and request states; integer ordering avoids floating-point conversion."
+
+[file.012]
+path = "apps/perps/src/page-modules/legal/CookiePolicy.tsx"
+lines = 165
+verdict = "issues"
+note = "Reviewed full policy and shared consent controls; optional error-tracking promises disagree with DSN-based capture."
+
+[file.013]
+path = "apps/perps/src/page-modules/legal/LegalLayout.tsx"
+lines = 51
+verdict = "clean"
+note = "Reviewed title, update date, navigation and children rendering; no network authorization or persistence is hidden in the layout."
+
+[file.014]
+path = "apps/perps/src/page-modules/legal/PrivacyPolicy.tsx"
+lines = 149
+verdict = "issues"
+note = "Reviewed all collection/retention/third-party/rights statements; wallet-linked off-chain authentication, referral and competition records are omitted."
+
+[file.015]
+path = "apps/perps/src/page-modules/legal/TermsOfService.tsx"
+lines = 203
+verdict = "issues"
+note = "Reviewed all eligibility, custody, risk and dispute provisions; venue implementation and audit-scope claims need reconciliation with native perps."
+
+[file.016]
+path = "apps/perps/src/page-modules/markets/index.tsx"
+lines = 382
+verdict = "clean"
+note = "Reviewed perps/spot catalog, filters, listing-age classification, sorting and navigation; perps new listings derive from catalog dates rather than fixed IDs."
+
+[file.017]
+path = "apps/perps/src/page-modules/perps/index.tsx"
+lines = 347
+verdict = "issues"
+note = "Reviewed full trading layout, wallet/catalog wiring and saved resize state. Disabled/default market selection needs repair. Initial catalog loading masks server/client workspace differences, so no hydration failure is claimed."
+
+[file.018]
+path = "apps/perps/src/page-modules/portfolio/index.tsx"
+lines = 257
+verdict = "issues"
+note = "Reviewed every panel, balance read, daily-PnL cap propagation and tab route. RPC failures appear as zero and orders still advertises the Diamond."
+
+[file.019]
+path = "apps/perps/src/page-modules/referrals/index.tsx"
+lines = 407
+verdict = "clean"
+note = "Reviewed signature authentication, code generation/application and refusal states against real hooks. Stored off-chain relationships inform the privacy finding."
+
+[file.020]
+path = "apps/perps/src/page-modules/spot/index.tsx"
+lines = 298
+verdict = "clean"
+note = "Reviewed symbol refusal, selector, mount-time workspace restoration, persistence guard and desktop/mobile widget wiring."
+
+[file.021]
+path = "apps/perps/src/page-modules/tx-detail/index.tsx"
+lines = 26
+verdict = "issues"
+note = "Reviewed complete encoded-hash redirect. The explorer destination does not resolve the requested transaction."
+
+[file.022]
+path = "apps/perps/src/utils/cn.ts"
+lines = 6
+verdict = "clean"
+note = "Reviewed ClassValue, clsx and tailwind-merge composition; caller class-name shape agrees."
+
+[file.023]
+path = "apps/perps/src/utils/format.ts"
+lines = 5
+verdict = "clean"
+note = "Reviewed parseFloat, integer rounding and locale formatting; display-only output is not used to construct transaction or ledger amounts."
+
+[file.024]
+path = "apps/perps/tailwind.config.js"
+lines = 285
+verdict = "clean"
+note = "Reviewed every source glob, design token, keyframe and plugin; styling contains no retired network endpoint."
+
+[file.025]
+path = "modules/layerxexchange/keeper/genesis.go"
+lines = 40
+verdict = "clean"
+note = "Reviewed validated import, intent count, owner nonce restoration and deterministic export. Historical replay state is persistent."
+
+[file.026]
+path = "modules/layerxexchange/keeper/intents.go"
+lines = 191
+verdict = "issues"
+note = "Reviewed every intent admission, nonce, cached transition and event. Retirement refusal has an undeclared done-height dependency and stale router comments."
+
+[file.027]
+path = "modules/layerxexchange/keeper/keeper.go"
+lines = 156
+verdict = "issues"
+note = "Reviewed full construction, upgrade lookup, store keys, authority and iteration; header still describes an active custody router instead of historical replay."
+
+[file.028]
+path = "modules/layerxexchange/keeper/keeper_test.go"
+lines = 862
+verdict = "clean"
+note = "Reviewed all real-keeper intent, nonce, atomic refusal, proof and retirement scenarios. Legacy calls are deliberate replay coverage."
+
+[file.029]
+path = "modules/layerxexchange/keeper/margin_hop_retired_test.go"
+lines = 88
+verdict = "clean"
+note = "Reviewed real custody balances around deposit-intent recording and margin-asset refusal; no custody margin hop is expected."
+
+[file.030]
+path = "modules/layerxexchange/keeper/msg_server.go"
+lines = 68
+verdict = "clean"
+note = "Reviewed authority validation and retirement before parameter/market writes; typed messages, responses and refusal codes agree."
+
+[file.031]
+path = "modules/layerxexchange/keeper/oracle.go"
+lines = 184
+verdict = "clean"
+note = "Reviewed validator binding, signed replay payload, host result, bounded C read bridge and committed decoding; missing feed returns not-found."
+
+[file.032]
+path = "modules/layerxexchange/keeper/oracle_test.go"
+lines = 193
+verdict = "clean"
+note = "Reviewed real host-executed observation, committed price, wrong validator/feed and missing state; signed transport is exercised."
+
+[file.033]
+path = "modules/layerxexchange/keeper/params_test.go"
+lines = 250
+verdict = "clean"
+note = "Reviewed real governance authority, parameter/market validation and post-done refusal with unchanged state."
+
+[file.034]
+path = "modules/layerxexchange/keeper/proofs.go"
+lines = 87
+verdict = "clean"
+note = "Reviewed finalized root, witness limits, module/key binding and decoded market/account/order/position ownership. Historical proof replay is intentional."
+
+[file.035]
+path = "modules/layerxexchange/keeper/retire_app_test.go"
+lines = 58
+verdict = "clean"
+note = "Reviewed actual app upgrade completion and governance proposal path refusing exchange writes after v6.12.0."
+
+[file.036]
+path = "modules/layerxexchange/keeper/retire_test.go"
+lines = 66
+verdict = "clean"
+note = "Reviewed real persisted SDK upgrade state before/at done height and missing-keeper code 12 refusal."
+
+[file.037]
+path = "modules/layerxexchange/module.go"
+lines = 133
+verdict = "clean"
+note = "Reviewed codecs, message service, empty REST registration, genesis, invariants and lifecycle. Decode/replay registration does not bypass retirement."
+
+[file.038]
+path = "modules/layerxexchange/types/codec.go"
+lines = 32
+verdict = "clean"
+note = "Reviewed historical governance Amino/interface registration; retained message decoding is required for replay."
+
+[file.039]
+path = "modules/layerxexchange/types/errors.go"
+lines = 72
+verdict = "clean"
+note = "Reviewed every registered code and LXP name, including ErrRetired 14 and ErrKeeperMissing 12; no code is reused."
+
+[file.040]
+path = "modules/layerxexchange/types/events_test.go"
+lines = 332
+verdict = "clean"
+note = "Reviewed typed protobuf event round trips and all historical exchange event field encodings."
+
+[file.041]
+path = "modules/layerxexchange/types/expected_keepers.go"
+lines = 33
+verdict = "issues"
+note = "Reviewed custody/EVM/upgrade dependencies; custody commentary is stale and the upgrade declaration omits a method required during retired error construction."
+
+[file.042]
+path = "modules/layerxexchange/types/genesis.go"
+lines = 60
+verdict = "clean"
+note = "Reviewed unique intent IDs, count/nonce relationships, owner and parameter validation for state restoration."
+
+[file.043]
+path = "modules/layerxexchange/types/ids.go"
+lines = 41
+verdict = "clean"
+note = "Reviewed exact address/hash and domain-separated intent identifier encodings; historical IDs remain stable."
+
+[file.044]
+path = "modules/layerxexchange/types/keys.go"
+lines = 34
+verdict = "clean"
+note = "Reviewed store prefixes and deterministic key encodings; retirement introduces no process-only state."
+
+[file.045]
+path = "modules/layerxexchange/types/msgs.go"
+lines = 54
+verdict = "clean"
+note = "Reviewed message names, authority parsing, payload validation, signer derivation and sign bytes against registered governance types."
+
+[file.046]
+path = "modules/layerxexchange/types/params.go"
+lines = 74
+verdict = "clean"
+note = "Reviewed authority, enabled margin lookup, unique markets and bounded native-genesis capability validation, distinct from live-write retirement."
+
+[file.047]
+path = "modules/layerxexchange/types/params_test.go"
+lines = 86
+verdict = "clean"
+note = "Reviewed identifier/size/capability validation and malformed native-genesis refusal using the actual parser."
+
+[file.048]
+path = "modules/layerxexchange/types/proof_layerxexchange_retirement_test.go"
+lines = 202
+verdict = "clean"
+note = "Reviewed real producer-consumer retirement path and actual database close/reopen; persisted upgrade completion retains before/at-height codes and refusal."
+
+[file.049]
+path = "modules/layerxexchange/types/state.go"
+lines = 235
+verdict = "clean"
+note = "Reviewed entire bounded native-genesis parser, strict ordering, versions/capabilities, Ed25519 and receipt-root checks, and legacy proof keys."
+
+[file.050]
+path = "modules/mint/README.md"
+lines = 192
+verdict = "issues"
+note = "Reviewed full release lifecycle, CLI examples, epoch events and metrics; proposal example omits fields required by validation and intended issuance."
+
+[file.051]
+path = "modules/mint/client/cli/query.go"
+lines = 91
+verdict = "clean"
+note = "Reviewed query root, params/minter subcommands, gRPC request/response types, client context and output."
+
+[file.052]
+path = "modules/mint/client/cli/tx.go"
+lines = 97
+verdict = "issues"
+note = "Reviewed proposal file, deposit parsing and governance broadcast; MustUnmarshalJSON panics on malformed user input."
+
+[file.053]
+path = "modules/mint/client/rest/grpc_query_test.go"
+lines = 118
+verdict = "clean"
+note = "Reviewed real network/gateway setup and minter/params response assertions; retired REST routes are not substituted."
+
+[file.054]
+path = "modules/mint/client/rest/rest.go"
+lines = 67
+verdict = "clean"
+note = "Reviewed empty route registration and retained proposal handler validation; neither legacy query path is mounted."
+
+[file.055]
+path = "modules/mint/gov.go"
+lines = 16
+verdict = "issues"
+note = "Reviewed full governance handler; absent nullable Minter is dereferenced before validation/storage."
+
+[file.056]
+path = "modules/mint/keeper/genesis.go"
+lines = 19
+verdict = "clean"
+note = "Reviewed minter/parameter import, module-account setup and export of matching protobuf state."
+
+[file.057]
+path = "modules/mint/keeper/genesis_test.go"
+lines = 50
+verdict = "clean"
+note = "Reviewed configured minter/schedule import/export and missing module-account refusal."
+
+[file.058]
+path = "modules/mint/keeper/grpc_query.go"
+lines = 36
+verdict = "clean"
+note = "Reviewed nil requests, SDK context and every minter response field; params response wraps the declared Params."
+
+[file.059]
+path = "modules/mint/keeper/grpc_query_test.go"
+lines = 54
+verdict = "clean"
+note = "Reviewed params/minter and nil-request assertions against real keeper state and protobuf responses."
+
+[file.060]
+path = "modules/mint/keeper/hooks.go"
+lines = 53
+verdict = "issues"
+note = "Reviewed mint, fee-collector transfer, successful-mint record/event and epoch wrapper; advertised MintHooks callback is not invoked."
+
+[file.061]
+path = "modules/mint/keeper/hooks_test.go"
+lines = 402
+verdict = "issues"
+note = "Reviewed all supply, outage and parent-event cases; the purported year of epochs repeats the same minute."
+
+[file.062]
+path = "modules/mint/keeper/integration_test.go"
+lines = 22
+verdict = "clean"
+note = "Reviewed real application epoch, bank and fee-collector integration with supply/distribution assertions."
+
+[file.063]
+path = "modules/mint/keeper/keeper.go"
+lines = 177
+verdict = "issues"
+note = "Reviewed all persistent minter, parameter, bank and schedule functions; completed equal-start/end release stalls future scheduled issuance."
+
+[file.064]
+path = "modules/mint/keeper/keeper_test.go"
+lines = 327
+verdict = "clean"
+note = "Reviewed schedule selection, governance amount bounds and hook registration. Existing cases omit a completed equal-start/end release followed by a successor."
+
+[file.065]
+path = "modules/mint/keeper/migrations.go"
+lines = 88
+verdict = "clean"
+note = "Reviewed v2-to-v3 minter/schedule conversion and persistent rewrite against declared old/new protobuf types."
+
+[file.066]
+path = "modules/mint/keeper/migrations_test.go"
+lines = 151
+verdict = "clean"
+note = "Reviewed migration inputs, resulting schedule/minter values and keeper persistence."
+
+[file.067]
+path = "modules/mint/module.go"
+lines = 222
+verdict = "clean"
+note = "Reviewed module services, gateway, proposal routing, genesis, migration and simulation registration; legacy custom REST stays unmounted."
+
+[file.068]
+path = "modules/mint/module_test.go"
+lines = 81
+verdict = "clean"
+note = "Reviewed legacy route non-registration and valid/invalid governance handling; omitted minter is not among existing cases."
+
+[file.069]
+path = "modules/mint/simulation/decoder.go"
+lines = 26
+verdict = "clean"
+note = "Reviewed minter/params key decoding and explicit unsupported-key refusal; no alternate state encoding."
+
+[file.070]
+path = "modules/mint/simulation/genesis.go"
+lines = 44
+verdict = "issues"
+note = "Reviewed full generator; identical overlapping periods fail validation and global randomness/wall time defeat seeded replay."
+
+[file.071]
+path = "modules/mint/types/codec.go"
+lines = 29
+verdict = "clean"
+note = "Reviewed proposal interface and legacy codec names against the declared governance content."
+
+[file.072]
+path = "modules/mint/types/events.go"
+lines = 9
+verdict = "clean"
+note = "Reviewed mint event and epoch/date/amount attribute constants against successful mint emission and parent-context assertions."
+
+[file.073]
+path = "modules/mint/types/expected_keepers.go"
+lines = 35
+verdict = "clean"
+note = "Reviewed bank/account/staking/epoch signatures against concrete application keeper methods used by mint."
+
+[file.074]
+path = "modules/mint/types/genesis.go"
+lines = 27
+verdict = "clean"
+note = "Reviewed default minter/params and validation delegation, including schedule and minter invariant checks."
+
+[file.075]
+path = "modules/mint/types/gov.go"
+lines = 47
+verdict = "issues"
+note = "Reviewed all proposal methods, registration and constructor; nullable Minter has no ValidateBasic refusal guard."
+
+[file.076]
+path = "modules/mint/types/hooks.go"
+lines = 24
+verdict = "clean"
+note = "Reviewed MintHooks and ordered MultiMintHooks dispatch; producer never calls this surface, recorded at keeper/hooks.go."
+
+[file.077]
+path = "modules/mint/types/keys.go"
+lines = 26
+verdict = "clean"
+note = "Reviewed module/router/store/minter keys against CLI, keeper and genesis consumers."
+
+[file.078]
+path = "modules/mint/types/metrics.go"
+lines = 27
+verdict = "clean"
+note = "Reviewed gauge construction, unit and denomination labels; telemetry does not alter issuance amounts."
+
+[file.079]
+path = "modules/mint/types/minter.go"
+lines = 181
+verdict = "clean"
+note = "Reviewed every date/amount/release method, exact uint64 conversion, daily idempotence and success persistence/event. Equal start/end releases are accepted by the validator."
+
+[file.080]
+path = "modules/mint/types/minter_test.go"
+lines = 552
+verdict = "clean"
+note = "Reviewed full date, arithmetic, overflow, release, idempotence and event suite, including positive exact amounts above MaxInt64."
+
+[file.081]
+path = "modules/mint/types/params.go"
+lines = 135
+verdict = "clean"
+note = "Reviewed denomination, schedule sorting, overlap/date checks, MaxInt64 bound and governance ParamSetPairs; equal start/end remains valid."
+
+[file.082]
+path = "modules/mint/types/params_test.go"
+lines = 182
+verdict = "clean"
+note = "Reviewed MaxInt64 acceptance, MaxInt64+1 refusal, sorting/overlap/date errors and denomination constraints."
+
+[file.083]
+path = "precompiles/perps/Perps.sol"
+lines = 483
+verdict = "issues"
+note = "Reviewed all methods, tuples, events and errors against the Go ABI; introductory all-custom-error wording omits framework exceptions."
+
+[file.084]
+path = "precompiles/perps/abi/abi.go"
+lines = 16
+verdict = "clean"
+note = "Reviewed embedded ABI loading and parse errors; no alternate ABI/address is substituted."
+
+[file.085]
+path = "precompiles/perps/abi/abi.json"
+lines = 1
+verdict = "generated"
+note = "Generated Solidity ABI artifact; inventory is cross-checked by Solidity source and ABI suites. Generated verdict avoids a hand-authored-source claim."
+
+[file.086]
+path = "precompiles/perps/abi/abi_test.go"
+lines = 22
+verdict = "clean"
+note = "Reviewed embedded ABI parse and method/event/error declaration checks."
+
+[file.087]
+path = "precompiles/perps/abi/pack.go"
+lines = 70
+verdict = "clean"
+note = "Reviewed indexed topics, argument counts/types, signed/unsigned words and non-indexed data; unknown events/types return errors."
+
+[file.088]
+path = "precompiles/perps/abi/pack_test.go"
+lines = 130
+verdict = "clean"
+note = "Reviewed actual ABI topic/data packing for addresses and integers, including refusal cases."
+
+[file.089]
+path = "precompiles/perps/abi_test.go"
+lines = 339
+verdict = "clean"
+note = "Reviewed every method/output/overload, event and error selector, plus explicit unsupported legacy borrowing methods."
+
+[file.090]
+path = "precompiles/perps/account.go"
+lines = 543
+verdict = "clean"
+note = "Reviewed account creation, USDL support, real nested transferFrom/transfer, exact recipient deltas and cached-context resumption; failure reverts all account changes."
+
+[file.091]
+path = "precompiles/perps/account_test.go"
+lines = 679
+verdict = "clean"
+note = "Reviewed real USDL bytecode calls, allowance/balance refusal, withdraw/transfer/emergency exit and rollback."
+
+[file.092]
+path = "precompiles/perps/address_test.go"
+lines = 54
+verdict = "clean"
+note = "Reviewed literal 0x1015 equality with historical exchange address without deriving the current address from a retired module."
+
+[file.093]
+path = "precompiles/perps/errors.go"
+lines = 77
+verdict = "clean"
+note = "Reviewed all 44 keeper-error mappings and Error(string) fallback for unmapped errors."
+
+[file.094]
+path = "precompiles/perps/errors_test.go"
+lines = 1035
+verdict = "clean"
+note = "Reviewed all custom selectors, wrapping and LXP names; static/delegate/pause/internal errors are distinguished."
+
+[file.095]
+path = "precompiles/perps/events_test.go"
+lines = 938
+verdict = "clean"
+note = "Reviewed every event shape/address, signed value, indexed topic and nested USDL/perps log order using keeper-produced results."
+
+[file.096]
+path = "precompiles/perps/governed_view_fee_tier_test.go"
+lines = 93
+verdict = "clean"
+note = "Reviewed real MsgUpdateParams and resulting getFeeTier/getFees outputs for governed fee and rebate tiers."
+
+[file.097]
+path = "precompiles/perps/governed_view_funding_test.go"
+lines = 136
+verdict = "clean"
+note = "Reviewed real sampled premium and lowered funding-cap governance reflected by getFundingDetails."
+
+[file.098]
+path = "precompiles/perps/governed_view_market_active_test.go"
+lines = 80
+verdict = "clean"
+note = "Reviewed governed disablement in isMarketActive and omission from getActiveMarketIds."
+
+[file.099]
+path = "precompiles/perps/governed_view_market_config_test.go"
+lines = 91
+verdict = "clean"
+note = "Reviewed governed market tier/OI fields in getMarketConfig and preserved venue leverage cap."
+
+[file.100]
+path = "precompiles/perps/governed_view_open_interest_test.go"
+lines = 91
+verdict = "clean"
+note = "Reviewed governed cap increase, fill exceeding old cap and resulting open-interest view."
+
+[file.101]
+path = "precompiles/perps/helpers_test.go"
+lines = 61
+verdict = "clean"
+note = "Reviewed entire store/keeper/EVM harness and token-call helpers; real module types/state support behavioral cases."
+
+[file.102]
+path = "precompiles/perps/integration_test.go"
+lines = 784
+verdict = "clean"
+note = "Reviewed signed FinalizeBlock/Commit, halt/export, USDL solvency, receipt/log bloom and eth/pax block receipts. Consensus mock supplies absent test-block metadata, not venue execution."
+
+[file.103]
+path = "precompiles/perps/logs.go"
+lines = 19
+verdict = "clean"
+note = "Reviewed every keeper-to-ABI event decode, indexed fields, signed values and log address; malformed events return errors."
+
+[file.104]
+path = "precompiles/perps/lxp_registry_test.go"
+lines = 63
+verdict = "clean"
+note = "Reviewed shared registry names for every registered SDK perps error without replacing custom revert data."
+
+[file.105]
+path = "precompiles/perps/orders.go"
+lines = 464
+verdict = "clean"
+note = "Reviewed every order input, enum/uint limit, pause/account check, keeper placement/cancel/trigger and emitted record."
+
+[file.106]
+path = "precompiles/perps/orders_test.go"
+lines = 667
+verdict = "clean"
+note = "Reviewed full market/limit/conditional/cancel/cloID/deadline suite and refusal/static/delegate behavior on real keepers."
+
+[file.107]
+path = "precompiles/perps/perps.go"
+lines = 186
+verdict = "issues"
+note = "Reviewed full gas/write table, literal address, keeper checks and static/delegate/pause dispatch; package error wording overstates custom coverage."
+
+[file.108]
+path = "precompiles/perps/perps_test.go"
+lines = 290
+verdict = "clean"
+note = "Reviewed method gas entries, nonpayable/static/delegate and missing-keeper refusal plus state non-mutation; framework encodings are explicitly tested."
+
+[file.109]
+path = "precompiles/perps/positions.go"
+lines = 467
+verdict = "clean"
+note = "Reviewed compatibility opens/increases/closes, collateral/holder checks, exact closing SizeBase, slippage/deadline and token rollback."
+
+[file.110]
+path = "precompiles/perps/positions_test.go"
+lines = 622
+verdict = "clean"
+note = "Reviewed full lifecycle, holder/amount refusals, reduce-only, collateral rollback and unaligned-mark exact-base partial close through execution."
+
+[file.111]
+path = "precompiles/perps/quote_market_test.go"
+lines = 75
+verdict = "clean"
+note = "Reviewed quoteMarket ABI against the keeper-produced resting-book quote and unknown-market custom selector."
+
+[file.112]
+path = "precompiles/perps/quotes.go"
+lines = 153
+verdict = "clean"
+note = "Reviewed all four quote handlers, validation and ABI field order against keeper quote structures."
+
+[file.113]
+path = "precompiles/perps/quotes_test.go"
+lines = 434
+verdict = "issues"
+note = "Reviewed complete quote non-mutation, fee/funding/liquidation/execution comparison; execute helper omits exact SizeBase used by production."
+
+[file.114]
+path = "precompiles/perps/switch_test.go"
+lines = 774
+verdict = "clean"
+note = "Reviewed real old/new address switch before/at persisted done height, legacy selectors and shared log address for historical replay."
+
+[file.115]
+path = "precompiles/perps/views.go"
+lines = 851
+verdict = "clean"
+note = "Reviewed every account/order/position/market/funding/insurance view, overload caller, signed value, uint bound, governance read and missing-record result."
+
+[file.116]
+path = "precompiles/perps/views_golden_account_test.go"
+lines = 65
+verdict = "clean"
+note = "Reviewed fixed real account/position scenario and byte-for-byte ABI against committed account golden JSON."
+
+[file.117]
+path = "precompiles/perps/views_golden_funding_test.go"
+lines = 151
+verdict = "clean"
+note = "Reviewed fee/funding snapshot, settled/current rate distinction and exact committed ABI bytes."
+
+[file.118]
+path = "precompiles/perps/views_golden_insurance_test.go"
+lines = 73
+verdict = "clean"
+note = "Reviewed insurance/ADL/open-interest state and exact golden outputs."
+
+[file.119]
+path = "precompiles/perps/views_golden_market_test.go"
+lines = 72
+verdict = "clean"
+note = "Reviewed real resting-order and market-config scenario against exact committed ABI bytes."
+
+[file.120]
+path = "precompiles/perps/views_golden_quotes_test.go"
+lines = 105
+verdict = "clean"
+note = "Reviewed real book/position and all quote tuples against exact golden bytes, without deriving expected bytes at runtime."
+
+[file.121]
+path = "precompiles/perps/views_test.go"
+lines = 729
+verdict = "clean"
+note = "Reviewed all remaining views, overloads, absent entries, ownership, caps, signed funding and insurance/ADL state."
+
+[finding.mint-same-day-release-stalls]
+file = "modules/mint/keeper/keeper.go"
+line = 170
+class = "runtime-risk"
+severity = "high"
+observed = "A valid schedule A starting and ending 2026-01-01 followed by B starting 2026-01-02 stalls after A is exhausted. GetNextScheduledTokenRelease selects A again because its start equals the stored minter end, and GetOrUpdateLatestMinter returns that exhausted minter because the start is unchanged. Every future epoch repeats this; the stored minter preserves the failure after restart."
+expected = "The mint lifecycle must advance from every completed release to its successor, including equal start/end dates accepted by Params.Validate and ValidateMinter, and issue the approved remaining amount."
+proposal = "In modules/mint/keeper/keeper.go exclude the completed release identity while preserving valid same-date successors. Add a real epoch/bank case that exhausts A, closes and reopens storage, then mints B exactly once without changing already minted supply."
+owner_domain = 3
+interface = "3.gen-mint-token-release-schedule-j26"
+
+[finding.mint-null-proposal]
+file = "modules/mint/types/gov.go"
+line = 32
+class = "runtime-risk"
+severity = "medium"
+observed = "UpdateMinterProposal.Minter is nullable in protobuf, but ValidateBasic dereferences it without a guard. Omitted minter content panics instead of returning an invalid-proposal error."
+expected = "Governance validation must refuse missing required content deterministically before dereferencing it or modifying state."
+proposal = "In modules/mint/types/gov.go require a non-nil Minter and validate governance abstract fields before ValidateMinter; exercise omitted-minter protobuf/JSON content through the actual submit-proposal validation path."
+owner_domain = 3
+interface = "3.proto-mint-updateminterproposal"
+
+[finding.mint-null-handler]
+file = "modules/mint/gov.go"
+line = 10
+class = "runtime-risk"
+severity = "medium"
+observed = "HandleUpdateMinterProposal independently dereferences p.Minter before validation. A decoded proposal with omitted minter panics at this error-returning boundary, whose earlier validator has the same defect."
+expected = "The proposal execution boundary must return an explicit refusal for absent content and preserve stored minter state."
+proposal = "Share nil-safe content validation between modules/mint/gov.go and types/gov.go before any read/store, and exercise omitted content plus unchanged state through the real handler."
+owner_domain = 3
+interface = "3.proto-mint-updateminterproposal"
+
+[finding.mint-cli-json-panic]
+file = "modules/mint/client/cli/tx.go"
+line = 64
+class = "runtime-risk"
+severity = "medium"
+observed = "MsgUpdateMinterProposalCmd invokes Codec.MustUnmarshalJSON on the user proposal file. Malformed JSON or invalid protobuf fields therefore panic rather than returning a command error."
+expected = "Bad proposal files must produce actionable command errors and never enter the broadcast path."
+proposal = "In modules/mint/client/cli/tx.go use the error-returning codec decoder and return contextual errors; drive the real Cobra command with malformed and valid files."
+owner_domain = 3
+interface = "3.cli-mint-gov-update-minter"
+
+[finding.mint-simulation-overlap]
+file = "modules/mint/simulation/genesis.go"
+line = 26
+class = "runtime-risk"
+severity = "medium"
+observed = "RandomizedGenState creates ten identical overlapping date periods, so the second fails validateTokenReleaseSchedule. time.Now and global rand also bypass the simulation genesis time and seed."
+expected = "The registered generator must emit valid genesis reproducibly from SimulationState seed and genesis time."
+proposal = "In modules/mint/simulation/genesis.go derive non-overlapping periods using SimulationState.Rand and GenTimestamp, validate before serialization and cover the actual AppModule.GenerateGenesisState path."
+owner_domain = 3
+interface = "3.go-mint-simulation-randomizedgenstate-j26"
+
+[finding.mint-hook-never-called]
+file = "modules/mint/keeper/hooks.go"
+line = 32
+class = "wiring-gap"
+severity = "low"
+observed = "SetHooks stores MintHooks, but successful AfterEpochEnd never calls AfterDistributeMintedCoin. Only a test callback exists outside MultiMintHooks, and its flag is not asserted after distribution; node wiring registers epoch hooks, not a mint callback consumer."
+expected = "An advertised post-distribution extension must execute at the successful distribution boundary, or be explicitly retired when the product has no consumer."
+proposal = "Have the markets owner decide the callback lifecycle in modules/mint/keeper/hooks.go and types/hooks.go: wire configured consumers after successful transfer and prove the actual consumer path, or retire the unused SetHooks extension by an interface decision."
+owner_domain = 3
+interface = "3.go-mint-types-minthooks-j26"
+
+[finding.mint-epoch-test-clock]
+file = "modules/mint/keeper/hooks_test.go"
+line = 328
+class = "test-gap"
+severity = "low"
+observed = "TestNoEpochPassedNoDistribution claims to traverse epochs under a year, but every loop uses genesisTime.Add(time.Minute). It repeats one identical epoch hundreds of thousands of times instead of testing elapsed epochs."
+expected = "Same-epoch idempotence and advancing pre-release epochs must be separate cases with actual supply and minter-state assertions."
+proposal = "In modules/mint/keeper/hooks_test.go retain explicit same-epoch repetition and use advancing deterministic epoch times at pre-release/release boundaries, asserting real bank supply and minter state."
+owner_domain = 3
+
+[finding.upgrade-reader-contract]
+file = "modules/layerxexchange/keeper/intents.go"
+line = 33
+class = "runtime-risk"
+severity = "medium"
+observed = "UpgradeKeeper declares only IsUpgradeActiveAtHeight, but retirementError dynamically requires GetDoneHeight. An implementation satisfying the declared type may report retired=true yet yield code 12 ErrKeeperMissing instead of code 14 ErrRetired. The concrete wired SDK keeper supplies both, so the gap is latent for other accepted implementations."
+expected = "Compile-time dependencies must cover all operations required to return the code-14 retirement refusal promised by req.3272.3."
+proposal = "Add GetDoneHeight to modules/layerxexchange/types/expected_keepers.go and call it directly, or make the diagnostic independent of it. Preserve persisted SDK done-height tests and a compile-time application dependency assertion."
+owner_domain = 3
+interface = "3.go-lxextypes-upgradekeeper-j26"
+
+[finding.exchange-keeper-comment]
+file = "modules/layerxexchange/keeper/keeper.go"
+line = 17
+class = "retired-reference"
+severity = "low"
+observed = "The keeper header describes an active LayerX intent router and says margin moves through custody, despite the no-hop deposit implementation and v6.12.0 write retirement."
+expected = "Current integration guidance must describe native perps at 0x1015 on one BFT network; this module retains historical intent/proof replay state."
+proposal = "Rewrite comments in modules/layerxexchange/keeper/keeper.go to label historical replay, distinguish native collateral custody and state that recording the legacy deposit intent performs no custody hop."
+owner_domain = 3
+interface = "3.go-layerxexchange-keeper-keeper-j26"
+
+[finding.exchange-custody-comment]
+file = "modules/layerxexchange/types/expected_keepers.go"
+line = 11
+class = "doc-drift"
+severity = "low"
+observed = "CustodyKeeper says margin deposits always move into the custody account, although req.3962 and RecordDepositMarginIntent deliberately removed that hop. Remaining methods support historical proofs and asset lookup."
+expected = "Dependency documentation must describe the retained replay/proof role without directing integrations to a removed margin movement path."
+proposal = "Update modules/layerxexchange/types/expected_keepers.go comments to identify replay-only asset/proof lookup and no-hop intent recording; direct current collateral integrations to native perps."
+owner_domain = 3
+interface = "3.go-layerxexchange-types-custodykeeper-j26"
+
+[finding.exchange-router-comment]
+file = "modules/layerxexchange/keeper/intents.go"
+line = 71
+class = "retired-reference"
+severity = "low"
+observed = "RecordDepositMarginIntent says a router already holds the credit and nearby order comments describe a separate LayerX matcher without labeling the code as historical replay."
+expected = "Brief fact 2 retires routers and a separate LayerX interface; retained intent functions must clearly state historical height/replay semantics."
+proposal = "Rewrite modules/layerxexchange/keeper/intents.go comments around the v6.12.0 boundary and historical stored intents, removing operational router/separate-matcher instructions."
+owner_domain = 3
+interface = "3.go-layerxexchange-keeper-recorddepositmarginintent-j64"
+
+[finding.block-deep-link]
+file = "apps/perps/src/page-modules/block-detail/index.tsx"
+line = 21
+class = "wiring-gap"
+severity = "medium"
+observed = "getServerSideProps redirects a height/hash to /explorer?block=..., but ExplorerPage only reads useExplorerStream and renders live lists; it never reads the query or resolves a requested block."
+expected = "A legacy block URL must preserve its height/hash through redirect to a detail result or explicit refusal/not-found state."
+proposal = "Implement block query consumption with the real detail data path in apps/perps/src/page-modules/explorer/index.tsx, and cover numeric height, hash and missing block at the redirect destination."
+owner_domain = 3
+interface = "3.ts-perps-page-modules-block-detail-index-getserversideprops"
+
+[finding.tx-deep-link]
+file = "apps/perps/src/page-modules/tx-detail/index.tsx"
+line = 22
+class = "wiring-gap"
+severity = "medium"
+observed = "getServerSideProps redirects /tx/<hash> to /explorer?tx=<hash>, but the destination has no tx query reader/detail loader. The requested transaction is replaced by unrelated live activity."
+expected = "Transaction deep links must resolve the requested committed transaction/receipt or an explicit error/missing state after redirect."
+proposal = "Add query-driven transaction details in apps/perps/src/page-modules/explorer/index.tsx and qualify the legacy redirect using a real transaction response and a missing hash, preserving identity across refresh."
+owner_domain = 3
+interface = "3.ts-perps-page-modules-tx-detail-index-getserversideprops"
+
+[finding.explorer-query-consumer]
+file = "apps/perps/src/page-modules/explorer/index.tsx"
+line = 219
+class = "wiring-gap"
+severity = "medium"
+observed = "ExplorerPage has no router/query input and mounts only BlocksPanel and TxsPanel. Both legacy detail producers promise block/tx query destinations, so neither detail is consumed."
+expected = "The landing consumer must implement the selected-block/selected-transaction contract emitted by the existing redirects."
+proposal = "Resolve the requested detail in apps/perps/src/page-modules/explorer/index.tsx with loading/refusal states and real explorer/RPC shapes; preserve accessible live lists and reject ambiguous selectors explicitly."
+owner_domain = 3
+interface = "3.ts-perps-page-modules-explorer-index-default"
+
+[finding.portfolio-rpc-zero]
+file = "apps/perps/src/page-modules/portfolio/index.tsx"
+line = 106
+class = "runtime-risk"
+severity = "medium"
+observed = "Rejected getAccount/getWalletBalance requests become 0n and accountResolved becomes true even if both fail. Switching directly between connected addresses also keeps old balances/resolved state until new reads finish."
+expected = "Financial data must distinguish RPC failure from zero balance and remain tied to the selected wallet while loading or retrying."
+proposal = "In apps/perps/src/page-modules/portfolio/index.tsx clear/account-key state on address change, track source errors/loading and expose retry without inventing zeros; cover one/both failed reads and an in-flight address switch."
+owner_domain = 3
+interface = "3.ts-perps-hooks-perps-useaccount-getaccount"
+
+[finding.portfolio-orders-diamond]
+file = "apps/perps/src/page-modules/portfolio/index.tsx"
+line = 211
+class = "wiring-gap"
+severity = "medium"
+observed = "The Open orders tab is a placeholder promising a Diamond OrderBook facet, although current native perps exposes getUserOrderIds/getOrderDetails and cancelOrder at 0x1015. Users cannot manage orders from the advertised portfolio tab."
+expected = "Portfolio order management must represent the running native venue rather than the previous Diamond architecture."
+proposal = "Replace the placeholder in apps/perps/src/page-modules/portfolio/index.tsx with the native order consumer/cancellation path, or accurately describe its availability pending an owned implementation; remove Diamond guidance."
+owner_domain = 3
+interface = "3.pc-0x1015-getuserorderids"
+
+[finding.perps-default-disabled]
+file = "apps/perps/src/page-modules/perps/index.tsx"
+line = 114
+class = "runtime-risk"
+severity = "medium"
+observed = "With no query the page always selects PAX. If governance disables PAX, or a bookmark selects a disabled market, the early unavailable return removes PairHeader and every page-local selector even when other tradeable markets exist."
+expected = "Live catalog changes must leave users a way to choose an available market when a default/bookmark is unavailable."
+proposal = "In apps/perps/src/page-modules/perps/index.tsx choose a catalog default only when no explicit selection exists and retain a live selector in the unavailable view; cover disabled PAX/bookmarks and empty catalogs without silently changing explicit trade intent."
+owner_domain = 3
+interface = "3.ts-perps-page-modules-perps-index-default"
+
+[finding.cookie-error-consent]
+file = "apps/perps/src/page-modules/legal/CookiePolicy.tsx"
+line = 86
+class = "doc-drift"
+severity = "medium"
+observed = "The policy places error tracking under consent-dependent analytics and says only Accept all enables it. Client and server Sentry configuration initialize exception capture whenever DSN exists, without reading accepted/declined consent."
+expected = "Published telemetry promises must agree with behavior before consent and after Essential only, distinguishing cookie storage from error-event transmission."
+proposal = "Coordinate CookiePolicy.tsx with apps/perps Sentry initialization: enforce the promised optional-capture consent lifecycle or accurately disclose operational capture, fields and retention; cover accepted, declined and withdrawn states."
+owner_domain = 3
+interface = "3.ts-perps-hooks-ui-usecookieconsent-usecookieconsent"
+
+[finding.privacy-offchain-records]
+file = "apps/perps/src/page-modules/legal/PrivacyPolicy.tsx"
+line = 91
+class = "doc-drift"
+severity = "medium"
+observed = "Retention says wallet addresses/data are not retained beyond on-chain visibility, but perps-data migrations/0004_accounts.sql stores address-keyed auth challenges, referral relationships and competition entries consumed by these pages. These are off-chain application records."
+expected = "Privacy disclosures must identify actual wallet-linked authentication/referral/competition data and its retention/deletion behavior."
+proposal = "Rewrite apps/perps/src/page-modules/legal/PrivacyPolicy.tsx with perps-data owners to document stored fields, purposes, retention and deletion, separate from immutable public-chain history."
+owner_domain = 3
+interface = "3.ts-perps-hooks-perps-useperfdbauth-useperfdbauth"
+
+[finding.terms-native-venue]
+file = "apps/perps/src/page-modules/legal/TermsOfService.tsx"
+line = 23
+class = "doc-drift"
+severity = "medium"
+observed = "Terms describe the whole protocol as audited smart contracts. Perps executes in native Go modules/perps via 0x1015; Perps.sol is an interface and USDL is a separate ERC20. No release/component scope accompanies the audit assertion."
+expected = "Risk/implementation descriptions must identify native governed execution and specify the components/release covered by any audit claim."
+proposal = "Have product/legal owners update TermsOfService.tsx for native perps, upgrade/governance controls and USDL custody, and cite exact release and component scope for any audit assertion."
+owner_domain = 3
+
+[finding.mint-proposal-example]
+file = "modules/mint/README.md"
+line = 90
+class = "doc-drift"
+severity = "medium"
+observed = "The proposal example supplies only start/end dates, denom and total_mint_amount. CLI copies this directly, but ValidateMinter rejects empty last_mint_date; omitted remaining_mint_amount also supplies no remaining issuance. The documented submission cannot perform its intended update."
+expected = "Governance examples must supply complete valid minter metadata and an explicit remaining amount matching the intended release."
+proposal = "Replace README.md payload/before-after examples under modules/mint with values accepted by the real proposal validator, including remaining_mint_amount and a valid last_mint_date; explain fresh/ongoing releases and qualify the documented command path."
+owner_domain = 3
+interface = "3.cli-mint-gov-update-minter"
+
+[finding.quote-execution-base-fixture]
+file = "precompiles/perps/quotes_test.go"
+line = 223
+class = "test-gap"
+severity = "low"
+observed = "quotesEnv.execute forwards SizeUsd but omits order.SizeBase, while production placeClose forwards exact base and QuotePartialClose uses it under req.18904. Aligned-price comparisons can pass with this different input; separate positions regression does exercise the real unaligned fix."
+expected = "Quote/execution comparison must use the exact closing base returned by the real producer, including non-divisible mark/lot cases."
+proposal = "Drive actual precompile closes in precompiles/perps/quotes_test.go or forward returned SizeBase and real bounds; compare quote/fill at an unaligned mark while retaining the actual positions regression."
+owner_domain = 3
+interface = "3.pc-0x1015-quotepartialclose"
+
+[finding.solidity-error-description]
+file = "precompiles/perps/Perps.sol"
+line = 10
+class = "doc-drift"
+severity = "low"
+observed = "The introduction promises a parameterless custom error for every failure. Unknown selectors return empty data and framework/internal failures may return Error(string), as documented in shared rules and tested in the runtime."
+expected = "Integrators must distinguish mapped business custom errors from unknown-selector and framework error encodings."
+proposal = "Amend Perps.sol NatSpec with custom, empty-selector and Error(string) failure cases while retaining all strict selector/runtime tests."
+owner_domain = 3
+interface = "3.pc-0x1015-err-perpsinvalidparams"
+
+[finding.go-error-description]
+file = "precompiles/perps/perps.go"
+line = 3
+class = "doc-drift"
+severity = "low"
+observed = "The package header says every failure consists only of a custom-error selector, although revertOf falls back to RevertReason and Prepare handles unknown/nonpayable/framework failures differently."
+expected = "Go package documentation must expose the same encoding exceptions as the runtime and shared contract."
+proposal = "Update precompiles/perps/perps.go package comments alongside Perps.sol to distinguish mapped perps business errors from framework/unknown-selector failures."
+owner_domain = 3
+
+[finding.readme-premerge-network]
+file = "README.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction describes two execution domains and a separate layerxd daemon whose checkpoints settle via layerxAnchor; line 79 still calls the merge proposed/draft."
+expected = "The entry page must describe one paxd BFT network with embedded kernel and finality once a block commits, retaining old daemon instructions only as history."
+proposal = "Rewrite README.md architecture/build/merge status for the single network, remove operational layerxd directions and distinguish current native perps from historical exchange replay."
+owner_domain = 17
+
+[finding.gateway-site]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "The page calls api-mainnet-beta a sole router/unified endpoint for eth_*, lx_* and px_*, labels node names EVM-only and advertises POST /rpc, /rpc/ws and /rpc/schema at lines 50-51 and the route table."
+expected = "Brief facts 2-3 require root-path node RPC on api1 through api14/api-mainnet-beta and node namespaces debug/echo/eth/net/pax/test/txpool; px_ belongs to hosted gateway OpenRPC."
+proposal = "Rewrite docs/site/docs/platform/hosted-gateway.md endpoint examples, route table and architecture for root-path node RPC and hosted px_ methods declared by services/platform/hosted/gateway/openrpc.json; remove router/unified /rpc guidance."
+owner_domain = 12
+
+[finding.gateway-wiki]
+file = "docs/wiki/HostedGateway.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "The page calls api-mainnet-beta a sole router/unified endpoint for eth_*, lx_* and px_*, labels node names EVM-only and advertises POST /rpc, /rpc/ws and /rpc/schema at lines 50-51 and the route table."
+expected = "Brief facts 2-3 require root-path node RPC on api1 through api14/api-mainnet-beta and node namespaces debug/echo/eth/net/pax/test/txpool; px_ belongs to hosted gateway OpenRPC."
+proposal = "Rewrite docs/wiki/HostedGateway.md endpoint examples, route table and architecture for root-path node RPC and hosted px_ methods declared by services/platform/hosted/gateway/openrpc.json; remove router/unified /rpc guidance."
+owner_domain = 12
+
+[finding.hosted-node-retired]
+file = "docs/site/docs/platform/hosted-node.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The guide operates an in-cluster sequencer pod building layerxd, with --serve/--authority-replica, sequencer files, LNI sockets and a separate receipt authority as current startup/recovery components."
+expected = "Finished-network deployment runs paxd BFT with its kernel proposing as part of the network, without a separate sequencer daemon or LayerX service interface."
+proposal = "Replace docs/site/docs/platform/hosted-node.md with current paxd deployment, BFT restart/recovery, chain 125 and root RPC health guidance; explicitly archive any necessary layerxd history."
+owner_domain = 12
+
+[finding.control-router]
+file = "docs/site/docs/operators/beta-control.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "Funding guidance submits custody credit to a router retired by the brief. Later hosted/private allocation descriptions are not clearly separated from current single-network RPC and retain legacy gateway language."
+expected = "Funding must identify the actual supported hosted allocation/credit contract and single chain, preserving private disposable faucet restrictions without a retired router dependency."
+proposal = "Rewrite docs/site/docs/operators/beta-control.md funding links/examples against current hosted OpenRPC and actual allocation transport; remove router instructions and label historical/private disposable setup clearly."
+owner_domain = 12
+
+[finding.faucet-site]
+file = "docs/site/docs/platform/faucet.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "Funding guidance submits custody credit to a router retired by the brief. Later hosted/private allocation descriptions are not clearly separated from current single-network RPC and retain legacy gateway language."
+expected = "Funding must identify the actual supported hosted allocation/credit contract and single chain, preserving private disposable faucet restrictions without a retired router dependency."
+proposal = "Rewrite docs/site/docs/platform/faucet.md funding links/examples against current hosted OpenRPC and actual allocation transport; remove router instructions and label historical/private disposable setup clearly."
+owner_domain = 12
+
+[finding.faucet-wiki]
+file = "docs/wiki/HostedFaucet.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "Funding guidance submits custody credit to a router retired by the brief. Later hosted/private allocation descriptions are not clearly separated from current single-network RPC and retain legacy gateway language."
+expected = "Funding must identify the actual supported hosted allocation/credit contract and single chain, preserving private disposable faucet restrictions without a retired router dependency."
+proposal = "Rewrite docs/wiki/HostedFaucet.md funding links/examples against current hosted OpenRPC and actual allocation transport; remove router instructions and label historical/private disposable setup clearly."
+owner_domain = 12
+
+[finding.webhooks-site-network]
+file = "docs/site/docs/platform/webhooks.md"
+line = 78
+class = "doc-drift"
+severity = "medium"
+observed = "Deployment derives LAYERX_WEBHOOKS_NETWORK_ID from router.LAYERX_GATEWAY_NETWORK_ID and lists separate kernel authority/agent endpoints on ports 9445/9446, instructing operators to provision the retired split topology."
+expected = "Webhook network configuration and committed-receipt verification must bind to the one BFT network without a router or separate sequencer authority."
+proposal = "Revise docs/site/docs/platform/webhooks.md dependencies, network-id source and finality description with the hosted webhook owners; document the actual merged producer/verification transport and durable restart cursor."
+owner_domain = 12
+
+[finding.webhooks-wiki-network]
+file = "docs/wiki/HostedWebhooks.md"
+line = 78
+class = "doc-drift"
+severity = "medium"
+observed = "Deployment derives LAYERX_WEBHOOKS_NETWORK_ID from router.LAYERX_GATEWAY_NETWORK_ID and lists separate kernel authority/agent endpoints on ports 9445/9446, instructing operators to provision the retired split topology."
+expected = "Webhook network configuration and committed-receipt verification must bind to the one BFT network without a router or separate sequencer authority."
+proposal = "Revise docs/wiki/HostedWebhooks.md dependencies, network-id source and finality description with the hosted webhook owners; document the actual merged producer/verification transport and durable restart cursor."
+owner_domain = 12
+
+[finding.webhooks-site-tls]
+file = "docs/site/docs/platform/webhooks.md"
+line = 249
+class = "doc-drift"
+severity = "medium"
+observed = "Trusted-component guidance says inbound rustls has no client authentication, contradicting the deployment section and main.rs tls_config, which uses WebPkiClientVerifier for an ingress client CA."
+expected = "TLS instructions must distinguish public listener authentication from ingress mutual TLS and agree with the running role configuration."
+proposal = "Correct docs/site/docs/platform/webhooks.md trusted TLS guidance for public versus ingress roles, including client-CA/role-SAN requirements and current source/config references."
+owner_domain = 12
+
+[finding.webhooks-wiki-tls]
+file = "docs/wiki/HostedWebhooks.md"
+line = 250
+class = "doc-drift"
+severity = "medium"
+observed = "Trusted-component guidance says inbound rustls has no client authentication, contradicting the deployment section and main.rs tls_config, which uses WebPkiClientVerifier for an ingress client CA."
+expected = "TLS instructions must distinguish public listener authentication from ingress mutual TLS and agree with the running role configuration."
+proposal = "Correct docs/wiki/HostedWebhooks.md trusted TLS guidance for public versus ingress roles, including client-CA/role-SAN requirements and current source/config references."
+owner_domain = 12
+
+[finding.identity-site-services]
+file = "docs/site/docs/platform/identity.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The guide lists seven token services and omits registry/registrar from provisioning. Current Service::ALL has nine and service_tokens requires all nine distinct credential files, so the described directory cannot boot."
+expected = "Identity setup must enumerate exactly the token filenames and capabilities required by the current service."
+proposal = "Update docs/site/docs/platform/identity.md introduction/callers/capabilities/provisioning from services/platform/hosted/identity/src/main.rs Service::ALL, including registry/registrar and complete-directory plus missing-file qualification."
+owner_domain = 12
+
+[finding.identity-wiki-services]
+file = "docs/wiki/HostedIdentity.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The guide lists seven token services and omits registry/registrar from provisioning. Current Service::ALL has nine and service_tokens requires all nine distinct credential files, so the described directory cannot boot."
+expected = "Identity setup must enumerate exactly the token filenames and capabilities required by the current service."
+proposal = "Update docs/wiki/HostedIdentity.md introduction/callers/capabilities/provisioning from services/platform/hosted/identity/src/main.rs Service::ALL, including registry/registrar and complete-directory plus missing-file qualification."
+owner_domain = 12
+
+[finding.identity-control-token]
+file = "docs/wiki/HostedIdentity.md"
+line = 66
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki instructs generation of control token files, while its table still says testnet. Service::name requires testnet and service_tokens rejects an unexpected control entry."
+expected = "Authentication filenames must match the exact server enum even when human-facing service labels are renamed."
+proposal = "Use testnet credential filenames in docs/wiki/HostedIdentity.md while keeping Control only as a display label; reconcile site/wiki instructions with the current nine-service set."
+owner_domain = 12
+
+[finding.unified-network-architecture]
+file = "docs/wiki/UnifiedNetwork.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The page presents two independent domains, a C sequencer/daemon and an anchor challenge-window finality ladder as active architecture, then proposes a shared unified endpoint at line 210."
+expected = "The network guide must describe one BFT chain, embedded kernel, committed-block finality and root-path node RPC without proposing a router."
+proposal = "Rewrite docs/wiki/UnifiedNetwork.md architecture/finality/planned-work for the merged network, preserving its accurate native perps subsection and moving retained anchor/proof explanations into explicitly historical replay guidance."
+owner_domain = 17
+
+[doc.01]
+path = "README.md"
+status = "stale"
+notes = "Read in full; architecture at lines 44-49 and status at 79 retain separate daemon/two-domain operation. See readme-premerge-network."
+
+[doc.02]
+path = "docs/site/docs/operators/beta-control.md"
+status = "stale"
+notes = "Read in full; line 5 funds accounts through a retired router and operational setup retains split-network wording. See control-router."
+
+[doc.03]
+path = "docs/site/docs/platform/faucet.md"
+status = "stale"
+notes = "Read in full; funding at line 5 requires retired router and later legacy lx_requestFunds flow needs reconciliation with actual hosted OpenRPC. Preserve private faucet restrictions."
+
+[doc.04]
+path = "docs/site/docs/platform/hosted-node.md"
+status = "stale"
+notes = "Read in full; opening and startup/recovery sections operate retired layerxd/sequencer/authority services. See hosted-node-retired."
+
+[doc.05]
+path = "docs/site/docs/platform/identity.md"
+status = "stale"
+notes = "Read in full; lines 8-13 and 35-67 omit mandatory registry/registrar token files. Wiki additionally renames testnet credential to control. Session response/durability rules were compared with source."
+
+[doc.06]
+path = "docs/site/docs/platform/hosted-gateway.md"
+status = "stale"
+notes = "Read in full; lines 39-51 and route table publish a router and unified /rpc paths. Node root RPC and hosted px_ need distinct accurate descriptions."
+
+[doc.07]
+path = "docs/site/docs/platform/webhooks.md"
+status = "stale"
+notes = "Read in full; dependency/network-id guidance at 71-80 retains router/separate authority; trusted TLS section contradicts ingress authentication. Durable ordering/retry/redelivery descriptions were also reviewed."
+
+[doc.08]
+path = "docs/wiki/HostedGateway.md"
+status = "stale"
+notes = "Read in full; lines 39-51 and route table publish a router and unified /rpc paths. Node root RPC and hosted px_ need distinct accurate descriptions."
+
+[doc.09]
+path = "docs/wiki/HostedWebhooks.md"
+status = "stale"
+notes = "Read in full; dependency/network-id guidance at 71-80 retains router/separate authority; trusted TLS section contradicts ingress authentication. Durable ordering/retry/redelivery descriptions were also reviewed."
+
+[doc.10]
+path = "docs/wiki/HostedIdentity.md"
+status = "stale"
+notes = "Read in full; lines 8-13 and 35-67 omit mandatory registry/registrar token files. Wiki additionally renames testnet credential to control. Session response/durability rules were compared with source."
+
+[doc.11]
+path = "docs/wiki/UnifiedNetwork.md"
+status = "stale"
+notes = "Read in full; opening architecture, anchor finality and planned shared endpoint are pre-merge. Native perps subsection remains useful."
+
+[doc.12]
+path = "docs/wiki/HostedFaucet.md"
+status = "stale"
+notes = "Read in full; funding at line 5 requires retired router and later legacy lx_requestFunds flow needs reconciliation with actual hosted OpenRPC. Preserve private faucet restrictions."
+
+[doc.13]
+path = "modules/mint/README.md"
+status = "misleading"
+notes = "Read in full; daily epoch distribution/events/metrics agree, but proposal lines 90-95 omit a valid last_mint_date and intended remaining_mint_amount."
+
+[doc.14]
+path = "apps/perps/src/page-modules/legal/CookiePolicy.tsx"
+status = "misleading"
+notes = "Read in full. Consent-dependent error tracking at lines 84-100 conflicts with DSN-based Sentry capture."
+
+[doc.15]
+path = "apps/perps/src/page-modules/legal/PrivacyPolicy.tsx"
+status = "misleading"
+notes = "Read in full. Retention at lines 87-91 omits off-chain wallet-linked authentication/referrals/competitions."
+
+[doc.16]
+path = "apps/perps/src/page-modules/legal/TermsOfService.tsx"
+status = "misleading"
+notes = "Read in full. Lines 18-30 misdescribe native Go perps as audited deployed smart contracts without audit scope."
+
+[doc.17]
+path = "spec/layerx-merge/contracts/markets.md"
+status = "accurate"
+notes = "Consulted scope, perps shared/ABI rules and acceptance, mint release and exchange retirement sections. Explicitly pinned 2a1033aa2 snapshot: planned/change notes refer to that revision, not current qualification evidence."
+
+[doc.18]
+path = "spec/layerx-merge/contracts/perps-client.md"
+status = "accurate"
+notes = "Consulted app/hooks/catalog acceptance and page-modules/routes declarations. Pinned snapshot line locations and UNRUN labels are not current gate results; actual consumers were compared separately."
+
+[doc.19]
+path = "spec/layerx-merge/contracts/perps-data.md"
+status = "accurate"
+notes = "Consulted auth, service and configuration sections for off-chain page consumers. Pinned contract does not claim application auth/referral records are public-chain data."
+
+[doc.20]
+path = "spec/release-v6-12-0/contracts/perps.md"
+status = "accurate"
+notes = "Consulted shared rules, activation, units/tuples, custody/account methods and failure encodings. Correctly distinguishes native Go execution, old-address replay and empty-selector/Error(string) exceptions."
+
+[doc.21]
+path = "spec/release-v6-12-0/contracts/perps-markets.md"
+status = "accurate"
+notes = "Read common rules, activation table, listing-age caps and all margin tier tables. PAX is seeded; governance can disable it, so the page does not guarantee UI default availability."
+
+[doc.22]
+path = "spec/release-v6-12-0/contracts/perps-parameters.md"
+status = "accurate"
+notes = "Read all fee, cross-margin, funding, OI, mark, liquidation, insurance/ADL, limits and spot-difference sections. Defaults are explicitly activation values subject to governance."
+

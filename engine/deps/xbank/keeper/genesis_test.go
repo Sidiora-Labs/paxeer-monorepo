@@ -3,6 +3,7 @@ package keeper_test
 import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/engine/deps/xbank/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
 )
 
 func (suite *IntegrationTestSuite) getTestBalancesAndSupply() ([]types.Balance, sdk.Coins) {
@@ -25,9 +26,21 @@ func (suite *IntegrationTestSuite) TestInitGenesis() {
 	g := types.DefaultGenesisState()
 	g.DenomMetadata = []types.Metadata{m}
 	bk := suite.app.GigaBankKeeper
-	bk.InitGenesis(suite.ctx, g)
+	params := bk.GetParams(suite.ctx)
+	metadataBefore, foundBefore := bk.GetDenomMetaData(suite.ctx, m.Base)
+	suite.Require().PanicsWithValue("Giga bank genesis is unsupported; use the canonical bank keeper for initialization and recovery", func() {
+		bk.InitGenesis(suite.ctx, g)
+	})
+	suite.Require().Equal(params, bk.GetParams(suite.ctx))
+	_, found := bk.GetDenomMetaData(suite.ctx, m.Base)
+	suite.Require().Equal(foundBefore, found)
+	metadataAfter, _ := bk.GetDenomMetaData(suite.ctx, m.Base)
+	suite.Require().Equal(metadataBefore, metadataAfter)
+	canonicalGenesis := banktypes.DefaultGenesisState()
+	canonicalGenesis.DenomMetadata = []banktypes.Metadata{{Description: m.Description, Base: m.Base, Display: m.Display}}
+	suite.app.BankKeeper.InitGenesis(suite.ctx, canonicalGenesis)
 
-	m2, found := bk.GetDenomMetaData(suite.ctx, m.Base)
+	m2, found := suite.app.BankKeeper.GetDenomMetaData(suite.ctx, m.Base)
 	suite.Require().True(found)
-	suite.Require().Equal(m, m2)
+	suite.Require().Equal(canonicalGenesis.DenomMetadata[0], m2)
 }

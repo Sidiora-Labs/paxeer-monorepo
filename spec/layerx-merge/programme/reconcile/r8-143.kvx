@@ -1,0 +1,243 @@
+[reconcile.r8-143]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r8-143.1]
+interface = "interface.8.go-sdkswift-platformclient-humanagentreclaim"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 631
+symbol = "humanAgentReclaim"
+evidence = "PlatformClient public extension declares func humanAgentReclaim(_ request: JSONValue, idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 631, matching the registered signature; refresh stale line 508. The body is try await mutate(.humanAgentReclaim, request: request, idempotencyKey: idempotencyKey, pathParameters: pathParameters). Other occurrences are PlatformOperation enum cases and dispatch references."
+
+[row.r8-143.2]
+interface = "interface.8.go-sdkswift-platformclient-humanagentrecover"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 634
+symbol = "humanAgentRecover"
+evidence = "PlatformClient public extension declares func humanAgentRecover(idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 634, matching the registered signature; refresh stale line 511. The body is try await mutate(.humanAgentRecover, request: .emptyObject, idempotencyKey: idempotencyKey, pathParameters: pathParameters). Other occurrences are PlatformOperation enum cases and dispatch references."
+
+[row.r8-143.3]
+interface = "interface.8.go-sdkswift-platformclient-humanagentresume"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 637
+symbol = "humanAgentResume"
+evidence = "PlatformClient public extension declares func humanAgentResume(idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 637, matching the registered signature; refresh stale line 514. The body is try await mutate(.humanAgentResume, request: .emptyObject, idempotencyKey: idempotencyKey, pathParameters: pathParameters). Other occurrences are PlatformOperation enum cases and dispatch references."
+
+[row.r8-143.4]
+interface = "interface.8.go-sdkswift-platformclient-humanagentrotate"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 640
+symbol = "humanAgentRotate"
+evidence = "PlatformClient public extension declares func humanAgentRotate(idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 640, matching the registered signature; refresh stale line 517. The body is try await mutate(.humanAgentRotate, request: .emptyObject, idempotencyKey: idempotencyKey, pathParameters: pathParameters). Other occurrences are PlatformOperation enum cases and dispatch references."
+
+[row.r8-143.5]
+interface = "interface.8.go-sdkswift-platformclient-humanagentrotationdisclosure"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 643
+symbol = "humanAgentRotationDisclosure"
+evidence = "PlatformClient public extension declares func humanAgentRotationDisclosure(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 643, matching the registered signature; refresh stale line 520. The body is try await read(.humanAgentRotationDisclosure, request: request, pathParameters: pathParameters). Other occurrences are PlatformOperation enum cases and dispatch references."
+
+[row.r8-143.6]
+interface = "interface.8.go-sdkswift-platformclient-humanagentrotationstart"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 646
+symbol = "humanAgentRotationStart"
+evidence = "PlatformClient public extension declares func humanAgentRotationStart(_ request: JSONValue, idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 646, matching the registered signature; refresh stale line 523. The body is try await mutate(.humanAgentRotationStart, request: request, idempotencyKey: idempotencyKey, pathParameters: pathParameters). Other occurrences are PlatformOperation enum cases and dispatch references."
+
+[row.r8-143.7]
+interface = "interface.8.go-sdkswift-platformclient-humanapprovalapprove"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 649
+symbol = "humanApprovalApprove"
+evidence = "PlatformClient public extension declares func humanApprovalApprove(_ request: JSONValue, idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 649, matching the registered signature; refresh stale line 526. The body is try await mutate(.humanApprovalApprove, request: request, idempotencyKey: idempotencyKey, pathParameters: pathParameters). Other occurrences are PlatformOperation enum cases and dispatch references."
+
+[row.r8-143.8]
+interface = "interface.8.go-sdkswift-platformclient-humanapprovalget"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 652
+symbol = "humanApprovalGet"
+evidence = "PlatformClient public extension declares func humanApprovalGet(_ request: JSONValue = .object([:]), pathParameters: [String: String] = [:]) async throws -> JSONValue at line 652, matching the registered signature; refresh stale line 529. The body is try await read(.humanApprovalGet, request: request, pathParameters: pathParameters). Other occurrences are PlatformOperation enum cases and dispatch references."
+
+[row.r8-143.9]
+interface = "interface.8.go-sdkswift-platformclient-humanapprovallist"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 655
+symbol = "humanApprovalList"
+evidence = "PlatformClient public extension declares func humanApprovalList(_ request: JSONValue = .object([:]), pathParameters: [String: String] = [:]) async throws -> JSONValue at line 655, matching the registered signature; refresh stale line 532. The body is try await read(.humanApprovalList, request: request, pathParameters: pathParameters). Other occurrences are PlatformOperation enum cases and dispatch references."
+
+[row.r8-143.10]
+interface = "interface.8.go-sdkswift-platformclient-humanapprovalprogramapprove"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 658
+symbol = "humanApprovalProgramApprove"
+evidence = "PlatformClient public extension declares func humanApprovalProgramApprove(_ request: JSONValue, idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 658, matching the registered signature; refresh stale line 535. The body is try await mutate(.humanApprovalProgramApprove, request: request, idempotencyKey: idempotencyKey, pathParameters: pathParameters). Other occurrences are PlatformOperation enum cases and dispatch references."
+
+[row.r8-143.11]
+interface = "interface.8.go-sdkswift-platformclient-humanapprovalprogrambudget"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 661
+symbol = "humanApprovalProgramBudget"
+evidence = "PlatformClient public extension declares func humanApprovalProgramBudget(_ request: JSONValue = .object([:]), pathParameters: [String: String] = [:]) async throws -> JSONValue at line 661, matching the registered signature; refresh stale line 538. The body is try await read(.humanApprovalProgramBudget, request: request, pathParameters: pathParameters). Other occurrences are PlatformOperation enum cases and dispatch references."
+
+[row.r8-143.12]
+interface = "interface.8.go-sdkswift-platformclient-humanapprovalprogramdisclosure"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 664
+symbol = "humanApprovalProgramDisclosure"
+evidence = "PlatformClient public extension declares func humanApprovalProgramDisclosure(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 664, matching the registered signature; refresh stale line 541. The body is try await read(.humanApprovalProgramDisclosure, request: request, pathParameters: pathParameters). Other occurrences are PlatformOperation enum cases and dispatch references."
+
+[row.r8-143.13]
+interface = "interface.8.go-sdkswift-platformclient-humanapprovalprogramget"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 667
+symbol = "humanApprovalProgramGet"
+evidence = "PlatformClient public extension declares func humanApprovalProgramGet(_ request: JSONValue = .object([:]), pathParameters: [String: String] = [:]) async throws -> JSONValue at line 667, matching the registered signature; refresh stale line 544. The body is try await read(.humanApprovalProgramGet, request: request, pathParameters: pathParameters). Other occurrences are PlatformOperation enum cases and dispatch references."
+
+[row.r8-143.14]
+interface = "interface.8.go-sdkswift-platformclient-humanapprovalprogramlist"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 670
+symbol = "humanApprovalProgramList"
+evidence = "PlatformClient public extension declares func humanApprovalProgramList(_ request: JSONValue = .object([:]), pathParameters: [String: String] = [:]) async throws -> JSONValue at line 670, matching the registered signature; refresh stale line 547. The body is try await read(.humanApprovalProgramList, request: request, pathParameters: pathParameters). Other occurrences are PlatformOperation enum cases and dispatch references."
+
+[row.r8-143.15]
+interface = "interface.8.go-sdkswift-platformclient-humanapprovalprogrammaterial"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 673
+symbol = "humanApprovalProgramMaterial"
+evidence = "PlatformClient public extension declares func humanApprovalProgramMaterial(_ request: JSONValue = .object([:]), pathParameters: [String: String] = [:]) async throws -> JSONValue at line 673, matching the registered signature; refresh stale line 550. The body is try await read(.humanApprovalProgramMaterial, request: request, pathParameters: pathParameters). Other occurrences are PlatformOperation enum cases and dispatch references."
+
+[row.r8-143.16]
+interface = "interface.8.go-sdkswift-platformclient-humanapprovalprogramreject"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 676
+symbol = "humanApprovalProgramReject"
+evidence = "PlatformClient public extension declares func humanApprovalProgramReject(_ request: JSONValue, idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 676, matching the registered signature; refresh stale line 553. The body is try await mutate(.humanApprovalProgramReject, request: request, idempotencyKey: idempotencyKey, pathParameters: pathParameters). Other occurrences are PlatformOperation enum cases and dispatch references."
+
+[row.r8-143.17]
+interface = "interface.8.go-sdkswift-platformclient-humanapprovalreject"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 679
+symbol = "humanApprovalReject"
+evidence = "PlatformClient public extension declares func humanApprovalReject(idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 679, matching the registered signature; refresh stale line 556. The body is try await mutate(.humanApprovalReject, request: .emptyObject, idempotencyKey: idempotencyKey, pathParameters: pathParameters). Other occurrences are PlatformOperation enum cases and dispatch references."
+
+[row.r8-143.18]
+interface = "interface.8.go-sdkswift-platformclient-humanauthenticatorbackuprotate"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 682
+symbol = "humanAuthenticatorBackupRotate"
+evidence = "PlatformClient public extension declares func humanAuthenticatorBackupRotate(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 682, matching the registered signature; refresh stale line 559. The body is try await read(.humanAuthenticatorBackupRotate, request: request, pathParameters: pathParameters). Other occurrences are PlatformOperation enum cases and dispatch references."
+
+[row.r8-143.19]
+interface = "interface.8.go-sdkswift-platformclient-humanauthenticatordisable"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 685
+symbol = "humanAuthenticatorDisable"
+evidence = "PlatformClient public extension declares func humanAuthenticatorDisable(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 685, matching the registered signature; refresh stale line 562. The body is try await read(.humanAuthenticatorDisable, request: request, pathParameters: pathParameters). Other occurrences are PlatformOperation enum cases and dispatch references."
+
+[row.r8-143.20]
+interface = "interface.8.go-sdkswift-platformclient-humanauthenticatorsetupbegin"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 688
+symbol = "humanAuthenticatorSetupBegin"
+evidence = "PlatformClient public extension declares func humanAuthenticatorSetupBegin(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 688, matching the registered signature; refresh stale line 565. The body is try await read(.humanAuthenticatorSetupBegin, request: request, pathParameters: pathParameters). Other occurrences are PlatformOperation enum cases and dispatch references."
+
+[row.r8-143.21]
+interface = "interface.8.go-sdkswift-platformclient-humanauthenticatorsetupfinish"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 691
+symbol = "humanAuthenticatorSetupFinish"
+evidence = "PlatformClient public extension declares func humanAuthenticatorSetupFinish(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 691, matching the registered signature; refresh stale line 568. The body is try await read(.humanAuthenticatorSetupFinish, request: request, pathParameters: pathParameters). Other occurrences are PlatformOperation enum cases and dispatch references."
+
+[row.r8-143.22]
+interface = "interface.8.go-sdkswift-platformclient-humanauthenticatorstatus"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 694
+symbol = "humanAuthenticatorStatus"
+evidence = "PlatformClient public extension declares func humanAuthenticatorStatus(_ request: JSONValue = .object([:]), pathParameters: [String: String] = [:]) async throws -> JSONValue at line 694, matching the registered signature; refresh stale line 571. The body is try await read(.humanAuthenticatorStatus, request: request, pathParameters: pathParameters). Other occurrences are PlatformOperation enum cases and dispatch references."
+
+[row.r8-143.23]
+interface = "interface.8.go-sdkswift-platformclient-humanevidenceget"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 697
+symbol = "humanEvidenceGet"
+evidence = "PlatformClient public extension declares func humanEvidenceGet(_ request: JSONValue = .object([:]), pathParameters: [String: String] = [:]) async throws -> JSONValue at line 697, matching the registered signature; refresh stale line 595. The body is try await read(.humanEvidenceGet, request: request, pathParameters: pathParameters). Other occurrences are PlatformOperation enum cases and dispatch references."
+
+[row.r8-143.24]
+interface = "interface.8.go-sdkswift-platformclient-humanhomesummary"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 700
+symbol = "humanHomeSummary"
+evidence = "PlatformClient public extension declares func humanHomeSummary(_ request: JSONValue = .object([:]), pathParameters: [String: String] = [:]) async throws -> JSONValue at line 700, matching the registered signature; refresh stale line 604. The body is try await read(.humanHomeSummary, request: request, pathParameters: pathParameters). Other occurrences are PlatformOperation enum cases and dispatch references."
+
+[row.r8-143.25]
+interface = "interface.8.go-sdkswift-platformclient-humanjourneyget"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 709
+symbol = "humanJourneyGet"
+evidence = "PlatformClient public extension declares func humanJourneyGet(_ request: JSONValue = .object([:]), pathParameters: [String: String] = [:]) async throws -> JSONValue at line 709, matching the registered signature; refresh stale line 613. The body is try await read(.humanJourneyGet, request: request, pathParameters: pathParameters). Other occurrences are PlatformOperation enum cases and dispatch references."
+
+[row.r8-143.26]
+interface = "interface.8.go-sdkswift-platformclient-humanjourneylist"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 712
+symbol = "humanJourneyList"
+evidence = "PlatformClient public extension declares func humanJourneyList(_ request: JSONValue = .object([:]), pathParameters: [String: String] = [:]) async throws -> JSONValue at line 712, matching the registered signature; refresh stale line 616. The body is try await read(.humanJourneyList, request: request, pathParameters: pathParameters). Other occurrences are PlatformOperation enum cases and dispatch references."
+
+[row.r8-143.27]
+interface = "interface.8.go-sdkswift-platformclient-humanjourneypage"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 715
+symbol = "humanJourneyPage"
+evidence = "PlatformClient public extension declares func humanJourneyPage(_ request: JSONValue = .object([:]), pathParameters: [String: String] = [:]) async throws -> JSONValue at line 715, matching the registered signature; refresh stale line 619. The body is try await read(.humanJourneyPage, request: request, pathParameters: pathParameters). Other occurrences are PlatformOperation enum cases and dispatch references."
+
+[row.r8-143.28]
+interface = "interface.8.go-sdkswift-platformclient-humanmovecommit"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 718
+symbol = "humanMoveCommit"
+evidence = "PlatformClient public extension declares func humanMoveCommit(_ request: JSONValue, idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 718, matching the registered signature; refresh stale line 622. The body is try await mutate(.humanMoveCommit, request: request, idempotencyKey: idempotencyKey, pathParameters: pathParameters). Other occurrences are PlatformOperation enum cases and dispatch references."
+
+[row.r8-143.29]
+interface = "interface.8.go-sdkswift-platformclient-humanmovequote"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 721
+symbol = "humanMoveQuote"
+evidence = "PlatformClient public extension declares func humanMoveQuote(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 721, matching the registered signature; refresh stale line 625. The body is try await read(.humanMoveQuote, request: request, pathParameters: pathParameters). Other occurrences are PlatformOperation enum cases and dispatch references."
+
+[row.r8-143.30]
+interface = "interface.8.go-sdkswift-platformclient-humannativesendaccessbegin"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 724
+symbol = "humanNativeSendAccessBegin"
+evidence = "PlatformClient public extension declares func humanNativeSendAccessBegin(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 724, matching the registered signature; refresh stale line 628. The body is try await read(.humanNativeSendAccessBegin, request: request, pathParameters: pathParameters). Other occurrences are PlatformOperation enum cases and dispatch references."

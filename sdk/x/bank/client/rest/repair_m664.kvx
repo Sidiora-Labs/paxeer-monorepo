@@ -1,0 +1,15 @@
+[repair.22.33.664]
+audit = "22.30.166"
+finding = "bank-rest-network-signature"
+proofs = ["TestRepairM_664_NetworkSignature", "TestRepairM_664_BankRESTQueries"]
+change = "Pass s.T() to network.DefaultConfig in the existing norace suite, preserving its build tags, assertions and network-backed cases."
+proof_path = "Genesis codec round trip -> real bank keeper and committed BaseApp storev2/rootmulti stores in a test temporary directory -> ABCI JSON-RPC over loopback -> production REST handlers over loopback -> Amino response decoding; assert balances, supply, explicit heights and missing denominations."
+signature_proof = "The untagged regression inspects the actual SetupSuite constructor call and requires exactly network.DefaultConfig(s.T()); it does not execute the tagged network suite."
+baseline = "Not run: the ordered gate instructions prohibit testing before complete implementation and prohibit verify_cmd outside hf-done. No baseline failures are claimed."
+qualification_limit = "The declared untagged build and focused verify command do not select the existing norace integration suite; no tagged compilation or execution is claimed."
+qualification_repair = "Use the concrete LegacyAmino.UnmarshalAsJSON method for response decoding; the first focused gate exposed two calls to the unavailable UnmarshalJSON method."
+continuation = "The carried proof uses BaseApp store commits, not a consensus network. Wait for the production state store to publish height one, then open the committed height-one query context before serving requests; assert the committed height and balances, and require successful HTTP status before decoding REST responses. Preserve every existing result and height assertion."
+continuation_repair = "At candidate 58619d15f3e74fd46659ff4aaea02a912cfe9f70, hf-done exited 1 (/out/logs/verify-1.log): the fixture's legacy rootmulti store rejects versioned state even after commit. Configure this fixture with production sdk/storev2/rootmulti and wait for its query-state watermark; no production store changes or neighboring test changes."
+previous_attempt = "The supplied attempt-one evidence reports TestRepairM_664_NetworkSignature passing and TestRepairM_664_BankRESTQueries failing; this is previous qualification evidence, not an unchanged-tree baseline."
+wiring_requests = ["sdk/testutil/network and sdk/x/bank/client/rest norace qualification: domain 15 must qualify TestIntegrationTestSuite in its owning gate with the node native dependencies; the allowed gates here do not select norace."]
+evidence = "The final hf-done receipt names the verified candidate revision, exact command, exit code and private evidence location."

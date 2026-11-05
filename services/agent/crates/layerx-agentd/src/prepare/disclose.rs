@@ -1,69 +1,72 @@
-//! Disclosure derivation exclusively from canonical prepared bytes.
+//! Disclosure binding for the exact type-2 transaction and its sender.
 
-use layerx_crypto::disclosure::{
-    bind, bind_budget_mutation, BudgetStateContext, Disclosure, DisclosureError,
-};
-use layerx_types::payload::ModuleRegistry;
+use layerx_crypto::disclosure::{call::bind_call, Disclosure, DisclosureError};
+use layerx_crypto::evm_transaction::{decode_unsigned, Eip1559Call, EvmTransactionError};
 
-use super::{DisclosureDigest, Prepared};
+use super::evm::{CallBindingError, Prepared};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct DisclosedPreparation {
+pub struct DisclosedCall {
     pub disclosure: Disclosure,
-    pub digest: DisclosureDigest,
+    pub digest: [u8; 32],
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum DisclosureBindingError {
-    Decode(DisclosureError),
-    CanonicalMismatch,
-    DigestMismatch,
+pub enum RestoreCallError {
+    Transaction(EvmTransactionError),
+    Binding(CallBindingError),
+    InvalidCall,
 }
 
-pub(crate) fn decode_and_bind(
-    canonical_bytes: &[u8],
-    registry: &ModuleRegistry,
-    budget_context: Option<&BudgetStateContext>,
-) -> Result<DisclosedPreparation, DisclosureBindingError> {
-    let disclosure = match budget_context {
-        Some(context) => bind_budget_mutation(canonical_bytes, registry, context),
-        None => bind(canonical_bytes, registry),
+pub fn bind(call: &Eip1559Call, from: [u8; 20]) -> Result<DisclosedCall, DisclosureError> {
+    if call.chain_id == 0
+        || call.gas_limit == 0
+        || call.max_priority_fee_per_gas > call.max_fee_per_gas
+    {
+        return Err(DisclosureError::MalformedPayload);
     }
-    .map_err(DisclosureBindingError::Decode)?;
-    disclosure
-        .validate_canonical(canonical_bytes)
-        .map_err(|error| match error {
-            DisclosureError::FieldMismatch("canonical_bytes") => {
-                DisclosureBindingError::CanonicalMismatch
-            }
-            error => DisclosureBindingError::Decode(error),
-        })?;
-    let digest = DisclosureDigest(
-        disclosure
-            .audit_digest()
-            .map_err(DisclosureBindingError::Decode)?,
-    );
-    Ok(DisclosedPreparation { disclosure, digest })
+    let disclosure = bind_call(call, from)?;
+    let digest = disclosure.signing_digest()?;
+    Ok(DisclosedCall { disclosure, digest })
 }
 
-pub(crate) fn verify_binding(prepared: &Prepared) -> Result<(), DisclosureBindingError> {
-    prepared
-        .disclosure
-        .validate_canonical(&prepared.canonical_bytes)
-        .map_err(|error| match error {
-            DisclosureError::FieldMismatch("canonical_bytes") => {
-                DisclosureBindingError::CanonicalMismatch
-            }
-            error => DisclosureBindingError::Decode(error),
-        })?;
-    let digest = DisclosureDigest(
-        prepared
-            .disclosure
-            .audit_digest()
-            .map_err(DisclosureBindingError::Decode)?,
-    );
-    if digest != prepared.disclosure_digest || digest != prepared.audit.disclosure_digest {
-        return Err(DisclosureBindingError::DigestMismatch);
+pub fn verify_binding(prepared: &Prepared) -> Result<(), CallBindingError> {
+    if prepared.call.signing_hash() != prepared.signing_hash {
+        return Err(CallBindingError::SigningHashMismatch);
+    }
+    let bound = bind(&prepared.call, prepared.from).map_err(CallBindingError::Disclosure)?;
+    if bound.disclosure != prepared.disclosure {
+        return Err(CallBindingError::Disclosure(
+            DisclosureError::FieldMismatch("call"),
+        ));
+    }
+    if bound.digest != prepared.disclosure_digest {
+        return Err(CallBindingError::DigestMismatch);
     }
     Ok(())
+}
+
+pub fn restore_call(
+    bytes: &[u8],
+    from: [u8; 20],
+    observed_head_height: u64,
+    disclosure_digest: [u8; 32],
+    signing_hash: [u8; 32],
+) -> Result<Prepared, RestoreCallError> {
+    let call = decode_unsigned(bytes).map_err(RestoreCallError::Transaction)?;
+    if call.gas_limit == 0 || call.max_priority_fee_per_gas > call.max_fee_per_gas {
+        return Err(RestoreCallError::InvalidCall);
+    }
+    let bound = bind(&call, from)
+        .map_err(|error| RestoreCallError::Binding(CallBindingError::Disclosure(error)))?;
+    let prepared = Prepared {
+        call,
+        from,
+        disclosure: bound.disclosure,
+        disclosure_digest,
+        signing_hash,
+        observed_head_height,
+    };
+    verify_binding(&prepared).map_err(RestoreCallError::Binding)?;
+    Ok(prepared)
 }

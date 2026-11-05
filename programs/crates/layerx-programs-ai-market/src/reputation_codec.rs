@@ -7,12 +7,12 @@ use crate::{
     },
     types::{Digest32, MarketId, Presence, PrincipalId, Score, Version, WorkerId},
 };
-use sha2::{Digest, Sha256};
 
 /// Encodes one current record.
 ///
 /// # Errors
 /// Propagates `ReputationCurrent::validate`'s `NON_CANONICAL` refusal and the writer's `ARITHMETIC`/`CAPACITY` refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_current(value: &ReputationCurrent) -> CodecResult<[u8; CURRENT_BYTES]> {
     value.validate()?;
     let mut out = [0; CURRENT_BYTES];
@@ -63,15 +63,16 @@ pub fn encode_current(value: &ReputationCurrent) -> CodecResult<[u8; CURRENT_BYT
 ///
 /// # Errors
 /// Returns `NON_CANONICAL` when the input is short or trailing, an identity is zero, the status, flags or reserved bytes are not canonical, or the record fails `ReputationCurrent::validate`; `F03_SCORE_RANGE` when a score exceeds the unit; propagates the reader's `ARITHMETIC` refusal.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_current(input: &[u8]) -> CodecResult<ReputationCurrent> {
     let mut r = Reader::new(input);
-    let worker = WorkerId::new(r.fixed()?)?;
-    let segment = Digest32::new(r.fixed()?)?;
-    let owner = PrincipalId::new(r.fixed()?)?;
-    let reset_generation = Version::new(r.u64()?)?;
-    let quality = Score::new(r.u32()?)?;
+    let worker = r.worker_id()?;
+    let segment = r.digest32()?;
+    let owner = r.principal_id()?;
+    let reset_generation = r.version()?;
+    let quality = r.score()?;
     let qualifying_count = r.u32()?;
-    let coverage = Score::new(r.u32()?)?;
+    let coverage = r.score()?;
     let applied = r.u64()?;
     let observed = r.u64()?;
     let observed_height = r.u64()?;
@@ -128,6 +129,7 @@ pub fn decode_current(input: &[u8]) -> CodecResult<ReputationCurrent> {
 ///
 /// # Errors
 /// Propagates `CompletedHistory::validate`'s `NON_CANONICAL` refusal and the writer's `ARITHMETIC`/`CAPACITY` refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_history(value: &CompletedHistory) -> CodecResult<[u8; HISTORY_BYTES]> {
     value.validate()?;
     let mut out = [0; HISTORY_BYTES];
@@ -147,14 +149,15 @@ pub fn encode_history(value: &CompletedHistory) -> CodecResult<[u8; HISTORY_BYTE
 ///
 /// # Errors
 /// Returns `NON_CANONICAL` when the input is short or trailing, the config or a digest is zero, the reserved byte is nonzero, or the row fails `CompletedHistory::validate`; propagates the reader's `ARITHMETIC` refusal.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_history(input: &[u8]) -> CodecResult<CompletedHistory> {
     let mut r = Reader::new(input);
     let value = CompletedHistory {
         epoch: r.u64()?,
         execution_height: r.u64()?,
-        config: Version::new(r.u64()?)?,
-        result: Digest32::new(r.fixed()?)?,
-        root: Digest32::new(r.fixed()?)?,
+        config: r.version()?,
+        result: r.digest32()?,
+        root: r.digest32()?,
         observed_workers: r.u8()?,
         total_workers: r.u8()?,
         covered_workers: r.u8()?,
@@ -169,15 +172,15 @@ pub fn decode_history(input: &[u8]) -> CodecResult<CompletedHistory> {
 /// # Errors
 /// Propagates `Digest32::new`'s `NON_CANONICAL` refusal for an all-zero digest.
 pub fn segment_digest(key: SegmentKey) -> CodecResult<Digest32> {
-    let mut h = Sha256::new();
-    h.update(b"PAXAI/reputation-segment/v1\0");
-    h.update(key.market.as_bytes());
-    h.update(key.worker.as_bytes());
-    h.update(key.config.get().to_be_bytes());
-    h.update(key.policy.as_bytes());
-    h.update(key.model.as_bytes());
-    h.update(key.reset_generation.get().to_be_bytes());
-    Digest32::new(h.finalize().into())
+    Digest32::new(crate::codec::sha256([
+        b"PAXAI/reputation-segment/v1\0".as_slice(),
+        key.market.as_bytes(),
+        key.worker.as_bytes(),
+        &key.config.get().to_be_bytes(),
+        key.policy.as_bytes(),
+        key.model.as_bytes(),
+        &key.reset_generation.get().to_be_bytes(),
+    ])?)
 }
 /// Digest closing `value`'s segment for `reason`.
 ///
@@ -189,34 +192,31 @@ pub fn closure_digest(
     reason: ClosureReason,
 ) -> CodecResult<Digest32> {
     value.validate()?;
-    let mut h = Sha256::new();
-    h.update(b"PAXAI/reputation-close/v1\0");
-    h.update(market.as_bytes());
-    h.update(value.worker.as_bytes());
-    h.update(value.segment.as_bytes());
-    h.update(value.reset_generation.get().to_be_bytes());
-    h.update(value.quality.get().to_be_bytes());
-    h.update(value.qualifying_count.to_be_bytes());
-    h.update(
-        match value.coverage {
-            Presence::Absent => 0,
-            Presence::Present(v) => v.get(),
-        }
-        .to_be_bytes(),
-    );
-    h.update(
-        match value.last_applied {
-            Presence::Absent => 0,
-            Presence::Present(e) => e,
-        }
-        .to_be_bytes(),
-    );
-    h.update([reason as u8]);
-    h.update(match value.previous_segment {
+    let coverage = match value.coverage {
+        Presence::Absent => 0,
+        Presence::Present(v) => v.get(),
+    };
+    let last_applied = match value.last_applied {
+        Presence::Absent => 0,
+        Presence::Present(e) => e,
+    };
+    let previous = match value.previous_segment {
         Presence::Absent => [0; 32],
         Presence::Present(d) => d.bytes(),
-    });
-    Digest32::new(h.finalize().into())
+    };
+    Digest32::new(crate::codec::sha256([
+        b"PAXAI/reputation-close/v1\0".as_slice(),
+        market.as_bytes(),
+        value.worker.as_bytes(),
+        value.segment.as_bytes(),
+        &value.reset_generation.get().to_be_bytes(),
+        &value.quality.get().to_be_bytes(),
+        &value.qualifying_count.to_be_bytes(),
+        &coverage.to_be_bytes(),
+        &last_applied.to_be_bytes(),
+        &[reason as u8],
+        &previous,
+    ])?)
 }
 /// Reputation root over `records` at `epoch`.
 ///
@@ -230,24 +230,22 @@ pub fn reputation_root(
     if records.len() > LIMIT {
         return Err(CAPACITY);
     }
-    let mut h = Sha256::new();
-    h.update(b"PAXAI/reputation-root/v1\0");
-    h.update(market.as_bytes());
-    h.update(epoch.to_be_bytes());
-    h.update(
-        u16::try_from(records.len())
-            .map_err(|_| CAPACITY)?
-            .to_be_bytes(),
-    );
+    let mut bytes = [0; 24 + 32 + 8 + 2 + LIMIT * CURRENT_BYTES];
+    let mut h = Writer::new(&mut bytes);
+    h.put(b"PAXAI/reputation-root/v1\0")?;
+    h.put(market.as_bytes())?;
+    h.u64(epoch)?;
+    h.u16(u16::try_from(records.len()).map_err(|_| CAPACITY)?)?;
     let mut previous = None;
     for record in records {
         if previous.is_some_and(|w| w >= record.worker) {
             return Err(NON_CANONICAL);
         }
-        h.update(encode_current(record)?);
+        h.put(&encode_current(record)?)?;
         previous = Some(record.worker);
     }
-    Digest32::new(h.finalize().into())
+    let length = h.len();
+    Digest32::new(crate::codec::sha256([&bytes[..length]])?)
 }
 #[allow(
     dead_code,
@@ -255,20 +253,22 @@ pub fn reputation_root(
 )]
 pub(crate) fn state_root(state: &ReputationState, epoch: u64) -> CodecResult<Digest32> {
     // During staging, records may already refer to the pending completion.
-    let mut h = Sha256::new();
-    h.update(b"PAXAI/reputation-root/v1\0");
-    h.update(state.market.as_bytes());
-    h.update(epoch.to_be_bytes());
-    h.update(u16::from(state.current_len).to_be_bytes());
+    let mut bytes = [0; 24 + 32 + 8 + 2 + LIMIT * CURRENT_BYTES];
+    let mut h = Writer::new(&mut bytes);
+    h.put(b"PAXAI/reputation-root/v1\0")?;
+    h.put(state.market.as_bytes())?;
+    h.u64(epoch)?;
+    h.u16(u16::from(state.current_len))?;
     let mut previous = None;
     for record in state.records() {
         if previous.is_some_and(|w| w >= record.worker) {
             return Err(NON_CANONICAL);
         }
-        h.update(encode_current(record)?);
+        h.put(&encode_current(record)?)?;
         previous = Some(record.worker);
     }
-    Digest32::new(h.finalize().into())
+    let length = h.len();
+    Digest32::new(crate::codec::sha256([&bytes[..length]])?)
 }
 // F07 section framing: RP07, schema:u16, counts:u8/u8, market32,
 // completed-presence:u8, completed-epoch:u64, fifteen reserved zero bytes.
@@ -276,6 +276,7 @@ pub(crate) fn state_root(state: &ReputationState, epoch: u64) -> CodecResult<Dig
 ///
 /// # Errors
 /// Propagates `ReputationState::encoded_len`'s `CAPACITY`/`NON_CANONICAL`/`F07_RESOURCE_LIMIT` refusals; returns `CAPACITY` when `output` is shorter than the section; propagates the record encoders' and the writer's refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_section(state: &ReputationState, output: &mut [u8]) -> CodecResult<usize> {
     let size = state.encoded_len()?;
     if output.len() < size {
@@ -310,6 +311,7 @@ pub fn encode_section(state: &ReputationState, output: &mut [u8]) -> CodecResult
 ///
 /// # Errors
 /// Returns `F07_RESOURCE_LIMIT` when the input exceeds `SECTION_CAP`; `NON_CANONICAL` on a bad magic, presence, completed epoch, reserved byte or trailing input; `BAD_VERSION` when the schema is not 1; `CAPACITY` when a count exceeds `LIMIT`; propagates the record decoders' and `ReputationState::validate`'s refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_section(input: &[u8]) -> CodecResult<ReputationState> {
     if input.len() > SECTION_CAP {
         return Err(F07_RESOURCE_LIMIT);
@@ -326,7 +328,7 @@ pub fn decode_section(input: &[u8]) -> CodecResult<ReputationState> {
     if current_len as usize > LIMIT || history_len as usize > LIMIT {
         return Err(CAPACITY);
     }
-    let market = MarketId::new(r.fixed()?)?;
+    let market = r.market_id()?;
     let present = r.boolean()?;
     let completed_epoch = r.u64()?;
     if !present && completed_epoch != 0 {

@@ -1,25 +1,109 @@
 # Bootstrap qualification
 
-Use the versions in `tools/production/bootstrap/toolchain/versions.txt`, Docker Compose, and Anvil available on PATH. Run from the repository root. The contract fixture reads the sibling `../contracts` checkout and its installed Hardhat compiler artifacts. No production credentials are required.
+Run commands from the repository root unless shown otherwise. Use the pins in
+[toolchain/versions.txt](toolchain/versions.txt), a Docker daemon with Compose,
+and Anvil on PATH for the frontend wallet fixture. These are local qualification
+fixtures; production credentials are not required.
 
-Install the client with its pinned package manager:
+Paxeer is one network, with the kernel participating in block proposal. Its EVM
+chain ID is 125 (`0x7d`), and a receipt is final when its block commits. The local
+Compose EVM and in-process Hardhat chain also use 125 but do not reproduce Paxeer
+consensus or establish deployment readiness. Public JSON-RPC uses the root URL,
+for example `https://api1.mainnet-beta.paxeer.network/`; local fixture commands
+below must use their private chains.
+
+## Source and dependency prerequisites
+
+The web application is `apps/launchpad/web`; its workspace manifest and lockfile
+are under `apps/launchpad`. Install with the pinned package manager:
 
 ```sh
-cd client
+cd apps/launchpad
 npm exec --yes --package=pnpm@9.15.0 -- pnpm install --frozen-lockfile
-cd ..
+cd ../..
 ```
 
-Run the complete current-source gate:
+The default contract source is `contracts/launchpad`, inside this repository.
+The contract fixture consumes that directory's installed Hardhat dependencies,
+compiled `artifacts/contracts`, debug files and build-info. It checks compiled
+source contents against current sources and uses an isolated in-process Hardhat
+network with `--no-compile`; it does not compile missing or stale artifacts.
+The qualifier's `--contract-root` option explicitly selects a different reviewed
+contract root. Standalone `contracts/run.sh` requires `CONTRACT_SOURCE_ROOT` and
+`FIXTURE_OUTPUT`; the registered qualifier supplies them.
+
+## Current-source baseline gate
+
+The launchpad baseline runner expects its own production-system specification
+and reviewed [check registry](check-registry.json). The configured invocation is:
 
 ```sh
-npm exec --yes --package=pnpm@9.15.0 -- python3 tools/production/qualify.py --task 0.1 --spec spec/production-system/spec.kvx --require-current-source
+python3 tools/launchpad/production/qualify.py \
+  --task 0.1 \
+  --spec launchpad/spec/production-system/spec.kvx \
+  --registry tools/launchpad/production/bootstrap/check-registry.json \
+  --contract-root contracts/launchpad \
+  --evidence-dir launchpad/evidence/production-system/qualification \
+  --require-current-source
 ```
 
-The gate verifies tools, dependency integrity and source provenance; starts loopback fixtures; deploys real contracts only on a private EVM; builds all thirteen Go modules and the client; and executes registered Go, SDK and frontend tests. Two Go suites may run concurrently. Each individual Go invocation uses one package build worker. Livestream currently has no existing tests and is explicitly build-only.
+The configured `launchpad/spec/production-system/spec.kvx` is absent from this
+checkout. The command needs that reviewed launchpad specification restored or an
+explicit reviewed `--spec` file with the runner's expected task schema. Do not
+substitute `spec/layerx-merge/spec.kvx`: this is bootstrap task `0.1`, not a
+layerx-merge task gate.
+The runner verifies tools, dependency integrity and source provenance, starts
+loopback fixtures, deploys contracts on a private EVM, and executes registered
+Go, SDK and web checks. At most two contiguous Go test suites overlap; individual
+Go builds use one package build worker. Read the registry for the precise suite
+selection rather than assuming all source tests run.
 
-Evidence is written to `evidence/production-system/qualification/0.1/<run>/`. Read `result.json` for the final result and `progress.json` for completed checks during a run. A process exit, named skipped test, missing expected test, stale source or incomplete check makes qualification fail. Empty utility packages do not substitute for a module test suite.
+`services/launchpad/go.work` is the canonical Go workspace. `baseline.py` pins
+its seventeen reviewed production members (fifteen service modules, including
+security/control, and the shared/protocol SDK modules) and reconciles the
+workspace against them. Recovery-broker and load-eventdriver workspace members,
+and discovered test fixtures, are reported separately as auxiliary Go modules.
+Every selected module still requires its checksum file and dependency verification;
+the collector never repairs manifests or checksums. `baseline.json` records
+production modules in `go_modules` and test/tool modules in `auxiliary_go_modules`.
 
-The frontend tests use a separate ephemeral Anvil instance and terminate it afterward. The reusable Compose fixture persists for subsequent checks; stop it with `docker compose -f deploy/production/bootstrap/compose.yml down`. Do not add `-v` when retaining fixture data is desired.
+JavaScript membership comes from `apps/launchpad/pnpm-workspace.yaml`: `web`,
+`mobile` and `../../sdk/launchpad/packages/*`, plus the workspace root manifest.
+The baseline checks workspace names and file/link targets in all four dependency
+sections, and records immutable hashes in `npm_workspace_manifests`. Package
+manifests in unrelated qualification fixtures are not workspace members.
 
-A passing bootstrap establishes the existing-suite baseline. It does not certify feature completeness, browser journeys, deployment readiness or 500,000 daily active users. Later specification gates cover those obligations.
+[build/manifest.json](build/manifest.json) remains a source command inventory
+covering thirteen modules. Its checker requires exact discovered-module coverage;
+that older inventory is not the seventeen-module dependency baseline and is not
+proof that the current tree builds. The checked-in task-0.1 registry and qualifier
+still require the listed build/test targets; membership discovery does not add,
+remove or certify executed checks. The registry excludes livestream from required
+test targets while retaining its build target; this does not mean it has no tests.
+
+## Evidence and cleanup
+
+The default evidence directory is
+`launchpad/evidence/production-system/qualification/0.1/<run>/`.
+Read `result.json` for the final result, `progress.json` for completed checks,
+`source-before.json` and `source-after.json` for provenance, and `<check-id>.log`
+for each registered check. The baseline additionally writes `baseline.json`,
+`baseline-command-<index>.log` and `abi-baseline.json` in that run directory.
+A nonzero exit, named skip, missing expected test, stale source or incomplete
+check fails qualification. Empty utility packages cannot replace a module test suite.
+
+The frontend fixture starts and terminates two ephemeral Anvil instances: a
+wallet chain using 125 and a dispatch chain initially using 1. The reusable
+Compose fixture persists between checks. Stop it while
+preserving its volumes with:
+
+```sh
+docker compose -f deploy/launchpad/production/bootstrap/compose.yml down
+```
+
+A passing bootstrap establishes the registered existing-suite baseline. Browser
+journeys, deployment readiness and 500,000 daily active users require separate
+evidence. Continue with the [security prerequisite map](security/GAPS.md),
+[worker dispatcher](../dispatcher/README.md),
+[integration assurance](../integration/README.md) and
+[load workload](../load/README.md).

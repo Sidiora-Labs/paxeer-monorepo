@@ -1,0 +1,7 @@
+{
+  "revision": "76bd4ca9414014055f61431cd0c7be0dc9ac5fe2",
+  "source_binding": "7a38721e76c9b51f0142960eeca74b46fd5efc609a93f71ab6d92f85beb6329d",
+  "source_paths": [
+    "tools/bringup/runtime-bundle.json"
+  ]
+}

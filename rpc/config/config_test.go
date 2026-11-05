@@ -2,6 +2,7 @@ package config_test
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 	"text/template"
 	"time"
@@ -49,7 +50,8 @@ type opts struct {
 }
 
 func (o *opts) Get(k string) interface{} {
-	if k == "evm.batch_request_limit" ||
+	if k == "evm.px_indexer_url" ||
+		k == "evm.batch_request_limit" ||
 		k == "evm.batch_response_max_size" ||
 		k == "evm.send_raw_tx_sync_timeout" ||
 		k == "evm.max_subscriptions_logs" {
@@ -551,4 +553,42 @@ func TestReadConfigEnableParallelizedBlockTrace(t *testing.T) {
 	cfg, err := config.ReadConfig(&opts)
 	require.NoError(t, err)
 	require.True(t, cfg.EnableParallelizedBlockTrace)
+}
+
+func TestReadConfigTickerDurationErrors(t *testing.T) {
+	assertTickerDurationErrors(t)
+}
+
+func assertTickerDurationErrors(t *testing.T) {
+	t.Helper()
+	for _, tc := range []struct {
+		key     string
+		value   interface{}
+		minimum string
+	}{
+		{"evm.filter_timeout", "-1s", "2ns"},
+		{"evm.filter_timeout", "0s", "2ns"},
+		{"evm.filter_timeout", "1ns", "2ns"},
+		{"evm.filter_timeout", -time.Second, "2ns"},
+		{"evm.filter_timeout", time.Duration(0), "2ns"},
+		{"evm.filter_timeout", time.Nanosecond, "2ns"},
+		{"evm.filter_timeout", "bad", ""},
+		{"evm.filter_timeout", []string{"2ns"}, ""},
+		{"evm.rpc_stats_interval", "-1s", "1ns"},
+		{"evm.rpc_stats_interval", "0s", "1ns"},
+		{"evm.rpc_stats_interval", -time.Second, "1ns"},
+		{"evm.rpc_stats_interval", time.Duration(0), "1ns"},
+		{"evm.rpc_stats_interval", "bad", ""},
+		{"evm.rpc_stats_interval", []string{"1ns"}, ""},
+	} {
+		t.Run(tc.key+"/"+fmt.Sprint(tc.value), func(t *testing.T) {
+			options := viper.New()
+			options.Set(tc.key, tc.value)
+			_, err := config.ReadConfig(options)
+			require.ErrorContains(t, err, tc.key)
+			if tc.minimum != "" {
+				require.ErrorContains(t, err, "at least "+tc.minimum)
+			}
+		})
+	}
 }

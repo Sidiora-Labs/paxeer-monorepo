@@ -1,6 +1,7 @@
+use std::io::Write;
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::path::Path;
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 fn node_rpc_url(node: &Path) -> Result<&str, String> {
     let invalid = || "boundary NODE must be a valid http or https URL".to_owned();
@@ -141,21 +142,41 @@ pub fn agent_qualify_boundary_gate(
         if !stdout.lines().any(|line| line == required) {
             return Err(format!("boundary result omitted {required}"));
         }
-        if mode == "--production-required" {
-            for required in [
-                "agent boundary conformance suite passed: node JSON-RPC, committed block ",
-                "absent receipt, malformed submit",
-                "pending reads exercised: eth_getBalance eth_getTransactionCount eth_estimateGas eth_call",
-            ] {
-                if !stdout.contains(required) {
-                    return Err(format!("boundary result omitted {required}"));
-                }
-            }
-        }
+        check_boundary_report(harness, mode, stdout.as_bytes())?;
         reports.push(stdout);
     }
     Ok(format!(
         "agent_qualify_boundary_gate passed node_json_rpc=true modes=admission,recovery,duplicate,peer-refusal\n{}",
         reports.join("\n")
     ))
+}
+
+/// Uses the live harness's strict decoder so producer and consumer share one contract.
+pub fn check_boundary_report(harness: &Path, mode: &str, report: &[u8]) -> Result<(), String> {
+    if report.len() > 65_536 {
+        return Err("boundary result exceeds the report bound".to_owned());
+    }
+    let mut decoder = Command::new(harness)
+        .args(["--check-report", mode])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|error| format!("could not start boundary report decoder {mode}: {error}"))?;
+    let sent = decoder
+        .stdin
+        .take()
+        .ok_or_else(|| "boundary report decoder has no input pipe".to_owned())?
+        .write_all(report);
+    let output = decoder
+        .wait_with_output()
+        .map_err(|error| format!("could not wait for boundary report decoder {mode}: {error}"))?;
+    if !output.status.success() {
+        return Err(format!(
+            "boundary report decoder {mode} failed: status={} stderr={}",
+            output.status,
+            String::from_utf8_lossy(&output.stderr).trim()
+        ));
+    }
+    sent.map_err(|error| format!("could not send boundary report {mode}: {error}"))
 }

@@ -1,20 +1,22 @@
 package layerxledger_test
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/hex"
 	"math/big"
 	"reflect"
 	"testing"
+	"unsafe"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
-	ledgerkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxledger"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/stretchr/testify/require"
 )
 
@@ -42,17 +44,18 @@ func ledgerParityReceipt(t *testing.T, host *lxphost.Host, encodedLength int) *c
 	t.Helper()
 	node := reflect.ValueOf(host).Elem().FieldByName("node")
 	require.False(t, node.IsNil())
-	arena := node.Elem().FieldByName("arena_bytes")
-	require.Equal(t, reflect.Array, arena.Kind())
+	arena := node.Elem().FieldByName("arena")
+	buffer := arena.FieldByName("buffer")
+	require.Equal(t, reflect.Ptr, buffer.Kind())
+	require.False(t, buffer.IsNil())
 	require.Positive(t, encodedLength)
-	require.LessOrEqual(t, encodedLength, arena.Len())
-	require.GreaterOrEqual(t, node.Elem().FieldByName("arena").FieldByName("offset").Uint(), uint64(encodedLength))
-	encoded := make([]byte, encodedLength)
-	for i := range encoded {
-		encoded[i] = byte(arena.Index(i).Uint())
-	}
+	require.LessOrEqual(t, uint64(encodedLength), arena.FieldByName("capacity").Uint())
+	require.GreaterOrEqual(t, arena.FieldByName("offset").Uint(), uint64(encodedLength))
+	// Read the allocator's actual buffer; cgo's duplicated node declarations
+	// do not agree on the offset of the later arena_bytes field.
+	encoded := bytes.Clone(unsafe.Slice((*byte)(buffer.UnsafePointer()), encodedLength))
 	receipt, err := codec.DecodeReceipt(encoded)
-	require.NoError(t, err)
+	require.NoError(t, err, "native receipt prefix: %x", encoded[:min(8, len(encoded))])
 	return receipt
 }
 
@@ -80,6 +83,18 @@ func assertLedgerKernelParity(t *testing.T, h *harness, caller common.Address, a
 		Bound: true, Actor: actor.id, Principal: actor.id, VerifiedKey: actor.public,
 	}
 	want, err := direct.Execute(lxphost.WithSequence(branch, sequence), activity, authority)
+	if method == "issueGrant" || method == "draw" || method == "revokeGrant" {
+		require.ErrorIs(t, err, lxphost.Code(-106))
+		require.Empty(t, want.Encoded)
+		require.Equal(t, before, storeSnapshot(t, branch.KVStore(h.hostKey)))
+		logs := len(h.stateDB.GetAllLogs())
+		data, err := assetCall(t, h, caller, method, args...)
+		require.ErrorIs(t, err, vm.ErrExecutionReverted)
+		assertLedgerRevert(t, data, "LXP_NO_PAYER_GRANT")
+		require.Equal(t, before, storeSnapshot(t, h.ctx.KVStore(h.hostKey)))
+		require.Len(t, h.stateDB.GetAllLogs(), logs)
+		return
+	}
 	require.NoError(t, err)
 	require.Equal(t, lxphost.Code(0), want.ResultCode)
 	require.Equal(t, before, storeSnapshot(t, h.ctx.KVStore(h.hostKey)))
@@ -128,26 +143,15 @@ func TestLedgerPrecompileKernelParity(t *testing.T) {
 	})
 
 	t.Run("send", func(t *testing.T) {
-		f := newPaymentFixture(t)
-		main := transferMainAccount(t, f.harness, f.payer, f.asset)
-		fundingKey := [32]byte{0x62}
-		funding := transferEnvelope(t, f.harness, f.payer, f.from, main, f.asset, 100, 0, fundingKey)
-		ctx, err := ledgerkeeper.WithSequence(f.ctx)
+		h, payer, asset := newTransferHarness(t)
+		payee := transferRecipient(t, h)
+		from := openTransferAccount(t, h, h.caller, payer, asset)
+		to := openTransferAccount(t, h, common.Address{0x23, 2}, payee, asset)
+		_, err := runTransferMethod(t, h, "mint", asset, from, big.NewInt(250))
 		require.NoError(t, err)
-		accountSequence, err := f.host.ReadIdentitySequence(ctx, f.payer.DID)
-		require.NoError(t, err)
-		now := uint64(ctx.BlockTime().UnixMilli())
-		receipt, err := f.host.Execute(ctx, lxphost.Activity{
-			ProtocolVersion: 3, Type: 0x00010005, ActorDID: f.payer.DID, AuthorityKey: f.payer.DIDKey,
-			AccountSequence: accountSequence, NotBefore: now, NotAfter: now,
-			IdempotencyKey: fundingKey, Payload: funding,
-		}, f.payer.Authority)
-		require.NoError(t, err)
-		require.Equal(t, lxphost.Code(0), receipt.ResultCode)
-		require.NoError(t, f.keeper.Mirror(f.ctx, 0x00010005, receipt))
 		key := [32]byte{0x63}
-		payload := transferEnvelope(t, f.harness, f.payer, main, f.to, f.asset, 25, 0, key)
-		assertLedgerKernelParity(t, f.harness, f.caller, newLedgerParityActor(t, 1), "send", 0x00010005,
+		payload := transferEnvelope(t, h, payer, from, to, asset, 25, 0, key)
+		assertLedgerKernelParity(t, h, h.caller, newLedgerParityActor(t, 1), "send", 0x00010005,
 			payload, key, payload)
 	})
 
@@ -159,8 +163,9 @@ func TestLedgerPrecompileKernelParity(t *testing.T) {
 
 	t.Run("draw", func(t *testing.T) {
 		f := newPaymentFixture(t)
-		_, err := f.call(t, f.caller, "issueGrant", f.grant)
-		require.NoError(t, err)
+		data, err := f.call(t, f.caller, "issueGrant", f.grant)
+		require.ErrorIs(t, err, vm.ErrExecutionReverted)
+		assertLedgerRevert(t, data, "LXP_NO_PAYER_GRANT")
 		key := [32]byte{0x64}
 		payload, err := types.EncodeReceivePayload(types.ReceiveArgs{
 			From: f.from, To: f.to, Asset: f.asset, Amount: sdk.NewInt(15), GrantID: f.grantID,
@@ -174,8 +179,9 @@ func TestLedgerPrecompileKernelParity(t *testing.T) {
 
 	t.Run("revokeGrant", func(t *testing.T) {
 		f := newPaymentFixture(t)
-		_, err := f.call(t, f.caller, "issueGrant", f.grant)
-		require.NoError(t, err)
+		data, err := f.call(t, f.caller, "issueGrant", f.grant)
+		require.ErrorIs(t, err, vm.ErrExecutionReverted)
+		assertLedgerRevert(t, data, "LXP_NO_PAYER_GRANT")
 		sequence, err := f.host.ReadIdentitySequence(f.ctx, f.payer.DID)
 		require.NoError(t, err)
 		payload := types.EncodeRevokeGrantPayload(f.grantID, sequence)

@@ -1,20 +1,14 @@
-//! Bonded-guarantor threshold and settlement-registration verification.
+//! Historical guarantor certificate material without chain-finality authority.
+//! The compatibility types remain available to daemon consumers; both verifier
+//! entry points refuse certificates with `RetiredCertificateVerifier`.
 
-use std::collections::BTreeSet;
+use std::convert::Infallible;
 
-use layerx_crypto::secp256k1;
 use layerx_types::settlement::SettlementError;
-use layerx_wire::hash::{checkpoint_attestation_digest, checkpoint_id as hash_checkpoint_id};
-use layerx_wire::limits::protocol_version_uses_occupancy;
-use layerx_wire::receipt::{decode_batch_header, encode_batch_header, BatchHeader};
-
-use crate::availability::RootCommitments;
-use crate::evidence::Evidence;
-use crate::level::achieved;
-use crate::settlement;
+use layerx_wire::hash::checkpoint_id as hash_checkpoint_id;
+use layerx_wire::receipt::{decode_batch_header, encode_batch_header};
 
 const ATTESTATION_BYTES: usize = 189;
-const ALL_AVAILABILITY_CLASSES: u8 = 0x1f;
 
 /// Canonical checkpoint body committed by guarantors.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -275,89 +269,88 @@ impl Certificate {
     }
 }
 
-/// Successful distinct-signature count and the level it established.
+/// Uninhabited compatibility result for the retired guarantor verifiers.
+///
+/// The private impossible value prevents construction, including inside this
+/// crate. The accessors preserve source compatibility for consumers awaiting
+/// migration, but this type cannot carry proof evidence or establish a level.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ThresholdReport {
-    /// Number of distinct bonded signatures that verified.
+    /// Historical distinct-signature count; no report can be constructed.
     pub achieved: usize,
-    /// Configured certificate threshold.
+    /// Historical threshold; no report can be constructed.
     pub required: usize,
-    evidence: Evidence,
-    protocol_version: u16,
-    network_id: u32,
-    batch_number: u64,
-    first_sequence: u64,
-    last_sequence: u64,
-    data_availability_root: [u8; 32],
-    record_roots: RootCommitments,
-    resulting_state_root: [u8; 32],
+    retired: Infallible,
 }
 
 impl ThresholdReport {
-    /// Returns the exact evidence-gated level established by the certificate.
     #[must_use]
     pub const fn level(&self) -> layerx_types::verify::VerificationLevel {
-        achieved(&self.evidence)
+        match self.retired {}
     }
 
-    /// Returns the checkpoint and optional settlement identifiers that passed.
+    /// Preserves legacy identifier access without returning an `Evidence`.
     #[must_use]
-    pub const fn evidence(&self) -> &Evidence {
-        &self.evidence
+    pub const fn evidence(&self) -> &Self {
+        match self.retired {}
     }
 
-    /// Returns the protocol version from the verified canonical header.
+    #[must_use]
+    pub const fn checkpoint_id(&self) -> Option<[u8; 32]> {
+        match self.retired {}
+    }
+
+    #[must_use]
+    pub const fn settlement_reference(&self) -> Option<&[u8]> {
+        match self.retired {}
+    }
+
     #[must_use]
     pub const fn protocol_version(&self) -> u16 {
-        self.protocol_version
+        match self.retired {}
     }
 
-    /// Returns the network identifier from the verified canonical header.
     #[must_use]
     pub const fn network_id(&self) -> u32 {
-        self.network_id
+        match self.retired {}
     }
 
-    /// Returns the verified batch number committed by the checkpoint.
     #[must_use]
     pub const fn batch_number(&self) -> u64 {
-        self.batch_number
+        match self.retired {}
     }
 
-    /// Returns the first global sequence committed by the checkpoint batch.
     #[must_use]
     pub const fn first_sequence(&self) -> u64 {
-        self.first_sequence
+        match self.retired {}
     }
 
-    /// Returns the last global sequence committed by the checkpoint batch.
     #[must_use]
     pub const fn last_sequence(&self) -> u64 {
-        self.last_sequence
+        match self.retired {}
     }
 
-    /// Returns the data-availability root verified as part of the checkpoint.
     #[must_use]
     pub const fn data_availability_root(&self) -> [u8; 32] {
-        self.data_availability_root
+        match self.retired {}
     }
 
-    /// Returns the four record roots verified as part of the checkpoint.
     #[must_use]
-    pub const fn record_roots(&self) -> RootCommitments {
-        self.record_roots
+    pub const fn record_roots(&self) -> crate::availability::RootCommitments {
+        match self.retired {}
     }
 
-    /// Returns the resulting state root from the verified canonical header.
     #[must_use]
     pub const fn resulting_state_root(&self) -> [u8; 32] {
-        self.resulting_state_root
+        match self.retired {}
     }
 }
 
 /// Exact certificate verification failure.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum CheckpointError {
+    /// Guarantor certificates cannot authenticate a committed BFT block.
+    RetiredCertificateVerifier,
     /// Canonical header decoding or re-encoding failed.
     Header,
     /// The certificate refers to a different checkpoint identifier.
@@ -405,194 +398,35 @@ pub fn checkpoint_id(checkpoint: &Checkpoint) -> Result<[u8; 32], CheckpointErro
     hash_checkpoint_id(&encoded, &checkpoint.validity_proof).map_err(|_| CheckpointError::Header)
 }
 
-fn attestation_matches_checkpoint(
-    attestation: &Attestation,
-    header: &BatchHeader,
-    identifier: &[u8; 32],
-    expected_settlement_domain: SettlementDomain,
-) -> bool {
-    attestation.protocol_version == header.protocol_version()
-        && attestation.network_id == header.network_id()
-        && attestation.paxeer_chain_id == expected_settlement_domain.paxeer_chain_id
-        && attestation.paxeer_settlement_contract == expected_settlement_domain.settlement_contract
-        && attestation.epoch == header.epoch()
-        && attestation.checkpoint_id == *identifier
-        && attestation.checkpoint_hash == *identifier
-        && attestation.batch_number == header.batch_number()
-        && attestation.data_availability_root == header.data_availability_root()
-        && attestation.replayed
-        && attestation.data_possessed
-        && attestation.availability_class_mask == ALL_AVAILABILITY_CLASSES
-        && attestation.attested_at_ms != 0
-        && attestation.signer != [0; 20]
-        && matches!(attestation.signature_v, 27 | 28)
-}
-
-/// Checks that an attestation falls inside the closed header-relative
-/// freshness window `[header.timestamp, header.timestamp + maximum delay]`.
-fn check_attestation_freshness(
-    guarantor_id: [u8; 32],
-    attested_at_ms: u64,
-    header_timestamp_ms: u64,
-    maximum_delay_ms: u64,
-) -> Result<(), CheckpointError> {
-    if attested_at_ms < header_timestamp_ms {
-        return Err(CheckpointError::AttestationNotYetValid {
-            guarantor_id,
-            attested_at_ms,
-            header_timestamp_ms,
-        });
-    }
-    if attested_at_ms - header_timestamp_ms > maximum_delay_ms {
-        return Err(CheckpointError::AttestationExpired {
-            guarantor_id,
-            attested_at_ms,
-            deadline_ms: header_timestamp_ms.saturating_add(maximum_delay_ms),
-        });
-    }
-    Ok(())
-}
-
-/// Verifies all certificate attestations against the bonded checkpoint set.
+/// Refuses the retired guarantor verification interface.
 ///
 /// # Errors
 ///
-/// Returns the exact identifier, field, distinctness, membership, signature,
-/// threshold, or settlement check that failed. No partial level is returned.
+/// Always returns [`CheckpointError::RetiredCertificateVerifier`]. Guarantor
+/// signatures and registration identifiers cannot establish chain commitment.
+#[deprecated(note = "guarantor verification is retired; use receipt or inclusion verification")]
 pub fn verify_certificate(
-    certificate: &Certificate,
-    bonded_set: &[GuarantorKey],
-    registered_checkpoint_id: &[u8; 32],
-    expected_settlement_domain: SettlementDomain,
-    registered_settlement_reference: Option<&[u8]>,
+    _certificate: &Certificate,
+    _bonded_set: &[GuarantorKey],
+    _registered_checkpoint_id: &[u8; 32],
+    _expected_settlement_domain: SettlementDomain,
+    _registered_settlement_reference: Option<&[u8]>,
 ) -> Result<ThresholdReport, CheckpointError> {
-    let header = decode_batch_header(&certificate.checkpoint.header_bytes)
-        .map_err(|_| CheckpointError::Header)?;
-    if !protocol_version_uses_occupancy(header.protocol_version()) {
-        return Err(CheckpointError::CheckpointFields);
-    }
-    let identifier = checkpoint_id(&certificate.checkpoint)?;
-    if &identifier != registered_checkpoint_id {
-        return Err(CheckpointError::CheckpointIdentifier);
-    }
-    let maximum_delay_ms =
-        settlement::maximum_attestation_delay_ms().map_err(CheckpointError::Configuration)?;
-    let header_timestamp_ms = header.timestamp_ms();
-    let mut seen = BTreeSet::new();
-    let mut achieved = 0;
-    if expected_settlement_domain.paxeer_chain_id == 0
-        || expected_settlement_domain.settlement_contract == [0; 20]
-    {
-        return Err(CheckpointError::Settlement);
-    }
-    for attestation in &certificate.attestations {
-        if !seen.insert(attestation.guarantor_id) {
-            return Err(CheckpointError::DuplicateSigner(attestation.guarantor_id));
-        }
-        if !attestation_matches_checkpoint(
-            attestation,
-            &header,
-            &identifier,
-            expected_settlement_domain,
-        ) {
-            return Err(CheckpointError::CheckpointFields);
-        }
-        check_attestation_freshness(
-            attestation.guarantor_id,
-            attestation.attested_at_ms,
-            header_timestamp_ms,
-            maximum_delay_ms,
-        )?;
-        let key = bonded_set
-            .iter()
-            .find(|key| key.guarantor_id == attestation.guarantor_id && key.bonded)
-            .ok_or(CheckpointError::SignerMembership(attestation.guarantor_id))?;
-        let digest = checkpoint_attestation_digest(&attestation.message())
-            .map_err(|_| CheckpointError::Signature(attestation.guarantor_id))?;
-        if secp256k1::evm_address(&key.public_key)
-            .map_err(|_| CheckpointError::Signature(attestation.guarantor_id))?
-            != attestation.signer
-        {
-            return Err(CheckpointError::Signature(attestation.guarantor_id));
-        }
-        secp256k1::verify_recoverable_digest(
-            &key.public_key,
-            &attestation.signature,
-            attestation.signature_v,
-            &digest,
-        )
-        .map_err(|_| CheckpointError::Signature(attestation.guarantor_id))?;
-        achieved += 1;
-    }
-    if certificate.threshold == 0 || achieved < certificate.threshold {
-        return Err(CheckpointError::Threshold {
-            achieved,
-            required: certificate.threshold,
-        });
-    }
-    let settlement_reference = if let Some(reference) = certificate.settlement_reference.as_deref()
-    {
-        if reference.is_empty() || registered_settlement_reference != Some(reference) {
-            return Err(CheckpointError::Settlement);
-        }
-        Some(reference.to_vec())
-    } else {
-        None
-    };
-    Ok(ThresholdReport {
-        achieved,
-        required: certificate.threshold,
-        evidence: Evidence::checkpoint(identifier, settlement_reference),
-        protocol_version: header.protocol_version(),
-        network_id: header.network_id(),
-        batch_number: header.batch_number(),
-        first_sequence: header.first_sequence(),
-        last_sequence: header.last_sequence(),
-        data_availability_root: header.data_availability_root(),
-        record_roots: RootCommitments {
-            activity: header.activity_merkle_root(),
-            receipt: header.receipt_merkle_root(),
-            event: header.event_merkle_root(),
-            oracle: header.oracle_root(),
-        },
-        resulting_state_root: header.resulting_state_root(),
-    })
+    Err(CheckpointError::RetiredCertificateVerifier)
 }
 
-/// Verifies a certificate against one settlement domain declared in the
-/// checkpoint settlement configuration: its chain, contract, bonded
-/// guarantor set, network identifier and certificate threshold.
+/// Refuses the retired declared-domain guarantor verification interface.
 ///
 /// # Errors
 ///
-/// Returns a configuration error when the domain is undeclared, a field
-/// error when the header commits to another network, a threshold error when
-/// the certificate threshold is below the declared policy, and otherwise
-/// exactly what [`verify_certificate`] returns.
+/// Always returns [`CheckpointError::RetiredCertificateVerifier`], including
+/// for declared domains with a valid guarantor threshold and registration.
+#[deprecated(note = "guarantor verification is retired; use receipt or inclusion verification")]
 pub fn verify_declared_certificate(
-    certificate: &Certificate,
-    domain_name: &str,
-    registered_checkpoint_id: &[u8; 32],
-    registered_settlement_reference: Option<&[u8]>,
+    _certificate: &Certificate,
+    _domain_name: &str,
+    _registered_checkpoint_id: &[u8; 32],
+    _registered_settlement_reference: Option<&[u8]>,
 ) -> Result<ThresholdReport, CheckpointError> {
-    let domain =
-        settlement::declared_domain(domain_name).map_err(CheckpointError::Configuration)?;
-    let header = decode_batch_header(&certificate.checkpoint.header_bytes)
-        .map_err(|_| CheckpointError::Header)?;
-    if header.network_id() != domain.network_id() {
-        return Err(CheckpointError::CheckpointFields);
-    }
-    if certificate.threshold < domain.certificate_threshold() {
-        return Err(CheckpointError::Threshold {
-            achieved: certificate.threshold,
-            required: domain.certificate_threshold(),
-        });
-    }
-    verify_certificate(
-        certificate,
-        domain.guarantor_set(),
-        registered_checkpoint_id,
-        domain.settlement(),
-        registered_settlement_reference,
-    )
+    Err(CheckpointError::RetiredCertificateVerifier)
 }

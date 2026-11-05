@@ -171,6 +171,58 @@ func (b *branchCtx) load(h *Host, modules []uint16) error {
 	return nil
 }
 
+func (b *branchCtx) loadProgramsFeeRecords(h *Host) error {
+	active := b.store.Get(moduleKVKey(C.LXP_MODULE_PROGRAMS, []byte("progfee/active/v1")))
+	if len(active) < 9 || string(active[:5]) != "LXFR1" {
+		return nil
+	}
+	load := func(key []byte) error {
+		storeKey := moduleKVKey(C.LXP_MODULE_PROGRAMS, key)
+		value := b.store.Get(storeKey)
+		if value == nil {
+			return nil
+		}
+		value = append([]byte(nil), value...)
+		if err := h.loadModuleKV(C.LXP_MODULE_PROGRAMS, key, value); err != nil {
+			return err
+		}
+		b.loaded[string(storeKey)] = value
+		return nil
+	}
+	for _, key := range [][]byte{
+		[]byte("progfee/active/v1"),
+		append([]byte("progfee/history/v1/"), active[5:9]...),
+		[]byte("progmet/active/v1"),
+	} {
+		if err := load(key); err != nil {
+			return err
+		}
+	}
+	metering := b.store.Get(moduleKVKey(C.LXP_MODULE_PROGRAMS, []byte("progmet/active/v1")))
+	if len(metering) >= 9 && string(metering[:5]) == "LXMR1" {
+		version := binary.BigEndian.Uint32(metering[5:9])
+		prefix := []byte("progmet/history/v1/")
+		iterator := sdk.KVStorePrefixIterator(b.store, moduleKVKey(C.LXP_MODULE_PROGRAMS, prefix))
+		for ; iterator.Valid(); iterator.Next() {
+			key := iterator.Key()[3:]
+			if len(key) != len(prefix)+4 {
+				continue
+			}
+			historicalVersion := binary.BigEndian.Uint32(key[len(prefix):])
+			if historicalVersion > 0 && historicalVersion <= version {
+				if err := load(key); err != nil {
+					iterator.Close()
+					return err
+				}
+			}
+		}
+		if err := iterator.Close(); err != nil {
+			return codeFatalInvariant
+		}
+	}
+	return nil
+}
+
 // loadCommittedAccounts restores every persisted kernel account row of the
 // store into the account registry, passed as an opaque pointer, and rebuilds
 // its index.
@@ -216,6 +268,11 @@ func committedAccounts(registry unsafe.Pointer) (map[string][]byte, error) {
 			return nil, err
 		}
 		key := accountKey(id)
+		// Standalone snapshot rows frame the account id with a big-endian u32.
+		if uint64(length) > uint64(len(buffer)) || length < 36 ||
+			binary.BigEndian.Uint32(buffer[:4]) != 32 || !bytes.Equal(buffer[4:36], id[:]) {
+			return nil, codeFatalInvariant
+		}
 		if _, duplicate := rows[string(key)]; duplicate {
 			return nil, codeFatalInvariant
 		}

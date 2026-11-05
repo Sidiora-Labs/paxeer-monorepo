@@ -46,6 +46,9 @@ func (qp QueryPlugin) HandleOracleQuery(ctx sdk.Context, queryData json.RawMessa
 	if err := json.Unmarshal(queryData, &parsedQuery); err != nil {
 		return nil, oracletypes.ErrParsingOracleQuery
 	}
+	if parsedQuery.ExchangeRates != nil && parsedQuery.OracleTwaps != nil {
+		return nil, oracletypes.ErrParsingOracleQuery
+	}
 	switch {
 	case parsedQuery.ExchangeRates != nil:
 		res, err := qp.oracleHandler.GetExchangeRates(ctx)

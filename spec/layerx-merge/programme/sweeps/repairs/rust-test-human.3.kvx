@@ -1,0 +1,7 @@
+[repair.rust-test-human.3]
+target = "layerx-human-kms"
+command = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --no-fail-fast"
+revision = "a107f4879aa40e14330fcddf09483ca109f0d527"
+result = "repaired"
+change = "services/human/crates/layerx-human-kms/tests/support/attestor_cluster.rs starts and retains the production runtime clock server for KMS clients and attestor subprocesses, and services/human/crates/layerx-human-kms/tests/provider.rs asserts the specific SelfCustodied wallet refusal after primary export before and after restart."
+producer_input_tests = []

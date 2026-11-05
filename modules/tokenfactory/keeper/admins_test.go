@@ -1,11 +1,23 @@
 package keeper_test
 
 import (
+	"bytes"
+	"context"
+	"crypto/sha256"
 	"fmt"
 	"strings"
 	"testing"
 
+	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
+	tfcli "github.com/Sidiora-Labs/Paxeer-X-Network/modules/tokenfactory/client/cli"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
+	clienttx "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client/tx"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keyring"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/secp256k1"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/tx/signing"
+	authsigning "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/signing"
+	"github.com/stretchr/testify/require"
 
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/tokenfactory/types"
@@ -60,7 +72,9 @@ func (suite *KeeperTestSuite) TestAdminMsgs() {
 	suite.Require().True(suite.App.BankKeeper.GetBalance(suite.Ctx, suite.TestAccs[1], suite.defaultDenom).Amount.Int64() == addr1bal)
 
 	// Try setting admin to empty
-	_, err = suite.msgServer.ChangeAdmin(sdk.WrapSDKContext(suite.Ctx), types.NewMsgChangeAdmin(suite.TestAccs[1].String(), suite.defaultDenom, ""))
+	renounce := types.NewMsgChangeAdmin(suite.TestAccs[1].String(), suite.defaultDenom, "")
+	suite.Require().NoError(renounce.ValidateBasic())
+	_, err = suite.msgServer.ChangeAdmin(sdk.WrapSDKContext(suite.Ctx), renounce)
 
 	suite.Require().NoError(err)
 	queryRes, err = suite.queryClient.DenomAuthorityMetadata(suite.Ctx.Context(), &types.QueryDenomAuthorityMetadataRequest{
@@ -392,7 +406,9 @@ func TestIssuerDidSurvivesChangeAdmin(t *testing.T) {
 		{s.TestAccs[0].String(), s.TestAccs[1].String()},
 		{s.TestAccs[1].String(), ""},
 	} {
-		_, err := s.msgServer.ChangeAdmin(sdk.WrapSDKContext(s.Ctx), types.NewMsgChangeAdmin(step.sender, s.defaultDenom, step.newAdmin))
+		msg := types.NewMsgChangeAdmin(step.sender, s.defaultDenom, step.newAdmin)
+		s.Require().NoError(msg.ValidateBasic())
+		_, err := s.msgServer.ChangeAdmin(sdk.WrapSDKContext(s.Ctx), msg)
 		s.Require().NoError(err)
 
 		stored, err := k.GetAuthorityMetadata(s.Ctx, s.defaultDenom)
@@ -408,5 +424,113 @@ func TestIssuerDidSurvivesChangeAdmin(t *testing.T) {
 		s.Require().NoError(err)
 		s.Require().Equal(issuer, did)
 		s.Require().ErrorIs(k.SetIssuerDid(s.Ctx, s.defaultDenom, adminsIssuerDid(0x01)), types.ErrInvalidAuthorityMetadata)
+	}
+}
+
+func TestAdminSignedTransactionRenunciation(t *testing.T) {
+	s := new(KeeperTestSuite)
+	s.SetT(t)
+	s.SetupTest()
+	t.Cleanup(func() { require.NoError(t, s.App.Close()) })
+	first := &secp256k1.PrivKey{Key: bytes.Repeat([]byte{1}, 32)}
+	second := &secp256k1.PrivKey{Key: bytes.Repeat([]byte{2}, 32)}
+	address := func(key *secp256k1.PrivKey) sdk.AccAddress { return sdk.AccAddress(key.PubKey().Address()) }
+	s.TestAccs[0], s.TestAccs[1] = address(first), address(second)
+	for _, addr := range s.TestAccs[:2] {
+		s.FundAcc(addr, sdk.NewCoins(sdk.NewInt64Coin(sdk.DefaultBondDenom, 1_000_000_000)))
+	}
+	s.CreateDefaultDenom()
+	did := adminsIssuerDid(0x5a)
+	issuer := s.App.TokenFactoryKeeper
+	require.NoError(t, issuer.SetIssuerDid(s.Ctx, s.defaultDenom, did))
+	require.NoError(t, issuer.MintByIssuer(s.Ctx, did, sdk.NewInt64Coin(s.defaultDenom, 37), address(first).String()))
+	supply := s.App.BankKeeper.GetSupply(s.Ctx, s.defaultDenom)
+	firstBalance := s.App.BankKeeper.GetBalance(s.Ctx, address(first), s.defaultDenom)
+	secondBalance := s.App.BankKeeper.GetBalance(s.Ctx, address(second), s.defaultDenom)
+	observe := func(admin string) {
+		t.Helper()
+		adminsRequireIssuerDid(s, issuer, admin, did)
+		require.Equal(t, supply, s.App.BankKeeper.GetSupply(s.Ctx, s.defaultDenom))
+		require.Equal(t, firstBalance, s.App.BankKeeper.GetBalance(s.Ctx, address(first), s.defaultDenom))
+		require.Equal(t, secondBalance, s.App.BankKeeper.GetBalance(s.Ctx, address(second), s.defaultDenom))
+	}
+	deliver := func(key *secp256k1.PrivKey, newAdmin string) abci.ResponseDeliverTx {
+		t.Helper()
+		// Let the production CLI construct the transaction, including an empty admin.
+		config := s.App.GetTxConfig()
+		var output bytes.Buffer
+		clientCtx := client.Context{}.WithCodec(s.App.AppCodec()).WithInterfaceRegistry(s.App.InterfaceRegistry()).
+			WithTxConfig(config).WithKeyring(keyring.NewInMemory()).WithChainID(s.Ctx.ChainID()).
+			WithFrom(address(key).String()).WithFromAddress(address(key)).WithGenerateOnly(true).WithOffline(true).WithOutput(&output)
+		cmd := tfcli.NewChangeAdminCmd()
+		cmd.SilenceUsage, cmd.SilenceErrors = true, true
+		cmd.SetOut(&output)
+		cmd.SetErr(&bytes.Buffer{})
+		cmd.SetContext(context.WithValue(context.Background(), client.ClientContextKey, &clientCtx))
+		cmd.SetArgs([]string{s.defaultDenom, newAdmin})
+		require.NoError(t, cmd.Execute())
+		produced, err := config.TxJSONDecoder()(output.Bytes())
+		require.NoError(t, err)
+		builder, err := config.WrapTxBuilder(produced)
+		require.NoError(t, err)
+		require.Len(t, produced.GetMsgs(), 1)
+		require.Equal(t, types.NewMsgChangeAdmin(address(key).String(), s.defaultDenom, newAdmin), produced.GetMsgs()[0])
+		account := s.App.AccountKeeper.GetAccount(s.Ctx, address(key))
+		require.NotNil(t, account)
+		data := authsigning.SignerData{ChainID: s.Ctx.ChainID(), AccountNumber: account.GetAccountNumber(), Sequence: account.GetSequence()}
+		mode := config.SignModeHandler().DefaultMode()
+		builder.SetGasLimit(500_000)
+		builder.SetFeeAmount(sdk.NewCoins(sdk.NewInt64Coin(sdk.DefaultBondDenom, 50_000)))
+		require.NoError(t, builder.SetSignatures(signing.SignatureV2{
+			PubKey: key.PubKey(), Data: &signing.SingleSignatureData{SignMode: mode}, Sequence: data.Sequence,
+		}))
+		signature, err := clienttx.SignWithPrivKey(mode, data, builder, key, config, data.Sequence)
+		require.NoError(t, err)
+		require.NoError(t, builder.SetSignatures(signature))
+		wire, err := config.TxEncoder()(builder.GetTx())
+		require.NoError(t, err)
+		received, err := config.TxDecoder()(wire)
+		require.NoError(t, err)
+		// DeliverTx performs stateless validation, verifies the actual signature and
+		// routes the decoded message through the application's registered handler.
+		result := s.App.DeliverTx(s.Ctx, abci.RequestDeliverTxV2{Tx: wire}, received, sha256.Sum256(wire))
+		after := s.App.AccountKeeper.GetAccount(s.Ctx, address(key))
+		require.Equal(t, data.Sequence+1, after.GetSequence(), "transaction must pass signature verification and ante handling: %s", result.Log)
+		return result
+	}
+	observe(address(first).String())
+	unauthorized := deliver(second, "")
+	require.Equal(t, types.ErrUnauthorized.ABCICode(), unauthorized.Code, unauthorized.Log)
+	require.Equal(t, types.ErrUnauthorized.Codespace(), unauthorized.Codespace)
+	observe(address(first).String())
+	for _, step := range []struct {
+		key   *secp256k1.PrivKey
+		admin string
+	}{{first, address(second).String()}, {second, ""}} {
+		result := deliver(step.key, step.admin)
+		require.Zero(t, result.Code, result.Log)
+		var changes []abci.Event
+		for _, event := range result.Events {
+			if event.Type == types.TypeMsgChangeAdmin {
+				changes = append(changes, event)
+			}
+		}
+		require.Len(t, changes, 1)
+		attributes := map[string]string{}
+		for _, attr := range changes[0].Attributes {
+			attributes[string(attr.Key)] = string(attr.Value)
+		}
+		require.Equal(t, s.defaultDenom, attributes[types.AttributeDenom])
+		require.Equal(t, step.admin, attributes[types.AttributeNewAdmin])
+		observe(step.admin)
+	}
+	for _, key := range []*secp256k1.PrivKey{first, second} {
+		result := deliver(key, address(key).String())
+		require.Equal(t, types.ErrUnauthorized.ABCICode(), result.Code, result.Log)
+		require.Equal(t, types.ErrUnauthorized.Codespace(), result.Codespace)
+		for _, event := range result.Events {
+			require.NotEqual(t, types.TypeMsgChangeAdmin, event.Type)
+		}
+		observe("")
 	}
 }

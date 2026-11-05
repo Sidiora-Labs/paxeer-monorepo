@@ -1,0 +1,422 @@
+{
+  "task": "22.31.449",
+  "base_revision": "e3d7e5828b39e4182e9559fb6bc28d74c2f37e0f",
+  "status": "candidate-awaiting-bounded-qualification",
+  "sdk_release_with_patched_signing": "solana-sdk 3.0.0",
+  "selected_sdk": "3.0.0",
+  "selected_runtime": "3.1.12",
+  "ed25519_exception": null,
+  "decisions": [
+    {
+      "alerts": [
+        3774,
+        3771,
+        3772
+      ],
+      "crate": "rustls-webpki",
+      "action": "Upgrade the Solana RPC/runtime requirers to 3.1.12, removing the 0.101 dependency path; retain only 0.103.16, above the advisory minima."
+    },
+    {
+      "alerts": [
+        4483,
+        4484,
+        4485
+      ],
+      "crate": "rustls",
+      "action": "Upgrade the Solana RPC/runtime requirers to 3.1.12 and update rustls to 0.23.46, removing the 0.21 dependency path."
+    },
+    {
+      "alerts": [
+        3768
+      ],
+      "crate": "atty",
+      "action": "Remove the dependency path: the maintained runtime uses agave-logger with env_logger 0.11, which dropped atty; no version of atty is excepted."
+    },
+    {
+      "alerts": [
+        3769
+      ],
+      "crate": "ed25519-dalek",
+      "action": "SDK 3.0.0 reaches the patched signing line. Backport the Agave precompile requirer locally as 3.1.12+bridge.1, replacing the pinned dalek 1 verifier with dalek 2.2.0 Signature/VerifyingKey APIs. Retain the strict-feature branch and all offset, malformed-input, alignment and malleability tests; update their signing API to SigningKey. No ed25519 exception is used."
+    },
+    {
+      "alerts": [
+        3770
+      ],
+      "crate": "curve25519-dalek",
+      "action": "Remove the 3.2.0 path by moving the local precompile requirer to ed25519-dalek 2.2.0; retain only curve25519-dalek 4.1.3."
+    },
+    {
+      "alerts": [
+        3773
+      ],
+      "crate": "rand",
+      "action": "Move both local precompile and syscall requirers to libsecp256k1 0.7.2, retaining syscall recovery code unchanged. Update precompile test and benchmark RNGs to rand 0.8.8. Removing both libsecp256k1 0.6 and dalek 1 removes rand 0.7.3; the lock retains patched rand 0.8.8 and 0.9.5."
+    }
+  ],
+  "upstream_blocker": {
+    "observed": "Even agave-precompiles 4.4.0 pins ed25519-dalek =1.0.1, which requires curve25519-dalek 3 and rand 0.7. No released runtime inspected eliminates this path.",
+    "sources": [
+      "https://crates.io/api/v1/crates/agave-precompiles/3.1.12/dependencies",
+      "https://crates.io/api/v1/crates/agave-precompiles/4.4.0/dependencies",
+      "https://crates.io/api/v1/crates/solana-keypair/3.0.0/dependencies"
+    ],
+    "assumption": "The local patch is bridge-owned maintenance until a compatible upstream release removes both legacy cryptographic requirers. Preserve both verification modes, input-validation branches, error mappings and upstream assertions; the syscall implementation is unchanged.",
+    "resolution": "Resolve locally with complete, licensed agave-precompiles and agave-syscalls 3.1.12 source backports, versioned 3.1.12+bridge.1 and wired through patch.crates-io. They are explicit workspace members so the declared cargo check compiles the actual replacement code. No released upstream SDK/runtime is falsely claimed to close every path."
+  },
+  "lockfile_resolution": "Seeded from the official Agave v3.1.12 Cargo.lock, then regenerated with cargo update --workspace and targeted cargo update commands. Preserve SDK component versions compatible with Pubkey 3 instead of selecting incompatible later component minor releases.",
+  "lockfile_seed": "https://raw.githubusercontent.com/anza-xyz/agave/v3.1.12/Cargo.lock",
+  "qualification_evidence": "The runner hf-build/hf-done ledger and final JSON identify the exact content-derived candidate revision, command, exit code and private log. The first candidate built successfully and its strict verify found three unresolved old crypto branches. The repaired candidate must build and verify at the same revision; no source changes follow its gate.",
+  "gotchas": [
+    "No prior gates or in-scope implementation changes were present; preserve runner-prepared .cgignore and spec status edits.",
+    "The GitHub CLI has no login. Public advisory reads use the API hostname with an empty Authorization header; no real credential is required.",
+    "Solana component minor versions can change their public key/hash major dependencies. Seed from the upstream runtime lock before regenerating the workspace lock.",
+    "The SDK exception for ed25519-dalek cannot waive the separately required curve25519-dalek and rand assertions. No exception or assertion weakening is used.",
+    "Task scope excludes root GOTCHA.kvx and spec records, so task findings are retained here.",
+    "The first strict gate identified a second rand 0.7 requirer in agave-syscalls; backport only its libsecp256k1 dependency, keeping its real syscall source intact."
+  ],
+  "advisories": [
+    {
+      "ghsa_id": "GHSA-82j2-j2ch-gfr8",
+      "html_url": "https://github.com/advisories/GHSA-82j2-j2ch-gfr8",
+      "summary": "rustls-webpki: Denial of service via panic on malformed CRL BIT STRING",
+      "vulnerabilities": [
+        {
+          "package": {
+            "ecosystem": "rust",
+            "name": "rustls-webpki"
+          },
+          "vulnerable_version_range": "< 0.103.13",
+          "first_patched_version": "0.103.13",
+          "vulnerable_functions": []
+        },
+        {
+          "package": {
+            "ecosystem": "rust",
+            "name": "rustls-webpki"
+          },
+          "vulnerable_version_range": ">= 0.104.0-alpha.1, < 0.104.0-alpha.7",
+          "first_patched_version": "0.104.0-alpha.7",
+          "vulnerable_functions": []
+        }
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-xgp8-3hg3-c2mh",
+      "html_url": "https://github.com/advisories/GHSA-xgp8-3hg3-c2mh",
+      "summary": "webpki: Name constraints were accepted for certificates asserting a wildcard name",
+      "vulnerabilities": [
+        {
+          "package": {
+            "ecosystem": "rust",
+            "name": "rustls-webpki"
+          },
+          "vulnerable_version_range": ">= 0.101.0, < 0.103.12",
+          "first_patched_version": "0.103.12",
+          "vulnerable_functions": []
+        },
+        {
+          "package": {
+            "ecosystem": "rust",
+            "name": "rustls-webpki"
+          },
+          "vulnerable_version_range": ">= 0.104.0-alpha.1, < 0.104.0-alpha.6",
+          "first_patched_version": "0.104.0-alpha.6",
+          "vulnerable_functions": []
+        }
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-965h-392x-2mh5",
+      "html_url": "https://github.com/advisories/GHSA-965h-392x-2mh5",
+      "summary": "webpki: Name constraints for URI names were incorrectly accepted",
+      "vulnerabilities": [
+        {
+          "package": {
+            "ecosystem": "rust",
+            "name": "rustls-webpki"
+          },
+          "vulnerable_version_range": ">= 0.101.0, < 0.103.12",
+          "first_patched_version": "0.103.12",
+          "vulnerable_functions": []
+        },
+        {
+          "package": {
+            "ecosystem": "rust",
+            "name": "rustls-webpki"
+          },
+          "vulnerable_version_range": ">= 0.104.0-alpha.1, < 0.104.0-alpha.6",
+          "first_patched_version": "0.104.0-alpha.6",
+          "vulnerable_functions": []
+        }
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-vp88-798v-h67f",
+      "html_url": "https://github.com/advisories/GHSA-vp88-798v-h67f",
+      "summary": "rustls: ECH rejection can expose buffered application data to authenticated outer server before `ech_required` alert",
+      "vulnerabilities": [
+        {
+          "package": {
+            "ecosystem": "rust",
+            "name": "rustls"
+          },
+          "vulnerable_version_range": ">= 0.23.44, < 0.23.46",
+          "first_patched_version": "0.23.46",
+          "vulnerable_functions": []
+        },
+        {
+          "package": {
+            "ecosystem": "rust",
+            "name": "rustls"
+          },
+          "vulnerable_version_range": ">= 0.24.0-dev.1, < 0.24.0-dev.2",
+          "first_patched_version": "0.24.0-dev.2",
+          "vulnerable_functions": []
+        }
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-w44r-93j7-qv28",
+      "html_url": "https://github.com/advisories/GHSA-w44r-93j7-qv28",
+      "summary": "rustls: An unauthenticated ServerHello poisons the per-name key-exchange record, so later ClientHellos carry only a classical X25519 share",
+      "vulnerabilities": [
+        {
+          "package": {
+            "ecosystem": "rust",
+            "name": "rustls"
+          },
+          "vulnerable_version_range": "< 0.23.46",
+          "first_patched_version": "0.23.46",
+          "vulnerable_functions": []
+        },
+        {
+          "package": {
+            "ecosystem": "rust",
+            "name": "rustls"
+          },
+          "vulnerable_version_range": ">= 0.24.0-dev.1, < 0.24.0-dev.2",
+          "first_patched_version": "0.24.0-dev.2",
+          "vulnerable_functions": []
+        }
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-c8m5-c952-6cm4",
+      "html_url": "https://github.com/advisories/GHSA-c8m5-c952-6cm4",
+      "summary": "Rustls: Session Debug formatting exposes TLS master secrets and resumption PSKs",
+      "vulnerabilities": [
+        {
+          "package": {
+            "ecosystem": "rust",
+            "name": "rustls"
+          },
+          "vulnerable_version_range": "< 0.23.46",
+          "first_patched_version": "0.23.46",
+          "vulnerable_functions": []
+        },
+        {
+          "package": {
+            "ecosystem": "rust",
+            "name": "rustls"
+          },
+          "vulnerable_version_range": ">= 0.24.0-dev.1, < 0.24.0-dev.2",
+          "first_patched_version": "0.24.0-dev.2",
+          "vulnerable_functions": []
+        }
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-h2v8-394m-p7vv",
+      "html_url": "https://github.com/advisories/GHSA-h2v8-394m-p7vv",
+      "summary": "Rustls: Brotli certificate decompression can allocate an attacker-controlled amount of memory up to 1 GiB before authentication.",
+      "vulnerabilities": [
+        {
+          "package": {
+            "ecosystem": "rust",
+            "name": "rustls"
+          },
+          "vulnerable_version_range": "< 0.23.46",
+          "first_patched_version": "0.23.46",
+          "vulnerable_functions": []
+        },
+        {
+          "package": {
+            "ecosystem": "rust",
+            "name": "rustls"
+          },
+          "vulnerable_version_range": ">= 0.24.0-dev.1, < 0.24.0-dev.2",
+          "first_patched_version": "0.24.0-dev.2",
+          "vulnerable_functions": []
+        }
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-w5vr-6qhr-36cc",
+      "html_url": "https://github.com/advisories/GHSA-w5vr-6qhr-36cc",
+      "summary": "`ed25519-dalek` Double Public Key Signing Function Oracle Attack",
+      "vulnerabilities": [
+        {
+          "package": {
+            "ecosystem": "rust",
+            "name": "ed25519-dalek"
+          },
+          "vulnerable_version_range": "< 2.0.0",
+          "first_patched_version": "2.0.0",
+          "vulnerable_functions": []
+        }
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-x4gp-pqpj-f43q",
+      "html_url": "https://github.com/advisories/GHSA-x4gp-pqpj-f43q",
+      "summary": "curve25519-dalek has timing variability in `curve25519-dalek`'s `Scalar29::sub`/`Scalar52::sub`",
+      "vulnerabilities": [
+        {
+          "package": {
+            "ecosystem": "rust",
+            "name": "curve25519-dalek"
+          },
+          "vulnerable_version_range": "< 4.1.3",
+          "first_patched_version": "4.1.3",
+          "vulnerable_functions": []
+        }
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-cq8v-f236-94qc",
+      "html_url": "https://github.com/advisories/GHSA-cq8v-f236-94qc",
+      "summary": "Rand is unsound with a custom logger using rand::rng()",
+      "vulnerabilities": [
+        {
+          "package": {
+            "ecosystem": "rust",
+            "name": "rand"
+          },
+          "vulnerable_version_range": "= 0.10.0",
+          "first_patched_version": "0.10.1",
+          "vulnerable_functions": []
+        },
+        {
+          "package": {
+            "ecosystem": "rust",
+            "name": "rand"
+          },
+          "vulnerable_version_range": ">= 0.9.0, < 0.9.3",
+          "first_patched_version": "0.9.3",
+          "vulnerable_functions": []
+        },
+        {
+          "package": {
+            "ecosystem": "rust",
+            "name": "rand"
+          },
+          "vulnerable_version_range": ">= 0.7.0, < 0.8.6",
+          "first_patched_version": "0.8.6",
+          "vulnerable_functions": []
+        }
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-g98v-hv3f-hcfr",
+      "html_url": "https://github.com/advisories/GHSA-g98v-hv3f-hcfr",
+      "summary": "atty potential unaligned read",
+      "vulnerabilities": [
+        {
+          "package": {
+            "ecosystem": "rust",
+            "name": "atty"
+          },
+          "vulnerable_version_range": "<= 0.2.14",
+          "first_patched_version": null,
+          "vulnerable_functions": []
+        }
+      ]
+    }
+  ],
+  "first_gate_result": {
+    "revision": "65c4a04d4bfcb7bfdfa9bc4861d0c8f0b5f8676f",
+    "command": "cg spec done 22.31.449 -f layerx-merge --root /work/paxeer-monorepo",
+    "exit": 1,
+    "log": "/out/logs/verify-1.log",
+    "observed": "Three advisory assertions failed for ed25519-dalek 1.0.1, curve25519-dalek 3.2.0 and rand 0.7.3; nine tests passed."
+  },
+  "review_limits": "The declared gates compile the complete patched runtime libraries and run the lockfile/provenance Python assertions. Upstream Rust test and benchmark sources are preserved and adapted, but their execution is outside the allowed gates and is not claimed. The bridge must maintain these two local dependency backports until upstream can replace them.",
+  "vendored_packages": [
+    {
+      "name": "agave-precompiles",
+      "upstream_version": "3.1.12",
+      "version": "3.1.12+bridge.1",
+      "path": "vendor/agave-precompiles",
+      "upstream_crate_sha256": "5c0fa80ea1037091eff64931fc53b6a89f153f5a88c33035cedfa79265b985cb",
+      "upstream_repository": "https://github.com/anza-xyz/agave/tree/v3.1.12/precompiles",
+      "license": "Apache-2.0",
+      "retained_tests": [
+        "test_invalid_offsets",
+        "test_message_data_offsets",
+        "test_pubkey_offset",
+        "test_signature_offset",
+        "test_ed25519",
+        "test_offsets_to_ed25519_instruction",
+        "test_ed25519_malleability",
+        "test_invalid_offsets",
+        "test_message_data_offsets",
+        "test_eth_offset",
+        "test_signature_offset",
+        "test_count_is_zero_but_sig_data_exists",
+        "test_secp256k1",
+        "test_malleability",
+        "test_invalid_offsets",
+        "test_invalid_signature_data_size",
+        "test_message_data_offsets",
+        "test_pubkey_offset",
+        "test_signature_offset",
+        "test_secp256r1",
+        "test_secp256r1_high_s",
+        "test_new_secp256r1_instruction_31byte_components",
+        "test_secp256r1_order",
+        "test_secp256r1_order_minus_one",
+        "test_secp256r1_half_order",
+        "test_secp256r1_order_relationships"
+      ]
+    },
+    {
+      "name": "agave-syscalls",
+      "upstream_version": "3.1.12",
+      "version": "3.1.12+bridge.1",
+      "path": "vendor/agave-syscalls",
+      "upstream_crate_sha256": "5212f0b24fc37d4c844ae25b563d0cf5587d092912820c40f88d4b9b301148f8",
+      "upstream_repository": "https://github.com/anza-xyz/agave/tree/v3.1.12/syscalls",
+      "license": "Apache-2.0",
+      "retained_tests": [
+        "test_translate",
+        "test_translate_type",
+        "test_translate_slice",
+        "test_translate_string_and_do",
+        "test_syscall_sol_log",
+        "test_syscall_sol_log_u64",
+        "test_syscall_sol_pubkey",
+        "test_syscall_sol_alloc_free",
+        "test_syscall_sha256",
+        "test_syscall_edwards_curve_point_validation",
+        "test_syscall_ristretto_curve_point_validation",
+        "test_syscall_edwards_curve_group_ops",
+        "test_syscall_ristretto_curve_group_ops",
+        "test_syscall_multiscalar_multiplication",
+        "test_syscall_multiscalar_multiplication_maximum_length_exceeded",
+        "test_syscall_get_sysvar_errors",
+        "test_set_and_get_return_data",
+        "test_syscall_sol_get_processed_sibling_instruction",
+        "test_create_program_address",
+        "test_find_program_address",
+        "test_syscall_big_mod_exp",
+        "test_syscall_get_epoch_stake_total_stake",
+        "test_syscall_get_epoch_stake_vote_account_stake",
+        "test_check_type_assumptions",
+        "test_address_is_aligned",
+        "test_memcmp_result_access_violation",
+        "test_is_nonoverlapping"
+      ]
+    }
+  ]
+}

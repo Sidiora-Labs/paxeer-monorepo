@@ -286,11 +286,14 @@ static int legacy_root(fixture *f)
 static int transition(uint16_t version, bool success)
 {
     fixture *f = (fixture *)calloc(1U, sizeof(*f));
+    lxp_identity *identity;
     uint8_t committed[32];
     lxp_byte_span wire;
     lxp_receipt *decoded;
     REQUIRE(f != NULL);
     REQUIRE(prepare(f, version, success) == 0);
+    REQUIRE(lxp_identity_resolve(&f->identities, did, sizeof(did) - 1U,
+                                 &identity) == LXP_OK);
     REQUIRE(lxp_kernel_execute_activity(&f->kernel, &f->activity,
                                          &f->execution, &f->receipt) == LXP_OK);
     if (f->receipt.result_code != (success ? LXP_OK : LXP_ERR_FEE_LIMIT))
@@ -338,7 +341,8 @@ static int transition(uint16_t version, bool success)
     REQUIRE(lxp_state_root(&f->kernel, committed) == LXP_OK);
     if (version == LXP_PROTOCOL_VERSION_STATE_COMMITMENT) {
         REQUIRE(memcmp(committed, f->receipt.resulting_state_root, 32U) == 0);
-        REQUIRE(f->state.idempotency_count == 0U);
+        REQUIRE(identity->next_sequence == f->activity.account_sequence + 1U);
+        REQUIRE(f->state.next_sequence == f->execution.global_sequence + 1U);
         if (success) {
             REQUIRE(f->accounts.accounts[0].balance.lo + f->accounts.accounts[1].balance.lo == 10U);
             REQUIRE(f->receipt.amount.lo == 1U);
@@ -355,12 +359,15 @@ static int transition(uint16_t version, bool success)
 static int refusal_with_accounts(bool malformed)
 {
     fixture *f = (fixture *)calloc(1U, sizeof(*f));
+    lxp_identity *identity;
     uint8_t digest[32];
     uint8_t original_root[32];
     lxp_send decoded;
     lxp_result expected;
     REQUIRE(f != NULL);
     REQUIRE(prepare(f, LXP_PROTOCOL_VERSION_STATE_COMMITMENT, true) == 0);
+    REQUIRE(lxp_identity_resolve(&f->identities, did, sizeof(did) - 1U,
+                                 &identity) == LXP_OK);
     f->fees.base_fee.lo = 1U;
     REQUIRE(lxp_state_root(&f->kernel, original_root) == LXP_OK);
     if (malformed) {
@@ -374,7 +381,7 @@ static int refusal_with_accounts(bool malformed)
         REQUIRE(expected != LXP_OK);
         REQUIRE(lxp_kernel_execute_activity(&f->kernel, &f->activity,
                                               &f->execution, &f->receipt) == expected);
-        REQUIRE(f->state.idempotency_count == 0U);
+        REQUIRE(identity->next_sequence == f->activity.account_sequence);
         REQUIRE(f->state.next_sequence == 1U);
         REQUIRE(lxp_state_root(&f->kernel, digest) == LXP_OK);
         REQUIRE(memcmp(original_root, digest, 32U) == 0);

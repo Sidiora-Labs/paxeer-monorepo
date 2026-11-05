@@ -21,8 +21,11 @@ import (
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer/wal"
+	evmrpc "github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/tests/occ/utils"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
 )
@@ -48,13 +51,14 @@ func newStartHarness(t *testing.T, mode sequencer.Mode, sender utils.TestAcct) *
 	pv, err := privval.GenFilePV(consensus.KeyFile(), consensus.StateFile(), "")
 	require.NoError(t, err)
 	require.NoError(t, pv.Save())
-	l := listen(t)
+	l, auth := listenAuthenticated(t)
 	t.Cleanup(func() { _ = l.Close() })
 	cfg := sequencer.DefaultConfig()
 	cfg.Enable, cfg.Mode = true, mode
 	cfg.WALDir = filepath.Join(t.TempDir(), "wal")
 	cfg.ReceiptKeyFile = writeSeed(t, t.TempDir(), "receipt_key", testKeySeed, 0o600)
 	cfg.StandbyAddress = l.Addr().String()
+	cfg.ReplicationTLS = auth
 	cfg.ReplicationTimeout = replicationTimeout
 	cfg.LeaseDuration = 3 * replicationTimeout
 	cfg.NonceQueueMaxPerSender, cfg.NonceQueueMaxTotal = 4, 8
@@ -212,11 +216,12 @@ func TestStartInstallsOpenBlockAndSource(t *testing.T) {
 			require.Equal(t, f.app.LastBlockHeight()+1, pending.BlockHeight())
 			require.Equal(t, pending.BlockHeight(), f.app.LatestCtx().BlockHeight())
 			logged := driverEntries(t, f.cfg.WALDir)
-			require.Len(t, logged, len(entries)+1)
+			require.Len(t, logged, len(entries)+2)
 			require.Equal(t, uint64(openHeight), logged[len(entries)].(*wal.Open).Height)
+			require.Equal(t, f.n.LeaseHolder.Epoch(), logged[len(entries)+1].(*wal.Lease).Epoch)
 			runtime := reflect.ValueOf(f.app).Elem()
 			rpc := runtime.FieldByName("sequencerRPC")
-			require.Equal(t, reflect.ValueOf(f.n.Accepter).Pointer(), rpc.FieldByName("accepter").Elem().Pointer())
+			require.Equal(t, reflect.ValueOf(f.n).Pointer(), rpc.FieldByName("accepter").Elem().Pointer())
 			require.Equal(t, reflect.ValueOf(f.n.ReceiptLogFeed).Pointer(), rpc.FieldByName("receiptLogs").Pointer())
 			require.False(t, rpc.FieldByName("pendingTxs").IsNil())
 			rcpt := runtime.FieldByName("sequencerReceipt")
@@ -302,4 +307,147 @@ func TestStartInstallsOpenBlockAndSource(t *testing.T) {
 		require.Nil(t, f.app.SequencerSource())
 		require.Empty(t, driverEntries(t, f.cfg.WALDir))
 	})
+}
+
+func TestNodeStartRestoresReceiptSource(t *testing.T) {
+	for _, mode := range []sequencer.Mode{sequencer.ModeSequential, sequencer.ModeMicroBatch} {
+		t.Run(mode.String(), func(t *testing.T) {
+			sender := utils.NewSigner()
+			f := newStartHarness(t, mode, sender)
+			entries, _ := f.loggedTransfers(t, sender, 3)
+			f.restart(t, entries)
+			require.NoError(t, f.n.Start(t.Context()))
+			for _, entry := range entries {
+				accepted, ok := entry.(*wal.Accept)
+				if !ok {
+					continue
+				}
+				decoded, err := codec.DecodeReceipt(accepted.Receipt)
+				require.NoError(t, err)
+				send, err := f.n.ReceiptSource.SequencerSend(common.Hash(decoded.ActivityID))
+				require.NoError(t, err)
+				require.NotNil(t, send)
+				require.Equal(t, accepted.Receipt, send.Receipt)
+				require.Equal(t, decoded.FromSequence, send.Nonce)
+			}
+		})
+	}
+}
+
+func TestNodeRestartRestoresCommittedReceiptSource(t *testing.T) {
+	for _, mode := range []sequencer.Mode{sequencer.ModeSequential, sequencer.ModeMicroBatch} {
+		t.Run(mode.String(), func(t *testing.T) {
+			sender := utils.NewSigner()
+			f := newStartHarness(t, mode, sender)
+			require.NoError(t, f.n.Stop())
+			f.cfg.StandbyAddress = ""
+			var err error
+			f.n, err = sequencer.NewNode(f.cfg, f.app)
+			require.NoError(t, err)
+			require.NoError(t, f.n.Start(t.Context()))
+			contract := crypto.CreateAddress(sender.EvmAddress, 1)
+			_, transferTx := transfer(t, sender, 0, sender.EvmAddress, big.NewInt(1))
+			_, deployTx := evmTx(t, sender, receiptLegacyTx(1, nil, new(big.Int), createGas, logInit))
+			_, callTx := evmTx(t, sender, receiptLegacyTx(2, &contract, new(big.Int), callGas, nil))
+			_, revertTx := evmTx(t, sender, receiptLegacyTx(3, nil, new(big.Int), createGas, revertInit))
+			sends := make(map[common.Hash]*evmrpc.SequencerSend)
+			for i, tx := range [][]byte{transferTx, deployTx, callTx, revertTx} {
+				accepted, err := f.n.Accepter.Accept(tx)
+				require.NoError(t, err)
+				decoded, err := codec.DecodeReceipt(accepted.Receipt)
+				require.NoError(t, err)
+				if i == 3 {
+					require.Equal(t, int32(1), decoded.ResultCode)
+				} else {
+					require.Zero(t, decoded.ResultCode)
+				}
+				hash := common.Hash(decoded.ActivityID)
+				sends[hash], err = f.n.ReceiptSource.SequencerSend(hash)
+				require.NoError(t, err)
+				require.NotNil(t, sends[hash])
+			}
+			require.Len(t, sends, 4)
+			var returnData, logs, vmErrors int
+			for _, send := range sends {
+				returnData += len(send.ReturnData)
+				logs += len(send.LogData)
+				vmErrors += len(send.VMError)
+			}
+			require.Positive(t, returnData)
+			require.Equal(t, 3, logs)
+			require.Positive(t, vmErrors)
+			block, err := f.n.ConsensusSource.Seal(t.Context(), openHeight)
+			require.NoError(t, err)
+			response, err := f.app.FinalizeBlock(t.Context(), &abci.RequestFinalizeBlock{
+				Header: &tmproto.Header{ChainID: f.app.ChainID, Height: openHeight, Time: block.OpenTime, ProposerAddress: f.pv.Key.PubKey.Address()},
+				Txs:    append([][]byte{block.Batch}, block.Txs.ToSliceOfBytes()...),
+			})
+			require.NoError(t, err)
+			require.Len(t, response.TxResults, 5)
+			f.app.SetDeliverStateToCommit()
+			_, err = f.app.Commit(t.Context())
+			require.NoError(t, err)
+			tip := f.n.WAL.LastCommitted()
+			require.Equal(t, uint64(openHeight), tip.Height)
+			require.Equal(t, sourceLastSeq+4, tip.LastSeq)
+			commitID := f.app.CommitMultiStore().LastCommitID()
+			key := f.n.ReceiptKey.PublicKey()
+			require.NoError(t, f.n.Stop())
+			f.app.SetOpenBlock(nil)
+			f.app.SetSequencerSource(nil)
+			f.app.SetSequencerRPC(evmrpc.SequencerOption{}, evmrpc.SequencerReceiptOption{})
+			f.app.SetCommitListener(nil)
+			f.n, err = sequencer.NewNode(f.cfg, f.app)
+			require.NoError(t, err)
+			replayed, err := f.n.WAL.Replay(sequencer.NewAppReplayer(f.n.Executor, f.n.Receipter))
+			require.NoError(t, err)
+			require.Equal(t, tip, replayed.From)
+			require.Zero(t, replayed.Accepts)
+			require.Nil(t, replayed.LastAccept)
+			require.NotNil(t, replayed.LastLogged)
+			require.NoError(t, f.n.Stop())
+			f.n, err = sequencer.NewNode(f.cfg, f.app)
+			require.NoError(t, err)
+			require.NoError(t, f.n.Start(t.Context()))
+			for hash, want := range sends {
+				got, err := f.n.ReceiptSource.SequencerSend(hash)
+				require.NoError(t, err)
+				require.Equal(t, want, got)
+				_, err = verify.ReceiptSignature(got.Receipt, key)
+				require.NoError(t, err)
+			}
+			require.Equal(t, key, f.n.ReceiptKey.PublicKey())
+			require.Equal(t, commitID, f.app.CommitMultiStore().LastCommitID())
+			pending, err := f.app.PendingSnapshot()
+			require.NoError(t, err)
+			require.Equal(t, uint64(4), f.app.EvmKeeper.GetNonce(pending, sender.EvmAddress))
+			_, next := transfer(t, sender, 4, sender.EvmAddress, big.NewInt(1))
+			accepted, err := f.n.Accepter.Accept(next)
+			require.NoError(t, err)
+			decoded, err := codec.DecodeReceipt(accepted.Receipt)
+			require.NoError(t, err)
+			require.Equal(t, sourceLastSeq+5, decoded.GlobalSequence)
+			nextHash := common.Hash(decoded.ActivityID)
+			sends[nextHash], err = f.n.ReceiptSource.SequencerSend(nextHash)
+			require.NoError(t, err)
+			require.NotNil(t, sends[nextHash])
+			require.NoError(t, f.n.Stop())
+			f.app.SetOpenBlock(nil)
+			f.app.SetSequencerSource(nil)
+			f.app.SetSequencerRPC(evmrpc.SequencerOption{}, evmrpc.SequencerReceiptOption{})
+			f.app.SetCommitListener(nil)
+			f.n, err = sequencer.NewNode(f.cfg, f.app)
+			require.NoError(t, err)
+			require.NoError(t, f.n.Start(t.Context()))
+			for hash, want := range sends {
+				got, err := f.n.ReceiptSource.SequencerSend(hash)
+				require.NoError(t, err)
+				require.Equal(t, want, got)
+			}
+			pending, err = f.app.PendingSnapshot()
+			require.NoError(t, err)
+			require.Equal(t, uint64(5), f.app.EvmKeeper.GetNonce(pending, sender.EvmAddress))
+			require.Equal(t, commitID, f.app.CommitMultiStore().LastCommitID())
+		})
+	}
 }

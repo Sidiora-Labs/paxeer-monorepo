@@ -500,7 +500,14 @@ fn check(field: &Field, text: &str) -> Result<(), ArgumentError> {
                 return Err(ArgumentError::Malformed(field.name));
             }
         }
-        Shape::Hex32 | Shape::Hex64 | Shape::Bytes => {
+        Shape::Hex32 | Shape::Hex64 => {
+            if text.len() != field.shape.maximum_length()
+                || !text.bytes().all(|byte| byte.is_ascii_hexdigit())
+            {
+                return Err(ArgumentError::Malformed(field.name));
+            }
+        }
+        Shape::Bytes => {
             if !text.bytes().all(|byte| byte.is_ascii_hexdigit()) || !text.len().is_multiple_of(2) {
                 return Err(ArgumentError::Malformed(field.name));
             }
@@ -802,8 +809,15 @@ pub fn approval_get_tool(
         .ok_or_else(malformed)?
         .parse()
         .map_err(|_| malformed())?;
+    let current_time = layerx_agent_api::TimestampSeconds(
+        arguments["current_time"]
+            .as_str()
+            .ok_or_else(malformed)?
+            .parse()
+            .map_err(|_| malformed())?,
+    );
     let record = service
-        .get(tenant, approval_id, sequence)
+        .get(tenant, approval_id, sequence, current_time)
         .map_err(|error| BoundaryRefusal::Unavailable(format!("approval lookup: {error:?}")))?;
     let disclosure = &record.held_activity;
     if arguments
@@ -924,12 +938,12 @@ fn session_input_schema(name: &str, native: bool) -> Option<Value> {
             &["variant", "approval_id", "held_digest", "current_sequence"],
         ),
         "approval.list" => session_object(
-            json!({"tenant": session_text(), "agent": session_text(), "current_sequence": session_decimal(u64::MAX), "cursor": {"anyOf": [session_digest(), {"type": "null"}]}, "limit": session_decimal(u64::from(u8::MAX))}),
+            json!({"tenant": session_text(), "agent": session_text(), "current_sequence": session_decimal(u64::MAX), "cursor": {"anyOf": [session_digest(), {"type": "null"}]}, "limit": session_decimal(100)}),
             &["current_sequence", "limit"],
         ),
         "approval.get" => session_object(
-            json!({"tenant": session_text(), "agent": session_text(), "approval_id": session_digest(), "current_sequence": session_decimal(u64::MAX)}),
-            &["approval_id", "current_sequence"],
+            json!({"tenant": session_text(), "agent": session_text(), "approval_id": session_digest(), "current_sequence": session_decimal(u64::MAX), "current_time": session_decimal(u64::MAX)}),
+            &["approval_id", "current_sequence", "current_time"],
         ),
         "approval.approve" | "approval.reject" => session_object(
             json!({"tenant": session_text(), "agent": session_text(), "approval_id": session_digest(), "held_digest": session_digest(), "current_sequence": session_decimal(u64::MAX)}),

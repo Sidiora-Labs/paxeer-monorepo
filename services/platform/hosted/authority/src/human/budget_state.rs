@@ -1,9 +1,10 @@
+mod native;
 mod record;
 
 use self::record::{number, Record};
 use super::super::PROTOCOL_VERSION;
 use super::{digest, hex, json, refusal, unavailable, Config, PrincipalPolicy, Response};
-use layerx_client::px::{PxAccountJoin, PxEndpoint};
+use layerx_client::rpc::account::{balance, ReadContext, Requested, Rung};
 use layerx_client::sequencer::SequencerEndpoint;
 use layerx_crypto::evm_transaction::transaction_hash as keccak256;
 use serde_json::{json as value, Value};
@@ -18,41 +19,14 @@ const PAY: [u8; 20] = [
 
 pub(super) struct Session {
     sequencer: SequencerEndpoint,
-    network: PxEndpoint,
+    rpc_url: String,
+    pub(super) finality: crate::committed::CommittedHeader,
+    pub(super) receipt_sequence: u64,
+    sequence_proof: Value,
     pub(super) committed_height: u64,
     pub(super) checkpoint_id: [u8; 32],
     pub(super) timestamp: u64,
     state_root: [u8; 32],
-}
-
-struct AccountJoinExport(PxAccountJoin);
-
-impl serde::Serialize for AccountJoinExport {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        use serde::ser::SerializeStruct as _;
-
-        let join = &self.0;
-        let mut state = serializer.serialize_struct("PxAccountJoin", 3)?;
-        state.serialize_field("account", &value!({
-            "evm_address": join.account.evm_address.map(|address| format!("0x{}", hex::encode(&address))),
-            "pax_address": join.account.pax_address,
-            "layerx_did": join.account.layerx_did,
-            "layerx_account": join.account.layerx_account.map(|id| hex::encode(&id)),
-            "bound": join.account.bound,
-        }))?;
-        state.serialize_field(
-            "paxeer",
-            &join.paxeer.as_ref().map(|account| {
-                value!({
-                    "address": format!("0x{}", hex::encode(&account.address)),
-                    "balance": account.balance.to_string(),
-                    "nonce": account.nonce,
-                })
-            }),
-        )?;
-        state.serialize_field("layerx", &join.layerx)?;
-        state.end()
-    }
 }
 
 fn data(signature: &[u8], argument: Option<&[u8; 32]>) -> Vec<u8> {
@@ -61,11 +35,6 @@ fn data(signature: &[u8], argument: Option<&[u8; 32]>) -> Vec<u8> {
         bytes.extend_from_slice(argument);
     }
     bytes
-}
-
-fn account_id(value: &Value) -> Result<[u8; 32], ()> {
-    let text = value.as_str().ok_or(())?;
-    hex::decode32(text.strip_prefix("0x").unwrap_or(text)).map_err(|_| ())
 }
 
 pub(super) fn identity_key(did: &str) -> Result<[u8; 32], ()> {
@@ -78,80 +47,113 @@ pub(super) fn identity_key(did: &str) -> Result<[u8; 32], ()> {
 impl Session {
     fn budget_call(&self, signature: &[u8], id: &[u8; 32]) -> Result<Vec<u8>, ()> {
         self.sequencer
-            .call_at(self.committed_height, &PAY, &data(signature, Some(id)))
+            .call_at(self.finality.state_height, &PAY, &data(signature, Some(id)))
             .map_err(|_| ())
     }
 
     pub(super) fn open(config: &Config) -> Result<Self, ()> {
         let sequencer = SequencerEndpoint::new(&config.chain_rpc_url, &[]).map_err(|_| ())?;
-        let network = PxEndpoint::new(&config.chain_rpc_url, &[]).map_err(|_| ())?;
-        let committed_height = sequencer.block_number().map_err(|_| ())?;
+        let finality = crate::committed::CommittedHeader::open(config)?;
         let block = sequencer
-            .block_by_number(committed_height)
+            .block_by_number(finality.height)
             .map_err(|_| ())?
             .ok_or(())?;
-        let checkpoint_id = block.hash;
-        let state_root = sequencer.state_root(committed_height).map_err(|_| ())?;
-        if committed_height == 0
-            || block.number != committed_height
-            || checkpoint_id == [0; 32]
-            || state_root == [0; 32]
-        {
+        let sequence = native::read(&config.chain_rpc_url, &finality, &[2])?;
+        let receipt_sequence =
+            u64::from_be_bytes(sequence.value.as_slice().try_into().map_err(|_| ())?);
+        if receipt_sequence == 0 || block.number != finality.height {
             return Err(());
         }
         Ok(Self {
             sequencer,
-            network,
-            committed_height,
-            checkpoint_id,
+            rpc_url: config.chain_rpc_url.clone(),
+            committed_height: finality.height,
+            checkpoint_id: finality.block_hash,
             timestamp: block.timestamp.checked_mul(1000).ok_or(())?,
-            state_root,
+            state_root: finality.app_hash,
+            finality,
+            receipt_sequence,
+            sequence_proof: sequence.document,
         })
     }
 
-    pub(super) fn identity(&self, did: &str, owner: [u8; 32]) -> Result<(Value, Value), ()> {
-        let join = self.network.account(did).map_err(|_| ())?;
-        let layerx = join.layerx.ok_or(())?;
-        let accounts = layerx.get("accounts").and_then(Value::as_array).ok_or(())?;
-        let mut matches = accounts.iter().filter(|row| {
-            row["bound"] == true
-                && account_id(&row["layerx_account"]) == Ok(owner)
-                && row["evm_address"].as_str().is_some_and(|address| {
-                    address
-                        .strip_prefix("0x")
-                        .and_then(|address| hex::decode(address).ok())
-                        .is_some_and(|bytes| bytes.len() == 20 && bytes != [0; 20])
-                })
-        });
-        let account = matches.next().ok_or(())?.clone();
-        if matches.next().is_some() {
-            return Err(());
-        }
-        let join = self.network.account(did).map_err(|_| ())?;
-        if join.layerx != Some(layerx) {
-            return Err(());
-        }
-        let join = serde_json::to_value(AccountJoinExport(join)).map_err(|_| ())?;
-        Ok((account, join))
+    fn account(&self, id: [u8; 32]) -> Result<(layerx_proof::state::CanonicalAccount, Value), ()> {
+        let mut key = vec![6];
+        key.extend_from_slice(&id);
+        let proof = native::read(&self.rpc_url, &self.finality, &key)?;
+        let account = native::account(id, &proof.value)?;
+        Ok((account, proof.document))
     }
 
-    fn balance(&self, id: [u8; 32], asset: [u8; 32]) -> Result<u128, ()> {
-        let balances = self.network.balances(&hex::encode(&id)).map_err(|_| ())?;
-        if balances.account.layerx_account != Some(id) {
+    pub(super) fn identity(&self, did: &str, owner: [u8; 32]) -> Result<(Value, Value), ()> {
+        let (account, proof) = self.account(owner)?;
+        let name = std::str::from_utf8(&account.name).map_err(|_| ())?;
+        if account.frozen
+            || ![
+                format!("agent:{did}:main"),
+                format!("agent:{did}:asset:{}", hex::encode(&account.asset_id())),
+            ]
+            .iter()
+            .any(|expected| expected == name)
+        {
             return Err(());
         }
-        let mut rows = balances.balances.iter().filter(|row| row.asset_id == asset);
-        let row = rows.next().ok_or(())?;
-        if rows.next().is_some() {
+        let public = hex::decode32(did.strip_prefix("did:layerx:").ok_or(())?).map_err(|_| ())?;
+        let mut addr = [0; 20];
+        addr[18..].copy_from_slice(&[0x10, 0x04]);
+        let call = data(b"getEvmAddrByLayerX(bytes32)", Some(&public));
+        let answer = self
+            .sequencer
+            .call_at(self.finality.state_height, &addr, &call)
+            .map_err(|_| ())?;
+        if answer.len() != 32 || answer[..12] != [0; 12] || answer[12..] == [0; 20] {
             return Err(());
         }
-        let layerx = row.layerx.as_ref().ok_or(())?;
-        let amount = layerx.get("amount").and_then(Value::as_str).ok_or(())?;
-        amount.parse().map_err(|_| ())
+        let row = value!({"bound":true, "layerx_account":hex::encode(&owner), "evm_address":format!("0x{}",hex::encode(&answer[12..])),
+            "kind":account.kind,"frozen":account.frozen,"asset_id":hex::encode(&account.asset_id())});
+        let evidence = value!({"account":row,"native_account_proof":proof,
+            "binding_call":{"to":hex::encode(&addr),"data":hex::encode(&call),"result":hex::encode(&answer),"height":self.finality.state_height},
+            "receipt_sequence_proof":self.sequence_proof,"finality":self.finality.document()});
+        Ok((row, evidence))
+    }
+
+    fn balance(&self, id: [u8; 32], asset: [u8; 32]) -> Result<Value, ()> {
+        let (account, proof) = self.account(id)?;
+        if account.frozen || account.asset_id() != asset {
+            return Err(());
+        }
+        let amount = balance(
+            &self.sequencer,
+            id,
+            asset,
+            ReadContext {
+                committed_height: self.finality.state_height,
+                requested: Requested::new(Rung::Committed).map_err(|_| ())?,
+            },
+        )
+        .map_err(|_| ())?;
+        if amount.value() != account.balance() {
+            return Err(());
+        }
+        Ok(
+            value!({"account_id":hex::encode(&id),"asset_id":hex::encode(&asset),"amount":amount.value().to_string(),"proof":proof}),
+        )
     }
 
     pub(super) fn unchanged(&self) -> Result<(), ()> {
-        if self.sequencer.block_number().map_err(|_| ())? != self.committed_height {
+        let block = self
+            .sequencer
+            .block_by_number(self.committed_height)
+            .map_err(|_| ())?
+            .ok_or(())?;
+        if self.sequencer.block_number().map_err(|_| ())? != self.committed_height
+            || block.hash != self.checkpoint_id
+            || self
+                .sequencer
+                .state_root(self.committed_height)
+                .map_err(|_| ())?
+                != self.state_root
+        {
             return Err(());
         }
         Ok(())
@@ -181,30 +183,30 @@ fn accounts(
     if hex::encode(&record.owner) != policy.account_id {
         return Err(());
     }
-    if let Some(did) = owner_did {
-        let (_, join) = session.identity(did, record.owner)?;
-        session.balance(record.owner, record.asset)?;
-        session.balance(record.account, record.asset)?;
-        if let Some(source) = record.source {
-            session.balance(source, record.asset)?;
+    let (identity, mut evidence) = if let Some(did) = owner_did {
+        let (_, evidence) = session.identity(did, record.owner)?;
+        (identity_key(did)?, evidence)
+    } else {
+        let mut bound = Vec::new();
+        for identity in policy.identities.iter().filter(|identity| !identity.frozen) {
+            if let Ok((_, evidence)) = session.identity(&identity.did, record.owner) {
+                bound.push((identity_key(&identity.did)?, evidence));
+            }
         }
-        return Ok((identity_key(did)?, join));
-    }
-    let mut bound = Vec::new();
-    for identity in policy.identities.iter().filter(|identity| !identity.frozen) {
-        if let Ok((_, join)) = session.identity(&identity.did, record.owner) {
-            bound.push((identity_key(&identity.did)?, join));
+        if bound.len() != 1 {
+            return Err(());
         }
-    }
-    if bound.len() != 1 {
-        return Err(());
-    }
-    session.balance(record.owner, record.asset)?;
-    session.balance(record.account, record.asset)?;
+        bound.pop().ok_or(())?
+    };
+    let mut balances = vec![
+        session.balance(record.owner, record.asset)?,
+        session.balance(record.account, record.asset)?,
+    ];
     if let Some(source) = record.source {
-        session.balance(source, record.asset)?;
+        balances.push(session.balance(source, record.asset)?);
     }
-    bound.pop().ok_or(())
+    evidence["balances"] = value!(balances);
+    Ok((identity, evidence))
 }
 
 fn now_ms() -> Result<u128, ()> {
@@ -233,11 +235,23 @@ fn produce_at(
     now_ms: u128,
 ) -> Result<Response, ()> {
     let session = Session::open(config)?;
+    produce_session(config, p, id, export, owner_did, now_ms, &session)
+}
+
+fn produce_session(
+    config: &Config,
+    p: &PrincipalPolicy,
+    id: [u8; 32],
+    export: bool,
+    owner_did: Option<&str>,
+    now_ms: u128,
+    session: &Session,
+) -> Result<Response, ()> {
     let budget_call = session.budget_call(b"getBudget(bytes32)", &id)?;
     let record = Record::from_call(id, &budget_call)?;
     if hex::encode(&record.asset) != p.asset_id
         || record.revocation == 0
-        || record.revocation > session.committed_height
+        || record.revocation > session.receipt_sequence
     {
         return Err(());
     }
@@ -246,7 +260,7 @@ fn produce_at(
         return Err(());
     }
     let remaining = number(&remaining_call, 0, 16)?;
-    let (identity, account_join) = accounts(&session, &record, p, owner_did)?;
+    let (identity, account_join) = accounts(session, &record, p, owner_did)?;
     session.fresh_at(p.maximum_age_seconds, now_ms)?;
     if p.maximum_age_sequences == 0 {
         return Err(());
@@ -271,8 +285,8 @@ fn produce_at(
     let evidence: [u8; 32] = evidence.finalize().into();
     let state = value!({
         "budget_id":hex::encode(&record.id), "asset":hex::encode(&record.asset),
-        "revocation_sequence":record.revocation, "observed_head_sequence":session.committed_height,
-        "verification":4, "evidence_digest":hex::encode(&evidence),
+        "revocation_sequence":record.revocation, "observed_head_sequence":session.receipt_sequence,
+        "verification":layerx_types::verify::VerificationLevel::COMMITTED.wire_rank(), "evidence_digest":hex::encode(&evidence),
         "receipt_digest":hex::encode(&digest(&budget_call)), "checkpoint_digest":hex::encode(&session.checkpoint_id),
         "age_sequences":0, "maximum_age_sequences":p.maximum_age_sequences, "remaining":remaining.to_string(),
         "closed":record.closed, "revoked":record.revoked, "canonical_core_bytes":hex::encode(&budget_call)
@@ -281,7 +295,7 @@ fn produce_at(
         let call = |signature: &[u8], result: &[u8]| {
             value!({
                 "to":hex::encode(&PAY), "data":hex::encode(&data(signature, Some(&id))),
-                "result":hex::encode(result), "height":session.committed_height
+                "result":hex::encode(result), "height":session.finality.state_height
             })
         };
         value!({
@@ -292,7 +306,7 @@ fn produce_at(
             "accounts":{"owner":hex::encode(&record.owner),"budget":hex::encode(&record.account),"source":hex::encode(&record.source.unwrap_or(record.owner))},
             "identity_key":hex::encode(&identity),
             "proofs":{"budget_call":call(b"getBudget(bytes32)", &budget_call),"remaining_call":call(b"budgetRemaining(bytes32)", &remaining_call),"account_join":account_join},
-            "finality":{"height":session.committed_height,"block_hash":hex::encode(&session.checkpoint_id),"app_hash":hex::encode(&session.state_root)}
+            "finality":{"height":session.committed_height,"block_hash":hex::encode(&session.checkpoint_id),"app_hash":hex::encode(&session.state_root),"state_height":session.finality.state_height}
         })
     } else {
         state
@@ -317,10 +331,19 @@ pub(super) fn read_dynamic(
     p: &PrincipalPolicy,
     id: &str,
     owner_did: &str,
+    session: &Session,
 ) -> Result<Response, Response> {
     let id = hex::decode32(id).map_err(|_| refusal(400, "invalid_budget_id", None))?;
-    produce(config, p, id, false, Some(owner_did))
-        .map_err(|()| unavailable("budget_state_proof_unavailable"))
+    produce_session(
+        config,
+        p,
+        id,
+        false,
+        Some(owner_did),
+        now_ms().map_err(|()| unavailable("clock_unavailable"))?,
+        session,
+    )
+    .map_err(|()| unavailable("budget_state_proof_unavailable"))
 }
 
 pub(super) fn export(config: &Config, p: &PrincipalPolicy, id: &str) -> Result<Response, Response> {
@@ -361,8 +384,42 @@ pub(super) fn export_dynamic(
     p: &PrincipalPolicy,
     id: &str,
     owner_did: &str,
+    session: &Session,
 ) -> Result<Response, Response> {
     let id = hex::decode32(id).map_err(|_| refusal(400, "invalid_budget_id", None))?;
-    produce(config, p, id, true, Some(owner_did))
-        .map_err(|()| unavailable("budget_proof_export_unavailable"))
+    produce_session(
+        config,
+        p,
+        id,
+        true,
+        Some(owner_did),
+        now_ms().map_err(|()| unavailable("clock_unavailable"))?,
+        session,
+    )
+    .map_err(|()| unavailable("budget_proof_export_unavailable"))
+}
+
+#[cfg(test)]
+impl Config {
+    pub(crate) fn fixture_human_policy(&mut self, policy: &Value, root: &std::path::Path) {
+        let principal: PrincipalPolicy =
+            serde_json::from_value(policy.clone()).expect("fixture principal");
+        self.human = Some(super::Human {
+            token: zeroize::Zeroizing::new(b"repair-human-token-208".to_vec()),
+            tenant: principal.tenant.clone(),
+            principal: principal.principal.clone(),
+            policy_path: root.join("policy.json"),
+            policy_digest: Some(digest(
+                &std::fs::read(root.join("policy.json")).expect("fixture policy bytes"),
+            )),
+            policy: Some(super::Policy {
+                principals: vec![principal],
+            }),
+            registry_path: root.join("registry.json"),
+            state_root: root.join("state"),
+            horizon: 1,
+            records: std::sync::Mutex::new(()),
+            binding: None,
+        });
+    }
 }

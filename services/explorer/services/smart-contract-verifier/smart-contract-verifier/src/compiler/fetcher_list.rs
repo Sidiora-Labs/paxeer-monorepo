@@ -3,16 +3,18 @@ use super::{
     fetcher_versions::{VersionsFetcher, VersionsRefresher},
 };
 use async_trait::async_trait;
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut};
 use cron::Schedule;
 use primitive_types::H256;
+use sha2::{Digest, Sha256};
 use std::{
     collections::HashMap,
     fmt::{Debug, Display},
     marker::PhantomData,
-    path::PathBuf,
+    path::{Path, PathBuf},
     str::FromStr,
     sync::Arc,
+    time::Duration,
 };
 use thiserror::Error;
 use tracing::{debug, instrument};
@@ -29,22 +31,149 @@ struct FileInfo {
 #[derive(Error, Debug)]
 enum ListError {
     #[error("fetching list json returned error: {0}")]
-    ListJsonFetch(reqwest::Error),
+    ListJsonFetch(#[from] FetchError),
     #[error("cannot parse list json file: {0}")]
-    ParseListJson(reqwest::Error),
+    ParseListJson(serde_json::Error),
     #[error("error parsing 'path' field: {0}")]
     Path(url::ParseError),
 }
 
+#[derive(Clone)]
+struct DownloadLimits {
+    connect_timeout: Duration,
+    request_timeout: Duration,
+    list_bytes: usize,
+    binary_bytes: usize,
+}
+
+impl Default for DownloadLimits {
+    fn default() -> Self {
+        Self {
+            connect_timeout: Duration::from_secs(10),
+            request_timeout: Duration::from_secs(120),
+            list_bytes: 8 * 1024 * 1024,
+            binary_bytes: 128 * 1024 * 1024,
+        }
+    }
+}
+
+#[derive(Clone)]
+struct Downloader {
+    client: reqwest::Client,
+    limits: DownloadLimits,
+}
+
+fn request_error(error: reqwest::Error) -> FetchError {
+    if error.is_timeout() {
+        FetchError::Timeout
+    } else {
+        FetchError::Fetch(error.into())
+    }
+}
+
+impl Downloader {
+    fn new(limits: DownloadLimits) -> Result<Self, FetchError> {
+        if limits.connect_timeout.is_zero()
+            || limits.request_timeout.is_zero()
+            || limits.list_bytes == 0
+            || limits.binary_bytes == 0
+        {
+            return Err(FetchError::Fetch(anyhow::anyhow!(
+                "compiler download limits must be positive"
+            )));
+        }
+        let client = reqwest::Client::builder()
+            .connect_timeout(limits.connect_timeout)
+            .timeout(limits.request_timeout)
+            .build()
+            .map_err(request_error)?;
+        Ok(Self { client, limits })
+    }
+
+    async fn download(&self, url: Url, limit: usize) -> Result<(Bytes, H256), FetchError> {
+        let mut response = self.client.get(url).send().await.map_err(request_error)?;
+        if !response.status().is_success() {
+            return Err(FetchError::HttpStatus {
+                status: response.status().as_u16(),
+            });
+        }
+        if response
+            .content_length()
+            .is_some_and(|length| length > limit as u64)
+        {
+            return Err(FetchError::BodyTooLarge { limit });
+        }
+        let mut data = BytesMut::new();
+        let mut hasher = Sha256::new();
+        while let Some(chunk) = response.chunk().await.map_err(request_error)? {
+            if chunk.len() > limit.saturating_sub(data.len()) {
+                return Err(FetchError::BodyTooLarge { limit });
+            }
+            hasher.update(&chunk);
+            data.extend_from_slice(&chunk);
+        }
+        Ok((data.freeze(), H256::from_slice(&hasher.finalize())))
+    }
+}
+
+/// Configures the shared discovery/download client. Defaults: 10s connection, 120s total,
+/// 8 MiB catalogue, 128 MiB compiler. Cache directories must be owned by the service account.
+pub struct ListFetcherBuilder<Ver> {
+    list_url: Url,
+    folder: PathBuf,
+    refresh_schedule: Option<Schedule>,
+    validator: Option<Arc<dyn FileValidator<Ver>>>,
+    limits: DownloadLimits,
+}
+
+impl<Ver: Version> ListFetcherBuilder<Ver>
+where
+    <Ver as FromStr>::Err: Display,
+{
+    pub fn connect_timeout(mut self, timeout: Duration) -> Self {
+        self.limits.connect_timeout = timeout;
+        self
+    }
+
+    pub fn request_timeout(mut self, timeout: Duration) -> Self {
+        self.limits.request_timeout = timeout;
+        self
+    }
+
+    pub fn max_list_bytes(mut self, limit: usize) -> Self {
+        self.limits.list_bytes = limit;
+        self
+    }
+
+    pub fn max_binary_bytes(mut self, limit: usize) -> Self {
+        self.limits.binary_bytes = limit;
+        self
+    }
+
+    pub async fn build(self) -> anyhow::Result<ListFetcher<Ver>> {
+        let downloader = Downloader::new(self.limits)?;
+        let fetcher = Arc::new(ListVersionFetcher::new(self.list_url, downloader.clone()));
+        let versions = VersionsRefresher::new(fetcher, self.refresh_schedule).await?;
+        Ok(ListFetcher {
+            versions,
+            folder: self.folder,
+            validator: self.validator,
+            downloader,
+        })
+    }
+}
+
 struct ListVersionFetcher<Ver> {
     list_url: Url,
+    downloader: Downloader,
     _phantom_data: PhantomData<Ver>,
 }
 
 impl<Ver> ListVersionFetcher<Ver> {
-    fn new(list_url: Url) -> Self {
+    fn new(list_url: Url, downloader: Downloader) -> Self {
         Self {
             list_url,
+            downloader,
             _phantom_data: Default::default(),
         }
     }
@@ -55,12 +184,11 @@ where
     <Ver as FromStr>::Err: Display,
 {
     async fn fetch_json_versions(&self) -> Result<json::List<Ver>, ListError> {
-        reqwest::get(self.list_url.as_str())
-            .await
-            .map_err(ListError::ListJsonFetch)?
-            .json()
-            .await
-            .map_err(ListError::ParseListJson)
+        let (bytes, _) = self
+            .downloader
+            .download(self.list_url.clone(), self.downloader.limits.list_bytes)
+            .await?;
+        serde_json::from_slice(&bytes).map_err(ListError::ParseListJson)
     }
 
     fn parse_json_versions(
@@ -100,6 +228,7 @@ where
 }
 
 pub struct ListFetcher<Ver> {
+    downloader: Downloader,
     versions: VersionsRefresher<VersionsMap<Ver>>,
     folder: PathBuf,
     validator: Option<Arc<dyn FileValidator<Ver>>>,
@@ -115,13 +244,20 @@ where
         refresh_schedule: Option<Schedule>,
         validator: Option<Arc<dyn FileValidator<Ver>>>,
     ) -> anyhow::Result<Self> {
-        let fetcher = Arc::new(ListVersionFetcher::new(list_url));
-        let versions = VersionsRefresher::new(fetcher, refresh_schedule).await?;
-        Ok(Self {
-            versions,
+        let mut builder = Self::builder(list_url, folder);
+        builder.refresh_schedule = refresh_schedule;
+        builder.validator = validator;
+        builder.build().await
+    }
+
+    pub fn builder(list_url: Url, folder: PathBuf) -> ListFetcherBuilder<Ver> {
+        ListFetcherBuilder {
+            list_url,
             folder,
-            validator,
-        })
+            refresh_schedule: None,
+            validator: None,
+            limits: DownloadLimits::default(),
+        }
     }
 
     #[instrument(skip(self), level = "debug")]
@@ -134,15 +270,13 @@ where
                 .ok_or_else(|| FetchError::NotFound(ver.clone().to_string()))?
         };
 
-        let response = reqwest::get(file_info.url)
-            .await
-            .map_err(anyhow::Error::msg)
-            .map_err(FetchError::Fetch)?;
-        let data = response
-            .bytes()
-            .await
-            .map_err(anyhow::Error::msg)
-            .map_err(FetchError::Fetch)?;
+        let (data, hash) = self
+            .downloader
+            .download(file_info.url, self.downloader.limits.binary_bytes)
+            .await?;
+        if hash != file_info.sha256 {
+            return Err(mismatch::Mismatch::new(file_info.sha256, hash).into());
+        }
         Ok((data, file_info.sha256))
     }
 }
@@ -158,6 +292,24 @@ where
         let (data, hash) = self.fetch_file(ver).await?;
         super::fetcher::write_executable(data, hash, &self.folder, ver, self.validator.as_deref())
             .await
+    }
+
+    async fn validate_cached(&self, ver: &Ver, path: &Path) -> Result<(), FetchError> {
+        let expected = self
+            .versions
+            .read()
+            .get(ver)
+            .map(|info| info.sha256)
+            .ok_or_else(|| FetchError::NotFound(ver.to_string()))?;
+        super::fetcher::validate_cached_file(
+            ver,
+            path,
+            &self.folder,
+            expected,
+            self.downloader.limits.binary_bytes,
+            self.validator.as_deref(),
+        )
+        .await
     }
 
     fn all_versions(&self) -> Vec<Self::Version> {
@@ -329,7 +481,10 @@ mod tests {
         let list_json_file: json::List<DetailedVersion> =
             serde_json::from_str(DEFAULT_LIST_JSON).unwrap();
         let download_url = Url::from_str(DEFAULT_DOWNLOAD_PREFIX).expect("valid url");
-        let fetcher = ListVersionFetcher::new(download_url);
+        let fetcher = ListVersionFetcher::new(
+            download_url,
+            Downloader::new(DownloadLimits::default()).unwrap(),
+        );
         let verions = fetcher.parse_json_versions(list_json_file).unwrap();
         assert_has_version(
             &verions,

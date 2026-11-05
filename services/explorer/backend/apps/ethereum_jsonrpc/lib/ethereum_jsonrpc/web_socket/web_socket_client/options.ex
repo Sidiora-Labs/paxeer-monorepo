@@ -9,9 +9,13 @@ defmodule EthereumJSONRPC.WebSocket.WebSocketClient.Options do
   defstruct ~w(web_socket event params)a
 
   @typedoc """
-   * `web_socket` - the `t:pid/0` of the `EthereumJSONRPC.WebSocket.WebSocketClient`.
+   * `web_socket` - the stable registered name of the `EthereumJSONRPC.WebSocket.WebSocketClient`, retained on failback.
    * `event` - the event that should be resubscribed to after disconnect.
    * `params` - the parameters that should be used to customized `event` when resubscribing after disconnect.
   """
-  @type t :: %__MODULE__{web_socket: pid(), event: Subscription.event(), params: Subscription.params()}
+  @type t :: %__MODULE__{
+          web_socket: EthereumJSONRPC.WebSocket.name(),
+          event: Subscription.event(),
+          params: Subscription.params()
+        }
 end

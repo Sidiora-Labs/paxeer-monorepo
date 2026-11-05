@@ -7,7 +7,12 @@ import React from 'react';
 import ArrowIcon from 'icons/link_external.svg';
 import stripUtmParams from 'lib/utils/stripUtmParams';
 
+import { recipe as linkRecipe } from '../theme/recipes/link.recipe';
+import { withRecipe, type WithRecipeProps } from './recipe-props';
 import { Skeleton } from './skeleton';
+
+type RecipeProps = WithRecipeProps<ChakraLinkProps, typeof linkRecipe>;
+const RecipeComponent = withRecipe(ChakraLink, linkRecipe);
 
 export const LinkExternalIcon = ({ color }: { color?: ChakraLinkProps['color'] }) => (
   <Icon
@@ -23,7 +28,7 @@ export const LinkExternalIcon = ({ color }: { color?: ChakraLinkProps['color'] }
   </Icon>
 );
 
-interface LinkPropsChakra extends ChakraLinkProps {
+interface LinkPropsChakra extends RecipeProps {
   loading?: boolean;
   external?: boolean;
   iconColor?: ChakraLinkProps['color'];
@@ -60,7 +65,7 @@ export const Link = React.forwardRef<HTMLAnchorElement, LinkProps>(
 
       return (
         <Skeleton loading={ loading } ref={ ref as React.ForwardedRef<HTMLDivElement> } asChild>
-          <ChakraLink
+          <RecipeComponent
             href={ processedHref }
             className="group"
             target="_blank"
@@ -70,14 +75,14 @@ export const Link = React.forwardRef<HTMLAnchorElement, LinkProps>(
           >
             { children }
             { !noIcon && <LinkExternalIcon color={ iconColor }/> }
-          </ChakraLink>
+          </RecipeComponent>
         </Skeleton>
       );
     }
 
     return (
       <Skeleton loading={ loading } ref={ ref as React.ForwardedRef<HTMLDivElement> } asChild>
-        <ChakraLink
+        <RecipeComponent
           asChild
           { ...(disabled ? { 'data-disabled': true } : {}) }
           { ...rest }
@@ -89,7 +94,7 @@ export const Link = React.forwardRef<HTMLAnchorElement, LinkProps>(
           ) :
             <span>{ children }</span>
           }
-        </ChakraLink>
+        </RecipeComponent>
       </Skeleton>
     );
   },

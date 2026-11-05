@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/sei-protocol/seictl/internal/patch"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -27,10 +29,10 @@ func seedHome(t *testing.T) string {
 	mustWrite(t, filepath.Join(home, "data", "blockstore.db", "000001.log"), "blocks")
 	mustWrite(t, filepath.Join(home, "data", "application.db", "CURRENT"), "app")
 	mustWrite(t, filepath.Join(home, "data", privValidatorStateFile), `{"height":"987","round":0,"step":3}`)
-	mustWrite(t, filepath.Join(home, "config", "config.toml"), "cfg")
+	repairResetHome(t, home)
 	mustWrite(t, filepath.Join(home, "config", "node_key.json"), "nodekey")
-	mustWrite(t, filepath.Join(home, "config", "priv_validator_key.json"), "conskey")
-	mustWrite(t, filepath.Join(home, "sidecar.db"), "ledger")
+	mustWrite(t, filepath.Join(home, "config", "priv_validator_key.json"), `{"address":"0000000000000000000000000000000000000001"}`)
+
 	mustWrite(t, filepath.Join(home, stateSyncMarkerFile), "")
 	return home
 }
@@ -52,7 +54,17 @@ func exists(path string) bool {
 
 func runReset(t *testing.T, d *ResetDataer) ResetDataResult {
 	t.Helper()
-	raw, err := d.Handler()(context.Background(), nil)
+	doc, err := patch.ReadTOML(filepath.Join(d.homeDir, "config", "config.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	p2p := doc["p2p"].(map[string]any)
+	peers := strings.Split(p2p["persistent-peers"].(string), ",")
+	var eps []string
+	for _, peer := range peers {
+		eps = append(eps, strings.SplitN(peer, "@", 2)[1])
+	}
+	raw, err := d.Handler()(context.Background(), map[string]any{"rpcServers": eps})
 	if err != nil {
 		t.Fatalf("reset-data: %v", err)
 	}
@@ -108,8 +120,8 @@ func TestResetData_WritesEmptyPrivValidatorState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reading priv_validator_state: %v", err)
 	}
-	if string(got) != emptyPrivValidatorState {
-		t.Errorf("priv_validator_state = %q, want %q", got, emptyPrivValidatorState)
+	if string(got) != `{"height":"987","round":0,"step":3}` {
+		t.Errorf("priv_validator_state = %q, want %q", got, `{"height":"987","round":0,"step":3}`)
 	}
 }
 
@@ -124,23 +136,24 @@ func TestResetData_IdempotentOverAlreadyWiped(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reading priv_validator_state after re-run: %v", err)
 	}
-	if string(got) != emptyPrivValidatorState {
-		t.Errorf("priv_validator_state after re-run = %q, want %q", got, emptyPrivValidatorState)
+	if string(got) != `{"height":"987","round":0,"step":3}` {
+		t.Errorf("priv_validator_state after re-run = %q, want %q", got, `{"height":"987","round":0,"step":3}`)
 	}
 	// Only the small state file remains, so the second wipe measures little.
-	if res.WipedBytes >= int64(len(emptyPrivValidatorState))+64 {
+	if res.WipedBytes >= int64(len(`{"height":"987","round":0,"step":3}`))+64 {
 		t.Errorf("second-run wipedBytes unexpectedly large: %d", res.WipedBytes)
 	}
 }
 
 func TestResetData_MissingDataDirIsSuccess(t *testing.T) {
 	home := t.TempDir() // no data/ at all
+	repairResetHome(t, home)
 	res := runReset(t, newResetDataer(home, false))
 	if res.WipedBytes != 0 {
 		t.Errorf("expected 0 wipedBytes for absent data dir, got %d", res.WipedBytes)
 	}
-	if !exists(filepath.Join(home, "data", privValidatorStateFile)) {
-		t.Error("expected a fresh priv_validator_state to be created")
+	if exists(filepath.Join(home, "data", privValidatorStateFile)) {
+		t.Error("reset fabricated validator signing history")
 	}
 }
 

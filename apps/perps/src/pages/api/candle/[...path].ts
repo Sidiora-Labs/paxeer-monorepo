@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import { isIP } from "node:net";
 
 // Unified Sidiora indexer for stocks (TSLA, NVDA, NAS100, XAU, SPX500,
 // GOOGL, …) — no per-symbol box exists for those yet.
@@ -103,26 +104,54 @@ function upstreamOrigin(): { origin: string } | { reason: string } {
 // scraping client gets cut off.
 const RATE_LIMIT_PER_MIN = 120;
 const RATE_LIMIT_WINDOW_MS = 60_000;
+const MAX_ACTIVE_IP_BUCKETS = 5_000;
 const ipBuckets = new Map<string, { count: number; windowStart: number }>();
 
-function clientIp(req: NextApiRequest): string {
-  const fwd = req.headers["x-forwarded-for"];
-  if (typeof fwd === "string" && fwd.length > 0) return fwd.split(",")[0].trim();
-  if (Array.isArray(fwd) && fwd[0]) return fwd[0].split(",")[0].trim();
-  return req.socket.remoteAddress ?? "unknown";
+function normalizedIp(raw: string | undefined): string | undefined {
+  if (!raw || raw.length > 45 || raw.includes("%") || !isIP(raw))
+    return undefined;
+  if (isIP(raw) === 4) return raw;
+  const canonical = new URL(`http://[${raw}]/`).hostname.slice(1, -1);
+  const mapped = /^::ffff:([a-f0-9]+):([a-f0-9]+)$/.exec(canonical);
+  if (!mapped) return canonical;
+  const high = parseInt(mapped[1], 16);
+  const low = parseInt(mapped[2], 16);
+  return `${high >> 8}.${high & 255}.${low >> 8}.${low & 255}`;
+}
+
+// Only these socket peers may supply X-Real-IP. The ingress must overwrite
+// the header from its verified client address, never append caller input.
+const TRUSTED_PROXY_IPS = new Set(
+  process.env.CANDLE_TRUSTED_PROXY_IPS
+    ? process.env.CANDLE_TRUSTED_PROXY_IPS.split(",").map((raw) => {
+        const ip = normalizedIp(raw.trim());
+        if (!ip)
+          throw new Error(
+            "CANDLE_TRUSTED_PROXY_IPS must contain only IP addresses",
+          );
+        return ip;
+      })
+    : [],
+);
+
+function clientIp(req: NextApiRequest): string | undefined {
+  const peer = normalizedIp(req.socket.remoteAddress);
+  if (!peer || !TRUSTED_PROXY_IPS.has(peer)) return peer;
+  const verified = req.headers["x-real-ip"];
+  return typeof verified === "string" ? normalizedIp(verified) : undefined;
 }
 
 function checkRateLimit(ip: string): boolean {
   const now = Date.now();
   const bucket = ipBuckets.get(ip);
-  if (!bucket || now - bucket.windowStart > RATE_LIMIT_WINDOW_MS) {
-    ipBuckets.set(ip, { count: 1, windowStart: now });
-    // Periodically prune old entries to bound memory.
-    if (ipBuckets.size > 5_000) {
+  if (!bucket || now - bucket.windowStart >= RATE_LIMIT_WINDOW_MS) {
+    if (!bucket && ipBuckets.size >= MAX_ACTIVE_IP_BUCKETS) {
       for (const [k, v] of ipBuckets) {
-        if (now - v.windowStart > RATE_LIMIT_WINDOW_MS) ipBuckets.delete(k);
+        if (now - v.windowStart >= RATE_LIMIT_WINDOW_MS) ipBuckets.delete(k);
       }
+      if (ipBuckets.size >= MAX_ACTIVE_IP_BUCKETS) return false;
     }
+    ipBuckets.set(ip, { count: 1, windowStart: now });
     return true;
   }
   if (bucket.count >= RATE_LIMIT_PER_MIN) return false;
@@ -154,6 +183,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const origin = proxyOrigin.origin;
 
   const ip = clientIp(req);
+  if (!ip) return res.status(400).json({ error: "Invalid client address" });
   if (!checkRateLimit(ip)) {
     res.setHeader("Retry-After", "60");
     return res.status(429).json({ error: "Too many requests" });
@@ -226,6 +256,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       },
       signal: abort.signal,
     });
+
+    if (method === "HEAD") {
+      // Forward representation metadata without decoding a body that HEAD omits.
+      const hopByHopHeaders = new Set([
+        "connection", "keep-alive", "proxy-authenticate", "proxy-authorization",
+        "te", "trailer", "transfer-encoding", "upgrade",
+        ...(upstreamRes.headers.get("connection") || "").split(",").map(header => header.trim().toLowerCase()),
+      ]);
+      upstreamRes.headers.forEach((value, header) => {
+        if (!hopByHopHeaders.has(header)) res.setHeader(header, value);
+      });
+      return res.status(upstreamRes.status).end();
+    }
 
     const contentType = upstreamRes.headers.get("content-type") || "";
     res.setHeader("Cache-Control", "public, s-maxage=2, stale-while-revalidate=5");

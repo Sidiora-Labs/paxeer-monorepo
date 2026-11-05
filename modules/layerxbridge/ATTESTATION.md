@@ -6,10 +6,15 @@ prefix and no EIP-712 domain separator or struct hashing. Every integer is
 big-endian and fixed width; addresses are their 20 raw bytes; the domain is the
 ASCII string with no length prefix and no terminator. This is exactly
 Solidity `abi.encodePacked` of the listed types
-(`contracts/bridge/evm/src/BridgeAttestation.sol`). This file is the
-Paxeer-side copy of `contracts/bridge/evm/ATTESTATION.md`;
-`types.InboundPreimage` / `types.OutboundPreimage` build these bytes and
-`keeper/attestation_test.go` recomputes the vectors below.
+([BridgeAttestation.sol](../../contracts/bridge/evm/src/BridgeAttestation.sol)).
+This page documents the Paxeer side of the
+[EVM vault attestation format](../../contracts/bridge/evm/ATTESTATION.md);
+`types.InboundPreimage` / `types.OutboundPreimage` in
+[types/attestation.go](types/attestation.go) build these bytes, and
+[keeper/attestation_test.go](keeper/attestation_test.go) recomputes the vectors
+below. The bridge module runs within the Paxeer network. In these digests,
+`chainId` identifies the remote chain; the Go API accepts a `uint64` and packs
+it as a 32-byte `uint256`.
 
 ## Outbound: Paxeer -> Ethereum (`PaxeerXVault.release`)
 
@@ -43,7 +48,9 @@ Signature rules enforced by the vault:
 ## Inbound: Ethereum -> Paxeer (`BridgeDeposit` log, verified by `modules/layerxbridge`)
 
 Domain `PAXEERX_BRIDGE_IN_V1`. Preimage length 196 bytes. This mirrors the
-outbound layout. `bridgeIn` on the layerxBridge precompile (`0x…1016`) verifies it.
+outbound layout. `bridgeIn` on the
+[layerxBridge precompile](../../precompiles/layerxbridge/layerxbridge.go) at
+`0x0000000000000000000000000000000000001016` verifies it.
 
 | Offset | Size | Field           | Encoding                                              |
 |-------:|-----:|-----------------|-------------------------------------------------------|
@@ -73,22 +80,49 @@ Rules enforced by `bridgeIn` on Paxeer:
 
 - signatures follow the vault's rules above: 65 bytes `r || s || v`, `v` in
   {27, 28}, low `s`, strictly ascending recovered signer, every signer a current
-  attestor, at least `threshold` of them;
+  attestor, at least `threshold` of them, with at most 64 signatures;
 - `chainId` must be a registered, enabled chain and `vault` its registered vault;
+- `(chainId, asset)` must have a registered bridged denom;
 - `recipient` must be `bytes32(uint256(uint160(paxeerEvmAddress)))`: the high 12
   bytes zero and the low 20 bytes a non-zero Paxeer EVM address, which receives
   the mint;
 - the nullifier `(chainId, txHash, logIndex)` is consumed once;
-- the bridge must not be paused, and `amount` must be within the asset's
-  per-transaction cap and keep its in-flight supply within its in-flight cap.
+- the bridge must not be paused, and `amount` must be positive, below `2^255`,
+  within the asset's per-transaction cap and keep its in-flight supply within
+  its in-flight cap.
 
-The minted denom is the tokenfactory denom `factory/{bridge module address}/lxb{hex(keccak256(uint64 chainId || asset)[:20])}`,
-administered by the bridge module account.
+### Minted denom and the Sidiora exception
+
+For every pair except canonical Sidiora, the minted tokenfactory denom is
+`factory/{bridge module address}/lxb{hex(keccak256(uint64 chainId || asset)[:20])}`.
+Here `chainId` is eight bytes, big-endian, and `asset` is 20 raw bytes.
+The bridge module account administers the denom; governance `SetCap` creates
+it when first setting the pair's caps.
+
+Canonical Sidiora instead uses `factory/{bridge module address}/usid`, returned
+by `types.SidioraDenom()`. Its pair is `types.SidioraHomeChainID`
+(`0x0000534f4c414e41`, Solana) with remote asset
+`0x21f7b20a555199fa73A238B1a91FD0f549068fEe`, as declared in
+[types/keys.go](types/keys.go). Governance must register the chain, call
+`RegisterSidioraPair`, and then set its caps, through
+[keeper/msg_server.go](keeper/msg_server.go). `SetCap` refuses this pair until
+it is registered with the canonical denom, and refuses an existing generic
+denom that would require a governed migration.
+
+`RegisterSidioraPair` uses `EnsureSidioraDenom` in
+[keeper/sidiora.go](keeper/sidiora.go) to create or validate the module-owned
+`usid` denom and install bank metadata: base exponent 0, display and symbol
+`SID` at exponent 6: **1 SID = 1,000,000 `usid` base units**. Attested `amount`,
+caps, minted balances and burns are integer base units, with no rescaling by
+the bridge. Both minting and burning use the registered asset record's denom.
+[types/genesis.go](types/genesis.go) also enforces this exception through
+`AssetDenom`: only the canonical pair may use `usid`; all other pairs must use
+their derived `lxb…` denom.
 
 ## Outbound on Paxeer: `bridgeOut`
 
-`bridgeOut(chain, asset, amount, recipient)` burns the caller's bridged denom
-and emits, from `0x…1016`,
+`bridgeOut(chain, asset, amount, recipient)` burns the caller's registered
+bridged denom and emits, from `0x0000000000000000000000000000000000001016`,
 
 ```
 event BridgeOut(uint64 indexed chain, address indexed asset, uint256 amount,
@@ -98,6 +132,11 @@ event BridgeOut(uint64 indexed chain, address indexed asset, uint256 amount,
 Attestors sign the outbound digest with `paxeerTxHash` = the hash of the Paxeer
 transaction carrying that log and `paxeerNonce` = its `nonce`, a per-chain
 counter starting at 1.
+
+The chain must be registered and enabled, the asset registered, and the bridge
+unpaused. The amount must be positive, below `2^255`, within the per-transaction
+cap and no greater than the in-flight bridged supply; the recipient must be
+non-zero. A successful burn reduces that supply.
 
 ## Test vectors
 
@@ -111,4 +150,7 @@ nonce / logIndex `= 7`, `asset = 0x4444444444444444444444444444444444444444`,
 - Inbound with `recipient = 0x5555555555555555555555555555555555555555555555555555555555555555`:
   `0x511964ae9566f9536604258667400b0d76335e2a6e60ab0f700bf2433bc97918`
 
-Both vectors are asserted by `test_DigestVectorsFromAttestationDoc`.
+The inbound vector exercises digest encoding only: its all-`0x55` recipient
+does not satisfy the padding rule required for an actual deposit or mint.
+Both vectors are asserted by Go `TestDigestVectorsFromAttestationDoc` and
+Solidity `test_DigestVectorsFromAttestationDoc`.

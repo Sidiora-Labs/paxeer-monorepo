@@ -63,10 +63,7 @@ fn listener_with_rungs(
     rungs: Vec<&'static str>,
 ) -> (RpcClient, JoinHandle<Vec<Value>>) {
     let listener = TcpListener::bind("127.0.0.1:0").expect("loopback listener");
-    let endpoint = format!(
-        "http://{}/rpc",
-        listener.local_addr().expect("local address")
-    );
+    let endpoint = format!("http://{}", listener.local_addr().expect("local address"));
     listener.set_nonblocking(true).expect("nonblocking");
     let server = thread::spawn(move || {
         let mut requests = Vec::new();
@@ -97,6 +94,9 @@ fn listener_with_rungs(
                 socket.read_exact(&mut byte).expect("header");
                 header.push(byte[0]);
             }
+            assert!(std::str::from_utf8(&header)
+                .expect("HTTP text")
+                .starts_with("POST / HTTP/1.1\r\n"));
             let length = std::str::from_utf8(&header)
                 .expect("HTTP text")
                 .lines()
@@ -155,7 +155,7 @@ fn listener_with_rungs(
         requests
     });
     (
-        RpcClient::connect(&endpoint, None).expect("RPC client"),
+        RpcClient::connect_node(&endpoint, None).expect("RPC client"),
         server,
     )
 }
@@ -433,4 +433,13 @@ fn receipted_rung_revert_maps_through_the_registry() {
             "pax_sequencerReceipt"
         );
     }
+}
+
+#[allow(dead_code)]
+#[path = "support/audit_22_30_99.rs"]
+mod audit;
+
+#[test]
+fn wallet_root_route_returns_the_served_balance() {
+    audit::root_wallet_request_and_method_response();
 }

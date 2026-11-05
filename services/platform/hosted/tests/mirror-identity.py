@@ -9,6 +9,9 @@ namespace reserved for another payer.
 import json
 import pathlib
 import sys
+import subprocess
+
+import beta_tool
 
 BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
 
@@ -34,13 +37,15 @@ def solana_public_key(path):
     if (
         not isinstance(values, list)
         or len(values) != 64
-        or any(not isinstance(value, int) or not 0 <= value <= 255 for value in values)
+        or any(type(value) is not int or not 0 <= value <= 255 for value in values)
     ):
         refuse("the keypair file is not 64 keypair bytes")
-    public_key = bytes(values[32:])
-    if public_key == bytes(32):
-        refuse("the keypair file carries the zero public key")
-    return base58_encode(public_key)
+    try:
+        # The shared producer derives the public key and compares the complete
+        # seed/public pair before returning the deployment identity.
+        return json.loads(beta_tool.run(["mirror-public", path]))
+    except (OSError, ValueError, subprocess.CalledProcessError):
+        refuse("the keypair public half does not match its signing seed")
 
 
 def main(argv):

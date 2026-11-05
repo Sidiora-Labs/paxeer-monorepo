@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"sort"
@@ -27,10 +28,8 @@ import (
 // on the node. hostPID/hostIPC would let off-pod processes attach.
 
 const (
-	// AuthnModeUnauthenticated: sidecar binds all interfaces; every
-	// caller is trusted. Acceptable only on validator-only pod
-	// networks.
-	AuthnModeUnauthenticated = ""
+	// AuthnModeUnauthenticated permits read-only isolated development.
+	AuthnModeUnauthenticated = "unauthenticated"
 
 	// AuthnModeTrustedHeader pairs the sidecar with an in-pod
 	// kube-rbac-proxy on TLS :8443. The proxy performs TokenReview +
@@ -87,12 +86,17 @@ func init() {
 func AuthnMode() (string, error) {
 	raw := strings.ToLower(strings.TrimSpace(os.Getenv("SEI_SIDECAR_AUTHN_MODE")))
 	switch raw {
-	case "", "unauthenticated":
+	case "":
+		return AuthnModeTrustedHeader, nil
+	case AuthnModeUnauthenticated:
+		if os.Getenv("SEI_SIDECAR_ISOLATED_DEVELOPMENT") != "true" {
+			return "", fmt.Errorf("unauthenticated mode requires SEI_SIDECAR_ISOLATED_DEVELOPMENT=true")
+		}
 		return AuthnModeUnauthenticated, nil
 	case AuthnModeTrustedHeader:
 		return AuthnModeTrustedHeader, nil
 	default:
-		return "", fmt.Errorf("SEI_SIDECAR_AUTHN_MODE=%q is not recognized (allowed: \"\", \"unauthenticated\", %q)", raw, AuthnModeTrustedHeader)
+		return "", fmt.Errorf("SEI_SIDECAR_AUTHN_MODE=%q is not recognized (allowed: %q, %q)", raw, AuthnModeUnauthenticated, AuthnModeTrustedHeader)
 	}
 }
 
@@ -101,10 +105,30 @@ func AuthnMode() (string, error) {
 // the listen socket to the pod's network namespace so the only path
 // to :7777 is through the in-pod proxy.
 func BindAddress(port, mode string) string {
-	if mode == AuthnModeTrustedHeader {
-		return "127.0.0.1:" + port
+	if mode == AuthnModeUnauthenticated && os.Getenv("SEI_SIDECAR_ISOLATED_DEVELOPMENT") == "true" {
+		return ":" + port
 	}
-	return ":" + port
+	return "127.0.0.1:" + port
+}
+
+func validateListener(addr, mode string) error {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return fmt.Errorf("invalid sidecar listen address: %w", err)
+	}
+	switch mode {
+	case "", AuthnModeTrustedHeader:
+		if ip := net.ParseIP(host); ip == nil || !ip.IsLoopback() {
+			return fmt.Errorf("trusted-header mode requires a literal loopback listen address")
+		}
+	case AuthnModeUnauthenticated:
+		if os.Getenv("SEI_SIDECAR_ISOLATED_DEVELOPMENT") != "true" {
+			return fmt.Errorf("unauthenticated listener requires SEI_SIDECAR_ISOLATED_DEVELOPMENT=true")
+		}
+	default:
+		return fmt.Errorf("unrecognized sidecar authentication mode %q", mode)
+	}
+	return nil
 }
 
 // trustedHeaderMiddleware enforces X-Remote-User on every path
@@ -125,7 +149,7 @@ func trustedHeaderMiddleware(next http.Handler) http.Handler {
 		case len(vals) > 1:
 			authnRejections.WithLabelValues("duplicate_header").Inc()
 			writeError(w, http.StatusUnauthorized, "expected exactly one "+remoteUserHeader+" header — proxy must overwrite, not append")
-		case vals[0] == "":
+		case strings.TrimSpace(vals[0]) == "":
 			authnRejections.WithLabelValues("empty_header").Inc()
 			writeError(w, http.StatusUnauthorized, "empty "+remoteUserHeader+" header")
 		default:

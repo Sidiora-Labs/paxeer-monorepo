@@ -133,7 +133,7 @@ func buildSoftwareUpgradeMsg(cfg engine.ExecutionConfig, params GovSoftwareUpgra
 		return nil, Terminal(fmt.Errorf("initialDeposit %q contains non-positive amounts", params.InitialDeposit))
 	}
 	// Symmetric with checkFeesDenom: deposit denom is fixed by gov
-	// params on Sei (usei); a wrong denom would CheckTx-reject anyway,
+	// params on Paxeer (uhpx); a wrong denom would CheckTx-reject anyway,
 	// but rejecting here saves the sign + broadcast roundtrip.
 	for _, c := range deposit {
 		if c.Denom != feeDenom {

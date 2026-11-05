@@ -1,0 +1,50 @@
+[task.22.33.827]
+audit = "22.30.18"
+mode = "BUILD"
+baseline = "Attempt 1's recorded hf-done failed TestRepairM_827_RebuildProjectionInventory, TestRepairM_827_StaggeredMarketExpiry and TestRepairM_827_StaggeredLeaderboardExpiry in database setup after PERPS_DATA_TEST_DATABASE_URL was unset. No additional baseline gate is run in attempt 2 under the ordered gate allowance."
+qualification = "The private hf-build/hf-done ledger records the exact candidate revision, command, exit code and evidence location. No gate is claimed here before it runs."
+environment = "Attempt 2 and gotcha 2980 authorize the PostgreSQL fixture named by PERPS_DATA_TEST_DATABASE_URL. The existing testDB creates a database unique to each run; Migrate creates the production perps schema isolated in that database. The tests never unset the variable or alter another run's schema, and missing configuration fails naming the variable."
+
+[finding.5]
+test = "TestRepairM_827_RebuildProjectionInventory"
+repair = "An independent sixteen-table inventory compares scoped recovery to a separate fresh database populated by ABI decoding and WriteBlock, includes spot legs, pnl/volume/win-rate boards and generation/omission metadata, removes the last facts of an account, and checks untouched-account serialized bytes plus perps tuple identities. Generation timestamps are database-local and checked for exact persistence across reopen. Close and reopen the connection before replacing facts and after recovery, and compare persisted projections again. TestRebuildScoped includes the same full-inventory case."
+
+[finding.9]
+test = "TestRepairM_827_StaggeredLeaderboardExpiry"
+repair = "Select existing rolling-window accounts whenever a close or settlement crosses the exclusive lower boundary since the preceding block, including partial expiry while newer contributions remain; refold and rerank using the existing production path."
+
+[finding.8]
+test = "TestRepairM_827_StaggeredMarketExpiry"
+repair = "Select markets with a fill crossing any 24h, 7d or 30d boundary since that market's last statistics refresh, including exact-boundary empty blocks; compare every statistic with an independent full fixture fold."
+
+[finding.10]
+tests = ["TestRepairM_827_StaggeredMarketExpiry", "TestRepairM_827_StaggeredLeaderboardExpiry"]
+repair = "Extend the original expiry suites without removing their zero-volume or row-existence checks; stagger fills, winning and losing full/partial closes, and positive/negative settlements, then compare every metric and rank just before and at every contribution expiry, including accounts retaining newer activity."
+
+[wiring]
+requests = ["Domain 3 (markets): add the production migration in services/platform/perps-data/migrations for perps.spot_board_omissions and perps.spot_board_generation, which services/platform/perps-data/internal/store/spotboard.go already requires; a fresh Migrate database has neither table."]
+resolved = "At base 357234853ae90e2dbfd210d59cb4085eaf01ed95, Domain 3's production migration services/platform/perps-data/migrations/0016_spot_board_omissions.sql creates both spot board metadata tables (task 22.31.468). The production share decoder also registers exactly Transfer and Approval, matching precompiles/spot/abi/share.json. No migration, decoder, ABI or test-only schema change is needed here."
+
+[continuation.attempt5]
+baseline = "Attempt 4's recorded hf-done failed TestRepairM_827_RebuildProjectionInventory because the production migration lacked the spot board metadata tables; both staggered-expiry tests passed. Preserve the applied implementation and tests, then qualify against the production migration now on the base."
+evidence = "The private hf-build/hf-done ledger supplies this attempt's exact candidate revision, command, exit code and log path; only a passing hf-done closes the findings."
+
+[gotcha.attempt3]
+observed = "The prior attempt's decoder mismatch is already resolved in the current base; the independent projection inventory must also include the base's new spot board generation and omission tables."
+fix = "Retain the real registry, database and WriteBlock paths, include both metadata tables, and compare generated_at bytes across reopen rather than equating independent wall clocks."
+
+[qualification.attempt2]
+revision = "9af6ead36a4971c6c6d9cc193665c601d181bdfc"
+command = "cg spec done 22.33.827 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build passed on the same revision; all three declared tests failed in production NewRegistry with decode: share pointers declare 2 events, 3 decoders."
+assumption = "This existing decoder/ABI mismatch belongs to Domain 3 outside the authorized store scope; no check is weakened, no unrelated file is edited, and the unchanged failing gate is not rerun."
+
+[qualification.attempt3]
+revision = "e8e1c9c1eb87dd40c9514321b0098401ddf22108"
+command = "cg spec done 22.33.827 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The same-revision build and both staggered-expiry tests passed; TestRepairM_827_RebuildProjectionInventory failed at WriteBlock 100 with pq: relation perps.spot_board_omissions does not exist."
+assumption = "The base's production spot-board metadata writer requires missing tables from the out-of-scope migrations directory; record the wiring request without changing migrations, adding test-only schema, weakening assertions or rerunning this recorded failure."

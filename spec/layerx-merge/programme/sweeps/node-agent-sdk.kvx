@@ -1,14 +1,16 @@
 [sweep.node-agent-sdk]
-revision = "03e2d849d7f3e9ca51cada79f6d3cfe90938a0fb"
+revision = "e76fc2463015a24b1b9fe4bc93c71b3d8c3d8677"
 command = "cd TARGET && npm ci && npm run build && npm test"
 targets_total = 1
 targets_passed = 0
 targets_failed = 1
 targets_not_run = 0
+qualification_record = "/out/logs/node-agent-sdk-closure-target-1.json"
 
 [target.node-agent-sdk.1]
 target = "services/agent/sdk/typescript"
 result = "failed"
 exit_code = 1
-observed = "Dependency installation and the TypeScript build passed, but npm test failed at services/agent/sdk/typescript/dist/test/program-lifecycle.test.js:133 (test/program-lifecycle.test.ts:120) with AssertionError [ERR_ASSERTION]: Missing expected exception."
-assumption = "The lifecycle test likely retains an outdated expectation that guest ABI 5 is rejected by decodeNativeProgramCallV1."
+producer_input_tests = ["exchange-v2.test.ts: Anvil executable (ANVIL_BIN)", "gas-station.test.ts: Anvil executable (ANVIL_BIN)", "agent-operation-envelope.test.ts: private hosted-agent harness case and credentials (PAXEER_X_AGENT_ENVELOPE_CASE)"]
+observed = "npm ci and npm run build passed, but npm test ran 51 test files with three failures, first in bind_message_vector_v6 at services/agent/sdk/typescript/dist/test/account-derivation.test.js:254:31 when services/agent/sdk/python/layerx_sdk/account_derivation.py:80 raised ModuleNotFoundError: No module named 'cryptography'."
+assumption = "The failures likely reflect missing environmental dependencies: Python cryptography for account-derivation and ai-market, and the wallet package's viem dependency for proof_gas_station_producer_transport_consumer."

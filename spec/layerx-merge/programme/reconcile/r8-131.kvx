@@ -1,0 +1,243 @@
+[reconcile.r8-131]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r8-131.1]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-intentendpointkind-human"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1511
+symbol = "HUMAN"
+evidence = "HumanModels.IntentEndpointKind declares HUMAN(\"human\"), at line 1511; the other occurrences are OperationCatalog.Plane.HUMAN references. The registered enum member signature is unchanged."
+
+[row.r8-131.2]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-journey"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1582
+symbol = "Journey"
+evidence = "HumanModels.Journey is the record declaration at line 1582, preceding its compact constructor. Its ten registered components, from journey_id through wallet_request, and GeneratedResponse interface are unchanged."
+
+[row.r8-131.3]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-journeykind-agent-create"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1597
+symbol = "AGENT_CREATE"
+evidence = "HumanModels.JourneyKind declares AGENT_CREATE(\"agent-create\"), at line 1597, matching the registered enum member signature; HumanOperations.AGENT_CREATE is a separate TypedOperation constant."
+
+[row.r8-131.4]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-journeykind-agent-pause"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1599
+symbol = "AGENT_PAUSE"
+evidence = "HumanModels.JourneyKind declares AGENT_PAUSE(\"agent-pause\"), at line 1599, matching the registered enum member signature; HumanOperations.AGENT_PAUSE is a separate TypedOperation constant."
+
+[row.r8-131.5]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-journeypage"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1609
+symbol = "JourneyPage"
+evidence = "HumanModels.JourneyPage is declared at line 1609 with List<HumanModels.Journey> journeys and String next_cursor, implementing GeneratedResponse as registered; line 1610 begins its compact constructor."
+
+[row.r8-131.6]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-journeystage"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1615
+symbol = "JourneyStage"
+evidence = "HumanModels.JourneyStage is declared at line 1615 as a GeneratedResponse record. After the registered stage_id, copy_key, state and evidence components, its signature now adds String tx_hash and @JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) Long nonce; line 1616 is its compact constructor."
+
+[row.r8-131.7]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-journeystate"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1623
+symbol = "JourneyState"
+evidence = "HumanModels declares public enum JourneyState at line 1623, matching the registered type signature. Later occurrences are its constructor, fromWire method, iteration and record component types."
+
+[row.r8-131.8]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-journeystate-waiting-for-you"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1631
+symbol = "WAITING_FOR_YOU"
+evidence = "HumanModels.JourneyState declares WAITING_FOR_YOU(\"waiting-for-you\"); at line 1631, matching the registered signature. The member at line 2465 belongs to SupportConversationState and ends with a comma."
+
+[row.r8-131.9]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-keychallenge"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1640
+symbol = "KeyChallenge"
+evidence = "HumanModels.KeyChallenge is the GeneratedResponse record declaration at line 1640. Its six registered components, including the integer-deserialized long delay_seconds, are unchanged; line 1641 is its compact constructor."
+
+[row.r8-131.10]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-keychallengekind"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1649
+symbol = "KeyChallengeKind"
+evidence = "HumanModels declares public enum KeyChallengeKind at line 1649 with ROTATE and RECOVER variants. This matches the registered type declaration; the constructor and fromWire references occur later."
+
+[row.r8-131.11]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-keyexportbegin"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1660
+symbol = "KeyExportBegin"
+evidence = "HumanModels.KeyExportBegin is declared at line 1660 with HumanModels.StepUpEvidence step_up and implements GeneratedResponse, matching the registered signature; line 1661 is its compact constructor."
+
+[row.r8-131.12]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-keyexportchallenge"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1665
+symbol = "KeyExportChallenge"
+evidence = "HumanModels.KeyExportChallenge is declared at line 1665 with String export_id, String confirms and String expires_at, implementing GeneratedResponse as registered; line 1666 is its compact constructor."
+
+[row.r8-131.13]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-keyexportfinish"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1672
+symbol = "KeyExportFinish"
+evidence = "HumanModels.KeyExportFinish is declared at line 1672 with String export_id and HumanModels.StepUpEvidence step_up, implementing GeneratedResponse as registered; line 1673 is its compact constructor."
+
+[row.r8-131.14]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-limitenforcement"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1678
+symbol = "LimitEnforcement"
+evidence = "HumanModels declares public enum LimitEnforcement at line 1678 with PROTOCOL and APP variants. This matches the registered declaration; subsequent occurrences include its constructor and fromWire method."
+
+[row.r8-131.15]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-limitenforcement-protocol"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1679
+symbol = "PROTOCOL"
+evidence = "HumanModels.LimitEnforcement declares PROTOCOL(\"protocol\"), at line 1679, matching the registered member signature. The identical member at line 2227 belongs to the separate RefusedBy enum."
+
+[row.r8-131.16]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-money"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1689
+symbol = "Money"
+evidence = "HumanModels.Money is declared at line 1689 with ProtocolAmount amount and String currency, implementing GeneratedResponse as registered. Other occurrences are its compact constructor and component type references."
+
+[row.r8-131.17]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-moneydirection"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1695
+symbol = "MoneyDirection"
+evidence = "HumanModels declares public enum MoneyDirection at line 1695 with IN and OUT variants, matching the registered type signature. Its constructor, fromWire method and component type uses occur separately."
+
+[row.r8-131.18]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-movecommitrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1706
+symbol = "MoveCommitRequest"
+evidence = "HumanModels.MoveCommitRequest is declared at line 1706 with String quote_id and String native_access_id and implements GeneratedResponse as registered. The record at line 3995 belongs to HumanOperations and implements GeneratedRequest."
+
+[row.r8-131.19]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-movemechanism"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1711
+symbol = "MoveMechanism"
+evidence = "HumanModels declares public enum MoveMechanism at line 1711 with FUND, ALLOCATE, RETURN and TRANSFER variants. The declaration matches the registered signature; later occurrences are constructor, conversion and component references."
+
+[row.r8-131.20]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-movemechanism-transfer"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1715
+symbol = "TRANSFER"
+evidence = "HumanModels.MoveMechanism declares TRANSFER(\"transfer\"); at line 1715, matching the registered member signature. The occurrence at line 695 belongs to AgentModels.ProgramCapability and ends with a comma."
+
+[row.r8-131.21]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-movequote"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1724
+symbol = "MoveQuote"
+evidence = "HumanModels.MoveQuote is the GeneratedResponse record declaration at line 1724. Its ten registered components, from quote_id through HumanModels.NativeSendAccessRequest native_send_access, are unchanged; line 1725 is its compact constructor."
+
+[row.r8-131.22]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-movequoterequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1736
+symbol = "MoveQuoteRequest"
+evidence = "HumanModels.MoveQuoteRequest is declared at line 1736 with String source, String destination and HumanModels.Money money, implementing GeneratedResponse as registered. The HumanOperations record at line 4013 implements GeneratedRequest."
+
+[row.r8-131.23]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-nativefeeasset"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1743
+symbol = "NativeFeeAsset"
+evidence = "HumanModels.NativeFeeAsset is declared at line 1743 with String asset_id, String currency and integer-deserialized long decimals, implementing GeneratedResponse as registered; line 1744 is its compact constructor."
+
+[row.r8-131.24]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-nativefeebudget"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1749
+symbol = "NativeFeeBudget"
+evidence = "HumanModels.NativeFeeBudget is the GeneratedResponse record declaration at line 1749. Its registered asset_id, maximum_per_activity, maximum_total, period_length_ms and maximum_per_period components are unchanged; other occurrences are constructor and type uses."
+
+[row.r8-131.25]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-nativesendaccessconfirmation"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1758
+symbol = "NativeSendAccessConfirmation"
+evidence = "HumanModels.NativeSendAccessConfirmation is the GeneratedResponse record declaration at line 1758. It preserves the eleven registered components, including StepUpEvidence step_up and NativeFeeBudget native_fee_budget, and now appends String nonce to the signature; line 1759 is its compact constructor."
+
+[row.r8-131.26]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-nativesendaccessdisclosure"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1772
+symbol = "NativeSendAccessDisclosure"
+evidence = "HumanModels.NativeSendAccessDisclosure is declared at line 1772 with String access_id and String confirms, implementing GeneratedResponse as registered; line 1773 is its compact constructor."
+
+[row.r8-131.27]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-nativesendaccessrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1778
+symbol = "NativeSendAccessRequest"
+evidence = "HumanModels.NativeSendAccessRequest is the GeneratedResponse record declaration at line 1778. Its ten registered components, from access_id through NativeFeeBudget native_fee_budget, remain and String nonce is now appended to the signature; line 1779 is its compact constructor."
+
+[row.r8-131.28]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-nativesendaccessresult"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1791
+symbol = "NativeSendAccessResult"
+evidence = "HumanModels.NativeSendAccessResult is declared at line 1791 with String native_access_id and implements GeneratedResponse, matching the registered signature; line 1792 begins its compact constructor."
+
+[row.r8-131.29]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-notificationdetaillevel"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1813
+symbol = "NotificationDetailLevel"
+evidence = "HumanModels declares public enum NotificationDetailLevel at line 1813 with FULL, SUMMARY and MINIMAL variants, matching the registered signature. Its constructor, fromWire method and component type references occur later."
+
+[row.r8-131.30]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-notificationgroup"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1825
+symbol = "NotificationGroup"
+evidence = "HumanModels.NotificationGroup is declared at line 1825 with HumanModels.NotificationRecency recency and List<HumanModels.NotificationSummary> notifications, implementing GeneratedResponse as registered; line 1826 is its compact constructor."

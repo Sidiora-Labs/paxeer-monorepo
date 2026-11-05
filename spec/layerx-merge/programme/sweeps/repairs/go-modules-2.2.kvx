@@ -1,0 +1,11 @@
+[repair.go-modules-2.2]
+target = "modules/pricefeed/keeper"
+command = "CGO_ENABLED=1 go vet ./modules/pricefeed/keeper/ && CGO_ENABLED=1 go test -count=1 ./modules/pricefeed/keeper/"
+revision = "cea04b0a20fed9621b2f2580398024b38b76ff2e"
+result = "repaired"
+change = "modules/pricefeed/keeper/integration_test.go explicitly sets MinSources to 3 for its four-validator scenarios without changing any assertion."
+producer_input_tests = []
+verification_command = "CGO_ENABLED=1 go test -count=1 -timeout 35m ./modules/pricefeed/keeper/"
+initial_verification_wall_time_seconds = 93
+initial_package_test_seconds = 22.833
+observed = "The bounded test run completed without a hang and exposed two integration event assertions whose three-source scenario retained the default MinSources of 1."

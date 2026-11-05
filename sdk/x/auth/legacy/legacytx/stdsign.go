@@ -153,11 +153,19 @@ func pubKeySigToSigData(cdc *codec.LegacyAmino, key cryptotypes.PubKey, sig []by
 	}
 
 	sigs := multiSig.Sigs
-	sigDatas := make([]signing.SignatureData, len(sigs))
-	pubKeys := multiPK.GetPubKeys()
 	bitArray := multiSig.BitArray
-	n := multiSig.BitArray.Count()
-	signatures := multisig.NewMultisig(n)
+	if bitArray == nil || len(bitArray.Elems) == 0 || bitArray.ExtraBitsStored > 8 {
+		return nil, sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, "invalid multisig bit array")
+	}
+	pubKeys := multiPK.GetPubKeys()
+	n := bitArray.Count()
+	if n != len(pubKeys) {
+		return nil, sdkerrors.Wrapf(sdkerrors.ErrInvalidRequest, "multisig bit array size %d does not match public key count %d", n, len(pubKeys))
+	}
+	if count := bitArray.NumTrueBitsBefore(n); count != len(sigs) {
+		return nil, sdkerrors.Wrapf(sdkerrors.ErrInvalidRequest, "multisig signature count %d does not match set bit count %d", len(sigs), count)
+	}
+	sigDatas := make([]signing.SignatureData, len(sigs))
 	sigIdx := 0
 	for i := 0; i < n; i++ {
 		if bitArray.GetIndex(i) {
@@ -167,10 +175,9 @@ func pubKeySigToSigData(cdc *codec.LegacyAmino, key cryptotypes.PubKey, sig []by
 			}
 
 			sigDatas[sigIdx] = data
-			multisig.AddSignature(signatures, data, sigIdx)
 			sigIdx++
 		}
 	}
 
-	return signatures, nil
+	return &signing.MultiSignatureData{BitArray: bitArray, Signatures: sigDatas}, nil
 }

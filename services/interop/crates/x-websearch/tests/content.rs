@@ -1,3 +1,7 @@
+#[path = "support/gateway.rs"]
+mod gateway;
+use gateway::Gateway;
+
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpStream};
 use std::path::PathBuf;
@@ -308,17 +312,19 @@ fn api_answers_are_stored_served_and_retrieved_under_their_own_kind() -> TestRes
 }
 
 /// A payment gate over the committed configuration, its data under `dir`, and
-/// a receiver key drawn fresh from the operating system for this test only.
-fn gate(dir: &std::path::Path) -> Result<Arc<PaymentGate>, Box<dyn std::error::Error>> {
-    use std::io::Read as _;
+/// the receiver key that owns the recorded ledger accounts.
+fn gate(dir: &std::path::Path) -> Result<(Arc<PaymentGate>, Gateway), Box<dyn std::error::Error>> {
     use std::os::unix::fs::PermissionsExt as _;
     let fixture =
         std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/config/valid.json");
     let mut config: serde_json::Value = serde_json::from_slice(&std::fs::read(fixture)?)?;
     config["data_dir"] = serde_json::json!(dir.join("data"));
+    let gateway = Gateway::start_with_chain_id(Some(125))?;
+    config["evm"]["endpoint"] = serde_json::json!(gateway.url());
+    config["evm"]["chain_id"] = serde_json::json!(125);
     let config = Config::parse(&config.to_string())?;
     let mut secret = [0_u8; 32];
-    std::fs::File::open("/dev/urandom")?.read_exact(&mut secret)?;
+    secret[31] = 3;
     let key = dir.join("receiver.key");
     std::fs::write(&key, hex(&secret))?;
     std::fs::set_permissions(&key, std::fs::Permissions::from_mode(0o600))?;
@@ -328,12 +334,15 @@ fn gate(dir: &std::path::Path) -> Result<Arc<PaymentGate>, Box<dyn std::error::E
         receiver: key,
     };
     let receiver = files.load()?.receiver().clone();
-    Ok(Arc::new(PaymentGate::new(
-        &config,
-        &receiver,
-        x_websearch::conformance_suite()?,
-        system_clock,
-    )?))
+    Ok((
+        Arc::new(PaymentGate::new(
+            &config,
+            &receiver,
+            x_websearch::conformance_suite()?,
+            system_clock,
+        )?),
+        gateway,
+    ))
 }
 
 /// The currencies of the offers a `PAYMENT-REQUIRED` header carries.
@@ -361,7 +370,7 @@ fn offered(head: &str) -> Result<Vec<String>, Box<dyn std::error::Error>> {
 #[test]
 fn content_is_served_unpaid_and_fetch_only_behind_the_payment_gate() -> TestResult {
     let scratch = Scratch::new("gated")?;
-    let gate = gate(&scratch.0)?;
+    let (gate, _gateway) = gate(&scratch.0)?;
     let store = Arc::new(ContentStore::open(&scratch.0, &[])?);
     let fetcher = Arc::new(Fetcher::new(x_websearch::config::FetchLimits {
         connect_timeout_ms: 3_000,

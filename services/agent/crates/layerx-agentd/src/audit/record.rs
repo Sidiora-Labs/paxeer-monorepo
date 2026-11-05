@@ -237,17 +237,21 @@ impl From<RedactionError> for RecordError {
 ///
 /// # Errors
 ///
-/// Returns `Invalid` for an empty, oversized, or evidence-incomplete entry and an
-/// audit error when the chain cannot be verified or appended; the operation does
-/// not run in either case.
+/// Returns a typed audit `TenantMismatch` before encoding a foreign entry,
+/// `Invalid` for an empty, oversized, or evidence-incomplete entry, and an audit
+/// error when the chain cannot be verified or appended. Coverage and the
+/// operation remain untouched on any error.
 pub fn record<T>(
     log: &mut Log,
     coverage: &mut Coverage,
     entry: &Entry,
     operation: impl FnOnce() -> T,
 ) -> Result<(AppendReceipt, T), RecordError> {
+    if !log.owns_tenant(&entry.tenant) {
+        return Err(AuditError::TenantMismatch.into());
+    }
     let encoded = encode_entry(entry)?;
-    let output = log.before_operation(&encoded, || {
+    let output = log.before_committed_operation(&encoded, || {
         coverage.observe(entry.class);
         operation()
     })?;
@@ -369,6 +373,63 @@ pub fn reconstruct_session(
     })
 }
 
+pub(crate) struct OperatorAttempt<'a> {
+    pub tenant: TenantId,
+    pub operator_id: &'a str,
+    pub request_id: [u8; 32],
+    pub command: u8,
+    pub target: [u8; 32],
+    pub observed_at_ms: u64,
+    pub refused: bool,
+}
+
+pub(crate) fn encode_operator_attempt(
+    attempt: OperatorAttempt<'_>,
+) -> Result<Vec<u8>, RecordError> {
+    let operator = attempt.operator_id.as_bytes();
+    if operator.is_empty() || operator.len() > 256 || operator.contains(&0) {
+        return Err(RecordError::Invalid("invalid operator identity"));
+    }
+    let operator_hash: [u8; 32] = Sha256::digest(operator).into();
+    let actor = format!("operator:{}", layerx_programs::hex::encode(&operator_hash));
+    let reason = serde_json::json!({
+        "version": 1,
+        "operator_id": attempt.operator_id,
+        "command": attempt.command,
+        "target": layerx_programs::hex::encode(&attempt.target),
+    });
+    encode_entry(&Entry {
+        class: if attempt.refused {
+            EventClass::MutationAttempt
+        } else {
+            EventClass::AdministrativeAction
+        },
+        observed_at_ms: attempt.observed_at_ms,
+        tenant: attempt.tenant,
+        agent: Did::new(actor.as_bytes())
+            .map_err(|_| RecordError::Invalid("invalid operator actor"))?,
+        session: None,
+        capability: None,
+        policy_version: "operator-attempt-v1".to_owned(),
+        request_id: attempt.request_id,
+        idempotency_key: None,
+        decision: if attempt.refused {
+            Decision::Refused
+        } else {
+            Decision::Requested
+        },
+        reason: Redacted::stored(reason.to_string())?,
+        resulting_activity_id: None,
+        verification_level: VerificationLevel::UNVERIFIED,
+        protocol_authority: None,
+        submitted_bytes: None,
+        receipt_id: None,
+        tx_hash: None,
+        nonce: None,
+        rung: None,
+    })
+}
+
 fn encode_entry(entry: &Entry) -> Result<Vec<u8>, RecordError> {
     validate_entry(entry, ENTRY_VERSION)?;
     let mut output = Vec::new();
@@ -412,6 +473,38 @@ fn encode_entry(entry: &Entry) -> Result<Vec<u8>, RecordError> {
         None => output.push(0),
     }
     Ok(output)
+}
+
+pub(crate) fn record_commitments(payload: &[u8]) -> Result<(Vec<u8>, [u8; 32]), RecordError> {
+    let mut entry = decode_entry(payload)?;
+    if encode_entry(&entry)? != payload {
+        return Err(RecordError::Invalid(
+            "commitments require a canonical current record",
+        ));
+    }
+    let mut evidence = Vec::new();
+    push_payload(&mut evidence, entry.submitted_bytes.as_ref());
+    let mut digest = Sha256::new();
+    digest.update(b"layerx-audit-payload-evidence-v1");
+    digest.update(evidence);
+    let payload_commitment = digest.finalize().into();
+    if entry.submitted_bytes.is_some() {
+        entry.submitted_bytes = Some(PayloadEvidence::Redacted);
+    }
+    Ok((encode_entry(&entry)?, payload_commitment))
+}
+
+pub(crate) fn commitment_root(public_record: &[u8], payload_commitment: [u8; 32]) -> [u8; 32] {
+    let mut digest = Sha256::new();
+    digest.update(b"layerx-audit-record-fields-v1");
+    digest.update(Sha256::digest(public_record));
+    digest.update(payload_commitment);
+    digest.finalize().into()
+}
+
+pub(crate) fn record_digest(payload: &[u8]) -> Result<[u8; 32], RecordError> {
+    let (public_record, payload_commitment) = record_commitments(payload)?;
+    Ok(commitment_root(&public_record, payload_commitment))
 }
 
 pub(crate) fn decode_entry(bytes: &[u8]) -> Result<Entry, RecordError> {

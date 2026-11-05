@@ -1,7 +1,10 @@
 use layerx_program_sdk::{BindgenError, BindingGenerator};
+use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{fs, path::Path};
-use serde_json::{json, Value};
+
+#[path = "support/bytes_call_boundary.rs"]
+mod bytes_call_boundary;
 
 const DOMAIN: &[u8] = b"LayerX/program-interface/v1\0";
 const CODE_HASH: [u8; 32] = [0x5a; 32];
@@ -329,12 +332,91 @@ fn infallible_and_difficult_names_have_stable_collision_free_symbols() {
 
 #[test]
 fn emit_generated_consumers() {
-    let output = std::env::var_os("PAXEER_X_BINDINGS_EMIT_DIR").unwrap_or_else(|| panic!("explicit consumer output directory is required"));
+    let nonce = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_else(|error| panic!("consumer directory timestamp: {error}"))
+        .as_nanos();
+    let root = std::env::temp_dir().join(format!(
+        "layerx-bindgen-consumers-{}-{nonce}",
+        std::process::id()
+    ));
+    fs::create_dir(&root).unwrap_or_else(|error| panic!("create consumer test directory: {error}"));
+    emit_consumers_to(&root);
+    assert_emitted_consumers(&root);
+
+    if let Some(output) = std::env::var_os("PAXEER_X_BINDINGS_EMIT_DIR") {
+        assert!(
+            !output.is_empty(),
+            "consumer export directory must not be empty"
+        );
+        let output = Path::new(&output);
+        emit_consumers_to(output);
+        assert_emitted_consumers(output);
+    }
+
+    fs::remove_dir_all(&root)
+        .unwrap_or_else(|error| panic!("remove consumer test directory: {error}"));
+}
+
+fn assert_emitted_consumers(root: &Path) {
     let generated = BindingGenerator::from_interface(&exhaustive_interface())
         .unwrap_or_else(|error| panic!("canonical fixture refused: {error}"))
         .generate_all();
-    let root = std::path::PathBuf::from(output);
-    fs::create_dir_all(&root)
+    for (name, source) in [
+        ("client.rs", &generated.rust),
+        ("guest.rs", &generated.guest),
+        ("bindings.ts", &generated.typescript),
+        ("go/bindings/bindings.go", &generated.go),
+        ("python/bindings.py", &generated.python),
+        ("java/ProgramBindings.java", &generated.java),
+        ("kotlin/ProgramBindings.kt", &generated.kotlin),
+        ("swift/main.swift", &generated.swift),
+        ("csharp/bindings.cs", &generated.csharp),
+    ] {
+        assert!(!source.is_empty(), "empty generated binding: {name}");
+        let emitted = fs::read_to_string(root.join(name))
+            .unwrap_or_else(|error| panic!("read generated consumer {name}: {error}"));
+        assert!(
+            emitted.starts_with(source),
+            "generated binding changed: {name}"
+        );
+    }
+    let plan = read_json(&root.join("consumer-plan.json"));
+    assert_eq!(plan["schema"], 1);
+    let consumers = plan["consumers"]
+        .as_array()
+        .unwrap_or_else(|| panic!("missing consumer plan"));
+    assert_eq!(consumers.len(), 22);
+    let mut ids = std::collections::BTreeSet::new();
+    for consumer in consumers {
+        let id = consumer["id"]
+            .as_str()
+            .unwrap_or_else(|| panic!("missing consumer id"));
+        assert!(ids.insert(id), "duplicate consumer: {id}");
+        let sources = consumer["sources"]
+            .as_array()
+            .unwrap_or_else(|| panic!("missing consumer sources: {id}"));
+        assert!(!sources.is_empty(), "empty consumer sources: {id}");
+        for source in sources {
+            let name = source
+                .as_str()
+                .unwrap_or_else(|| panic!("invalid source: {id}"));
+            assert!(
+                fs::metadata(root.join(name))
+                    .unwrap_or_else(|error| panic!("missing planned source {name}: {error}"))
+                    .len()
+                    > 0,
+                "empty planned source: {name}"
+            );
+        }
+    }
+}
+
+fn emit_consumers_to(root: &Path) {
+    let generated = BindingGenerator::from_interface(&exhaustive_interface())
+        .unwrap_or_else(|error| panic!("canonical fixture refused: {error}"))
+        .generate_all();
+    fs::create_dir_all(root)
         .unwrap_or_else(|error| panic!("create conformance directory: {error}"));
     let client = root.join("client.rs");
     let guest = root.join("guest.rs");
@@ -426,46 +508,138 @@ void calls;void forged;
     )
     .unwrap_or_else(|error| panic!("write generated TypeScript consumer: {error}"));
 
-    emit_additional_consumers(&root, &generated.rust, &generated.guest, &generated.typescript);
+    emit_additional_consumers(
+        root,
+        &generated.rust,
+        &generated.guest,
+        &generated.typescript,
+    );
 }
 
 fn write_consumer(root: &Path, name: &str, source: impl AsRef<[u8]>) {
     let path = root.join(name);
-    fs::create_dir_all(path.parent().unwrap_or(root)).unwrap_or_else(|e| panic!("create {}: {e}", path.display()));
+    fs::create_dir_all(path.parent().unwrap_or(root))
+        .unwrap_or_else(|e| panic!("create {}: {e}", path.display()));
     fs::write(&path, source).unwrap_or_else(|e| panic!("write {}: {e}", path.display()));
 }
 
 fn roundtrip_cases() -> Vec<String> {
-    let mut cases: Vec<String> = ["u8", "u16", "u32", "u64", "u128", "u256", "i8", "i16", "i32", "i64", "i128", "bytes", "fixed", "variable", "option", "union", "evm"].into_iter().map(|name| format!("roundtrip_{name}")).collect();
-    cases.extend(["typed_failure", "stale_digest", "wrong_code_hash", "malformed_call"].into_iter().map(str::to_owned));
+    let mut cases: Vec<String> = [
+        "u8", "u16", "u32", "u64", "u128", "u256", "i8", "i16", "i32", "i64", "i128", "bytes",
+        "fixed", "variable", "option", "union", "evm",
+    ]
+    .into_iter()
+    .map(|name| format!("roundtrip_{name}"))
+    .collect();
+    cases.extend(
+        [
+            "typed_failure",
+            "stale_digest",
+            "wrong_code_hash",
+            "malformed_call",
+        ]
+        .into_iter()
+        .map(str::to_owned),
+    );
     cases
 }
 
 fn emit_additional_consumers(root: &Path, rust: &str, guest: &str, typescript: &str) {
-    let generator = BindingGenerator::from_interface(&exhaustive_interface()).unwrap_or_else(|e| panic!("canonical fixture refused: {e}"));
+    let generator = BindingGenerator::from_interface(&exhaustive_interface())
+        .unwrap_or_else(|e| panic!("canonical fixture refused: {e}"));
     let all = generator.generate_all();
-    write_consumer(root, "malformed.rs", format!("{rust}\nfn main(){{let _=u8::call(&\"malformed\",CODE_HASH,INTERFACE_DIGEST);}}"));
-    write_consumer(root, "missing_guest.rs", format!("{guest}\nstruct Missing;impl Program for Missing{{}}fn main(){{}}"));
-    write_consumer(root, "malformed.ts", format!("{typescript}\nencodeU8('malformed',CODE_HASH,INTERFACE_DIGEST);"));
-    write_consumer(root, "forged.ts", format!("{typescript}\nconst forged:LayerXCall<U8Output,U8Failure>={{bytes:Uint8Array.of(1)}};"));
+    write_consumer(
+        root,
+        "malformed.rs",
+        format!("{rust}\nfn main(){{let _=u8::call(&\"malformed\",CODE_HASH,INTERFACE_DIGEST);}}"),
+    );
+    write_consumer(
+        root,
+        "missing_guest.rs",
+        format!("{guest}\nstruct Missing;impl Program for Missing{{}}fn main(){{}}"),
+    );
+    write_consumer(
+        root,
+        "malformed.ts",
+        format!("{typescript}\nencodeU8('malformed',CODE_HASH,INTERFACE_DIGEST);"),
+    );
+    write_consumer(
+        root,
+        "forged.ts",
+        format!(
+            "{typescript}\nconst forged:LayerXCall<U8Output,U8Failure>={{bytes:Uint8Array.of(1)}};"
+        ),
+    );
     write_consumer(root, "go/go.mod", "module conformance\n\ngo 1.18\n");
     write_consumer(root, "go/bindings/bindings.go", &all.go);
-    write_consumer(root, "go/consumer/main.go", generator.generate_go_consumer());
-    write_consumer(root, "go/malformed/main.go", generator.generate_go_malformed_consumer());
+    write_consumer(
+        root,
+        "go/consumer/main.go",
+        generator.generate_go_consumer(),
+    );
+    write_consumer(
+        root,
+        "go/malformed/main.go",
+        generator.generate_go_malformed_consumer(),
+    );
     write_consumer(root, "python/bindings.py", &all.python);
-    write_consumer(root, "python/consumer.py", generator.generate_python_consumer());
-    write_consumer(root, "python/malformed.py", generator.generate_python_malformed_consumer());
+    write_consumer(
+        root,
+        "python/consumer.py",
+        generator.generate_python_consumer(),
+    );
+    write_consumer(
+        root,
+        "python/malformed.py",
+        generator.generate_python_malformed_consumer(),
+    );
     write_consumer(root, "java/ProgramBindings.java", &all.java);
-    write_consumer(root, "java/BindingConsumer.java", generator.generate_java_consumer());
-    write_consumer(root, "java/BindingMalformed.java", generator.generate_java_malformed_consumer());
+    write_consumer(
+        root,
+        "java/BindingConsumer.java",
+        generator.generate_java_consumer(),
+    );
+    write_consumer(
+        root,
+        "java/BindingMalformed.java",
+        generator.generate_java_malformed_consumer(),
+    );
     write_consumer(root, "kotlin/ProgramBindings.kt", &all.kotlin);
-    write_consumer(root, "kotlin/BindingConsumer.kt", generator.generate_kotlin_consumer());
-    write_consumer(root, "kotlin/BindingMalformed.kt", generator.generate_kotlin_malformed_consumer());
-    write_consumer(root, "swift/main.swift", format!("{}\n{}", all.swift, generator.generate_swift_consumer()));
-    write_consumer(root, "swift/malformed.swift", format!("{}\n{}", all.swift, generator.generate_swift_malformed_consumer()));
+    write_consumer(
+        root,
+        "kotlin/BindingConsumer.kt",
+        generator.generate_kotlin_consumer(),
+    );
+    write_consumer(
+        root,
+        "kotlin/BindingMalformed.kt",
+        generator.generate_kotlin_malformed_consumer(),
+    );
+    write_consumer(
+        root,
+        "swift/main.swift",
+        format!("{}\n{}", all.swift, generator.generate_swift_consumer()),
+    );
+    write_consumer(
+        root,
+        "swift/malformed.swift",
+        format!(
+            "{}\n{}",
+            all.swift,
+            generator.generate_swift_malformed_consumer()
+        ),
+    );
     write_consumer(root, "csharp/bindings.cs", &all.csharp);
-    write_consumer(root, "csharp/consumer.cs", generator.generate_csharp_consumer());
-    write_consumer(root, "csharp/malformed.cs", generator.generate_csharp_malformed_consumer());
+    write_consumer(
+        root,
+        "csharp/consumer.cs",
+        generator.generate_csharp_consumer(),
+    );
+    write_consumer(
+        root,
+        "csharp/malformed.cs",
+        generator.generate_csharp_malformed_consumer(),
+    );
     for (project, consumer) in [("consumer", "consumer.cs"), ("malformed", "malformed.cs")] {
         write_consumer(root, &format!("csharp/{project}.csproj"), format!("<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><EnableDefaultCompileItems>false</EnableDefaultCompileItems><StartupObject>Program</StartupObject><AssemblyName>{project}</AssemblyName></PropertyGroup><ItemGroup><Compile Include=\"bindings.cs\"/><Compile Include=\"{consumer}\"/></ItemGroup></Project>\n"));
     }
@@ -473,22 +647,45 @@ fn emit_additional_consumers(root: &Path, rust: &str, guest: &str, typescript: &
     nested_bytes.extend_from_slice(&CODE_HASH);
     nested_bytes.extend_from_slice(&2_u16.to_be_bytes());
     nested_bytes.extend_from_slice(&1_u16.to_be_bytes());
-    entry(&mut nested_bytes,"nested",[1,2,3,4],&[1,0x40,0x40,0x10]);
-    let nested = BindingGenerator::from_interface(&nested_bytes).unwrap_or_else(|e| panic!("nested options refused: {e}")).generate_all();
-    write_consumer(root,"nested.rs",format!("{}{}",nested.rust,r#"
+    entry(
+        &mut nested_bytes,
+        "nested",
+        [1, 2, 3, 4],
+        &[1, 0x40, 0x40, 0x10],
+    );
+    let nested = BindingGenerator::from_interface(&nested_bytes)
+        .unwrap_or_else(|e| panic!("nested options refused: {e}"))
+        .generate_all();
+    write_consumer(
+        root,
+        "nested.rs",
+        format!(
+            "{}{}",
+            nested.rust,
+            r#"
 fn main(){
  let values=[None,Some(None),Some(Some(7u8))];
  let frames:[&[u8];3]=[&[1,0x40,0],&[1,0x40,1,0x40,0],&[1,0x40,1,0x40,1,0x10,7]];
  for (value,frame) in values.into_iter().zip(frames){let call=nested::call(&value,CODE_HASH,INTERFACE_DIGEST).unwrap();assert_eq!(&call.as_bytes()[4..],frame);assert_eq!(nested::decode_output(frame).unwrap(),value);assert!(nested::decode_failure(7,frame).is_ok());}
  println!("BINDING_CASE roundtrip_nested_option");
 }
-"#));
-    write_consumer(root,"nested.ts",format!("{}{}",nested.typescript,r#"
+"#
+        ),
+    );
+    write_consumer(
+        root,
+        "nested.ts",
+        format!(
+            "{}{}",
+            nested.typescript,
+            r#"
 const values:NestedInput[]=[null,{some:null},{some:7}];
 const frames=[[1,0x40,0],[1,0x40,1,0x40,0],[1,0x40,1,0x40,1,0x10,7]];
 for(let i=0;i<values.length;i++){const call=encodeNested(values[i],CODE_HASH,INTERFACE_DIGEST);if(JSON.stringify(Array.from(call.bytes.slice(4)))!==JSON.stringify(frames[i]))throw new Error('nested golden mismatch');if(JSON.stringify(decodeNestedOutput(Uint8Array.from(frames[i])))!==JSON.stringify(values[i]))throw new Error('nested roundtrip mismatch');decodeNestedFailure(7,Uint8Array.from(frames[i]));}
 console.log('BINDING_CASE roundtrip_nested_option');
-"#));
+"#
+        ),
+    );
     write_consumer(root,"forged.rs",format!("mod bindings{{{rust}}}\nfn main(){{let _:bindings::Call<u8,u8>=bindings::Call{{bytes:vec![1],_type:core::marker::PhantomData}};}}"));
     let cases = roundtrip_cases();
     let rows = vec![
@@ -515,50 +712,121 @@ console.log('BINDING_CASE roundtrip_nested_option');
         json!({"id":"typescript_nested_option","language":"typescript","sources":["nested.ts"],"compile":["{repo}/programs/sdk/rust/node_modules/.bin/tsc","--strict","--target","ES2020","--module","commonjs","--outDir","{root}/ts-nested","{root}/nested.ts"],"expect_success":true,"run":["node","{root}/ts-nested/nested.js"],"cases":["roundtrip_nested_option"],"artifacts":["ts-nested/nested.js"]}),
         json!({"id":"rust_forged","language":"rust","sources":["forged.rs"],"compile":["rustc","+1.91.1","--edition=2021","{root}/forged.rs","-o","{root}/forged"],"expect_success":false,"diagnostic":"private","run":[],"cases":["forged_call"],"artifacts":[]}),
     ];
-    write_consumer(root, "consumer-plan.json", serde_json::to_vec_pretty(&json!({"schema":1,"consumers":rows})).unwrap_or_else(|e| panic!("serialize consumers: {e}")));
+    write_consumer(
+        root,
+        "consumer-plan.json",
+        serde_json::to_vec_pretty(&json!({"schema":1,"consumers":rows}))
+            .unwrap_or_else(|e| panic!("serialize consumers: {e}")),
+    );
 }
 
 fn read_json(path: &Path) -> Value {
-    serde_json::from_slice(&fs::read(path).unwrap_or_else(|e| panic!("read {}: {e}",path.display()))).unwrap_or_else(|e| panic!("parse {}: {e}",path.display()))
+    serde_json::from_slice(
+        &fs::read(path).unwrap_or_else(|e| panic!("read {}: {e}", path.display())),
+    )
+    .unwrap_or_else(|e| panic!("parse {}: {e}", path.display()))
 }
 
 #[test]
 fn generated_client_guest_and_typescript_are_compiler_inputs() {
-    let root = std::path::PathBuf::from(std::env::var_os("PAXEER_X_BINDINGS_ARTIFACTS").unwrap_or_else(|| panic!("prebuilt bindings artifacts are required; run the explicit producer first")));
+    let root = std::path::PathBuf::from(
+        std::env::var_os("PAXEER_X_BINDINGS_ARTIFACTS").unwrap_or_else(|| {
+            panic!("prebuilt bindings artifacts are required; run the explicit producer first")
+        }),
+    );
     let plan = read_json(&root.join("consumer-plan.json"));
     let recorded = read_json(&root.join("compile-results.json"));
-    assert_eq!(plan["schema"],1);
-    assert_eq!(recorded["schema"],1);
-    let planned = plan["consumers"].as_array().unwrap_or_else(|| panic!("missing consumer plan"));
-    let results = recorded["consumers"].as_array().unwrap_or_else(|| panic!("missing compiler results"));
+    assert_eq!(plan["schema"], 1);
+    assert_eq!(recorded["schema"], 1);
+    let planned = plan["consumers"]
+        .as_array()
+        .unwrap_or_else(|| panic!("missing consumer plan"));
+    let results = recorded["consumers"]
+        .as_array()
+        .unwrap_or_else(|| panic!("missing compiler results"));
     assert_eq!(planned.len(), results.len());
-    assert_eq!(planned.len(),22);
+    assert_eq!(planned.len(), 22);
     for expected in planned {
-        let matches: Vec<_> = results.iter().filter(|r| r["id"] == expected["id"]).collect();
-        assert_eq!(matches.len(),1,"missing or duplicated compiler result {}",expected["id"]);
+        let matches: Vec<_> = results
+            .iter()
+            .filter(|r| r["id"] == expected["id"])
+            .collect();
+        assert_eq!(
+            matches.len(),
+            1,
+            "missing or duplicated compiler result {}",
+            expected["id"]
+        );
         let result = matches[0];
-        for key in ["language","sources","compile","expect_success","cases","artifacts"] {assert_eq!(result[key],expected[key],"compiler plan changed: {} {key}",expected["id"]);}
-        let code = result["exit_code"].as_i64().unwrap_or_else(|| panic!("compiler result has no exit code"));
-        assert_eq!(code == 0,expected["expect_success"].as_bool().unwrap_or(false),"compiler outcome {}",expected["id"]);
+        for key in [
+            "language",
+            "sources",
+            "compile",
+            "expect_success",
+            "cases",
+            "artifacts",
+        ] {
+            assert_eq!(
+                result[key], expected[key],
+                "compiler plan changed: {} {key}",
+                expected["id"]
+            );
+        }
+        let code = result["exit_code"]
+            .as_i64()
+            .unwrap_or_else(|| panic!("compiler result has no exit code"));
+        assert_eq!(
+            code == 0,
+            expected["expect_success"].as_bool().unwrap_or(false),
+            "compiler outcome {}",
+            expected["id"]
+        );
         let log = &result["log"];
-        verify_artifact_hash(&root,log);
-        for key in ["source_artifacts","built_artifacts"] {
-            for artifact in result[key].as_array().unwrap_or_else(|| panic!("missing {key}")) {verify_artifact_hash(&root,artifact);}
+        verify_artifact_hash(&root, log);
+        for key in ["source_artifacts", "built_artifacts"] {
+            for artifact in result[key]
+                .as_array()
+                .unwrap_or_else(|| panic!("missing {key}"))
+            {
+                verify_artifact_hash(&root, artifact);
+            }
         }
     }
 }
 
 fn verify_artifact_hash(root: &Path, artifact: &Value) {
-    let relative = artifact["path"].as_str().unwrap_or_else(|| panic!("missing artifact path"));
+    let relative = artifact["path"]
+        .as_str()
+        .unwrap_or_else(|| panic!("missing artifact path"));
     let path = Path::new(relative);
-    let path = if path.is_absolute() {path.to_path_buf()} else {root.join(path)};
-    let actual = path.canonicalize().unwrap_or_else(|e| panic!("resolve artifact {relative}: {e}"));
-    let artifact_root = root.parent().unwrap_or(root).canonicalize().unwrap_or_else(|e| panic!("resolve artifact root: {e}"));
-    assert!(actual.starts_with(artifact_root),"artifact escapes producer root");
+    let path = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        root.join(path)
+    };
+    let actual = path
+        .canonicalize()
+        .unwrap_or_else(|e| panic!("resolve artifact {relative}: {e}"));
+    let artifact_root = root
+        .parent()
+        .unwrap_or(root)
+        .canonicalize()
+        .unwrap_or_else(|e| panic!("resolve artifact root: {e}"));
+    assert!(
+        actual.starts_with(artifact_root),
+        "artifact escapes producer root"
+    );
     let bytes = fs::read(actual).unwrap_or_else(|e| panic!("read artifact {relative}: {e}"));
-    assert_eq!(artifact["bytes"].as_u64(),Some(bytes.len() as u64));
-    let hash: String = Sha256::digest(&bytes).iter().map(|b| format!("{b:02x}")).collect();
-    assert_eq!(artifact["sha256"].as_str(),Some(hash.as_str()),"artifact changed: {relative}");
+    assert_eq!(artifact["bytes"].as_u64(), Some(bytes.len() as u64));
+    let hash: String = Sha256::digest(&bytes)
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect();
+    assert_eq!(
+        artifact["sha256"].as_str(),
+        Some(hash.as_str()),
+        "artifact changed: {relative}"
+    );
 }
 
 fn versioned_interface(abi: u16, version: u8, capability: Option<&[u8]>) -> Vec<u8> {
@@ -566,18 +834,20 @@ fn versioned_interface(abi: u16, version: u8, capability: Option<&[u8]>) -> Vec<
     bytes.extend_from_slice(&CODE_HASH);
     bytes.extend_from_slice(&abi.to_be_bytes());
     bytes.extend_from_slice(&1_u16.to_be_bytes());
-    push_text(&mut bytes,"call");
-    bytes.extend_from_slice(&[1,2,3,4]);
+    push_text(&mut bytes, "call");
+    bytes.extend_from_slice(&[1, 2, 3, 4]);
     bytes.extend_from_slice(&layerx(0x10));
     bytes.extend_from_slice(&layerx(0x10));
-    bytes.extend_from_slice(&(if capability.is_some() {1_u16} else {0_u16}).to_be_bytes());
-    if let Some(value) = capability {bytes.extend_from_slice(value);}
+    bytes.extend_from_slice(&(if capability.is_some() { 1_u16 } else { 0_u16 }).to_be_bytes());
+    if let Some(value) = capability {
+        bytes.extend_from_slice(value);
+    }
     bytes.extend_from_slice(&0_u16.to_be_bytes());
     bytes.extend_from_slice(&0_u16.to_be_bytes());
     bytes
 }
 
-fn dynamic_spend(asset: [u8;32], maximum: u128, recipient: u32, amount: u32) -> Vec<u8> {
+fn dynamic_spend(asset: [u8; 32], maximum: u128, recipient: u32, amount: u32) -> Vec<u8> {
     let mut cap = vec![10];
     cap.extend_from_slice(&asset);
     cap.extend_from_slice(&maximum.to_be_bytes());
@@ -588,28 +858,68 @@ fn dynamic_spend(asset: [u8;32], maximum: u128, recipient: u32, amount: u32) -> 
 
 #[test]
 fn canonical_domain_abi_and_dynamic_capability_matrix_is_exact() {
-    let dynamic = dynamic_spend([1;32],1,0,32);
+    let dynamic = dynamic_spend([1; 32], 1, 0, 32);
     for abi in 1_u16..=4 {
         for version in 1_u8..=4 {
-            for capability in [None,Some(dynamic.as_slice())] {
-                let expected_version = match abi {1=>1,2=>if capability.is_some(){2}else{1},3=>3,4=>4,_=>unreachable!()};
+            for capability in [None, Some(dynamic.as_slice())] {
+                let expected_version = match abi {
+                    1 => 1,
+                    2 => {
+                        if capability.is_some() {
+                            2
+                        } else {
+                            1
+                        }
+                    }
+                    3 => 3,
+                    4 => 4,
+                    _ => unreachable!(),
+                };
                 let expected = version == expected_version && (abi != 1 || capability.is_none());
-                assert_eq!(BindingGenerator::from_interface(&versioned_interface(abi,version,capability)).is_ok(),expected,"ABI {abi}, domain {version}, dynamic {}",capability.is_some());
+                assert_eq!(
+                    BindingGenerator::from_interface(&versioned_interface(
+                        abi, version, capability
+                    ))
+                    .is_ok(),
+                    expected,
+                    "ABI {abi}, domain {version}, dynamic {}",
+                    capability.is_some()
+                );
             }
         }
     }
-    for bad in [dynamic_spend([0;32],1,0,32),dynamic_spend([1;32],0,0,32),dynamic_spend([1;32],1,u32::MAX,32),dynamic_spend([1;32],1,0,u32::MAX)] {
-        assert!(BindingGenerator::from_interface(&versioned_interface(2,2,Some(&bad))).is_err());
+    for bad in [
+        dynamic_spend([0; 32], 1, 0, 32),
+        dynamic_spend([1; 32], 0, 0, 32),
+        dynamic_spend([1; 32], 1, u32::MAX, 32),
+        dynamic_spend([1; 32], 1, 0, u32::MAX),
+    ] {
+        assert!(BindingGenerator::from_interface(&versioned_interface(2, 2, Some(&bad))).is_err());
     }
     for abi in 1_u16..=4 {
-        let version = match abi {1|2=>1,3=>3,4=>4,_=>unreachable!()};
-        assert_eq!(BindingGenerator::from_interface(&versioned_interface(abi,version,Some(&[11]))).is_ok(),abi>=3);
-        assert_eq!(BindingGenerator::from_interface(&versioned_interface(abi,version,Some(&[12]))).is_ok(),abi==4);
+        let version = match abi {
+            1 | 2 => 1,
+            3 => 3,
+            4 => 4,
+            _ => unreachable!(),
+        };
+        assert_eq!(
+            BindingGenerator::from_interface(&versioned_interface(abi, version, Some(&[11])))
+                .is_ok(),
+            abi >= 3
+        );
+        assert_eq!(
+            BindingGenerator::from_interface(&versioned_interface(abi, version, Some(&[12])))
+                .is_ok(),
+            abi == 4
+        );
     }
-    assert!(BindingGenerator::from_interface(&versioned_interface(0,1,None)).is_err());
-    assert!(BindingGenerator::from_interface(&versioned_interface(5,4,None)).is_err());
-    let valid = versioned_interface(4,4,None);
-    for end in 0..valid.len() {assert!(BindingGenerator::from_interface(&valid[..end]).is_err());}
+    assert!(BindingGenerator::from_interface(&versioned_interface(0, 1, None)).is_err());
+    assert!(BindingGenerator::from_interface(&versioned_interface(5, 4, None)).is_err());
+    let valid = versioned_interface(4, 4, None);
+    for end in 0..valid.len() {
+        assert!(BindingGenerator::from_interface(&valid[..end]).is_err());
+    }
     let mut trailing = valid;
     trailing.push(0);
     assert!(BindingGenerator::from_interface(&trailing).is_err());
@@ -617,19 +927,52 @@ fn canonical_domain_abi_and_dynamic_capability_matrix_is_exact() {
 
 #[test]
 fn immutable_published_interfaces_generate_all_language_families() {
-    let root = std::path::PathBuf::from(std::env::var_os("PAXEER_X_BINDINGS_FIXTURES").unwrap_or_else(|| panic!("immutable published fixtures are required")));
-    for name in ["abi1","abi2","abi2-dynamic","abi3","abi3-dynamic","abi4","abi4-dynamic"] {
-        let bytes = fs::read(root.join(name).join("interface.bin")).unwrap_or_else(|e| panic!("read {name} interface: {e}"));
-        let generator = BindingGenerator::from_interface(&bytes).unwrap_or_else(|e| panic!("published {name} refused: {e}"));
-        let digest: [u8;32] = Sha256::digest(&bytes).into();
-        assert_eq!(generator.interface_digest(),digest);
-        assert_eq!(generator.require_digest(digest),Ok(()));
-        let mut stale = digest; stale[0] ^= 1;
-        assert!(matches!(generator.require_digest(stale),Err(BindgenError::StaleBinding{..})));
-        let mut wrong = generator.code_hash(); wrong[0] ^= 1;
-        assert!(matches!(generator.require_code_hash(wrong),Err(BindgenError::CodeHashMismatch{..})));
+    let root = std::path::PathBuf::from(
+        std::env::var_os("PAXEER_X_BINDINGS_FIXTURES")
+            .unwrap_or_else(|| panic!("immutable published fixtures are required")),
+    );
+    for name in [
+        "abi1",
+        "abi2",
+        "abi2-dynamic",
+        "abi3",
+        "abi3-dynamic",
+        "abi4",
+        "abi4-dynamic",
+    ] {
+        let bytes = fs::read(root.join(name).join("interface.bin"))
+            .unwrap_or_else(|e| panic!("read {name} interface: {e}"));
+        let generator = BindingGenerator::from_interface(&bytes)
+            .unwrap_or_else(|e| panic!("published {name} refused: {e}"));
+        let digest: [u8; 32] = Sha256::digest(&bytes).into();
+        assert_eq!(generator.interface_digest(), digest);
+        assert_eq!(generator.require_digest(digest), Ok(()));
+        let mut stale = digest;
+        stale[0] ^= 1;
+        assert!(matches!(
+            generator.require_digest(stale),
+            Err(BindgenError::StaleBinding { .. })
+        ));
+        let mut wrong = generator.code_hash();
+        wrong[0] ^= 1;
+        assert!(matches!(
+            generator.require_code_hash(wrong),
+            Err(BindgenError::CodeHashMismatch { .. })
+        ));
         let generated = generator.generate_all();
-        assert_eq!(generated.interface_digest,digest);
-        for source in [&generated.rust,&generated.typescript,&generated.guest,&generated.go,&generated.java,&generated.kotlin,&generated.python,&generated.swift,&generated.csharp] {assert!(!source.is_empty(),"{name} emitted empty source");}
+        assert_eq!(generated.interface_digest, digest);
+        for source in [
+            &generated.rust,
+            &generated.typescript,
+            &generated.guest,
+            &generated.go,
+            &generated.java,
+            &generated.kotlin,
+            &generated.python,
+            &generated.swift,
+            &generated.csharp,
+        ] {
+            assert!(!source.is_empty(), "{name} emitted empty source");
+        }
     }
 }

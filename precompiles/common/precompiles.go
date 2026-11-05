@@ -91,6 +91,10 @@ func withLXPCode(code string, err error) error {
 
 var _ vm.PrecompiledContract = &Precompile{}
 
+func UnknownMethodError(precompile, method string) error {
+	return withLXPCode("LXP_PRECOMPILE_UNKNOWN_METHOD", fmt.Errorf("LXP_PRECOMPILE_UNKNOWN_METHOD: %s method %s is unavailable", precompile, method))
+}
+
 func NewPrecompile(a abi.ABI, executor PrecompileExecutor, address common.Address, name string) *Precompile {
 	return &Precompile{ABI: a, executor: executor, address: address, name: name}
 }
@@ -99,6 +103,12 @@ func NewPrecompile(a abi.ABI, executor PrecompileExecutor, address common.Addres
 // Error(string) carrying the error text, so a caller sees why it reverted.
 func (p *Precompile) WithRevertReasons() *Precompile {
 	p.reasons = true
+	return p
+}
+
+func (p *Precompile) WithLegacyRevertReasons() *Precompile {
+	p.WithRevertReasons()
+	p.lxp = false
 	return p
 }
 

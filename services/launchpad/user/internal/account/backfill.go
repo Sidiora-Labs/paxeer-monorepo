@@ -1,11 +1,14 @@
 package account
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -28,6 +31,175 @@ type BackfillCounts struct {
 	Checksum       string `json:"checksum"`
 }
 
+// Keep complete legacy rows in the source digest, including image storage
+// metadata and timestamps; a field cannot disappear from migration accounting.
+func legacyProfileInventory(ctx context.Context, tx pgx.Tx, wallet string) (profiles, images []json.RawMessage, err error) {
+	profiles = []json.RawMessage{}
+	images = []json.RawMessage{}
+	for i, query := range []string{
+		`SELECT to_jsonb(p) FROM users.user_profiles p WHERE lower(wallet_address)=$1 ORDER BY wallet_address FOR SHARE`,
+		`SELECT to_jsonb(i) FROM users.user_images i WHERE lower(wallet_address)=$1 ORDER BY image_type,id FOR SHARE`,
+	} {
+		rows, e := tx.Query(ctx, query, wallet)
+		if e != nil {
+			return nil, nil, e
+		}
+		for rows.Next() {
+			var raw []byte
+			if e = rows.Scan(&raw); e != nil {
+				rows.Close()
+				return nil, nil, e
+			}
+			if i == 0 {
+				profiles = append(profiles, json.RawMessage(raw))
+			} else {
+				images = append(images, json.RawMessage(raw))
+			}
+		}
+		e = rows.Err()
+		rows.Close()
+		if e != nil {
+			return nil, nil, e
+		}
+	}
+	return profiles, images, nil
+}
+
+type legacyWatch struct {
+	Pool    string `json:"pool"`
+	AddedAt int64  `json:"addedAt"`
+}
+
+func legacyWatchInventory(ctx context.Context, tx pgx.Tx, wallet string) ([]legacyWatch, error) {
+	rows, e := tx.Query(ctx, `SELECT lower(pool_address),min(added_at) FROM users.watchlists WHERE lower(wallet_address)=$1 GROUP BY lower(pool_address) ORDER BY lower(pool_address)`, wallet)
+	if e != nil {
+		return nil, e
+	}
+	defer rows.Close()
+	watchlist := []legacyWatch{}
+	for rows.Next() {
+		var watch legacyWatch
+		if e = rows.Scan(&watch.Pool, &watch.AddedAt); e != nil {
+			return nil, e
+		}
+		watchlist = append(watchlist, watch)
+	}
+	return watchlist, rows.Err()
+}
+
+func legacySourceBytes(wallet string, profiles, images []json.RawMessage, watches []legacyWatch) ([]byte, error) {
+	return json.Marshal(map[string]any{"wallet": wallet, "profiles": profiles, "images": images, "watchlist": watches})
+}
+
+func legacyProfileProjection(ctx context.Context, wallet string, raw json.RawMessage, images []json.RawMessage) (Profile, error) {
+	var fields map[string]json.RawMessage
+	if e := json.Unmarshal(raw, &fields); e != nil {
+		return Profile{}, e
+	}
+	profile := Profile{PublicProfile: PublicProfile{Wallet: wallet}, Socials: map[string]string{}}
+	for key, destination := range map[string]*string{"display_name": &profile.DisplayName, "bio": &profile.Bio} {
+		if e := json.Unmarshal(fields[key], destination); e != nil {
+			return profile, e
+		}
+	}
+	patch := ProfilePatch{ExpectedRevision: "0", DisplayName: &profile.DisplayName, Bio: &profile.Bio}
+	if e := patch.Validate(); e != nil {
+		return profile, e
+	}
+	if patch.DisplayName != nil {
+		profile.DisplayName = *patch.DisplayName
+	}
+	for _, key := range []string{"website", "twitter", "telegram", "discord"} {
+		var value *string
+		if e := json.Unmarshal(fields[key], &value); e != nil {
+			return profile, e
+		}
+		if value == nil || *value == "" {
+			continue
+		}
+		if e := SafeLink(*value); e != nil {
+			return profile, e
+		}
+		if key == "website" {
+			profile.Website = value
+		} else {
+			profile.Socials[key] = *value
+		}
+	}
+	for _, raw := range images {
+		var image struct {
+			ID   string `json:"id"`
+			Type string `json:"image_type"`
+		}
+		if e := json.Unmarshal(raw, &image); e != nil {
+			return profile, e
+		}
+		asset, e := uuid.Parse(image.ID)
+		if e != nil || asset == uuid.Nil {
+			return profile, ErrInvalid
+		}
+		runtime, _ := ctx.Value(runtimeKey{}).(*Runtime)
+		if runtime == nil || runtime.Assets == nil {
+			return profile, ErrState
+		}
+		if e = runtime.Assets.ApprovedAccountAsset(ctx, wallet, image.ID); e != nil {
+			return profile, e
+		}
+		switch image.Type {
+		case "avatar":
+			if profile.AvatarAssetID != nil {
+				return profile, ErrConflict
+			}
+			profile.AvatarAssetID = &image.ID
+		case "banner":
+			if profile.BannerAssetID != nil {
+				return profile, ErrConflict
+			}
+			profile.BannerAssetID = &image.ID
+		default:
+			return profile, ErrInvalid
+		}
+	}
+	return profile, nil
+}
+
+func sameLegacyProfile(a, b Profile) bool {
+	// Normalize only representation: revision and timestamps are not public content.
+	a.Revision, b.Revision = "", ""
+	if !reflect.DeepEqual(a.PublicProfile, b.PublicProfile) {
+		return false
+	}
+	if len(a.Socials) != len(b.Socials) {
+		return false
+	}
+	for key, value := range a.Socials {
+		if b.Socials[key] != value {
+			return false
+		}
+	}
+	return true
+}
+
+func reconcileLegacyProfile(current, source Profile, revision int64, edited bool) (Profile, error) {
+	if current.Wallet != source.Wallet {
+		return current, ErrConflict
+	}
+	if sameLegacyProfile(current, source) {
+		return current, nil
+	}
+	blank := current.DisplayName == "" && current.Bio == "" && current.Website == nil && current.AvatarAssetID == nil && current.BannerAssetID == nil && len(current.Socials) == 0
+	if edited || !blank {
+		return current, ErrConflict
+	}
+	source.Revision = strconv.FormatInt(revision, 10)
+	return source, nil
+}
+
+func quarantineLegacyProfile(ctx context.Context, tx pgx.Tx, wallet string, digest []byte, account uuid.UUID, reason string) error {
+	_, e := tx.Exec(ctx, `INSERT INTO account_backfill VALUES($1,$2,$3,'quarantined',$4) ON CONFLICT(source_key) DO UPDATE SET state='quarantined',reason=EXCLUDED.reason`, "legacy:"+wallet, digest, account, reason)
+	return e
+}
+
 func (s Store) BackfillLegacyRange(ctx context.Context, r BackfillRange) (BackfillCounts, error) {
 	out := BackfillCounts{}
 	if r.ID == "" || len(r.ID) > 128 || r.Limit < 1 || r.Limit > 500 {
@@ -45,6 +217,9 @@ func (s Store) BackfillLegacyRange(ctx context.Context, r BackfillRange) (Backfi
 		return out, e
 	}
 	defer tx.Rollback(ctx)
+	if _, e = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, "account-stable-read-cutover"); e != nil {
+		return out, e
+	}
 	if _, e = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, "account-range:"+r.ID); e != nil {
 		return out, e
 	}
@@ -57,19 +232,17 @@ func (s Store) BackfillLegacyRange(ctx context.Context, r BackfillRange) (Backfi
 	if !errors.Is(e, pgx.ErrNoRows) {
 		return out, e
 	}
-	rows, e := tx.Query(ctx, `SELECT lower(wallet_address),count(*),min(coalesce(display_name,'')),min(coalesce(bio,'')) FROM users.user_profiles WHERE lower(wallet_address)>$1 GROUP BY lower(wallet_address) ORDER BY lower(wallet_address) LIMIT $2`, strings.ToLower(r.After), r.Limit)
+	rows, e := tx.Query(ctx, `SELECT lower(wallet_address) FROM users.user_profiles WHERE lower(wallet_address)>$1 GROUP BY lower(wallet_address) ORDER BY lower(wallet_address) LIMIT $2`, strings.ToLower(r.After), r.Limit)
 	if e != nil {
 		return out, e
 	}
 	type source struct {
-		wallet    string
-		count     int
-		name, bio string
+		wallet string
 	}
 	sources := []source{}
 	for rows.Next() {
 		var v source
-		if e = rows.Scan(&v.wallet, &v.count, &v.name, &v.bio); e != nil {
+		if e = rows.Scan(&v.wallet); e != nil {
 			rows.Close()
 			return out, e
 		}
@@ -88,31 +261,17 @@ func (s Store) BackfillLegacyRange(ctx context.Context, r BackfillRange) (Backfi
 		if _, e = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, "l35-wallet:"+source.wallet); e != nil {
 			return out, e
 		}
+		profiles, images, e := legacyProfileInventory(ctx, tx, source.wallet)
+		if e != nil {
+			return out, e
+		}
 		out.Scanned++
 		out.LastWallet = source.wallet
-		watchRows, e := tx.Query(ctx, `SELECT lower(pool_address),min(added_at) FROM users.watchlists WHERE lower(wallet_address)=$1 GROUP BY lower(pool_address) ORDER BY lower(pool_address)`, source.wallet)
+		watchlist, e := legacyWatchInventory(ctx, tx, source.wallet)
 		if e != nil {
 			return out, e
 		}
-		type legacyWatch struct {
-			Pool    string `json:"pool"`
-			AddedAt int64  `json:"addedAt"`
-		}
-		watchlist := []legacyWatch{}
-		for watchRows.Next() {
-			var watch legacyWatch
-			if e = watchRows.Scan(&watch.Pool, &watch.AddedAt); e != nil {
-				watchRows.Close()
-				return out, e
-			}
-			watchlist = append(watchlist, watch)
-		}
-		e = watchRows.Err()
-		watchRows.Close()
-		if e != nil {
-			return out, e
-		}
-		raw, e := json.Marshal(map[string]any{"wallet": source.wallet, "count": source.count, "displayName": source.name, "bio": source.bio, "watchlist": watchlist})
+		raw, e := legacySourceBytes(source.wallet, profiles, images, watchlist)
 		if e != nil {
 			return out, e
 		}
@@ -123,12 +282,15 @@ func (s Store) BackfillLegacyRange(ctx context.Context, r BackfillRange) (Backfi
 		if e != nil && !errors.Is(e, pgx.ErrNoRows) {
 			return out, e
 		}
-		if source.count > 1 || errors.Is(e, pgx.ErrNoRows) {
+		if len(profiles) != 1 || errors.Is(e, pgx.ErrNoRows) {
 			out.Quarantined++
 			if _, e = tx.Exec(ctx, `INSERT INTO account_backfill VALUES($1,$2,NULL,'quarantined','ambiguous legacy source or no verified identity') ON CONFLICT(source_key) DO NOTHING`, "legacy:"+source.wallet, digest[:]); e != nil {
 				return out, e
 			}
 			continue
+		}
+		if _, e = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, "l35-account-provision:"+account.String()); e != nil {
+			return out, e
 		}
 		var deleted bool
 		var oldWallet string
@@ -137,6 +299,9 @@ func (s Store) BackfillLegacyRange(ctx context.Context, r BackfillRange) (Backfi
 			return out, e
 		}
 		if e == nil && (deleted || oldWallet != source.wallet) {
+			if e = quarantineLegacyProfile(ctx, tx, source.wallet, digest[:], account, "stable account ownership or deletion conflicts with legacy source"); e != nil {
+				return out, e
+			}
 			out.Quarantined++
 			continue
 		}
@@ -145,7 +310,7 @@ func (s Store) BackfillLegacyRange(ctx context.Context, r BackfillRange) (Backfi
 		if e != nil && !errors.Is(e, pgx.ErrNoRows) {
 			return out, e
 		}
-		if e == nil && string(priorHash) != string(digest[:]) {
+		if e == nil && !bytes.Equal(priorHash, digest[:]) {
 			if _, e = tx.Exec(ctx, `UPDATE account_backfill SET state='quarantined',reason='source bytes changed; reviewed resolution required' WHERE source_key=$1`, "legacy:"+source.wallet); e != nil {
 				return out, e
 			}
@@ -160,11 +325,10 @@ func (s Store) BackfillLegacyRange(ctx context.Context, r BackfillRange) (Backfi
 			out.Quarantined++
 			continue
 		}
-		name := source.name
-		patch := ProfilePatch{ExpectedRevision: "0", DisplayName: &name, Bio: &source.bio}
-		if e = patch.Validate(); e != nil {
+		profile, profileErr := legacyProfileProjection(ctx, source.wallet, profiles[0], images)
+		if profileErr != nil {
 			out.Quarantined++
-			if _, e = tx.Exec(ctx, `INSERT INTO account_backfill VALUES($1,$2,$3,'quarantined','legacy profile violates current validation') ON CONFLICT(source_key) DO UPDATE SET state='quarantined',reason=EXCLUDED.reason`, "legacy:"+source.wallet, digest[:], account); e != nil {
+			if _, e = tx.Exec(ctx, `INSERT INTO account_backfill VALUES($1,$2,$3,'quarantined','legacy profile field or asset requires reviewed migration') ON CONFLICT(source_key) DO UPDATE SET state='quarantined',reason=EXCLUDED.reason`, "legacy:"+source.wallet, digest[:], account); e != nil {
 				return out, e
 			}
 			continue
@@ -187,11 +351,55 @@ func (s Store) BackfillLegacyRange(ctx context.Context, r BackfillRange) (Backfi
 			}
 			continue
 		}
-		pr, _ := json.Marshal(Profile{PublicProfile: PublicProfile{Wallet: source.wallet, DisplayName: *patch.DisplayName, Bio: source.bio, Revision: "0"}, SchemaVersion: 1, UpdatedAt: s.now()})
-		pf, _ := json.Marshal(DefaultPreferences())
+		profile.Revision = "0"
+		profile.SchemaVersion = 1
+		profile.UpdatedAt = s.now()
+		pr, e := json.Marshal(profile)
+		if e != nil {
+			return out, e
+		}
+		pf, e := json.Marshal(initialPreferences(s.now()))
+		if e != nil {
+			return out, e
+		}
 		if _, e = tx.Exec(ctx, `INSERT INTO account_state(account_id,wallet,profile,preferences) VALUES($1,$2,$3,$4) ON CONFLICT(account_id) DO NOTHING`, account, source.wallet, pr, pf); e != nil {
 			return out, e
 		}
+		a, e := load(ctx, tx, account)
+		if e != nil {
+			return out, e
+		}
+		if !sameLegacyProfile(a.Profile, profile) {
+			var edited bool
+			if e = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM account_outbox WHERE account_id=$1 AND kind='profile.updated')`, account).Scan(&edited); e != nil {
+				return out, e
+			}
+			profile, e = reconcileLegacyProfile(a.Profile, profile, a.Revision, edited)
+			if e != nil {
+				if e = quarantineLegacyProfile(ctx, tx, source.wallet, digest[:], account, "stable profile conflicts with legacy content; preserve user edits"); e != nil {
+					return out, e
+				}
+				out.Quarantined++
+				continue
+			}
+			pr, e = json.Marshal(profile)
+			if e != nil {
+				return out, e
+			}
+			if _, e = tx.Exec(ctx, `UPDATE account_state SET profile=$2,updated_at=$3 WHERE account_id=$1`, account, pr, s.now()); e != nil {
+				return out, e
+			}
+		}
+		// Compare the stored content, including socials and asset references,
+		// before publishing a verified result or completion event.
+		a, e = load(ctx, tx, account)
+		if e != nil {
+			return out, e
+		}
+		if !sameLegacyProfile(a.Profile, profile) {
+			return out, ErrConflict
+		}
+
 		_, e = tx.Exec(ctx, `INSERT INTO account_watch(account_id,chain_id,pool,added_at,revision,alert_enabled) SELECT $1,125,lower(pool_address),to_timestamp(min(added_at)),0,false FROM users.watchlists WHERE lower(wallet_address)=$2 GROUP BY lower(pool_address) ON CONFLICT DO NOTHING`, account, source.wallet)
 		if e != nil {
 			return out, e
@@ -203,10 +411,6 @@ func (s Store) BackfillLegacyRange(ctx context.Context, r BackfillRange) (Backfi
 		out.Linked++
 		out.Verified++
 		out.WatchlistCount += count
-		a, e := load(ctx, tx, account)
-		if e != nil {
-			return out, e
-		}
 		eventID := uuid.NewSHA1(uuid.NameSpaceOID, append([]byte("kindle-account-backfill:"+source.wallet+":"), digest[:]...))
 		if linkedTag.RowsAffected() == 1 {
 			if e = emitIdentity(ctx, tx, a, eventID, "account.backfill.completed", map[string]any{"accountId": account, "sourceDigest": hex.EncodeToString(digest[:]), "watchlistCount": count}); e != nil {
@@ -228,8 +432,72 @@ func (s Store) BackfillLegacyRange(ctx context.Context, r BackfillRange) (Backfi
 	return out, nil
 }
 func (s Store) SetStableAccountReads(ctx context.Context, enabled bool) error {
-	_, e := s.DB.Exec(ctx, `INSERT INTO account_read_switch(singleton,stable_reads,changed_at,generation) VALUES(true,$1,$2,1) ON CONFLICT(singleton) DO UPDATE SET stable_reads=EXCLUDED.stable_reads,changed_at=EXCLUDED.changed_at,generation=account_read_switch.generation+CASE WHEN account_read_switch.stable_reads<>EXCLUDED.stable_reads THEN 1 ELSE 0 END`, enabled, time.Now().UTC())
-	return e
+	if !enabled {
+		_, e := s.DB.Exec(ctx, `INSERT INTO account_read_switch(singleton,stable_reads,changed_at,generation) VALUES(true,$1,$2,1) ON CONFLICT(singleton) DO UPDATE SET stable_reads=EXCLUDED.stable_reads,changed_at=EXCLUDED.changed_at,generation=account_read_switch.generation+CASE WHEN account_read_switch.stable_reads<>EXCLUDED.stable_reads THEN 1 ELSE 0 END`, enabled, s.now())
+		return e
+	}
+	tx, e := s.DB.Begin(ctx)
+	if e != nil {
+		return e
+	}
+	defer tx.Rollback(ctx)
+	if _, e = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, "account-stable-read-cutover"); e != nil {
+		return e
+	}
+	if _, e = tx.Exec(ctx, `LOCK TABLE users.user_profiles,users.user_images,users.watchlists IN SHARE MODE`); e != nil {
+		return e
+	}
+	var unresolved bool
+	if e = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM account_backfill WHERE state='quarantined') OR EXISTS(SELECT 1 FROM users.user_profiles p WHERE NOT EXISTS(SELECT 1 FROM account_backfill b WHERE b.source_key='legacy:'||lower(p.wallet_address) AND b.state='linked')) OR EXISTS(SELECT 1 FROM users.user_images i WHERE NOT EXISTS(SELECT 1 FROM account_backfill b WHERE b.source_key='legacy:'||lower(i.wallet_address) AND b.state='linked'))`).Scan(&unresolved); e != nil {
+		return e
+	}
+	if unresolved {
+		return ErrState
+	}
+	rows, e := tx.Query(ctx, `SELECT DISTINCT lower(wallet_address) FROM users.user_profiles ORDER BY 1`)
+	if e != nil {
+		return e
+	}
+	wallets := []string{}
+	for rows.Next() {
+		var wallet string
+		if e = rows.Scan(&wallet); e != nil {
+			rows.Close()
+			return e
+		}
+		wallets = append(wallets, wallet)
+	}
+	e = rows.Err()
+	rows.Close()
+	if e != nil {
+		return e
+	}
+	for _, wallet := range wallets {
+		profiles, images, e := legacyProfileInventory(ctx, tx, wallet)
+		if e != nil {
+			return e
+		}
+		watches, e := legacyWatchInventory(ctx, tx, wallet)
+		if e != nil {
+			return e
+		}
+		raw, e := legacySourceBytes(wallet, profiles, images, watches)
+		if e != nil {
+			return e
+		}
+		digest := sha256.Sum256(raw)
+		var verified bool
+		if e = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM account_backfill WHERE source_key=$1 AND state='linked' AND source_hash=$2)`, "legacy:"+wallet, digest[:]).Scan(&verified); e != nil {
+			return e
+		}
+		if !verified {
+			return ErrState
+		}
+	}
+	if _, e = tx.Exec(ctx, `INSERT INTO account_read_switch(singleton,stable_reads,changed_at,generation) VALUES(true,true,$1,1) ON CONFLICT(singleton) DO UPDATE SET stable_reads=true,changed_at=EXCLUDED.changed_at,generation=account_read_switch.generation+CASE WHEN NOT account_read_switch.stable_reads THEN 1 ELSE 0 END`, s.now()); e != nil {
+		return e
+	}
+	return tx.Commit(ctx)
 }
 
 type ReadProjection struct {

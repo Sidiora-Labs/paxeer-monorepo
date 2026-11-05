@@ -72,16 +72,21 @@ fn meter_zero_is_a_valid_lni_meter_while_empty_encoded_transaction_stays_refused
         rpc.send_raw_transaction(&[]),
         Err(RpcError::InvalidRequest)
     ));
+    let oversized = Eip1559Call {
+        chain_id: 125,
+        nonce: 0,
+        max_priority_fee_per_gas: 1,
+        max_fee_per_gas: 2,
+        gas_limit: 21_000,
+        to: [1; 20],
+        data: vec![0; layerx_sdk::rpc::MAX_TRANSACTION_CALLDATA_BYTES + 1],
+    };
     assert!(matches!(
-        rpc.estimate_fee(&Eip1559Call {
-            chain_id: 125,
-            nonce: 0,
-            max_priority_fee_per_gas: 1,
-            max_fee_per_gas: 2,
-            gas_limit: 21_000,
-            to: [1; 20],
-            data: vec![0; 524_289],
-        }),
+        rpc.estimate_fee(&oversized),
+        Err(RpcError::InvalidRequest)
+    ));
+    assert!(matches!(
+        rpc.estimate_fee_from(&oversized, [1; 20]),
         Err(RpcError::InvalidRequest)
     ));
 }

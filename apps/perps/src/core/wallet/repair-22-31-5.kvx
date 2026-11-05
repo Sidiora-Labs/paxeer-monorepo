@@ -1,0 +1,25 @@
+[task]
+id = "22.31.5"
+audit = "22.30.11"
+acceptance = "22998.1"
+verified_revision_source = "The runner records the exact candidate revision, command, exit and private evidence log in /out/run/gates.jsonl."
+baseline = "Not run: the explicit implementation-first order and bounded hf-done gate prohibit the contradictory pre-change verify instruction; no pre-change failure is claimed."
+
+[finding.iframe-account-event]
+test = "iframeAccountEventReachesInjectedConnector"
+path = "apps/perps/tests/repair-22-31-5.test.ts"
+repair = "Deliver the complete accountsChanged payload once, including the empty array, and export a typed parent envelope and sender."
+proof = "The production sender posts from a real parent window to its iframe; the installed window.ethereum bridge delivers exactly one Hex[] argument to the real injected connector for one, several and zero accounts; zero accounts emits disconnect."
+out_of_path_steps = "None required by this finding; the installation function used by pages/_app.tsx and the injected consumer are exercised without out-of-scope edits."
+environment = "The focused node test uses esbuild and Chromium (CHROMIUM_BIN or chromium on PATH) for actual parent/iframe postMessage delivery."
+
+[gotcha.baseline-order]
+observed = "The copied audit steps request pre-change verification while the explicit gate order forbids testing before full implementation and running verify by hand."
+resolution = "Follow the explicit gate order; record the absent baseline without claiming a test ran."
+
+[qualification.environment]
+revision = "b12c4b8268ee511deacc271bf7b5fcce079de007"
+command = "pnpm --dir apps/perps exec tsc --noEmit"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "The sandbox omitted the wallet SDK's declared viem dependency; provision its existing frozen lockfile without running scripts or changing source."

@@ -1,11 +1,10 @@
 use ed25519_dalek::SigningKey;
-use layerx_crypto::authority_grant::{AuthorityGrant, GrantKind};
-use layerx_crypto::disclosure::{bind, DisclosureError};
+use layerx_crypto::authority_grant::{authority_grant_call, AuthorityGrant, GrantKind};
+use layerx_crypto::disclosure::call::{bind_call, reencode, validate_call};
+mod support;
+use layerx_crypto::disclosure::DisclosureError;
 use layerx_types::ids::Did;
-use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
-use layerx_wire::encode::Encoder;
 use layerx_wire::hash;
-use sha2::{Digest as _, Sha256};
 
 const CAPABILITY: &[u8] = include_bytes!("fixtures/authority-grant-capability.bin");
 const BUDGET: &[u8] = include_bytes!("fixtures/authority-grant-budget.bin");
@@ -27,48 +26,6 @@ fn owner() -> (Did, [u8; 32]) {
         Did::new(did.as_bytes()).unwrap_or_else(|error| panic!("did: {error:?}")),
         key,
     )
-}
-
-fn registry() -> ModuleRegistry {
-    let kind = ActivityType::new(ModuleId::Governance, 8)
-        .unwrap_or_else(|error| panic!("activity: {error:?}"));
-    let module = ModuleRegistration::new(ModuleId::Governance, &[kind])
-        .unwrap_or_else(|error| panic!("module: {error:?}"));
-    ModuleRegistry::new(&[module]).unwrap_or_else(|error| panic!("registry: {error:?}"))
-}
-
-fn unsigned(payload: &[u8], did: &Did, key: &[u8; 32]) -> Vec<u8> {
-    let mut hasher = Sha256::new();
-    hasher.update(hash::Domain::PayloadHash.tag());
-    hasher.update(payload);
-    let payload_hash: [u8; 32] = hasher.finalize().into();
-    let mut encoder = Encoder::new(4096);
-    assert!(encoder.structure_header_version(0x1001, 3).is_ok());
-    assert!(encoder.u8(11).is_ok());
-    assert!(encoder.tag(1, 12).is_ok());
-    assert!(encoder.u16(3).is_ok());
-    assert!(encoder.tag(2, 12).is_ok());
-    assert!(encoder.u32(77).is_ok());
-    assert!(encoder.tag(3, 12).is_ok());
-    assert!(encoder.u32(0x0007_0008).is_ok());
-    assert!(encoder.tag(4, 12).is_ok());
-    assert!(encoder.bytes(did.as_bytes(), 255).is_ok());
-    assert!(encoder.tag(5, 12).is_ok());
-    assert!(encoder.bytes(key, 32).is_ok());
-    assert!(encoder.tag(6, 12).is_ok());
-    assert!(encoder.u64(10).is_ok());
-    assert!(encoder.tag(7, 12).is_ok());
-    assert!(encoder.u64(1000).is_ok());
-    assert!(encoder.u64(2000).is_ok());
-    assert!(encoder.tag(8, 12).is_ok());
-    assert!(encoder.bytes(&[9; 32], 32).is_ok());
-    assert!(encoder.tag(9, 12).is_ok());
-    assert!(encoder.u128(0).is_ok());
-    assert!(encoder.tag(10, 12).is_ok());
-    assert!(encoder.bytes(&payload_hash, 32).is_ok());
-    assert!(encoder.tag(11, 12).is_ok());
-    assert!(encoder.bytes(payload, 1024).is_ok());
-    encoder.finish()
 }
 
 #[test]
@@ -155,18 +112,16 @@ fn unbounded_or_inconsistent_grants_cannot_be_encoded() {
 
 #[test]
 fn signing_disclosure_binds_every_immutable_grant_field() {
-    let (did, owner_key) = owner();
     let grant = native_grant(BUDGET);
-    let payload = grant
-        .payload()
-        .unwrap_or_else(|error| panic!("payload: {error:?}"));
-    let canonical = unsigned(&payload, &did, &owner_key);
-    let disclosure =
-        bind(&canonical, &registry()).unwrap_or_else(|error| panic!("disclosure: {error:?}"));
+    let payload = grant.payload().expect("native grant payload");
+    let options = support::call_options(10);
+    let produced = authority_grant_call(&grant, &options).expect("merged grant constructor");
+    let disclosure = bind_call(&produced.call, options.from).expect("grant call binding");
     assert_eq!(disclosure.authority_grant, Some(grant));
     assert_eq!(disclosure.asset, grant.scope.asset);
+    assert_eq!(disclosure.authority, options.from);
     assert_eq!(disclosure.expiry.payload_expires_at, grant.not_after);
-    assert_eq!(disclosure.reencode(), Ok(canonical));
+    assert_eq!(reencode(&disclosure), Ok(produced.call.encode_unsigned()));
     let mutations: &[fn(&mut AuthorityGrant)] = &[
         |g| g.grantor[0] ^= 1,
         |g| g.grantee[0] ^= 1,
@@ -188,17 +143,28 @@ fn signing_disclosure_binds_every_immutable_grant_field() {
     ];
     for mutate in mutations {
         let mut changed = disclosure.clone();
-        let Some(semantics) = changed.authority_grant.as_mut() else {
-            panic!("missing grant")
-        };
-        mutate(semantics);
+        let mut semantics = grant;
+        mutate(&mut semantics);
+        // Every immutable change either fails the retained codec or produces
+        // different canonical kernel bytes. Neither can be injected into a call.
+        if let Ok(changed_payload) = semantics.payload() {
+            assert_ne!(changed_payload, payload);
+            assert_eq!(
+                AuthorityGrant::from_payload(&changed_payload).expect("changed codec"),
+                semantics
+            );
+        }
+        changed.authority_grant = Some(semantics);
         assert_eq!(
-            changed.reencode(),
+            reencode(&changed),
             Err(DisclosureError::FieldMismatch("authority_grant"))
         );
         assert!(changed.audit_digest().is_err());
     }
-    assert!(bind(&unsigned(&payload, &did, &grant.delegate_key), &registry()).is_err());
-    let different = Did::new(b"did:layerx:other").unwrap_or_else(|error| panic!("did: {error:?}"));
-    assert!(bind(&unsigned(&payload, &different, &owner_key), &registry()).is_err());
+    let mut different = options.from;
+    different[0] ^= 1;
+    assert!(validate_call(&produced.call, &disclosure, different).is_err());
+    let mut substituted = produced.call;
+    substituted.data[0] ^= 1;
+    assert!(bind_call(&substituted, options.from).is_err());
 }

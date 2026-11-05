@@ -1,0 +1,23 @@
+[repair.22.33.841]
+audit = "22.30.180"
+base_revision = "fedbeb3bb47c5bb972f66afc8189f92f5395f3eb"
+qualification = "The private hf-build/hf-done ledger names the exact candidate revision, command, exit and log; no gate result is claimed before it runs."
+baseline = "No baseline gate ran: the explicit implementation-first order and allowed bounded gates prohibit the conflicting unchanged-tree verify step. No pre-change test failure is claimed."
+
+[finding.task-schema-omits-run-and-routes]
+tests = ["TestRepairM_841_RegisteredOperations", "TestRepairM_841_FailedTaskResubmission", "TestRepairM_841_ProbeAndNodeIDResponses"]
+repair = "Declare required positive-integer run with retry/idempotency/recovery semantics; declare startupz, livez (including verbose errors), metrics and node-id response schemas; declare probe security bypass and protected-operation authentication errors."
+proof = "Real config-validation handler -> real engine and in-memory SQLite store -> real HTTP listener -> existing generated submit/get/list/delete decoders; fail on missing config, generate valid config with sei-config, resubmit the same UUID and assert raw get/list run changes from 1 to 2 against the schema. Compare registered server operations with schema operations and validate real probe, metrics, node-key success/error and closed-store liveness responses."
+consumer_limit = "The in-scope schema repair is qualified by these tests. The existing out-of-scope generated TaskResult still discards run; no claim is made that generated run decoding or CLI output is repaired before the wiring requests below are completed."
+
+[wiring.1]
+request = "Domain 16 (cfg-paxctl client), tools/paxctl/sidecar/client/sidecar.gen.go: regenerate using the pinned sidecar/api/generate.go directive so TaskResult retains required Run and the four newly declared operations get generated decoders; do not change the generator output path."
+
+[wiring.2]
+request = "Domain 16 (cfg-paxctl CLI), tools/paxctl/task: qualify task get/list CLI JSON output through the regenerated client across failed config-validation task resubmission, asserting run=1 then run=2 survives typed decode and re-encode."
+
+[gotcha.scope]
+observed = "The proposal's generated client artifact and CLI lie outside the explicit API-only scope; task instructions require wiring requests instead of changing those paths."
+
+[gotcha.gate-order]
+observed = "The unchanged-tree baseline step conflicts with the explicit implementation-first gate order; use the bounded hf-build then hf-done qualification and do not claim baseline results."

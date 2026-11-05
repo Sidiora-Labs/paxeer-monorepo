@@ -13,10 +13,8 @@ import tempfile
 import unicodedata
 from urllib.parse import urlsplit
 
-# LayerX custody on Paxeer is the native layerxcustody module behind this precompile. Deposits,
-# withdrawal claims and forced exits are all calls on it, so the four custody bindings are this
-# constant address and no longer come from the Solidity deployment record.
-CUSTODY_PRECOMPILE = '0x0000000000000000000000000000000000001013'
+LEDGER_PRECOMPILE = '0x000000000000000000000000000000000000101a'
+PAYMENT_PRECOMPILE = '0x000000000000000000000000000000000000101b'
 HUMAN_KMS_ENDPOINT = '127.0.0.1:9450'
 HUMAN_KMS_SERVER_NAME = 'layerx-human-kms'
 HUMAN_KMS_PROVIDER = 'layerx-human-kms'
@@ -43,7 +41,7 @@ def protected_json(path):
     return parse(read_bytes(path))
 
 
-BUNDLE_SCHEMA = 'layerx.human.owner-bundle.v2'
+BUNDLE_SCHEMA = 'layerx.human.owner-bundle.v3'
 BUNDLE_REFUSED = 'Human owner bundle refused: '
 EVIDENCE_INPUTS = {
     'components': 'components.json', 'agent': 'agent.json',
@@ -141,27 +139,113 @@ def sync_directory(path):
         os.close(fd)
 
 
-PRODUCER_FILES = {'source-binding.json', 'owner-result.json', 'owner-registration.json', 'custody.profile', 'owner-custody.json',
+PRODUCER_FILES = {'source-binding.json', 'owner-result.json', 'owner-registration.json',
                   'naming-deployment-result.json', 'treasury.json', 'sequencer.json',
-                  'native-context.json', *{label + suffix for label in ('credit', 'identity', 'rotation', 'recovery')
-                                           for suffix in ('.activity', '.receipt')}}
+                  'native-context.json', 'merged-owner-evidence.json', 'rpc-ca.pem'}
 ONBOARDING_FILES = {'LAYERX_HUMAN_TENANCY_DIGEST', 'LAYERX_HUMAN_AUTH_INDEX_KEY',
                     'LAYERX_HUMAN_STREAM_CURSOR_KEY', 'recovery-policy.json', 'registry.json'}
 
 
-def resolve_custody_components(policy, deployment):
-    checkpoint = deployment['addresses']['checkpoint_registry']
-    if type(checkpoint) is not str or not re.fullmatch('0x[0-9a-fA-F]{40}', checkpoint) or int(checkpoint, 16) == 0:
-        refuse('deployed checkpoint registry')
-    policy['components'].update(PAXEER_EXIT_CONTRACT=CUSTODY_PRECOMPILE,
-                                PAXEER_WITHDRAWAL_CLAIMS_CONTRACT=CUSTODY_PRECOMPILE)
-    policy['movement'].update(PAXEER_VAULT=CUSTODY_PRECOMPILE, PAXEER_CHECKPOINT_REGISTRY=checkpoint,
-                             PAXEER_CLAIMS_CONTRACT=CUSTODY_PRECOMPILE, PAXEER_EXIT_CONTRACT=CUSTODY_PRECOMPILE)
+def canonical_module_registry(registry, network, asset=None):
+    if (type(registry) is not dict or set(registry) != {'schema_version', 'network_id', 'assets', 'modules'}
+            or type(registry['schema_version']) is not int or registry['schema_version'] != 2
+            or type(network) is not int or not 0 < network < 2**32
+            or type(registry['network_id']) is not int or registry['network_id'] != network
+            or type(registry['assets']) is not list or not 0 < len(registry['assets']) <= 256
+            or type(registry['modules']) is not list or not 0 < len(registry['modules']) <= 32):
+        refuse('canonical network-bound module registry')
+    assets = set()
+    for record in registry['assets']:
+        if (type(record) is not dict or not {'asset'} <= set(record)
+                or not set(record) <= {'asset', 'symbol', 'currency', 'decimals'}
+                or type(record['asset']) is not str or not re.fullmatch('[0-9a-f]{64}', record['asset'])
+                or int(record['asset'], 16) == 0 or record['asset'] in assets):
+            refuse('canonical registry assets')
+        if 'decimals' in record and (type(record['decimals']) is not int or not 0 <= record['decimals'] <= 38):
+            refuse('canonical registry decimals')
+        for key in ('symbol', 'currency'):
+            if key in record and (type(record[key]) is not str or not record[key] or len(record[key]) > 32):
+                refuse('canonical registry asset metadata')
+        assets.add(record['asset'])
+    if asset is not None and asset not in assets:
+        refuse('canonical registry expected native asset')
+    modules, seen = [], set()
+    for module in registry['modules']:
+        if (type(module) is not dict or set(module) != {'module', 'ordinals'}
+                or type(module['module']) is not int or not 1 <= module['module'] <= 9 or module['module'] in seen
+                or type(module['ordinals']) is not list or not module['ordinals']
+                or any(type(n) is not int or not 1 <= n < 65536 for n in module['ordinals'])
+                or len(set(module['ordinals'])) != len(module['ordinals'])):
+            refuse('canonical registry modules')
+        seen.add(module['module'])
+        modules.append({'module_id': module['module'],
+                        'activity_types': [(module['module'] << 16) | n for n in module['ordinals']]})
+    return {'network_id': network, 'protocol_version': 3, 'modules': modules}
+
+
+def validate_catalog(catalog):
+    required = {'id', 'call_selectors', 'amount_ceiling', 'rate_maximum_uses', 'rate_window_sequences',
+                'purposes', 'expiry_sequence', 'session_scopes', 'session_lifetime_seconds',
+                'budget_period_seconds', 'budget_expiry_seconds', 'initial_funding', 'counterparties',
+                'assets', 'budget_asset'}
+    if (type(catalog) is not dict or set(catalog) != {'version', 'presets'}
+            or type(catalog['version']) is not str or not catalog['version']
+            or type(catalog['presets']) is not list or not catalog['presets']):
+        refuse('selector purpose catalogue')
+    ids = set()
+    for preset in catalog['presets']:
+        if (type(preset) is not dict or set(preset) != required or type(preset['id']) is not str
+                or not preset['id'] or preset['id'] in ids):
+            refuse('selector purpose preset fields')
+        ids.add(preset['id'])
+        selectors = preset['call_selectors']
+        if (type(selectors) is not list or not selectors
+                or any(type(v) is not str or not re.fullmatch('0x[0-9a-fA-F]{8}', v) for v in selectors)
+                or len({v.lower() for v in selectors}) != len(selectors)):
+            refuse('selector purpose call selectors')
+        for key in ('amount_ceiling', 'initial_funding', 'rate_maximum_uses', 'rate_window_sequences',
+                    'expiry_sequence', 'session_lifetime_seconds', 'budget_period_seconds', 'budget_expiry_seconds'):
+            width = 128 if key in ('amount_ceiling', 'initial_funding') else 64
+            if type(preset[key]) is not int or not 0 < preset[key] < 2**width:
+                refuse('selector purpose bounds')
+        for key in ('purposes', 'session_scopes'):
+            values = preset[key]
+            if (type(values) is not list or not values or any(type(v) is not str or not v for v in values)
+                    or len(set(values)) != len(values)):
+                refuse('selector purpose scopes')
+        for key in ('counterparties', 'assets', 'budget_asset'):
+            values = [preset[key]] if key == 'budget_asset' else preset[key]
+            if (type(values) is not list or not values or any(type(v) is not list or len(v) != 32
+                    or any(type(b) is not int or not 0 <= b <= 255 for b in v) or not any(v) for v in values)):
+                refuse('selector purpose account or asset encoding')
+    return catalog
+
+
+def authorize_call(catalog, preset_id, calldata, counterparty, asset, amount):
+    validate_catalog(catalog)
+    presets = [p for p in catalog['presets'] if p['id'] == preset_id]
+    if (len(presets) != 1 or type(calldata) is not str or not re.fullmatch('0x[0-9a-fA-F]{8}(?:[0-9a-fA-F]{2})*', calldata)
+            or type(amount) is not int or amount <= 0):
+        refuse('declared purpose call')
+    preset = presets[0]
+    if (calldata[:10].lower() not in {v.lower() for v in preset['call_selectors']}
+            or type(counterparty) is not str or not re.fullmatch('[0-9a-f]{64}', counterparty)
+            or type(asset) is not str or not re.fullmatch('[0-9a-f]{64}', asset)
+            or list(bytes.fromhex(counterparty)) not in preset['counterparties']
+            or list(bytes.fromhex(asset)) not in preset['assets'] or amount > preset['amount_ceiling']):
+        refuse('purpose selector, counterparty, asset or amount authorization')
+
+
+def resolve_payment_components(policy, deployment):
+    policy['components'].update(PAXEER_LEDGER_CONTRACT=LEDGER_PRECOMPILE,
+                                PAXEER_PAYMENT_CONTRACT=PAYMENT_PRECOMPILE)
+    policy['movement'].update(PAXEER_LEDGER_CONTRACT=LEDGER_PRECOMPILE,
+                             PAXEER_PAYMENT_CONTRACT=PAYMENT_PRECOMPILE)
 
 
 def policy_from_inputs(inputs, records, network, chain):
-    from provision import identity, recovery_policy, peer_binding, validate_native_records
-    from owner_native import receipt_fields, digest as native_digest
+    from provision import recovery_policy, peer_binding, validate_native_records
+    from merged_owner import account_name, validate_registration, identity_state
     deployment = parse(inputs['deployment.json'])
     registry = parse(inputs['module-registry.json'])
     if (type(network) is not int or not 0 < network < 2**32 or type(chain) is not int or not 0 < chain < 2**64
@@ -169,6 +253,7 @@ def policy_from_inputs(inputs, records, network, chain):
             or registry.get('network_id') != network or registry.get('schema_version') != 2
             or not registry.get('assets') or not registry.get('modules')):
         refuse('deployment network, chain or module registry binding')
+    projected_registry = canonical_module_registry(registry, network)
     policy = {key: parse(inputs[name]) for key, name in EVIDENCE_INPUTS.items()}
     if any(type(value) is not dict or not value for value in policy.values()):
         refuse('empty owner evidence')
@@ -184,9 +269,9 @@ def policy_from_inputs(inputs, records, network, chain):
             or registration['identity']['did'] != owner['did']
             or policy['components'].get('AGENT_ACTOR') != owner['did']
             or policy['components'].get('AGENT_AUTHORITY') != registration['authority']
-            or policy['components'].get('AGENT_OWNER_ACCOUNT') != 'agent:' + owner['did'] + ':main'):
+            or policy['components'].get('AGENT_OWNER_ACCOUNT') != account_name(registration['authority'], parse(producer['merged-owner-evidence.json'])['asset_id'])):
         refuse('original owner identity, authority or principal binding')
-    identity(registration['identity'], 'owner bundle')
+    validate_registration(registration, 'owner bundle')
     recovery_policy(policy['recovery_policy'], 'owner bundle')
     if policy['recovery_policy'] != {'root': owner['recovery_root'], 'threshold': owner['recovery_threshold'],
                                     'delay_seconds': owner['recovery_delay_seconds']}:
@@ -199,68 +284,44 @@ def policy_from_inputs(inputs, records, network, chain):
             or not any(asset.get('asset') == principals[0].get('asset_id') for asset in registry['assets'])):
         refuse('actual owner principal policy binding')
     context = parse(producer['native-context.json'])
-    if set(context) != {'network_id', 'sequencer_public_key'} or context['network_id'] != network:
-        refuse('native producer network binding')
-    key = context['sequencer_public_key']
-    if type(key) is not str or not re.fullmatch('[0-9a-f]{64}', key) or int(key, 16) == 0:
-        refuse('native sequencer pin')
+    if context.get('network_id') != network or context.get('chain_id') != chain:
+        refuse('merged producer network and chain binding')
     validate_native_records(producer, registration, network)
-    references = [registration['identity']['evidence'], registration['identity']['rotation']['evidence'],
-                  registration['identity']['recovery']['evidence']]
-    observed = set()
-    for label in ('credit', 'identity', 'rotation', 'recovery'):
-        result = receipt_fields(producer[label + '.receipt'], bytes.fromhex(key), 'owner bundle receipt')
-        if (result['activity_id'] != native_digest(b'activity-id', producer[label + '.activity']).hex()
-                or result['module'] != (8 if label == 'credit' else 7) or result['version'] != 1):
-            refuse('native signed activity and receipt binding')
-        observed.add((result['activity_id'], result['receipt_digest']))
-        if label == 'credit' and (result['target'] != registration['owner_account'] or result['amount'] <= 0):
-            refuse('actual owner custody credit')
-    if any((ref['activity_id'], ref['receipt_digest']) not in observed for ref in references):
-        refuse('owner registration receipt references')
+    funding = parse(producer['merged-owner-evidence.json'])
+    if funding['asset_id'] != principals[0]['asset_id']:
+        refuse('owner funding asset binding')
+    if policy['movement'] != {'LEDGER_ASSET_ID': '0x' + funding['asset_id'],
+                              'LEDGER_OWNER_ACCOUNT': '0x' + registration['owner_account']}:
+        refuse('merged ledger funding projection binding; retained custody policy requires explicit migration')
+    state = identity_state(funding['transactions']['recovery']['receipt'], registration['authority'])
+    recovery = policy['recovery_policy']
+    if (list(state[77:109]) != recovery['root'] or int.from_bytes(state[109:111], 'big') != recovery['threshold']
+            or int.from_bytes(state[183:191], 'big') != recovery['delay_seconds']
+            or int.from_bytes(state[191:199], 'big') != recovery['delay_seconds']):
+        refuse('committed owner recovery policy binding')
     naming = parse(producer['naming-deployment-result.json'])
     if (naming.get('state') != 'deployed' or type(naming.get('activity_id')) is not str
             or not re.fullmatch('[0-9a-f]{64}', naming['activity_id'])
             or any(naming.get('receipt_digest', '') + suffix not in records for suffix in ('.admission', '.deployment'))):
         refuse('actual naming deployment journal pair')
-    modules = []
-    seen = set()
-    for module in registry['modules']:
-        number, ordinals = module['module'], module['ordinals']
-        if (type(number) is not int or not 1 <= number <= 9 or number in seen
-                or type(ordinals) is not list or not ordinals
-                or any(type(value) is not int or not 1 <= value < 65536 for value in ordinals)
-                or len(set(ordinals)) != len(ordinals)):
-            refuse('module activity registry')
-        seen.add(number)
-        modules.append({'module_id': number, 'activity_types': [(number << 16) | ordinal for ordinal in ordinals]})
     asset = principals[0]['asset_id']
     counterparties = [parse(producer[name])['account'] for name in ('treasury.json', 'sequencer.json')]
     if (len(set(counterparties)) != 2 or any(type(value) is not str or not re.fullmatch('[0-9a-f]{64}', value)
                                            or int(value, 16) == 0 for value in counterparties)):
         refuse('actual purpose counterparty accounts')
     catalog = policy['purpose_catalog']
-    activities = sorted(activity for module in modules for activity in module['activity_types'])
+    validate_catalog(catalog)
     if (set(catalog) != {'version', 'presets'} or not isinstance(catalog['presets'], list)
             or not catalog['presets'] or policy['agent'].get('HUMAN_LIMIT_SCOPE_ID') != registration['owner_account']
             or policy['agent'].get('HUMAN_LIMIT_CONSUMED') != 0):
         refuse('actual purpose catalogue or initial owner limit')
     for preset in catalog['presets']:
-        if (preset.get('activity_types') != activities
-                or preset.get('counterparties') != [list(bytes.fromhex(value)) for value in counterparties]
+        if (preset.get('counterparties') != [list(bytes.fromhex(value)) for value in counterparties]
                 or preset.get('assets') != [list(bytes.fromhex(asset))]
                 or preset.get('budget_asset') != list(bytes.fromhex(asset))):
             refuse('purpose catalogue registry, asset or counterparty binding')
-    policy['registry'] = {'network_id': network, 'protocol_version': 3, 'modules': modules}
-    resolve_custody_components(policy, deployment)
-    profile = producer['custody.profile']
-    custody = parse(producer['owner-custody.json'])
-    if (len(profile) != 223 or policy['movement'].get('CUSTODY_PROFILE') != '/run/human-private/movement/custody.profile'
-            or policy['movement'].get('CUSTODY_PROFILE_SHA256') != '0x' + digest(profile)
-            or custody.get('custody_profile') != 'custody.profile'
-            or custody.get('custody_profile_sha256') != '0x' + digest(profile)
-            or custody.get('vault') != CUSTODY_PRECOMPILE):
-        refuse('authenticated custody profile binding')
+    policy['registry'] = projected_registry
+    resolve_payment_components(policy, deployment)
     policy['journal_directory'] = 'journal'
     if 'onboarding-configuration.json' in inputs:
         onboarding = parse(inputs['onboarding-configuration.json'])
@@ -617,6 +678,15 @@ def verify_projected_material(bundle, projections, network, chain):
     bundle, projections = Path(bundle), Path(projections)
     verify_bundle(bundle, network, chain)
     policy = parse(read_bytes(bundle / 'policy.json'))
+    from history_material import CHAIN_FILES, CHAIN_ROLES, validate as validate_chain
+    source = bundle / 'inputs/producer-records'
+    chain_files = {name: read_bytes(source / name) for name in CHAIN_FILES}
+    context = parse(chain_files['native-context.json'])
+    for role in CHAIN_ROLES:
+        files = projected_files(projections / role, CHAIN_FILES)
+        if files != chain_files:
+            refuse('runtime chain receipts differ from verified owner bundle')
+        validate_chain(files, context, network, chain)
     if parse(projected_files(projections / 'module-registry', {'registry.json'})['registry.json']) != parse(read_bytes(bundle / 'inputs/module-registry.json')):
         refuse('runtime canonical module registry differs from actual producer input')
     json_fields = [('components', 'purpose-catalog.json', 'purpose_catalog'), ('kms', 'registry.json', 'registry'),
@@ -706,20 +776,40 @@ def movement_defaults(network, chain):
     }
 
 
-def main():
-    root = Path(sys.argv[1])
-    network, chain = int(sys.argv[2]), int(sys.argv[3])
-    config = component_defaults(network, chain, sys.argv[5] if len(sys.argv) > 5 else '')
-    policy = protected_json(sys.argv[4]) if sys.argv[4] else None
+def install(root, network, chain, policy_path='', binding_path=''):
+    root = Path(root)
+    from history_material import refuse_legacy
+    refuse_legacy(root)
+    config = component_defaults(network, chain, binding_path)
+    policy = protected_json(policy_path) if policy_path else None
     if policy is not None:
         if Path(policy.get('journal_directory', '')).is_absolute():
             refuse('producer-local journal path')
-        verify_bundle(Path(sys.argv[4]).parent, network, chain)
+        verify_bundle(Path(policy_path).parent, network, chain)
+        # The same receipt files are transported in each role's private Secret.
+        # Their consumer validates against the separately verified bundle context.
+        from history_material import CHAIN_FILES, CHAIN_ROLES, verify as verify_chain
+        source = Path(policy_path).parent / 'inputs/producer-records'
+        expected_context = protected_json(source / 'native-context.json')
+        for role in CHAIN_ROLES:
+            directory = root / role
+            directory.mkdir(mode=0o700, exist_ok=True)
+            present = [os.path.lexists(directory / name) for name in CHAIN_FILES]
+            if any(present):
+                if not all(present):
+                    refuse('partial retained chain receipt material; reconciliation required')
+                verify_chain(directory, expected_context, network, chain)
+                if any(read_bytes(directory / name) != read_bytes(source / name) for name in CHAIN_FILES):
+                    refuse('retained chain receipt material differs from verified bundle')
+            else:
+                from onboarding_material import write as retain_bytes
+                for name in CHAIN_FILES:
+                    retain_bytes(directory / name, read_bytes(source / name))
     onboarding = policy.get('onboarding_configuration') if policy else None
     if onboarding is not None:
         if onboarding['directory'] != 'onboarding':
             refuse('producer-local onboarding path')
-        directory = Path(sys.argv[4]).parent / 'onboarding'
+        directory = Path(policy_path).parent / 'onboarding'
         for source, destination in [('registry.json', root / 'kms/registry.json'), ('recovery-policy.json', root / 'identity/recovery-policy.json')]:
             data = read_bytes(directory / source)
             if destination.exists() or destination.is_symlink():
@@ -772,12 +862,11 @@ def main():
         'NODE_ENDPOINT': 'http://127.0.0.1:9401',
         'AUTHORITY_ENDPOINT': 'https://layerx-receipt-authority.layerx-testnet.svc.cluster.local:9443',
         'AUTHORITY_REPLICA_ID': (root.parent / 'receipt-authority-replica-id').read_text().strip(),
-        'SEQUENCER_TRUST_HISTORY': '/run/human-private/agent/trust-history',
         'DEPLOYMENT_JOURNAL': '/run/human-private/agent/journal',
     }
     journal = root / 'journal'
     journal.mkdir(mode=0o700)
-    if sys.argv[4]:
+    if policy_path:
         required = {'components', 'agent', 'purpose_catalog', 'registry', 'journal_directory',
                     'authority', 'principal_policy', 'recovery_policy', 'movement'}
         if onboarding is not None:
@@ -786,7 +875,7 @@ def main():
             raise ValueError('Human policy fields do not match the documented contract')
         component_keys = {'AGENT_ACTOR', 'AGENT_AUTHORITY', 'AGENT_OWNER_ACCOUNT',
                           'AGENT_RECOVERY_ROOT', 'AGENT_RECOVERY_THRESHOLD',
-                          'PAXEER_EXIT_CONTRACT', 'PAXEER_WITHDRAWAL_CLAIMS_CONTRACT'}
+                          'PAXEER_LEDGER_CONTRACT', 'PAXEER_PAYMENT_CONTRACT'}
         if onboarding is not None:
             component_keys.update(('ONBOARDING_SPONSOR_PRINCIPAL', 'ONBOARDING_INITIAL_FUNDING'))
         agent_keys = {'HUMAN_PEERS', 'HUMAN_LIMIT_SCOPE', 'HUMAN_LIMIT_SCOPE_ID',
@@ -795,11 +884,10 @@ def main():
         for values, expected in [(policy['components'], component_keys), (policy['agent'], agent_keys)]:
             if set(values) != expected or any(not str(v) or '\n' in str(v) or '\0' in str(v) for v in values.values()):
                 raise ValueError('Human policy binding fields refused')
-        for name in ('PAXEER_EXIT_CONTRACT', 'PAXEER_WITHDRAWAL_CLAIMS_CONTRACT'):
-            address = policy['components'][name]
-            if (not re.fullmatch(r'0x[0-9a-fA-F]{40}', address)
-                    or address.lower() != CUSTODY_PRECOMPILE):
-                raise ValueError('Human custody contract binding refused')
+        for name, expected in [('PAXEER_LEDGER_CONTRACT', LEDGER_PRECOMPILE),
+                               ('PAXEER_PAYMENT_CONTRACT', PAYMENT_PRECOMPILE)]:
+            if policy['components'][name] != expected:
+                refuse('live merged payment contract binding')
         if policy['registry']['network_id'] != network or policy['registry']['protocol_version'] != 3:
             raise ValueError('Human registry network or protocol mismatch')
         peers = policy['agent']['HUMAN_PEERS']
@@ -835,39 +923,18 @@ def main():
                 or int(policy['components']['AGENT_RECOVERY_THRESHOLD']) != recovery['threshold']):
             raise ValueError('Human recovery policy binding differs')
         movement = movement_defaults(network, chain)
-        movement_keys = {'PAXEER_VAULT', 'PAXEER_CHECKPOINT_REGISTRY',
-                         'PAXEER_CLAIMS_CONTRACT', 'PAXEER_EXIT_CONTRACT',
-                         'CUSTODY_PROFILE', 'CUSTODY_PROFILE_SHA256',
-                         'PAXEER_CHECKPOINT_AUTHORITY', 'CUSTODY_REFERENCE',
-                         'PAXEER_CONFIRMATIONS', 'CHECKPOINT_INTERVAL_SECONDS',
-                         'PAXEER_BLOCK_SECONDS', 'REMINDER_INTERVAL_SECONDS'}
+        movement_keys = {'PAXEER_LEDGER_CONTRACT', 'PAXEER_PAYMENT_CONTRACT', 'LEDGER_ASSET_ID', 'LEDGER_OWNER_ACCOUNT'}
         if set(policy['movement']) != movement_keys:
-            raise ValueError('Human movement policy fields refused')
-        for key, value in policy['movement'].items():
-            if key == 'CUSTODY_PROFILE':
-                if value != '/run/human-private/movement/custody.profile':
-                    raise ValueError('Human custody profile path refused')
-                continue
-            width = 40 if key in {'PAXEER_VAULT', 'PAXEER_CHECKPOINT_REGISTRY',
-                                 'PAXEER_CLAIMS_CONTRACT', 'PAXEER_EXIT_CONTRACT'} else 64
-            if key in {'PAXEER_CONFIRMATIONS', 'CHECKPOINT_INTERVAL_SECONDS',
-                       'PAXEER_BLOCK_SECONDS', 'REMINDER_INTERVAL_SECONDS'}:
-                if type(value) is not int or value <= 0:
-                    raise ValueError('Human movement timing refused')
-            elif not re.fullmatch(r'0x[0-9a-fA-F]{' + str(width) + '}', value) or int(value, 16) == 0:
-                raise ValueError('Human movement binding refused')
-        for name in ('PAXEER_VAULT', 'PAXEER_CLAIMS_CONTRACT', 'PAXEER_EXIT_CONTRACT'):
-            if policy['movement'][name].lower() != CUSTODY_PRECOMPILE:
-                raise ValueError('Human movement custody binding must name the custody precompile')
-        if (policy['movement']['PAXEER_CLAIMS_CONTRACT'] != policy['components']['PAXEER_WITHDRAWAL_CLAIMS_CONTRACT']
-                or policy['movement']['PAXEER_EXIT_CONTRACT'] != policy['components']['PAXEER_EXIT_CONTRACT']):
-            raise ValueError('Human movement custody bindings differ')
+            refuse('merged movement policy fields')
+        for key, expected in [('PAXEER_LEDGER_CONTRACT', LEDGER_PRECOMPILE),
+                              ('PAXEER_PAYMENT_CONTRACT', PAYMENT_PRECOMPILE)]:
+            if policy['movement'][key] != expected or policy['components'][key] != expected:
+                refuse('merged movement binding')
+        principal = principals[0]
+        if (policy['movement']['LEDGER_ASSET_ID'] != '0x' + principal['asset_id']
+                or policy['movement']['LEDGER_OWNER_ACCOUNT'] != '0x' + principal['account_id']):
+            refuse('merged movement owner asset binding')
         movement.update(policy['movement'])
-        profile = read_bytes(Path(sys.argv[4]).parent / 'inputs/producer-records/custody.profile')
-        if len(profile) != 223 or movement['CUSTODY_PROFILE_SHA256'] != '0x' + digest(profile):
-            refuse('retained authenticated custody profile differs')
-        (root / 'movement').mkdir(mode=0o700, exist_ok=True)
-        write_bytes(root / 'movement/custody.profile', profile)
         for key, value in movement.items():
             write(root / 'movement-config', 'LAYERX_HUMAN_MOVEMENT_PROVIDER_' + key, value)
         for key, value in authority.items():
@@ -888,7 +955,6 @@ def main():
             config.update(IDENTITY_BINDING_SOCKET='/run/layerx/human/identity-binding.sock',
                 IDENTITY_BINDING_TENANT=tenant, IDENTITY_BINDING_PEER_UID=4020,
                 IDENTITY_BINDING_PEER_GID=4020, IDENTITY_BINDING_DEADLINE_SECONDS=10)
-        config['EXIT_REQUIRED_CONFIRMATIONS'] = movement['PAXEER_CONFIRMATIONS']
         config.update(policy['components'])
         agent.update(policy['agent'])
         write(root / 'components', 'purpose-catalog.json', json.dumps(policy['purpose_catalog']))
@@ -896,65 +962,90 @@ def main():
             write(root / 'kms', 'registry.json', json.dumps(policy['registry']))
         elif protected_json(root / 'kms/registry.json') != policy['registry']:
             raise ValueError('retained KMS registry changed')
-        for name, data in journal_records(Path(sys.argv[4]).parent / policy['journal_directory']).items():
+        for name, data in journal_records(Path(policy_path).parent / policy['journal_directory']).items():
             destination = journal / name
             destination.write_bytes(data)
             destination.chmod(0o600)
     for key, value in config.items():
         write(root / 'config', 'LAYERX_HUMAN_' + key, value)
-    history_files = [root / 'agent/genesis-handover-trust.lxt', root / 'agent/handover-finality.conf']
-    if any(path.exists() or path.is_symlink() for path in history_files):
-        from provision import protected_bytes
-        protected_bytes(root / 'agent/genesis-handover-trust.lxt')
-        protected_bytes(root / 'agent/handover-finality.conf')
-        agent.update(GENESIS_TRUST='/run/human-private/agent/genesis-handover-trust.lxt',
-                     HANDOVER_FINALITY='/run/human-private/agent/handover-finality.conf')
     write_agent_config(root / 'agent-config', agent)
 
 
+def main():
+    install(sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), sys.argv[4],
+            sys.argv[5] if len(sys.argv) > 5 else '')
+
+
 def kms_identities(tls_root, scratch, files):
-    """Each Human KMS certificate is exactly its own CA row: it chains to the one KMS trust root
-    for its purpose, carries its row's common name and single extended key usage, a client no
-    subject names, the server the endpoint and server name movement dials, and the server key
-    is the server certificate's. A wallet, xweb attestor or other client never stands in."""
-    import subprocess
+    """Validate the exact KMS CA rows without executing an external TLS tool."""
+    import datetime
+    import ipaddress
+    from cryptography import x509
+    from cryptography.exceptions import InvalidSignature
+    from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat, load_der_private_key
+    from cryptography.x509.oid import ExtendedKeyUsageOID, ExtensionOID, NameOID
 
-    def openssl(argv, data):
-        result = subprocess.run(['openssl', *argv], input=data, stdout=subprocess.PIPE,
-                                stderr=subprocess.DEVNULL, timeout=10)
-        return result.returncode, result.stdout
-
-    def pem(der):
-        return b'-----BEGIN CERTIFICATE-----\n' + base64.encodebytes(der) + b'-----END CERTIFICATE-----\n'
-
-    def extension(certificate, name):
-        code, output = openssl(['x509', '-noout', '-ext', name], certificate)
-        return ' '.join(line.strip() for line in output.decode(errors='replace').splitlines()[1:]) if code == 0 else None
-
-    host = HUMAN_KMS_ENDPOINT.rsplit(':', 1)[0]
     certificates = {'human-kms': files['kms-server.der'], 'human-kms-client': files['kms-client.der'],
                     'human-kms-executor': files['kms-executor.der']}
-    with tempfile.TemporaryDirectory(prefix='.kms-trust-', dir=scratch) as directory:
-        root = Path(directory) / 'ca.pem'
-        write_bytes(root, pem(files['ca.der']))
+    now = datetime.datetime.now(datetime.timezone.utc)
+
+    def extension(certificate, kind):
+        try:
+            return certificate.extensions.get_extension_for_class(kind).value
+        except x509.ExtensionNotFound:
+            return None
+
+    def valid_at_present(certificate):
+        return certificate.not_valid_before_utc <= now <= certificate.not_valid_after_utc
+
+    try:
+        root = x509.load_der_x509_certificate(files['ca.der'])
+        constraints = extension(root, x509.BasicConstraints)
+        root_usage = extension(root, x509.KeyUsage)
+        root_eku = extension(root, x509.ExtendedKeyUsage)
+        if (constraints is None or not constraints.ca or not valid_at_present(root)
+                or (root_usage is not None and not root_usage.key_cert_sign)
+                or extension(root, x509.NameConstraints) is not None):
+            refuse('KMS trust root constraints')
+        root.verify_directly_issued_by(root)
+        # These CA catalog rows are direct leaves of the retained KMS root.
+        # A constraint we cannot enforce is refused rather than ignored.
+        critical = {ExtensionOID.BASIC_CONSTRAINTS, ExtensionOID.KEY_USAGE,
+                    ExtensionOID.EXTENDED_KEY_USAGE, ExtensionOID.SUBJECT_ALTERNATIVE_NAME}
+        if any(e.critical and e.oid not in critical for e in root.extensions):
+            refuse('KMS trust root unsupported critical constraint')
         for role, (common_name, usage) in HUMAN_KMS_IDENTITIES.items():
-            certificate = pem(certificates[role])
-            code, subject = openssl(['x509', '-noout', '-subject', '-nameopt', 'multiline'], certificate)
-            names = [line.split('=', 1)[1].strip() for line in subject.decode(errors='replace').splitlines()
-                     if line.strip().startswith('commonName')]
-            sans = extension(certificate, 'subjectAltName')
+            certificate = x509.load_der_x509_certificate(certificates[role])
+            certificate.verify_directly_issued_by(root)
+            names = [n.value for n in certificate.subject.get_attributes_for_oid(NameOID.COMMON_NAME)]
             server = usage == 'TLS Web Server Authentication'
-            verify = ['verify', '-purpose', 'sslserver' if server else 'sslclient', '-CAfile', str(root)]
-            if server:
-                verify += ['-verify_hostname', HUMAN_KMS_SERVER_NAME, '-verify_ip', host]
-            if (code != 0 or names != [common_name] or extension(certificate, 'extendedKeyUsage') != usage
-                    or (server and not {'DNS:' + HUMAN_KMS_SERVER_NAME, 'IP Address:' + host} <= set((sans or '').split(', ')))
-                    or (not server and sans != '') or openssl(verify, certificate)[0] != 0):
+            expected_usage = ExtendedKeyUsageOID.SERVER_AUTH if server else ExtendedKeyUsageOID.CLIENT_AUTH
+            eku = extension(certificate, x509.ExtendedKeyUsage)
+            sans = extension(certificate, x509.SubjectAlternativeName)
+            constraints = extension(certificate, x509.BasicConstraints)
+            key_usage = extension(certificate, x509.KeyUsage)
+            if (not valid_at_present(certificate) or names != [common_name]
+                    or eku is None or list(eku) != [expected_usage]
+                    or (root_eku is not None and expected_usage not in root_eku)
+                    or (constraints is not None and constraints.ca)
+                    or (key_usage is not None and not key_usage.digital_signature)
+                    or any(e.critical and e.oid not in critical for e in certificate.extensions)
+                    or (not server and sans is not None and len(sans) != 0)):
                 refuse('KMS identity %s is not its exact CA row under the KMS trust root' % role)
-        certified = openssl(['x509', '-noout', '-pubkey'], pem(files['kms-server.der']))
-        held = openssl(['pkey', '-inform', 'DER', '-pubout'], files['kms-server-key.der'])
-        if certified[0] != 0 or held[0] != 0 or certified[1] != held[1]:
+            if server and (sans is None
+                    or HUMAN_KMS_SERVER_NAME not in sans.get_values_for_type(x509.DNSName)
+                    or ipaddress.ip_address(HUMAN_KMS_ENDPOINT.rsplit(':', 1)[0])
+                    not in sans.get_values_for_type(x509.IPAddress)):
+                refuse('KMS identity %s endpoint names' % role)
+        held = load_der_private_key(files['kms-server-key.der'], password=None)
+        certified = x509.load_der_x509_certificate(files['kms-server.der']).public_key()
+        if held.public_key().public_bytes(Encoding.DER, PublicFormat.SubjectPublicKeyInfo) != certified.public_bytes(
+                Encoding.DER, PublicFormat.SubjectPublicKeyInfo):
             refuse('KMS server key is not the server certificate key')
+    except (InvalidSignature, ValueError, TypeError) as error:
+        if str(error).startswith(BUNDLE_REFUSED):
+            raise
+        refuse('KMS certificate chain or key refused')
 
 
 def kms_prerequisite(registry_path, tls_root, destination, network, asset, state):
@@ -963,22 +1054,8 @@ def kms_prerequisite(registry_path, tls_root, destination, network, asset, state
     if type(network) is not int or not 0 < network < 2**32 or not re.fullmatch('[0-9a-f]{64}', asset):
         refuse('KMS native registry scope')
     registry = parse(read_bytes(registry_path))
-    if (set(registry) != {'schema_version', 'assets', 'modules'} or registry['schema_version'] != 2
-            or not any(record.get('asset') == asset for record in registry['assets'])):
-        refuse('KMS canonical native asset registry')
-    modules, seen = [], set()
-    for module in registry['modules']:
-        if (set(module) != {'module', 'ordinals'} or type(module['module']) is not int
-                or not 1 <= module['module'] <= 9 or module['module'] in seen
-                or type(module['ordinals']) is not list or not module['ordinals']
-                or len(set(module['ordinals'])) != len(module['ordinals'])
-                or any(type(n) is not int or not 1 <= n < 65536 for n in module['ordinals'])):
-            refuse('KMS canonical native module registry')
-        seen.add(module['module'])
-        modules.append({'module_id': module['module'], 'activity_types': [(module['module'] << 16) | n for n in module['ordinals']]})
-    if not modules or len(modules) > 32:
-        refuse('KMS module count')
-    files = {'registry.json': json.dumps({'network_id': network, 'protocol_version': 3, 'modules': modules}, sort_keys=True).encode()}
+    projected = canonical_module_registry(registry, network, asset)
+    files = {'registry.json': json.dumps(projected, sort_keys=True, separators=(',', ':')).encode()}
     for role, source, name in [('human-kms', 'cert.der', 'kms-server.der'), ('human-kms', 'key.der', 'kms-server-key.der'),
                               ('human-kms', 'ca.der', 'ca.der'), ('human-kms-client', 'cert.der', 'kms-client.der'),
                               ('human-kms-executor', 'cert.der', 'kms-executor.der')]:
@@ -1319,10 +1396,9 @@ POLICY_GRAPH = {
 POLICY_GRAPH_FILES = {
     'owner-evidence': tuple(n for n in EVIDENCE_INPUTS.values() if n != 'principal-policy.json') + tuple(
         'producer-records/' + n for n in ('source-binding.json', 'owner-result.json', 'owner-registration.json',
-                                          'owner-custody.json', 'custody.profile', 'treasury.json', 'sequencer.json')),
-    'native-evidence': ('producer-records/native-context.json',) + tuple(
-        'producer-records/' + label + suffix for label in ('credit', 'identity', 'rotation', 'recovery')
-        for suffix in ('.activity', '.receipt')),
+                                          'treasury.json', 'sequencer.json')),
+    'native-evidence': tuple('producer-records/' + name for name in (
+        'native-context.json', 'merged-owner-evidence.json', 'rpc-ca.pem')),
     'naming-evidence': ('producer-records/naming-deployment-result.json',),
     'principal-policy': ('principal-policy.json',),
 }
@@ -1388,9 +1464,7 @@ def policy_graph_status(evidence, journal, deployment, module_registry, bundle, 
 
     def module():
         value = parse(present(Path(module_registry)))
-        if (type(value) is not dict or value.get('network_id') != network or value.get('schema_version') != 2
-                or not value.get('assets') or not value.get('modules')):
-            refuse('module registry network or content')
+        canonical_module_registry(value, network)
         if not any(asset.get('asset') == facts['registry']['asset_id'] for asset in value['assets']):
             refuse('module registry does not carry the kernel genesis asset')
 
@@ -1402,8 +1476,8 @@ def policy_graph_status(evidence, journal, deployment, module_registry, bundle, 
         files('native-evidence')
         context = parse(read_bytes(evidence / 'producer-records/native-context.json'))
         if (type(context) is not dict or context.get('network_id') != network
-                or context.get('sequencer_public_key') != facts['registry']['sequencer_public_key']):
-            refuse('native evidence sequencer or network differs from the kernel identity generation')
+                or context.get('chain_id') != chain):
+            refuse('merged evidence network or chain differs')
 
     def journal_check():
         if not os.path.lexists(journal) or (journal.is_dir() and not journal.is_symlink() and not any(journal.iterdir())):

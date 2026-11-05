@@ -1,15 +1,27 @@
 import { strict as assert } from "node:assert";
-import { chmodSync, mkdtempSync, rmSync } from "node:fs";
+import { chmodSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { Role, TaskState } from "@a2a-js/sdk";
+import { SecretBytes } from "@sidiora/layerx-sdk";
 import {
   DefaultExecutionEventBus,
   RequestContext,
   ServerCallContext,
 } from "@a2a-js/sdk/server";
 import { createA2AIntegration, FileA2ATaskStore } from "../dist/a2a.js";
+import {
+  LayerXBudgetLedger,
+  LayerXReceiptResolver,
+  LayerXRemoteSigner,
+  LayerXServiceEndpoint,
+} from "../dist/services.js";
+
+const receiptVector = JSON.parse(readFileSync(
+  new URL("../../../platform/conformance/fixtures/sequencer-receipt-v1.json", import.meta.url), "utf8",
+)).cases.find((entry) => entry.id === "V1-pax-transfer");
+assert.ok(receiptVector);
 
 const workspace = mkdtempSync(join(tmpdir(), "layerx-a2a-store-"));
 const databasePath = join(workspace, "tasks.sqlite3");
@@ -140,8 +152,14 @@ try {
   assert.throws(() => new FileA2ATaskStore(triggeredPath), /service-refused/u);
 
   const identityStore = new FileA2ATaskStore(join(workspace, "identity.sqlite3"));
+  const integrationEnvironment = environment(workspace);
+  const serviceToken = new SecretBytes(new TextEncoder().encode(integrationEnvironment.LAYERX_TOKEN));
+  const serviceEndpoint = (url) => new LayerXServiceEndpoint({ url, token: serviceToken, timeoutMs: 1000 });
   const integration = createA2AIntegration({
-    environment: environment(workspace),
+    environment: integrationEnvironment,
+    budgets: new LayerXBudgetLedger(serviceEndpoint(integrationEnvironment.LAYERX_BUDGET_SERVICE_URL)),
+    signer: new LayerXRemoteSigner(serviceEndpoint(integrationEnvironment.LAYERX_SIGNER_SERVICE_URL)),
+    receipts: new LayerXReceiptResolver(serviceEndpoint(integrationEnvironment.LAYERX_RECEIPT_SERVICE_URL)),
     durableTaskStore: identityStore,
     authentication: {
       schemeName: "layerxBearer",
@@ -185,6 +203,7 @@ try {
     );
   } finally {
     integration.destroy();
+    serviceToken.destroy();
     identityStore.close();
   }
 } finally {
@@ -256,10 +275,17 @@ function environment(path) {
   const endpoint = "http://127.0.0.1:1";
   return {
     LAYERX_AGENT_RPC_URL: endpoint,
+    LAYERX_AGENT_SURFACE: "gateway",
+    LAYERX_SESSION_ID: "11".repeat(32),
+    LAYERX_SESSION_TOKEN: "22".repeat(32),
+    LAYERX_SESSION_GENERATION: "0",
+    LAYERX_GATEWAY_KEY_ID: "a2a-store-test",
+    LAYERX_GATEWAY_KEY: `lxp_live_${"33".repeat(32)}`,
     LAYERX_PROTOCOL_VERSION: "3",
     LAYERX_BUDGET_SERVICE_URL: endpoint,
     LAYERX_SIGNER_SERVICE_URL: endpoint,
     LAYERX_RECEIPT_SERVICE_URL: endpoint,
+    LAYERX_RECEIPT_KEYS_JSON: JSON.stringify([receiptVector.pinnedKey]),
     LAYERX_TENANT: "tenant-a",
     LAYERX_ACTOR: "actor-a",
     LAYERX_AUTHORITY: "authority-a",

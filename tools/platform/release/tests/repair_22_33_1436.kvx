@@ -1,0 +1,11 @@
+[repair.22.33.1436]
+finding = "release-go-fixture-module"
+tests = ["go_fixture_matches_the_canonical_publication", "go_archive_fetch_preserves_digest_refusals"]
+baseline = "Not run: the ordered gate instructions prohibit a pre-change verify; no baseline test failure is claimed."
+previous_attempt = "Attempt 1 verification failed with exit 101: two task tests passed and the included artifact_fetch_uses_system_trust_and_checks_the_actual_server_identity test failed because the layerx-paxeer-boundary producer binary was absent."
+fixture = "support/go-module-v0.1.0.zip: deterministic Go module ZIP of sdk/platform/go from e3d7e5828b39e4182e9559fb6bc28d74c2f37e0f, produced with Python zipfile (DEFLATE, 1980-01-01 timestamps, module@v0.1.0 prefix, mode 0644); consumed as committed bytes without a subprocess."
+proof = "The real manifest producer emits the canonical registry locator and registry-bytes digest; its codec and registry verifier consume that retained module archive through an in-process loopback simple-index peer, assert the prefixed-tag index request and exact canonical module archive path, and refuse changed bytes, missing archives and unverified publications."
+limitation = "The loopback transport rewrites the canonical HTTPS location to the existing simple+http scheme; it does not prove fetching at the unmodified HTTPS locator or execution of the workflow's external Go/Git publisher."
+wiring_request = "Domain 8: tools/platform/release/src/fetch.rs must expose an injectable TLS trust/resolver interface for an offline proof of the unmodified canonical HTTPS publication locator."
+platform_finding = "Domain 8: services/platform/tests/support/tls_boundary.rs requires layerx-paxeer-boundary, but no repository crate supplies that producer binary (decision 2325); the repair target uses the production layerx_platform_release library without including the helper and needs no boundary behaviour."
+evidence = "The runner's final gate ledger records the exact qualified revision, command, exit code and private log location; this source record claims no unrun gate."

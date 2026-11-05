@@ -1,0 +1,7 @@
+[issue.1532]
+number = 1532
+title = "[Coherence] Lowering the wallet-services fast-uri floor to 3.1.9 lets the advised fast-uri 4.2.1 copy pass the floor check"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "already-fixed"
+evidence = "Commit 8dc0d37ce04f002d216ab533a297389e013f15d5 replaced the wallet lock's fast-uri 3.x and 4.2.1 copies with 4.2.3: services/wallet/pnpm-lock.yaml:1458 declares the sole fast-uri version, its compiler, ajv and serializer consumers select 4.2.3 at services/wallet/pnpm-lock.yaml:2537, services/wallet/pnpm-lock.yaml:3241 and services/wallet/pnpm-lock.yaml:3488, and tools/deps/floors/wallet-services.json:9 requires 4.2.3, so the per-copy comparison at tools/deps/lockfloor.py:293 rejects 4.2.1 despite the older 3.1.9 wording retained at spec/layerx-merge/spec.kvx:119225."
+close_comment = "Wallet services now resolve fast-uri 4.2.3 for the Fastify compiler, ajv and JSON serializer, with a 4.2.3 dependency floor that rejects 4.2.1. The vulnerable 4.2.1 copy and the former 3.x copy are absent from the wallet lock."

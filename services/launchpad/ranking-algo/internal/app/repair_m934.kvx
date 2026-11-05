@@ -1,0 +1,14 @@
+[task.22.33.934]
+finding = "application-publication-proof-skipped"
+proof = ["TestRepairM_934_PublicationEveryCategoryAndRestartRecovery", "TestRepairM_934_NoAuthorityRefusesPublicationAndReads", "TestRepairM_934_VisibilityRequiresMutualTLSAndPinnedIdentity"]
+fixture = "Loopback mutually authenticated social visibility transcript; committed repair_32 pgwire storage peer with canonical projection transcripts; production native app constructor, reader, coordinator, store, codec, stream writer and HTTP handler."
+baseline = "Not run: the explicit gate order forbids verification before implementation and permits verification only through hf-done; no prior gate ledger or application edits existed. No baseline failure is claimed."
+wiring = "None; the visibility transcript and storage peer are supplied in-process inside the permitted application paths."
+evidence = "The runner records the qualified candidate revision, exact command, exit code and private log in the hf-build/hf-done ledger; this record makes no qualification claim before those gates run."
+
+[qualification.repair_1]
+revision = "d3e48b3efaf4db8c1b181766c40afc4737ee2c59"
+command = "cg spec done 22.33.934 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The canonical projection transcript used RFC3339 instead of PostgreSQL's text timestamptz encoding; use the committed storage peer's existing PostgreSQL timestamp format."

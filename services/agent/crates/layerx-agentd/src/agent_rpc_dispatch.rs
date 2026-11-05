@@ -22,6 +22,7 @@ use crate::agent_rpc_wire::*;
 use crate::human::{
     HumanOperationError, HumanOperations, HumanPeer, HumanPrepare, HumanResponse, HumanSubmit,
 };
+use crate::human_receipt_frame::{ReceiptLookupAnswer, ReceiptLookupFrame};
 use crate::human_runtime::{
     prepare_digest, submit_digest, HumanAuthorityBoundary, SharedAgentOwner,
 };
@@ -182,7 +183,13 @@ fn prepare_bootstrap_transaction(
         to,
         data,
     };
+    let disclosure =
+        layerx_crypto::disclosure::call::bind_call(&call, from).map_err(|_| malformed(id))?;
+    let disclosure_digest = disclosure.signing_digest().map_err(|_| malformed(id))?;
     Ok(crate::prepare::evm::Prepared {
+        from,
+        disclosure,
+        disclosure_digest,
         signing_hash: call.signing_hash(),
         call,
         observed_head_height: state.head_height,
@@ -390,7 +397,7 @@ fn bootstrap_response(
 
 /// `verification` is `Some` only when the decoded owner payload carries a verification level;
 /// payloads without one (head, approval records) report `None` and no level is invented.
-pub(crate) struct Dispatched {
+pub struct Dispatched {
     pub value: Value,
     pub verification: Option<VerificationStatus>,
 }
@@ -864,6 +871,9 @@ pub(crate) fn decode_observation(reader: &mut Reader<'_>) -> Option<(Value, Opti
         return None;
     }
     let (submission, achieved) = decode_tracked(reader)?;
+    if submission.get("tx_hash")? != &hexv(&activity_id) {
+        return None;
+    }
     let executed = matches!(
         submission.get("state").and_then(Value::as_str),
         Some("Executed" | "Committed")
@@ -873,6 +883,12 @@ pub(crate) fn decode_observation(reader: &mut Reader<'_>) -> Option<(Value, Opti
         1 => Some(decode_receipt(reader)?.0),
         _ => return None,
     };
+    if receipt.as_ref().is_some_and(|value| {
+        value.get("tx_hash") != Some(&hexv(&activity_id))
+            || value.get("rung") != submission.get("rung")
+    }) {
+        return None;
+    }
     if executed != receipt.is_some() {
         return None;
     }
@@ -884,56 +900,96 @@ pub(crate) fn decode_observation(reader: &mut Reader<'_>) -> Option<(Value, Opti
 }
 
 fn decode_receipt(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
-    let mut out = Map::new();
-    let canonical = reader.bytes()?;
-    let receipt = layerx_wire::receipt::decode(canonical).ok()?;
-    out.insert("tx_hash".into(), hexv(&receipt.protocol()?.activity_id()));
-    out.insert("canonical_bytes".into(), hexv(canonical));
-    let mut batch = Map::new();
-    for name in [
-        "batch_id",
-        "asset",
-        "previous_state_root",
-        "resulting_state_root",
-        "sequencer_public_key",
-    ] {
-        batch.insert(name.into(), hexv(&reader.fixed::<32>()?));
-    }
-    out.insert("authorised_batch".into(), Value::Object(batch));
-    let achieved = match reader.u8()? {
-        0 => return None,
-        value => rung(value)?,
+    let mut decoder =
+        layerx_wire::decode::Decoder::new(reader.bytes.get(reader.offset..)?, MAX_BYTES);
+    let frame = ReceiptLookupFrame::decode_from(&mut decoder).ok()?;
+    reader.offset += decoder.offset();
+    receipt_value(frame)
+}
+
+fn receipt_value(frame: ReceiptLookupFrame) -> Option<(Value, Option<Rung>)> {
+    use sha2::{Digest, Sha256};
+    let receipt = layerx_wire::receipt::decode(&frame.canonical_bytes).ok()?;
+    let protocol = receipt.protocol()?;
+    let batch = frame.authorised_batch;
+    let key = layerx_client::sequencer::ReceiptKeyEntry {
+        key_id: frame.receipt_key_id,
+        public_key: frame.public_key,
+        first_height: frame.first_height,
+        last_height: frame.last_height,
     };
+    let height = protocol.batch_id();
+    if frame.rung < Rung::Receipted
+        || frame.signed_receipt != frame.canonical_bytes
+        || frame.receipt_hash != <[u8; 32]>::from(Sha256::digest(&frame.canonical_bytes))
+        || frame.tx_hash != protocol.activity_id()
+        || frame.block_height == 0
+        || frame.inclusion_height != frame.block_height
+        || height[..24] != [0; 24]
+        || u64::from_be_bytes(height[24..].try_into().ok()?) != frame.block_height
+        || protocol.batch_id() != batch.batch_id()
+        || protocol.asset() != batch.asset()
+        || protocol.previous_state_root() != batch.previous_state_root()
+        || protocol.resulting_state_root() != batch.resulting_state_root()
+        || key.public_key != batch.sequencer_public_key()
+    {
+        return None;
+    }
+    crate::finality::VerifiedReceipt::verify(frame.tx_hash, &frame.canonical_bytes, &[key]).ok()?;
+    let mut out = Map::new();
+    out.insert("tx_hash".into(), hexv(&frame.tx_hash));
+    out.insert("canonical_bytes".into(), hexv(&frame.canonical_bytes));
+    let mut authorised = Map::new();
+    for (name, value) in [
+        ("batch_id", batch.batch_id()),
+        ("asset", batch.asset()),
+        ("previous_state_root", batch.previous_state_root()),
+        ("resulting_state_root", batch.resulting_state_root()),
+        ("sequencer_public_key", batch.sequencer_public_key()),
+    ] {
+        authorised.insert(name.into(), hexv(&value));
+    }
+    out.insert("authorised_batch".into(), Value::Object(authorised));
+    out.insert(
+        "verification_level".into(),
+        dec(frame.verification_level.wire_rank()),
+    );
+    out.insert("receipt_hash".into(), hexv(&frame.receipt_hash));
+    out.insert("block_height".into(), dec(frame.block_height));
+    out.insert("signed_receipt".into(), hexv(&frame.signed_receipt));
+    out.insert("receipt_key_id".into(), hexv(&frame.receipt_key_id));
+    out.insert("public_key".into(), hexv(&frame.public_key));
+    out.insert("first_height".into(), dec(frame.first_height));
+    out.insert("last_height".into(), dec(frame.last_height));
+    out.insert("inclusion_height".into(), dec(frame.inclusion_height));
+    let achieved = frame.rung;
     out.insert("rung".into(), Value::String(rung_name(achieved).into()));
     Some((Value::Object(out), Some(achieved)))
 }
 
 fn decode_receipt_lookup(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
-    match reader.u8()? {
-        0 => {
+    let answer = ReceiptLookupAnswer::decode(reader.bytes.get(reader.offset..)?).ok()?;
+    reader.offset = reader.bytes.len();
+    match answer {
+        ReceiptLookupAnswer::Absent => {
             let mut out = Map::new();
             out.insert("found".into(), Value::Bool(false));
             Some((Value::Object(out), None))
         }
-        1 => {
-            let (receipt, achieved) = decode_receipt(reader)?;
+        ReceiptLookupAnswer::Found(frame) => {
+            let (receipt, achieved) = receipt_value(frame)?;
             let mut out = Map::new();
             out.insert("found".into(), Value::Bool(true));
             out.insert("receipt".into(), receipt);
             Some((Value::Object(out), achieved))
         }
-        2 => {
-            let tx_hash = reader.fixed::<32>()?;
-            let nonce = reader.u64()?;
-            Some((
-                serde_json::json!({
-                    "found": false,
-                    "submitted": {"tx_hash": format!("0x{}", lower_hex(&tx_hash)), "nonce": dec(nonce)},
-                }),
-                Some(Rung::Submitted),
-            ))
-        }
-        _ => None,
+        ReceiptLookupAnswer::Submitted { tx_hash, nonce } => Some((
+            serde_json::json!({
+                "found": false,
+                "submitted": {"tx_hash": format!("0x{}", lower_hex(&tx_hash)), "nonce": dec(nonce)},
+            }),
+            Some(Rung::Submitted),
+        )),
     }
 }
 
@@ -1524,7 +1580,9 @@ pub(crate) fn canonical_request_bytes(
             named(operation, &decode::<ReadBalanceRequest>(request, id)?, id)?
         }
         Operation::ReadCheckpoint => {
-            named(operation, &decode::<CoordinatesOnly>(request, id)?, id)?
+            let request: crate::read::CheckpointRequest = decode(request, id)?;
+            request.height().map_err(|_| malformed(id))?;
+            named(operation, &request, id)?
         }
         Operation::Track => named(operation, &decode::<TrackRequest>(request, id)?, id)?,
         Operation::ApprovalList => {
@@ -1822,16 +1880,15 @@ pub(crate) fn dispatch_operation<A: HumanAuthorityBoundary>(
             })
         }
         Operation::ReadCheckpoint => {
-            let request: CoordinatesOnly = decode(request, id)?;
-            let _ = (request.tenant, request.agent);
-            let error =
-                layerx_agent_api::error::ApiError::unavailable_capability(id, "read.checkpoint")
-                    .expect("static operation name");
-            Err(Rejection {
-                class: error.class,
-                retriability: error.retriability,
-                request_id: id,
-                reason: "unavailable_capability.read.checkpoint",
+            let request: crate::read::CheckpointRequest = decode(request, id)?;
+            request.height().map_err(|_| malformed(id))?;
+            let value = shared
+                .lock()
+                .and_then(|mut guard| guard.rpc_read_checkpoint(context, request))
+                .map_err(|error| owner_error(id, error))?;
+            Ok(Dispatched {
+                value,
+                verification: Some(VerificationStatus::Achieved(Rung::Committed)),
             })
         }
         Operation::Track => {
@@ -2100,7 +2157,7 @@ pub(crate) fn dispatch_operation<A: HumanAuthorityBoundary>(
     }
 }
 
-fn dispatch_program_receipt(
+pub fn dispatch_program_receipt(
     request: &Map<String, Value>,
     id: RequestId,
     lookup: impl FnOnce([u8; 32], [u8; 32]) -> Result<HumanResponse, HumanOperationError>,
@@ -2111,6 +2168,13 @@ fn dispatch_program_receipt(
     let activity = hex32(&request.expected_activity_id, id)?;
     let mut receipt = dispatched(id, lookup(key, activity), decode_receipt_lookup)?;
     if receipt.value.get("found") == Some(&Value::Bool(true)) {
+        if receipt.value["receipt"]["tx_hash"] != hexv(&activity) {
+            return Err(rejection(
+                ErrorClass::InternalFault,
+                id,
+                "owner.response_malformed",
+            ));
+        }
         if let Some(VerificationStatus::Achieved(achieved)) = receipt.verification {
             if achieved < requested {
                 receipt.verification = Some(VerificationStatus::Below {
@@ -2409,4 +2473,104 @@ pub fn wait_write_answer(
         "deadline_elapsed": result.deadline_elapsed}),
         verification,
     ))
+}
+
+#[cfg(test)]
+mod middleware_submission_contract_tests {
+    use super::{decode_eip1559_submission, decode_observation, Reader};
+    use serde_json::Value;
+
+    // Shared serde_json output transcript for the middleware loopback transport test.
+    const MIDDLEWARE_SUBMISSION_TRANSCRIPT: &str = r#"{"raw_transaction":"02f901287d80010283030d4094000000000000000000000000000000000000101a80b8c478ea11db33333333333333333333333333333333333333333333333333333333333333332222222222222222222222222222222222222222222222222222222222222222111111111111111111111111111111111111111111111111111111111111111100000000000000000000000000000000000000000000000000000000000061a8000000000000000000000000000000000000000000000000000000000000000143152faf9a9ed12bba8de846dc95d41e4e40d04a0d6599c2122df57958697ab2c001a043d7fc8901d40aa3a43790d0b77e69eefeb5ac9a5771686e3e60949a99a98276a0429fa45350cf784e01c11fd73c93ade98c13c52f062f7a08a5938ec5ea36b06f","receipt_key":{"keyId":"0x0791868d8f29ea735f26a17a9aea038cd4255baac26eac5a74e58a07ed2f1975","firstHeight":"0x1","lastHeight":"0x3e8","publicKey":"0xea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c"},"submit":{"preparation_ref":"repair-preparation","state":"Receipted","signed_receipt":"00025201000200000020c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f000000000000000100000020555555555555555555555555555555555555555555555555555555555555555500000020666666666666666666666666666666666666666666666666666666666666666600000020e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8550000000000000002000c00000000010000000020000000000000000000000000000000000000000000000000000000000000000000000071000000000000c350000000000000c35000000000000000020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b85500000000000000010475687078000c000100000300000000200000000000000000000000000000000000000000000000000000000000000000000000b5000000000000000000000000000000000000101a04c4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b143152faf9a9ed12bba8de846dc95d41e4e40d04a0d6599c2122df57958697ab23333333333333333333333333333333333333333333333333333333333333333222222222222222222222222222222222222222222222222222222222222222225fadecbca8d5df660751c8dd73e2c457bc7bb26acef0d7158fa115764a633c6000000000000000000000000000186a0000000200000000000000000000000000000000000000000000000000000000000000007000c000000010000000002000000200e237584332fc3e1f1672d80a167a8d027597a64b34f4be18951e60babdd4f7300000000000000000000000000000000000000200000000000000000000000001a642f0e3c3af545e7acbd38b07251b3990914f1000000000000000000000000000f4240000000000000000000000000000dbba0000000000000000000000020000000000000000000000000000000000000000000000000000000000000101a0000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000200791868d8f29ea735f26a17a9aea038cd4255baac26eac5a74e58a07ed2f197500000191dd9dec0001000000405b53a3b5a914cba1bebb3823f64496f6894892103e6b1a93feb4dfd4c2feadf1a825b04779d8bf4146c92f480d3f0460ce3ad12921bb03d827ebc3de70bcda08","tx_hash":"c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f"},"pending":{"activity_id":"c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f","submission":{"tx_hash":"c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f","submission_ref":"c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f","state":"Unknown","rung":"submitted","evidence":[],"transitions":[{"to":"Unknown","cause":"transport-lost","at":"1","from":"Submitted"}]},"receipt":null},"committed":{"activity_id":"c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f","submission":{"tx_hash":"c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f","submission_ref":"c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f","state":"Committed","rung":"committed","evidence":[],"transitions":[],"receipt_ref":"ac73faf315ec0dd1f7a3ff5ffddf39fdedd5550696c74489038fe5153e9b6a69"},"receipt":{"tx_hash":"c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f","canonical_bytes":"00025201000200000020c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f000000000000000100000020555555555555555555555555555555555555555555555555555555555555555500000020666666666666666666666666666666666666666666666666666666666666666600000020e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8550000000000000002000c00000000010000000020000000000000000000000000000000000000000000000000000000000000000000000071000000000000c350000000000000c35000000000000000020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b85500000000000000010475687078000c000100000300000000200000000000000000000000000000000000000000000000000000000000000000000000b5000000000000000000000000000000000000101a04c4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b143152faf9a9ed12bba8de846dc95d41e4e40d04a0d6599c2122df57958697ab23333333333333333333333333333333333333333333333333333333333333333222222222222222222222222222222222222222222222222222222222222222225fadecbca8d5df660751c8dd73e2c457bc7bb26acef0d7158fa115764a633c6000000000000000000000000000186a0000000200000000000000000000000000000000000000000000000000000000000000007000c000000010000000002000000200e237584332fc3e1f1672d80a167a8d027597a64b34f4be18951e60babdd4f7300000000000000000000000000000000000000200000000000000000000000001a642f0e3c3af545e7acbd38b07251b3990914f1000000000000000000000000000f4240000000000000000000000000000dbba0000000000000000000000020000000000000000000000000000000000000000000000000000000000000101a0000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000200791868d8f29ea735f26a17a9aea038cd4255baac26eac5a74e58a07ed2f197500000191dd9dec0001000000405b53a3b5a914cba1bebb3823f64496f6894892103e6b1a93feb4dfd4c2feadf1a825b04779d8bf4146c92f480d3f0460ce3ad12921bb03d827ebc3de70bcda08","authorised_batch":{"batch_id":"0000000000000000000000000000000000000000000000000000000000000007","asset":"1111111111111111111111111111111111111111111111111111111111111111","previous_state_root":"5555555555555555555555555555555555555555555555555555555555555555","resulting_state_root":"6666666666666666666666666666666666666666666666666666666666666666","sequencer_public_key":"ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c"},"rung":"committed"}}}"#;
+
+    fn bytes(value: &Value) -> Vec<u8> {
+        let text = value.as_str().expect("hex field");
+        text.as_bytes()
+            .chunks_exact(2)
+            .map(|pair| {
+                u8::from_str_radix(std::str::from_utf8(pair).expect("ascii"), 16).expect("hex")
+            })
+            .collect()
+    }
+
+    fn bounded(out: &mut Vec<u8>, data: &[u8]) {
+        out.extend_from_slice(
+            &u32::try_from(data.len())
+                .expect("bounded field")
+                .to_be_bytes(),
+        );
+        out.extend_from_slice(data);
+    }
+
+    #[test]
+    fn middleware_submit_transcript_is_produced_by_dispatch() {
+        let transcript: Value =
+            serde_json::from_str(MIDDLEWARE_SUBMISSION_TRANSCRIPT).expect("transcript");
+        let expected = &transcript["submit"];
+        let mut wire = Vec::new();
+        bounded(
+            &mut wire,
+            expected["preparation_ref"]
+                .as_str()
+                .expect("reference")
+                .as_bytes(),
+        );
+        bounded(&mut wire, &bytes(&transcript["raw_transaction"]));
+        bounded(&mut wire, &bytes(&expected["signed_receipt"]));
+        let mut reader = Reader {
+            bytes: &wire,
+            offset: 0,
+        };
+        let (actual, _) = decode_eip1559_submission(&mut reader).expect("submit");
+        assert_eq!(&actual, expected);
+        assert_eq!(reader.finish(), Some(()));
+    }
+
+    #[test]
+    fn middleware_observation_transcripts_are_produced_by_dispatch() {
+        let transcript: Value =
+            serde_json::from_str(MIDDLEWARE_SUBMISSION_TRANSCRIPT).expect("transcript");
+        for (name, state, rung) in [("pending", 5, 0), ("committed", 9, 2)] {
+            let expected = &transcript[name];
+            let mut wire = bytes(&expected["activity_id"]);
+            wire.extend_from_slice(&bytes(&expected["submission"]["tx_hash"]));
+            wire.push(state);
+            if state == 9 {
+                wire.extend_from_slice(&bytes(&expected["submission"]["receipt_ref"]));
+            }
+            wire.extend_from_slice(&[rung, 0]);
+            if state == 5 {
+                wire.extend_from_slice(&[1, 3, 5]);
+                bounded(&mut wire, b"transport-lost");
+                wire.extend_from_slice(&1u64.to_be_bytes());
+                wire.push(0);
+            } else {
+                wire.extend_from_slice(&[0, 1]);
+                bounded(&mut wire, &bytes(&expected["receipt"]["canonical_bytes"]));
+                for field in [
+                    "batch_id",
+                    "asset",
+                    "previous_state_root",
+                    "resulting_state_root",
+                    "sequencer_public_key",
+                ] {
+                    wire.extend_from_slice(&bytes(&expected["receipt"]["authorised_batch"][field]));
+                }
+                wire.push(rung);
+            }
+            let mut reader = Reader {
+                bytes: &wire,
+                offset: 0,
+            };
+            let (actual, _) = decode_observation(&mut reader).expect("observation");
+            assert_eq!(&actual, expected);
+            assert_eq!(reader.finish(), Some(()));
+            wire[0] ^= 1;
+            assert!(decode_observation(&mut Reader {
+                bytes: &wire,
+                offset: 0
+            })
+            .is_none());
+        }
+    }
 }

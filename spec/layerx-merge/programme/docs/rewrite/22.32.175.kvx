@@ -1,0 +1,17 @@
+[manifest]
+task = "22.32.175"
+domain = 16
+owner_role = "fm-tools-ops"
+pages = 2
+
+[page.1]
+path = "tools/paxeer-x/gov/README.md"
+status = "misleading"
+bytes = 3077
+source_1 = "record 22.30.181 [doc.013] (misleading): f005 at line 22: The output table promises 04-exchange-markets, 05-custody and 06-anchor-sequencer-authorization proposals that render.sh no longer emits."
+
+[page.2]
+path = "tools/paxeer-x/sid-snapshot/README.md"
+status = "misleading"
+bytes = 2452
+source_1 = "record 22.30.181 [doc.014] (misleading): f060 at line 23: The migration instructions promise reconciliation of every holder against balanceOf but describe no fixed committed snapshot block or total-supply check; the implementation only queries positive transfer-history holders."

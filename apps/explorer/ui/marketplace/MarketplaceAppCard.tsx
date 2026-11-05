@@ -13,6 +13,7 @@ import { isBrowser } from 'toolkit/utils/isBrowser';
 import CopyToClipboard from 'ui/shared/CopyToClipboard';
 
 import FavoriteIcon from './FavoriteIcon';
+import getMarketplaceAppShareUrl from './getMarketplaceAppShareUrl';
 import MarketplaceAppCardLink from './MarketplaceAppCardLink';
 import MarketplaceAppGraphLinks from './MarketplaceAppGraphLinks';
 import MarketplaceAppIntegrationIcon from './MarketplaceAppIntegrationIcon';
@@ -180,7 +181,7 @@ const MarketplaceAppCard = ({
                   <FavoriteIcon isFavorite={ isFavorite }/>
                 </IconButton>
                 <CopyToClipboard
-                  text={ isBrowser() ? window.location.origin + `/apps/${ id }` : '' }
+                  text={ isBrowser() ? getMarketplaceAppShareUrl(id, window.location.origin) : '' }
                   type="share"
                   variant="icon_background"
                   size="md"

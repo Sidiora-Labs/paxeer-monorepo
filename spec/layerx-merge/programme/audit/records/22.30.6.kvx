@@ -1,0 +1,813 @@
+# Pre-upgrade audit: kernel tests/modules, decision 2515.
+
+[audit.22.30.6]
+task = "22.30.6"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 61
+findings = 35
+docs_reviewed = 13
+upgrade_ready = false
+blocking = ["order-price-scale", "close-trading-pnl", "fill-reduction-pnl", "liquidation-equity", "unfilled-margin-release", "liquidation-funding"]
+produced_interfaces_reviewed = 64
+consumed_interfaces_reviewed = 400
+review_basis = "Full static member review against package requirements and registry declarations, producer/consumer source paths, retirement decisions and documentation. No underlying module suite or network test execution is claimed. Later explicit retirements override older positive requirements."
+
+[file.1]
+path = "layerxproof/retired/test_anchor_vectors_retired.py"
+lines = 31
+verdict = "clean"
+note = "Read the complete file. Negative retirement test checks anchor generator and daemon-evidence references absent and inspects make prerequisites without invoking the retired generator; agrees with requirement 1966."
+
+[file.2]
+path = "modules/layerxledger/keeper/draw_test.go"
+lines = 106
+verdict = "clean"
+note = "Read the complete file. Real host and actor binding, registered asset, balances and sequences prove retired Draw refusal without mutation for named and unknown grants. Later retirement overrides stale positive requirement 2029."
+
+[file.3]
+path = "modules/layerxledger/keeper/issuer_binding_test.go"
+lines = 161
+verdict = "issues"
+note = "Read the complete file. Kernel rollback and issuer call ordering are real, but tokenfactory is a recorder; see issuer-binding-real-state."
+
+[file.4]
+path = "modules/layerxledger/keeper/pause_test.go"
+lines = 222
+verdict = "clean"
+note = "Read the complete file. Real bound register/open/mint/send and views verify issuer-only pause, refusal while paused and unpause; separate tokenfactory-store coverage is recorded in issuer_binding_test.go."
+
+[file.5]
+path = "modules/layerxledger/keeper/retire_test.go"
+lines = 170
+verdict = "clean"
+note = "Read the complete file. Real keeper/precompile lifecycle asserts retired grant/receive and legacy paths as refusals with rollback and native state checks, not successful retired payment behavior."
+
+[file.6]
+path = "modules/layerxledger/keeper/views_test.go"
+lines = 256
+verdict = "clean"
+note = "Read the complete file. Host-backed asset, balance, supply, owner and next-sequence views preserve state and use actual account mappings; retired grant-view refusal agrees with current exports."
+
+[file.7]
+path = "src/modules/perps/lx_oracle_checks.c"
+lines = 67
+verdict = "clean"
+note = "Read the complete file. Checked staleness, price bounds and relative deviation math agree with dispatcher projections, canonical errors and boundary tests; no unchecked arithmetic or external finality input."
+
+[file.8]
+path = "src/modules/perps/lx_oracle_halt.c"
+lines = 42
+verdict = "issues"
+note = "Read the complete file. Helper allows protective actions during halt but its policy is not wired to registered dispatch; see halted-margin-policy."
+
+[file.9]
+path = "src/modules/perps/lx_oracle_intake.c"
+lines = 173
+verdict = "issues"
+note = "Read the complete file. Canonical payload and domain-separated Ed25519 checks are present; helper mutable-store halt/recovery differs from the live committed-state lifecycle. See parallel-oracle-state."
+
+[file.10]
+path = "src/modules/perps/lx_oracle_read.c"
+lines = 129
+verdict = "clean"
+note = "Read the complete file. Committed perps market and 72-byte oracle KV reads validate lengths and halt state, restore caller module context and emit the matching 64-byte little-endian program oracle shape and source-set digest."
+
+[file.11]
+path = "src/modules/perps/lx_perps_book.c"
+lines = 300
+verdict = "issues"
+note = "Read the complete file. Price/time matching, self-match refusal, bounds and cancellation reviewed; required-margin units disagree with scaled fill/reservation. See order-price-scale."
+
+[file.12]
+path = "src/modules/perps/lx_perps_codec.h"
+lines = 78
+verdict = "clean"
+note = "Read the complete file. Handwritten big-endian u64/u128 and signed-magnitude helpers use matching fixed widths and reject invalid sign and negative zero in consumer decoders."
+
+[file.13]
+path = "src/modules/perps/lx_perps_command.c"
+lines = 494
+verdict = "clean"
+note = "Read the complete file. Command sizes, exact lengths, signed oracle transport and TIF versions agree with registered decoders; unknown enums, trailing bytes and caller-supplied notional are explicitly refused."
+
+[file.14]
+path = "src/modules/perps/lx_perps_dispatch.c"
+lines = 2073
+verdict = "issues"
+note = "Read the complete file. All 2073 lines reviewed, including ABI 1, signed-oracle ABI 2 and state-commitment/TIF ABI 3. Decode, ownership and rollback traced; close P&L, unused reservations and liquidation funding have blocking lifecycle findings."
+
+[file.15]
+path = "src/modules/perps/lx_perps_funding.c"
+lines = 234
+verdict = "clean"
+note = "Read the complete file. Checked signed P&L helper, rate clamping, payer-biased rounding, intervals and funding-index/pool transfers agree with declarations. Missing settlement at close/liquidation is recorded at callers."
+
+[file.16]
+path = "src/modules/perps/lx_perps_insurance.c"
+lines = 199
+verdict = "clean"
+note = "Read the complete file. Insurance uses conserved protocol-authorized legs; checked deficit accumulation, deterministic bounded ADL contributions and pre-apply insufficiency refusal agree with the runtime types."
+
+[file.17]
+path = "src/modules/perps/lx_perps_liquidate.c"
+lines = 209
+verdict = "issues"
+note = "Read the complete file. Fee split, deficit coverage and residual release have checked bounds and protocol authority; raw-cash liquidation eligibility is incorrect. See liquidation-equity."
+
+[file.18]
+path = "src/modules/perps/lx_perps_market.c"
+lines = 278
+verdict = "clean"
+note = "Read the complete file. Market fixed 622-byte codecs preserve configured keys, account identifiers, ratio bounds and parameter version. Registration, lookup and iteration agree on keys and refuse duplicate/invalid configuration."
+
+[file.19]
+path = "src/modules/perps/lx_perps_position.c"
+lines = 618
+verdict = "issues"
+note = "Read the complete file. Position bindings, scaled fill notional, funding rebasing and transfer sources reviewed; reduced/reversed exposure drops realized trading P&L. See fill-reduction-pnl."
+
+[file.20]
+path = "src/modules/perps/lx_perps_state.c"
+lines = 612
+verdict = "clean"
+note = "Read the complete file. Oracle/funding/deficit/order/position keys and fixed encodings match consumers; exact lengths, signed/boolean canonicality, deterministic iteration and bounded source-authority aggregation agree."
+
+[file.21]
+path = "src/sequencer/lxp_admission.c"
+lines = 40
+verdict = "issues"
+note = "Read the complete file. Envelope, timestamp, signature, sequence and fee checks agree with current kernel callers; obsolete unused idempotency-exists branch remains. See retired-idempotency-branch."
+
+[file.22]
+path = "src/sequencer/lxp_batch_roots.c"
+lines = 56
+verdict = "issues"
+note = "Read the complete file. Bounded Merkle hashing, empty root and arena reset reviewed; surviving oracle/DA roots still belong to retired batch-header evidence. See retired-batch-roots."
+
+[file.23]
+path = "tests/modules/paxeer_x_metered_end_boundary.py"
+lines = 111
+verdict = "issues"
+note = "Read the complete file. Requires prebuilt executable, private external evidence and exact ordered case labels and passes a real snapshot-store path. Timeout exits before log/evidence creation; see meter-timeout-evidence."
+
+[file.24]
+path = "tests/modules/test_asset_account_grant.c"
+lines = 415
+verdict = "clean"
+note = "Read the complete file. Canonical account/asset binding, authority and account/supply refusals agree with the current module; retired grant decode/dispatch is refusal coverage rather than positive grant execution."
+
+[file.25]
+path = "tests/modules/test_asset_payloads.h"
+lines = 199
+verdict = "clean"
+note = "Read the complete file. Handwritten shared codecs check actual activity table, exact prefixes/trailing bytes, UTF-8 and lengths, supply and send roundtrips, unknown retired ordinals; declaration constants are not credited as current positive withdrawal."
+
+[file.26]
+path = "tests/modules/test_asset_reserve.c"
+lines = 126
+verdict = "issues"
+note = "Read the complete file. Positive finalized-custody backing and withdrawal reserve model is retired; retain economic checks on native funding replacement. See reserve-custody-fixture."
+
+[file.27]
+path = "tests/modules/test_asset_state.c"
+lines = 100
+verdict = "clean"
+note = "Read the complete file. Asset-state encoding, canonical lengths and invalid-record refusals agree with real record producer/consumer and root checks; no separate service or external settlement asserted."
+
+[file.28]
+path = "tests/modules/test_asset_transfer.c"
+lines = 388
+verdict = "clean"
+note = "Read the complete file. Real ledger math and checked transfer paths cover account/asset authorization, insufficient/zero amounts, pause/freeze, supply conservation, sequences and rollback."
+
+[file.29]
+path = "tests/modules/test_asset_withdraw.c"
+lines = 504
+verdict = "issues"
+note = "Read the complete file. Positive legacy withdrawal request/settle and finalized custody/nullifier lifecycle conflict with merged behavior and requirement 16961. See withdraw-helper-positive."
+
+[file.30]
+path = "tests/modules/test_asset_withdraw_activity.c"
+lines = 250
+verdict = "issues"
+note = "Read the complete file. Signed historical occupancy withdrawal succeeds and exports old proof shape, while state-commitment mode correctly refuses; see withdraw-old-protocol-fixture."
+
+[file.31]
+path = "tests/modules/test_budget_close.c"
+lines = 776
+verdict = "issues"
+note = "Read the complete file. Close/revoke, refund, authority and post-revoke refusals use real dispatch and balances. Named durable roundtrip only encodes/decodes; see budget-durable-roundtrip."
+
+[file.32]
+path = "tests/modules/test_budget_create.c"
+lines = 956
+verdict = "clean"
+note = "Read the complete file. Native funding, account derivation, signed dispatch, owner/delegate authority, version/length/amount refusals and late-failure rollback agree with budget producers and consumers."
+
+[file.33]
+path = "tests/modules/test_budget_period.c"
+lines = 184
+verdict = "clean"
+note = "Read the complete file. Period boundaries, elapsed-window arithmetic, carry/rollover caps, expiry and overflow checks exercise actual budget helpers and canonical values."
+
+[file.34]
+path = "tests/modules/test_budget_spend.c"
+lines = 111
+verdict = "clean"
+note = "Read the complete file. Real spend preparation/execution checks limits, expiry, authorization, balances, transfer reasons and post-spend accounting with matching runtime shapes."
+
+[file.35]
+path = "tests/modules/test_escrow_capture.c"
+lines = 485
+verdict = "issues"
+note = "Read the complete file. Capture, conservation, original replay receipt and context refusal use real escrow and transfers. Restart manually restores module KV and retains accounts; see escrow-restart-copy."
+
+[file.36]
+path = "tests/modules/test_escrow_dispute.c"
+lines = 332
+verdict = "clean"
+note = "Read the complete file. Actual dispute-open/resolve validates arbiter, split bounds, conserved payouts, replay/context checks and terminal-state refusals with observed balances."
+
+[file.37]
+path = "tests/modules/test_escrow_invariants.c"
+lines = 379
+verdict = "issues"
+note = "Read the complete file. Hold/capture/release stateful invariants are substantive; reserve_lines fabricates retired external custody evidence. See escrow-custody-report."
+
+[file.38]
+path = "tests/modules/test_escrow_open.c"
+lines = 263
+verdict = "clean"
+note = "Read the complete file. Real open validates parties, authority, account/asset binding, hold funding, identifiers/deadlines, duplicates and insufficient balance with conserved funds and unchanged refusal state."
+
+[file.39]
+path = "tests/modules/test_escrow_timeout.c"
+lines = 526
+verdict = "clean"
+note = "Read the complete file. Timeout/refund boundaries, dispute timing, authority, residual release and replay/context mismatch agree with actual escrow transitions; no external anchor authority is required."
+
+[file.40]
+path = "tests/modules/test_oracle_checks.c"
+lines = 71
+verdict = "clean"
+note = "Read the complete file. Canonical staleness, price bounds, deviation, timestamp regression and overflow cases match checked helpers used by actual dispatcher admission."
+
+[file.41]
+path = "tests/modules/test_oracle_halt.c"
+lines = 112
+verdict = "issues"
+note = "Read the complete file. Tests helper-only local stores and service context, not committed perps protective-action transport; see oracle-halt-test-seam."
+
+[file.42]
+path = "tests/modules/test_oracle_intake.c"
+lines = 84
+verdict = "clean"
+note = "Read the complete file. Real signed canonical observations, unauthorized/bad signatures and attempted monetary mutation are checked against the helper intake; not credited as proof of canonical perps state recovery."
+
+[file.43]
+path = "tests/modules/test_perps_book.c"
+lines = 702
+verdict = "issues"
+note = "Read the complete file. Real matching covers priority, self-match, reductions/reversal, capacity rollback and refused makers; profitable-long liquidation asserts the wrong economic criterion. See profitable-long-test."
+
+[file.44]
+path = "tests/modules/test_perps_funding.c"
+lines = 497
+verdict = "clean"
+note = "Read the complete file. Real funding tick and close dispatch checks pool transfers, signed index, intervals and open interest in tested unchanged-price scenario; missing trading P&L and liquidation funding are caller findings."
+
+[file.45]
+path = "tests/modules/test_perps_insurance.c"
+lines = 491
+verdict = "clean"
+note = "Read the complete file. Real dispatch and ledger application exercise depleted insurance, persisted deficit, deterministic ADL, unauthorized activity, contribution bounds and rollback, without a fake monetary applier."
+
+[file.46]
+path = "tests/modules/test_perps_liquidate.c"
+lines = 413
+verdict = "clean"
+note = "Read the complete file. Adverse-price short, fee split, authority, insurance exhaustion and persisted residual deficit use real dispatch. Profitable-long criterion is separately recorded in test_perps_book.c; pending funding is a dispatcher finding."
+
+[file.47]
+path = "tests/modules/test_perps_market.c"
+lines = 395
+verdict = "clean"
+note = "Read the complete file. Market codec/iteration, admin authority, signed permitted oracle, malformed payloads and halt/cancel behavior use actual ABI-1 dispatch. ABI-2/3 declarations reviewed separately; this unit fixture is not a full network transport proof."
+
+[file.48]
+path = "tests/modules/test_perps_position.c"
+lines = 603
+verdict = "issues"
+note = "Read the complete file. Real fills and margin funding are exercised, but unused reservations and changed-price closes lack recovery/settlement checks. See reservation-close-test-gap."
+
+[file.49]
+path = "tests/modules/test_service_acceptance.c"
+lines = 378
+verdict = "clean"
+note = "Read the complete file. Acceptance/rejection/default transitions enforce parties, deadlines and evidence hashes with actual deterministic records/events; service outcomes do not implicitly pay escrow."
+
+[file.50]
+path = "tests/modules/test_service_attest.c"
+lines = 509
+verdict = "clean"
+note = "Read the complete file. Real Ed25519 tool attestation binds commitment, tool, transcript/output, resource/time bounds and provider; altered signature/data and unauthorized/deadline refusals are explicit."
+
+[file.51]
+path = "tests/modules/test_service_commit.c"
+lines = 332
+verdict = "clean"
+note = "Read the complete file. Commit/progress/abandon dispatch enforces agreement state, provider, deadline/resource bounds and monotonic progress without confusing progress with escrow payout."
+
+[file.52]
+path = "tests/modules/test_service_deliver.c"
+lines = 406
+verdict = "clean"
+note = "Read the complete file. Real delivery validates canonical arrays, hash/count bounds, provider and agreement state. Local escrow-link helper fixtures are complemented by the actual kernel reader tested in test_service_dispute.c."
+
+[file.53]
+path = "tests/modules/test_service_dispute.c"
+lines = 564
+verdict = "clean"
+note = "Read the complete file. Real escrow module and lx_service_kernel_escrow_link_read consume canonical escrow state; resolution binds arbiter and result reference, emits service outcomes and verifies held escrow remains unchanged."
+
+[file.54]
+path = "tests/modules/test_service_helpers.h"
+lines = 265
+verdict = "clean"
+note = "Read the complete file. Handwritten module-level fixture binds payload hashes, canonical activity IDs and resolved principals and real commit/rollback; signed attestation uses actual Ed25519. marker_activity is not claimed as full network signature admission."
+
+[file.55]
+path = "tests/modules/test_service_offer.c"
+lines = 364
+verdict = "clean"
+note = "Read the complete file. Actual publish/withdraw and agreement proposal/acceptance enforce parties, versions, expiry and malformed/unauthorized refusals with unchanged state on failure."
+
+[file.56]
+path = "tests/modules/test_spot_book.c"
+lines = 656
+verdict = "clean"
+note = "Read the complete file. Real spot runtime and ledger transfers verify FIFO, versions, price/quantity units, balances/fees, authority, cancellation and rollback with consistent emitted fills and consumed orders."
+
+[file.57]
+path = "tests/modules/test_stream_accrue.c"
+lines = 287
+verdict = "clean"
+note = "Read the complete file. Actual accrual math checks lifetime/rate boundaries, caps, pause, settled totals, remainders and overflow without client balance authority."
+
+[file.58]
+path = "tests/modules/test_stream_lifecycle.c"
+lines = 863
+verdict = "clean"
+note = "Read the complete file. Real pause/resume/top-up/close dispatch enforces owner/recipient, expiry, replay/context binding, conserved transfers and rollback using actual monetary application."
+
+[file.59]
+path = "tests/modules/test_stream_meter.c"
+lines = 902
+verdict = "clean"
+note = "Read the complete file. Real signed meter input, authority/refusals and lifetime boundaries tested. Durable snapshot store write/read/load destroys and restores state, verifies root, replica/replay, expiry and residual refunds."
+
+[file.60]
+path = "tests/modules/test_stream_open.c"
+lines = 847
+verdict = "clean"
+note = "Read the complete file. Real open dispatch validates time/metered modes, source funding, account/asset bindings, authority set, cap/rate bounds, exact lengths and atomic refusal."
+
+[file.61]
+path = "tests/modules/test_stream_settle.c"
+lines = 677
+verdict = "clean"
+note = "Read the complete file. Real settle conserves funds, checks accrual/settled totals, underfunding, destinations, replay/context mismatch, terminal state and rollback; recording wrappers invoke actual ledger application."
+
+[finding.order-price-scale]
+file = "src/modules/perps/lx_perps_book.c"
+line = 175
+class = "interface-mismatch"
+severity = "high"
+observed = "order_margin divides price times quantity by one, while lx_perps_fill_notional and open_reservation_check divide by market.price_scale. With scale 100, price 10000, quantity 1 and initial margin 1000 bps, opening reserves 10 quote units but order admission requires 1000. The registered dispatcher reaches this check."
+expected = "Reservation, order admission and execution must apply the same price scale and quote notional. An adequately collateralized scaled-price order must reach matching."
+proposal = "Use the canonical scaled notional calculation in src/modules/perps/lx_perps_book.c, preserving exact-division and overflow refusals. Prove reserve-to-place-to-fill with a non-unit price scale through registered perps activities."
+owner_domain = 1
+interface = "1.c-lx-perps-order-place-execute"
+
+[finding.close-trading-pnl]
+file = "src/modules/perps/lx_perps_dispatch.c"
+line = 1430
+class = "runtime-risk"
+severity = "high"
+observed = "execute_position_close computes funding owed but neither reads an exit price nor computes trading P&L. Its zero-funding branch returns the full margin through lx_perps_position_close_execute; the other branch settles funding and returns margin. Exposure and open interest are then removed even when price has moved."
+expected = "Closing a perpetual position must realize signed trading gains or losses and funding before returning residual collateral. A losing trader must not recover the unchanged-price payout."
+proposal = "Make src/modules/perps/lx_perps_dispatch.c obtain the permitted close price and atomically settle signed P&L against market liquidity together with funding and collateral. Prove profitable and losing long/short closes, insufficient liquidity, rollback and recovery."
+owner_domain = 1
+interface = "1.c-lx-perps-position-close-execute"
+
+[finding.fill-reduction-pnl]
+file = "src/modules/perps/lx_perps_position.c"
+line = 442
+class = "runtime-risk"
+severity = "high"
+observed = "fill_reduce removes proportional entry_notional on partial reduction and only settles funding on a full close or reversal. It never values the closed quantity at request.price. lx_perps_fill_settle releases unchanged margin for closed parties, erasing the realized trading gain or loss."
+expected = "Matched partial reductions, full offsets and reversals must realize P&L at the actual fill price, preserve remaining cost basis and conserve quote balances across traders and liquidity."
+proposal = "Extend the real fill settlement in src/modules/perps/lx_perps_position.c to accumulate and apply signed realized P&L before release or reversal. Exercise both sides, mixed entry prices, partial reduction, full offset and reversal through matching, with exact balances after recovery."
+owner_domain = 1
+interface = "1.c-lx-perps-position-apply-fill"
+
+[finding.liquidation-equity]
+file = "src/modules/perps/lx_perps_liquidate.c"
+line = 42
+class = "runtime-risk"
+severity = "high"
+observed = "lx_perps_maintenance_check compares raw margin_balance against maintenance on mark notional, ignoring position.side, entry_notional and funding. validate_liquidate passes raw cash. Rising prices can liquidate a profitable long, while falling mark notional can keep a heavily losing long ineligible."
+expected = "Liquidation eligibility must compare maintenance with signed equity including unrealized trading P&L and accrued funding. Profitable adequately funded exposure must remain open and insolvent exposure must be eligible."
+proposal = "Compute canonical signed equity in the perps risk path and use it consistently for admission and settlement. Prove profitable-long refusal, adverse long/short eligibility, funding-only insolvency and exact maintenance boundaries on real registered activities."
+owner_domain = 1
+interface = "1.c-lx-perps-maintenance-check"
+
+[finding.unfilled-margin-release]
+file = "src/modules/perps/lx_perps_dispatch.c"
+line = 1282
+class = "runtime-risk"
+severity = "high"
+observed = "execute_position_open debits main to margin and sets has_open_reference without storing a position. Close requires a stored open position; execute_order_cancel only deletes the order. A first reservation without a fill, or reopened reservation with a closed position, has no dispatched release. Current asset send requires an asset account rather than this margin account."
+expected = "Owners must recover unused margin without first obtaining a market fill. Reserved funds, resting orders and exposure must have a persistent and cancelable lifecycle."
+proposal = "Persist reservation lifecycle state in src/modules/perps/lx_perps_dispatch.c and expose authorized release of unencumbered margin. Prove reserve-without-order, no-fill cancellation, IOC no-fill, reopened reservation and durable recovery, preserving live-exposure and ownership checks."
+owner_domain = 1
+interface = "1.c-lx-perps-margin-release"
+
+[finding.liquidation-funding]
+file = "src/modules/perps/lx_perps_dispatch.c"
+line = 1631
+class = "runtime-risk"
+severity = "high"
+observed = "execute_liquidate loads funding state but uses it only to remove open interest. liquidation_loss computes trading loss alone and the liquidation request carries no funding debt or credit. Closing the position discards funding_index_at_entry without settling its accrued funding."
+expected = "Liquidation must settle or explicitly preserve every accrued funding liability and credit before closing exposure. A debt or receivable must not disappear when a position is liquidated."
+proposal = "Combine pending funding and trading P&L in the atomic dispatcher liquidation settlement with explicit pool and deficit treatment. Prove both funding signs after a real tick, insufficient insurance, conserved transfers and recovery without duplicate settlement."
+owner_domain = 1
+interface = "1.c-lx-perps-liquidate-execute"
+
+[finding.halted-margin-policy]
+file = "src/modules/perps/lx_oracle_halt.c"
+line = 22
+class = "wiring-gap"
+severity = "medium"
+observed = "lx_oracle_market_action_check permits MARGIN_ADD and ORDER_CANCEL while halted but has no production caller. The dispatched POSITION_INCREASE requires a trading-enabled market, fresh oracle and nonzero size_delta; protective margin-only addition is unavailable during a halt or stale feed."
+expected = "The protective action allowed by the oracle policy must be reachable through the registered transport with matching authorization and errors, while exposure increases remain forbidden."
+proposal = "Wire a pure margin top-up in src/modules/perps/lx_perps_dispatch.c that preserves exposure during halt or oracle staleness, or explicitly revise the risk contract. Prove the policy through registered activities alongside cancellation and refused exposure increases."
+owner_domain = 1
+interface = "1.c-lx-oracle-market-action-check"
+
+[finding.parallel-oracle-state]
+file = "src/modules/perps/lx_oracle_intake.c"
+line = 114
+class = "wiring-gap"
+severity = "medium"
+observed = "lx_oracle_push_execute appends to caller-owned stores and mutates a separate market halt flag, halting invalid observations and clearing halt on success. Registered perps dispatch instead validates projected observations and writes canonical module KV; it never calls this helper and its epoch hook is a no-op."
+expected = "Oracle intake, halt and recovery behavior asserted as the kernel contract must agree with the canonical producer and committed consumer state across restart; a parallel in-memory model does not establish it."
+proposal = "Consolidate the oracle lifecycle around canonical module state in src/modules/perps and route registered transport through that policy. Explicitly classify any retained bounded helper as compatibility code and prove halt, fresh-update recovery and snapshot restoration against committed records."
+owner_domain = 1
+interface = "1.c-lx-oracle-push-execute"
+
+[finding.oracle-halt-test-seam]
+file = "tests/modules/test_oracle_halt.c"
+line = 72
+class = "test-gap"
+severity = "medium"
+observed = "The test asserts halted MARGIN_ADD success and automatic unhalt after a helper push using local stores and a service-module context. It never submits a perps margin action or reads a committed halted market, so it misses the dispatcher disagreement."
+expected = "The declared halt policy must be exercised from permitted signed oracle input through registered perps transport to the consumer action, with persisted state restored before recovery."
+proposal = "Complement tests/modules/test_oracle_halt.c with actual perps activities for stale/invalid updates, permitted cancellation and protective top-up, refused exposure increases and fresh-update recovery after durable snapshot reload."
+owner_domain = 1
+interface = "1.c-lx-oracle-market-action-check"
+
+[finding.retired-idempotency-branch]
+file = "src/sequencer/lxp_admission.c"
+line = 36
+class = "dead-code"
+severity = "low"
+observed = "lxp_admit_activity still refuses idempotency_key_exists with IDEMPOTENT_REPLAY although both current kernel producers pass false. Decision 101 and requirements 2020.2 and 2035.1 allow the same key at the next valid sequence; this branch advertises an obsolete replay rule."
+expected = "Admission must have the current sequence-based contract: consumed sequence refuses, and the same key at the next valid sequence remains admissible without a retired idempotency table."
+proposal = "Retire the unused admission input and branch with its declaration and callers, preserving all sequence, timestamp, signature and fee checks. Prove consumed-sequence refusal and same-key next-sequence success through kernel admission."
+owner_domain = 1
+
+[finding.retired-batch-roots]
+file = "src/sequencer/lxp_batch_roots.c"
+line = 49
+class = "retired-reference"
+severity = "low"
+observed = "lxp_batch_roots_compute still hashes oracle_inputs and availability_chunks into historical oracle_root and data_availability_root. Remaining callers are tests and fixtures, rather than the merged block producer; DA and oracle-web-root retirement replaces their publication with committed block data."
+expected = "Merged execution and verification use committed blocks for availability and finality. Retained historical encodings must be clearly separated from the current block contract."
+proposal = "Place the surviving root computation and historical fixtures behind an explicitly historical codec boundary. Preserve their encoding assertions while migrating current execution fixtures to committed block evidence, without restoring retired root publication."
+owner_domain = 1
+interface = "1.fmt-batch-header"
+
+[finding.issuer-binding-real-state]
+file = "modules/layerxledger/keeper/issuer_binding_test.go"
+line = 55
+class = "test-gap"
+severity = "medium"
+observed = "Both binding suites inject recordingLedgerIssuer, which records calls and returns fixed factory/ledger/bound-asset rather than creating or mutating a tokenfactory denom. Kernel state is real but real denom issuer, pause state and cross-store rollback are never inspected."
+expected = "Requirements 2962 and 6253 require registration to create a real tokenfactory denom bound to the registering DID and pause to reach IsDenomPaused with atomic failure across stores."
+proposal = "Add app-backed tests beside modules/layerxledger/keeper/issuer_binding_test.go using the real tokenfactory keeper: register, query denom and issuer, pause/unpause and check both stores roll back on a genuine refused transaction."
+owner_domain = 2
+interface = "2.go-layerxledger-registerasset-j23"
+
+[finding.meter-timeout-evidence]
+file = "tests/modules/paxeer_x_metered_end_boundary.py"
+line = 90
+class = "runtime-risk"
+severity = "medium"
+observed = "The 1500-second subprocess timeout is uncaught. The private log and revision/command/exit/evidence lines are created only after subprocess.run returns, so a hung test loses captured partial output and terminates with a traceback without declared evidence."
+expected = "A bounded evidence gate must retain revision, exact command and available output for timeout as well as normal terminal results, without claiming completed cases."
+proposal = "Handle TimeoutExpired in tests/modules/paxeer_x_metered_end_boundary.py, persist partial stdout/stderr privately and print an explicit timeout result before nonzero exit. Preserve the timeout bound, privacy checks and exact required-case equality."
+owner_domain = 1
+
+[finding.reserve-custody-fixture]
+file = "tests/modules/test_asset_reserve.c"
+line = 83
+class = "retired-reference"
+severity = "medium"
+observed = "The positive suite fabricates a finalized custody attestation with checkpoint and state root, then moves funds through system:paxeer-reserve and system:paxeer-withdrawals and asserts settled_out backing. It models retired separate custody reconciliation."
+expected = "Merged funding uses native bank or ledger transfers and committed bank facts, without an external finalized custody checkpoint or withdrawal settlement pool."
+proposal = "Migrate tests/modules/test_asset_reserve.c conservation and mismatch cases to real native bank-to-ledger funding and committed supply. Preserve applicable balances and refusals; explicitly version any retained historical report encoding vectors."
+owner_domain = 1
+interface = "1.c-lx-asset-reserve-reconcile"
+
+[finding.withdraw-helper-positive]
+file = "tests/modules/test_asset_withdraw.c"
+line = 337
+class = "retired-reference"
+severity = "medium"
+observed = "The suite positively calls lx_asset_withdraw_request and lx_asset_withdraw_settle with a synthetic finalized checkpoint and nullifier, asserting the old withdrawal and reserve balances as a successful lifecycle."
+expected = "Requirement 16961.1 removes kernel test calls to exit, withdrawal and deposit-root claim functions. After merge withdrawal is a native bank/ledger move at commit; outward transfer uses bridgeOut."
+proposal = "Translate tests/modules/test_asset_withdraw.c conservation, authority, duplicate and cross-asset cases to real committed native transfers and bridge-out where appropriate. Preserve economic checks and explicitly test the public retired custody refusal."
+owner_domain = 1
+interface = "1.c-lx-asset-withdraw-request"
+
+[finding.withdraw-old-protocol-fixture]
+file = "tests/modules/test_asset_withdraw_activity.c"
+line = 183
+class = "retired-reference"
+severity = "medium"
+observed = "Modes 0 and 18 positively dispatch LX_ASSET_WITHDRAW under OCCUPANCY and build withdrawal-state proofs; --vectors exports this historical success shape. Mode 28 correctly checks STATE_COMMITMENT refusal, but the principal positive flow remains retired custody withdrawal."
+expected = "Current positive kernel test flows must model merged committed native transfers and requirement 16961.1. Historical withdrawal vectors must not be presented as current payment evidence."
+proposal = "Migrate live success cases in tests/modules/test_asset_withdraw_activity.c to the native committed transfer producer, preserving rollback, authority and replay invariants. Retain the state-commitment refusal and isolate historical vectors with explicit protocol and retirement metadata."
+owner_domain = 1
+
+[finding.escrow-custody-report]
+file = "tests/modules/test_escrow_invariants.c"
+line = 311
+class = "retired-reference"
+severity = "medium"
+observed = "reserve_lines fabricates a finalized custody attestation and asserts a 370-byte reserve report containing escrow lines. The surrounding escrow invariants are useful, but this subcase treats separate custody backing as current evidence."
+expected = "Merged escrow conservation reconciles committed holds with native account balances; a fabricated external finalized custody report is not balance authority."
+proposal = "Migrate reserve_lines in tests/modules/test_escrow_invariants.c to committed escrow records and real native balances. Preserve two-hold aggregation, ordering, exact amounts and conservation, and explicitly version any historical report-codec coverage."
+owner_domain = 1
+interface = "1.c-lx-asset-reserve-report"
+
+[finding.escrow-restart-copy]
+file = "tests/modules/test_escrow_capture.c"
+line = 361
+class = "test-gap"
+severity = "medium"
+observed = "The restart block snapshots the state store but saves kernel.module_kv in a static array and memcpy restores it into the fresh kernel. The original account registry stays resident. Replay therefore bypasses durable serialization/loading of result records and balances."
+expected = "Escrow result, context commitment and balances preventing a duplicate debit must survive the real complete store close/reopen path without private kernel tables copied by hand."
+proposal = "Use a complete durable kernel snapshot in tests/modules/test_escrow_capture.c, destroy consumer state, load fresh registries and verify the root. Then prove exact original receipt replay, unchanged balances and context-mismatch refusal after reopening."
+owner_domain = 1
+interface = "1.c-lx-escrow-result-lookup"
+
+[finding.budget-durable-roundtrip]
+file = "tests/modules/test_budget_close.c"
+line = 701
+class = "test-gap"
+severity = "medium"
+observed = "record-durable-roundtrip only encodes and decodes an in-memory budget record. replica_replay compares two executions from initialization; neither reloads a committed revoked budget from durable storage before post-restart spending or refund checks."
+expected = "Revocation sequence, closed balances and spending refusal must survive actual consumer restart; codec equality and independent deterministic replay do not establish committed-state recovery."
+proposal = "Add snapshot-store write, destroy and reopen after revocation in tests/modules/test_budget_close.c. Assert the restored root, revocation sequence, zero held funds, later spend/fund/defund refusals and absence of a repeated refund, preserving existing codec and replay checks."
+owner_domain = 1
+interface = "1.c-lx-budget-record-decode"
+
+[finding.profitable-long-test]
+file = "tests/modules/test_perps_book.c"
+line = 608
+class = "test-gap"
+severity = "medium"
+observed = "mixed_price_liquidation_case expects successful liquidation at mark 3200. maker_skip_case establishes Bob is long seven units with entry_notional 702 and margin 1000; the test expects only 977 returned and exposure closed, locking in liquidation of a highly profitable long."
+expected = "A profitable long with equity above maintenance must refuse liquidation without state changes. Mixed-price cases must assert economic equity rather than raw-cash eligibility."
+proposal = "Correct this criterion alongside the liquidation repair in tests/modules/test_perps_book.c: prove the profitable long remains open and unchanged, then genuinely undercollateralized long/short settlements. Add non-unit-scale reserve/order/fill coverage to expose the margin units mismatch."
+owner_domain = 1
+interface = "1.c-lx-perps-maintenance-check"
+
+[finding.reservation-close-test-gap]
+file = "tests/modules/test_perps_position.c"
+line = 480
+class = "test-gap"
+severity = "medium"
+observed = "The test confirms margin debited while position_state returns UNKNOWN_FIELD, then obtains fills before testing close. It later leaves 100 in a reopened reservation with a closed stored position and resting order, destroys the store and never proves recovery of those funds. Its close uses unchanged price."
+expected = "Position lifecycle coverage must establish unused-margin recovery and changed-price settlement, including cancellation and durable reopen, without requiring a fill to recover a reservation."
+proposal = "Add reserve-without-fill release and cancel/release cases to tests/modules/test_perps_position.c, including the reopened closed-position reservation after durable reload. Pair close repair with profitable/losing outcomes and exact main, margin and liquidity balances."
+owner_domain = 1
+interface = "1.c-lx-perps-margin-release"
+
+[finding.wiki-separate-network]
+file = "docs/wiki/UnifiedNetwork.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki describes core node, sequencer and consensus in cmd/layerxd, LayerX evidence verified on Paxeer, and current custody deposits, proof-carrying withdrawals, forced exits and custody genesis at lines 54-76 and 188-196."
+expected = "The finished network is one paxd BFT chain with kernel block execution, committed-block finality and native funding. Separate layerxd, external anchor settlement and custody claims are retired."
+proposal = "Rewrite docs/wiki/UnifiedNetwork.md around paxd, chain 125, root-path node RPC and native committed funding. Replace custody/anchor/forced-exit instructions with declared merged equivalents and clearly version historical material."
+owner_domain = 11
+
+[finding.site-separate-network]
+file = "docs/site/docs/overview/unified-network.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "The site repeats separate C layerxd consensus and current custody claims at lines 54-76 and 106-114, despite retirement guidance on newer payment pages."
+expected = "The public overview must describe kernel execution inside paxd and committed-block finality and must not prescribe retired deposits, claims or checkpoint settlement."
+proposal = "Update docs/site/docs/overview/unified-network.md and its wiki counterpart from merged architecture, native funding and the activation/refusal matrix. Replace obsolete custody examples with supported native account and bridge flows."
+owner_domain = 11
+
+[finding.site-router-endpoint]
+file = "docs/site/docs/overview/unified-network.md"
+line = 129
+class = "doc-drift"
+severity = "medium"
+observed = "The endpoint section calls https://api-mainnet-beta.paxeer.network/rpc the router URL, describes lx_ routing and custody-joined px_listAssets, and advertises GET /rpc/schema at line 171."
+expected = "There is no router, unified /rpc or separate LayerX interface. Node JSON-RPC uses the root path and debug, echo, eth, net, pax, test and txpool namespaces; px_ belongs to the hosted gateway."
+proposal = "Rewrite endpoint and method tables in docs/site/docs/overview/unified-network.md against root node RPC and services/platform/hosted/gateway/openrpc.json. State each service boundary and committed data source explicitly."
+owner_domain = 7
+
+[finding.readme-retired-daemon]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "README describes a separate cmd/layerxd daemon whose checkpoints settle through layerxAnchor, lists retired custody/anchor endpoints without post-plan refusal labels, and instructs make layerxd at line 145."
+expected = "The repository entry page must describe one paxd chain with integrated kernel execution and give supported build/deployment commands and actual upgrade-dependent precompile behavior."
+proposal = "Replace README.md architecture and developer commands with paxd builds and merged block execution. Distinguish active precompiles, replacements and post-plan refusals, and point finality to committed blocks."
+owner_domain = 16
+
+[finding.getting-started-router]
+file = "docs/site/docs/overview/getting-started.md"
+line = 10
+class = "doc-drift"
+severity = "medium"
+observed = "The first recipe exports RPC_URL with /rpc; later lx_sendActivity and executed/batched/finalised examples depend on retired routing and finality terminology."
+expected = "First-run submission must use the root node API for supported namespaces or an explicitly configured hosted gateway, and final success must correspond to consensus commitment."
+proposal = "Rewrite docs/site/docs/overview/getting-started.md around a supported native transaction, root endpoint, chain-id verification and committed receipt checks. Give gateway-only calls their explicit service endpoint and contract."
+owner_domain = 7
+
+[finding.payments-router]
+file = "docs/site/docs/overview/payments.md"
+line = 21
+class = "doc-drift"
+severity = "medium"
+observed = "Payment setup exports the retired /rpc endpoint while later examples use lx_sendActivity and the old finality ladder, even though the page includes newer custody retirement guidance."
+expected = "Payment submission and receipt verification must target root node RPC or an explicitly named hosted gateway contract and must report committed-block finality."
+proposal = "Update docs/site/docs/overview/payments.md with supported native submission, correct endpoint selection and committed receipt checks, tracing every example to the real node or gateway producer."
+owner_domain = 7
+
+[finding.payments-retired-grants]
+file = "docs/site/docs/overview/payments.md"
+line = 231
+class = "doc-drift"
+severity = "medium"
+observed = "The metered/subscription recipe prescribes a 346-byte ordinal-7 grant and 733-byte ordinal-6 receive for every draw; lines 256-257 list grant.issue/grant.draw writes. Current audited keeper and kernel tests correctly refuse the positive payer-grant path."
+expected = "Requirements 1047 and 1124 retire asset receive and payer grants. Documentation must not promise grant-backed draws that the current ledger refuses despite older positive requirement rows."
+proposal = "Rewrite metered, subscription and MCP sections of docs/site/docs/overview/payments.md against supported budgets, streams or explicit native payments. State old grant/draw refusal and preserve authorized-debit, exact-once renewal and recovery semantics for the replacement."
+owner_domain = 2
+
+[finding.agent-router-submit]
+file = "docs/site/docs/agents/running.md"
+line = 512
+class = "doc-drift"
+severity = "medium"
+observed = "The transaction section sends eth_sendRawTransaction to /rpc and the catalogue at lines 656-657 advertises retired asset grant.issue/grant.draw, conflicting with the current transport and payer-grant retirement."
+expected = "Agent transaction/payment recipes must use actual node or gateway service contracts and supported payment capabilities, without presenting a retired router as running infrastructure."
+proposal = "Update docs/site/docs/agents/running.md submission and payment catalogue against root node RPC and current native payments. Reconcile the displayed tools with their real producer and explicitly label compatibility refusals."
+owner_domain = 9
+
+[finding.agent-key-service]
+file = "docs/site/docs/agents/running.md"
+line = 767
+class = "doc-drift"
+severity = "medium"
+observed = "Receipt verification attributes px_getReceiptKeys to the node after a chain-id check. The audit brief assigns px_ methods to the hosted gateway, not the node namespaces."
+expected = "Verification clients must identify the actual key-discovery service and independently pin chain trust rather than sending a gateway-only method to the node."
+proposal = "Correct docs/site/docs/agents/running.md to name the hosted gateway key-discovery contract and separately trusted chain/key-pin source, with the correct configured endpoint and independent receipt-authority verification."
+owner_domain = 7
+
+[finding.hosted-retired-topology]
+file = "docs/site/docs/platform/hosted-node.md"
+line = 4
+class = "doc-drift"
+severity = "medium"
+observed = "The runbook builds layerxd and describes sequencer/replica/guarantor bootstrap, --serve, --authority-replica, old LNI sockets, authority storage and custody-profile genesis as current hosted infrastructure."
+expected = "Operators run merged paxd and current sequencer/standby/gateway roles, without separate kernel daemon, guarantor, custody relay or retired authority replica."
+proposal = "Replace docs/site/docs/platform/hosted-node.md with actual paxd and gateway deployment, chain 125 configuration, native funding, governed receipt keys, WAL/standby recovery and present secrets/socket boundaries; explicitly archive the old daemon runbook."
+owner_domain = 8
+
+[finding.programs-retired-simulation]
+file = "docs/site/docs/programs/index.md"
+line = 120
+class = "doc-drift"
+severity = "medium"
+observed = "Simulation is documented as daemon LNI tags 30/31 handled by lxp_daemon_lni_simulate, citing cmd/layerxd and hosted calls over LNI. Later genesis and replay guidance also assumes old standalone infrastructure."
+expected = "Programs execute inside the merged chain and simulation must use its actual native transport with consistent host/guest ABI, protocol and non-committing semantics."
+proposal = "Rewrite simulation, deployment and evidence sections of docs/site/docs/programs/index.md from current programs precompile and node/gateway contracts. Preserve ABI/payload bounds while replacing daemon LNI, obsolete genesis paths and external batch finality."
+owner_domain = 13
+
+[finding.workspace-retired-gate-inputs]
+file = "docs/site/docs/programs/workspace.md"
+line = 151
+class = "doc-drift"
+severity = "medium"
+observed = "The gate table lists test-replay-golden-local and says the differential binary compiles cmd/layerxd/lxp_daemon_batch_wal.c at line 156. Neither reference appears in the current Makefile differential dependency and command path."
+expected = "Published developer gates must describe current targets and inputs without asking developers to restore retired batch WAL or replay infrastructure."
+proposal = "Rewrite docs/site/docs/programs/workspace.md gate dependencies from the current Makefile and programs workspace. Replace obsolete WAL/replay claims with current native execution/recovery evidence and accurate bounded commands."
+owner_domain = 13
+
+[finding.precompile-retirement-matrix]
+file = "docs/system/precompiles.md"
+line = 1285
+class = "doc-drift"
+severity = "medium"
+observed = "The generated ABI inventory lists custody deposits, withdrawals, forced exits and deposit-root publication, anchor settlement and exchange intents without activation/retirement status. The Solidity interface copies reinforce the historical selectors as available operations."
+expected = "Integrators need historical selectors distinguished from callable merged behavior, with upgrade/version, exact refusal and supported replacement for every retired endpoint."
+proposal = "Extend tools/docs/gen-system-docs.sh and authoritative endpoint metadata to emit activation/retirement status and exact refusals beside ABI sections, link native funding, committed proofs and direct market-read replacements, and regenerate docs/system/precompiles.md."
+owner_domain = 6
+
+[finding.precompile-grant-status]
+file = "docs/system/precompiles.md"
+line = 1360
+class = "doc-drift"
+severity = "medium"
+observed = "The ledger reference lists draw, getPayerGrant, issueGrant and revokeGrant and payer-grant events without explaining the retired positive grant/receive path exercised as refusal by current keeper tests."
+expected = "The method reference must distinguish compatibility selectors and historical events from supported ledger behavior under requirements 1047 and 1124, giving actual retirement refusals."
+proposal = "Annotate retired payer-grant selectors/events in the documentation generator with plan/version and exact refusal. Link supported native payments, budgets or streams instead of a successful draw recipe, then regenerate docs/system/precompiles.md."
+owner_domain = 2
+
+[doc.1]
+path = "docs/site/docs/agents/sdk-verification.md"
+status = "accurate"
+notes = "Read all 144 lines. Separates submitted, signed receipted execution and committed MsgSequenceBatch inclusion, requires independently pinned keys/chain trust and explains fixture provenance and refusal mutations."
+
+[doc.2]
+path = "docs/wiki/SdkTerminalVerification.md"
+status = "accurate"
+notes = "Read all 144 lines including navigation variation. Transaction binding, receipt signature, key pins and consensus inclusion are separate checks; no obsolete router or custody recipe is prescribed."
+
+[doc.3]
+path = "docs/wiki/UnifiedNetwork.md"
+status = "misleading"
+notes = "Read all 215 lines. Separate layerxd and custody/claim architecture at 11, 54-76 and 188-196 contradicts merged execution and finality; see wiki-separate-network."
+
+[doc.4]
+path = "docs/system/precompiles.md"
+status = "misleading"
+notes = "Read all 2543 lines. Generated ABI/Solidity inventory lacks retirement and refusal labels for custody, anchor, exchange intents and payer grants; see precompile-retirement-matrix and precompile-grant-status. Repair generator metadata then regenerate."
+
+[doc.5]
+path = "README.md"
+status = "misleading"
+notes = "Read all 202 lines. Architecture at 47, precompile paragraph at 83 and make layerxd at 145 prescribe retired daemon and settlement paths; see readme-retired-daemon."
+
+[doc.6]
+path = "docs/site/docs/overview/unified-network.md"
+status = "misleading"
+notes = "Read all 229 lines. Separate network/custody claims and /rpc router/schema instructions at 129-171 are obsolete; see site-separate-network and site-router-endpoint."
+
+[doc.7]
+path = "docs/site/docs/overview/getting-started.md"
+status = "misleading"
+notes = "Read all 196 lines. Custody retirement guidance coexists with initial /rpc URL and old activity/finality instructions; see getting-started-router."
+
+[doc.8]
+path = "docs/site/docs/overview/payments.md"
+status = "misleading"
+notes = "Read all 262 lines. /rpc at 21 and positive grant/receive and MCP recipes at 229-258 contradict current transport and retired payer grants; see payments-router and payments-retired-grants."
+
+[doc.9]
+path = "docs/site/docs/agents/running.md"
+status = "stale"
+notes = "Read all 868 lines. /rpc submission at 512, asset-grant catalogue at 656-657 and node attribution of gateway px_getReceiptKeys at 767 need correction; see agent-router-submit and agent-key-service."
+
+[doc.10]
+path = "docs/site/docs/platform/hosted-node.md"
+status = "misleading"
+notes = "Read all 677 lines. Deployment, LNI, secrets, replica/guarantor and recovery procedures assume retired standalone layerxd topology; see hosted-retired-topology."
+
+[doc.11]
+path = "docs/site/docs/programs/index.md"
+status = "stale"
+notes = "Read all 583 lines. Useful ABI detail coexists with retired daemon LNI simulation at 119-137 and old hosted genesis/replay descriptions; see programs-retired-simulation."
+
+[doc.12]
+path = "docs/site/docs/programs/workspace.md"
+status = "stale"
+notes = "Read all 197 lines. Gate dependencies at 151-156 cite deleted replay and daemon WAL inputs absent from current Makefile; see workspace-retired-gate-inputs."
+
+[doc.13]
+path = "spec/layerx-merge/contracts/kernel.md"
+status = "accurate"
+notes = "Consulted header and relevant perps, oracle, admission and batch-format sections as a frozen reference. Explicit source pin 2a1033aa2 and UNRUN qualification caveat distinguish historical declarations from current live deployment; no claim of whole-file current-runtime verification."
+

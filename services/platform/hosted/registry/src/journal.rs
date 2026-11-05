@@ -8,12 +8,8 @@ use std::os::unix::fs::{DirBuilderExt as _, OpenOptionsExt as _, PermissionsExt 
 use std::path::{Path, PathBuf};
 
 use layerx_programs::{
-    chain_evidence::{
-        deployment::ChainDeploymentProof, freshness::chain_freshness,
-        program_state::ChainProgramStateProof,
-    },
+    chain_evidence::freshness::chain_freshness,
     chain_proof::{
-        decode::decode_commitment_proof,
         header::ChainHeader,
         proto::{ProtoReader, ProtoValue},
         trust_store::TrustRoot,
@@ -31,241 +27,14 @@ use sha2::{Digest as _, Sha256};
 use crate::write_atomic;
 
 const ENVELOPE_SUFFIX: &str = "envelope";
-const ENVELOPE_DOMAIN: &[u8] = b"LayerX/deployment-envelope/v1\0";
 const RECORD_SUFFIX: &str = "deployment";
 const ADMISSION_SUFFIX: &str = "admission";
 const TEMPORARY_SUFFIX: &str = "tmp";
 const HEAD_FILE: &str = "head";
-const SEAL_BYTES: usize = 32;
 const HOST_STORE_NAME: &str = layerx_programs::chain_evidence::HOST_STORE_NAME;
 
-/// One accepted deployment record together with the protocol admission proof
-/// it was derived from. The two are published to the journal as a single
-/// commit unit: one canonical envelope staged in a temporary file, fsynced and
-/// renamed into place, so a restart observes both halves or neither.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct DeploymentEnvelope {
-    receipt_digest: [u8; 32],
-    record: DeploymentRecord,
-    proof: DeploymentProof,
-}
-
-impl DeploymentEnvelope {
-    /// Seals the record and proof carried by cryptographically verified
-    /// evidence.
-    #[must_use]
-    pub fn from_evidence(evidence: &VerifiedDeploymentEvidence) -> Self {
-        Self {
-            receipt_digest: evidence.receipt_digest(),
-            record: evidence.record().clone(),
-            proof: evidence.proof().clone(),
-        }
-    }
-
-    /// Pairs a decoded record with the proof it was filed beside.
-    ///
-    /// # Errors
-    ///
-    /// Refuses a proof whose receipt cannot be digested.
-    pub fn pair(record: DeploymentRecord, proof: DeploymentProof) -> Result<Self, UnitDefect> {
-        let receipt_digest =
-            proof
-                .claimed_receipt_digest()
-                .map_err(|error| UnitDefect::Corrupt {
-                    part: UnitPart::Proof,
-                    reason: error.to_string(),
-                })?;
-        Ok(Self {
-            receipt_digest,
-            record,
-            proof,
-        })
-    }
-
-    /// Returns the receipt digest the unit is filed under.
-    #[must_use]
-    pub const fn receipt_digest(&self) -> [u8; 32] {
-        self.receipt_digest
-    }
-
-    #[must_use]
-    pub const fn record(&self) -> &DeploymentRecord {
-        &self.record
-    }
-
-    #[must_use]
-    pub const fn proof(&self) -> &DeploymentProof {
-        &self.proof
-    }
-
-    #[must_use]
-    pub fn into_proof(self) -> DeploymentProof {
-        self.proof
-    }
-
-    /// Encodes the unit: the envelope domain, the framed canonical record, the
-    /// framed canonical proof and a seal over everything before it.
-    #[must_use]
-    pub fn canonical_encoding(&self) -> Result<Vec<u8>, String> {
-        let (mut bytes, proof_frame, seal) = self.frames()?;
-        bytes.extend_from_slice(&proof_frame);
-        bytes.extend_from_slice(&seal);
-        Ok(bytes)
-    }
-
-    /// Decodes one committed unit.
-    ///
-    /// # Errors
-    ///
-    /// Names the part the bytes end before, the part that does not decode, or
-    /// a seal that does not cover the bytes.
-    pub fn decode(bytes: &[u8]) -> Result<Self, UnitDefect> {
-        let (record_bytes, proof_bytes) = sealed_frames(bytes)?;
-        let record = decode_record(record_bytes)?;
-        let proof = DeploymentProof::decode(proof_bytes).map_err(|error| UnitDefect::Corrupt {
-            part: UnitPart::Proof,
-            reason: error.to_string(),
-        })?;
-        Self::pair(record, proof)
-    }
-
-    fn frames(&self) -> Result<(Vec<u8>, Vec<u8>, [u8; SEAL_BYTES]), String> {
-        let record = self.record.canonical_encoding();
-        let proof = self
-            .proof
-            .canonical_encoding()
-            .map_err(|error| error.to_string())?;
-        let mut record_frame = Vec::with_capacity(ENVELOPE_DOMAIN.len() + 4 + record.len());
-        record_frame.extend_from_slice(ENVELOPE_DOMAIN);
-        put_frame(&mut record_frame, &record);
-        let mut proof_frame = Vec::with_capacity(4 + proof.len());
-        put_frame(&mut proof_frame, &proof);
-        let mut seal = Sha256::new();
-        seal.update(&record_frame);
-        seal.update(&proof_frame);
-        Ok((record_frame, proof_frame, seal.finalize().into()))
-    }
-}
-
-fn put_frame(bytes: &mut Vec<u8>, frame: &[u8]) {
-    bytes.extend_from_slice(&u32::try_from(frame.len()).unwrap_or(u32::MAX).to_be_bytes());
-    bytes.extend_from_slice(frame);
-}
-
-fn take_frame<'a>(bytes: &'a [u8], cursor: &mut usize) -> Option<&'a [u8]> {
-    let start = cursor.checked_add(4)?;
-    let prefix: [u8; 4] = bytes.get(*cursor..start)?.try_into().ok()?;
-    let length = usize::try_from(u32::from_be_bytes(prefix)).ok()?;
-    let end = start.checked_add(length)?;
-    let frame = bytes.get(start..end)?;
-    *cursor = end;
-    Some(frame)
-}
-
-fn sealed_frames(bytes: &[u8]) -> Result<(&[u8], &[u8]), UnitDefect> {
-    let domain = bytes.get(..ENVELOPE_DOMAIN.len()).unwrap_or(bytes);
-    if !ENVELOPE_DOMAIN.starts_with(domain) {
-        return Err(UnitDefect::Corrupt {
-            part: UnitPart::Record,
-            reason: "the envelope carries a foreign domain".to_owned(),
-        });
-    }
-    if domain.len() < ENVELOPE_DOMAIN.len() {
-        return Err(UnitDefect::Missing(UnitPart::Record));
-    }
-    let mut cursor = ENVELOPE_DOMAIN.len();
-    let record = take_frame(bytes, &mut cursor).ok_or(UnitDefect::Missing(UnitPart::Record))?;
-    let proof = take_frame(bytes, &mut cursor).ok_or(UnitDefect::Missing(UnitPart::Proof))?;
-    let sealed = cursor;
-    let seal = bytes
-        .get(sealed..sealed.saturating_add(SEAL_BYTES))
-        .filter(|seal| seal.len() == SEAL_BYTES)
-        .ok_or(UnitDefect::Missing(UnitPart::Seal))?;
-    if sealed.saturating_add(SEAL_BYTES) != bytes.len() {
-        return Err(UnitDefect::Corrupt {
-            part: UnitPart::Seal,
-            reason: "the envelope carries bytes after its seal".to_owned(),
-        });
-    }
-    let expected: [u8; SEAL_BYTES] = Sha256::digest(&bytes[..sealed]).into();
-    if seal != expected {
-        return Err(UnitDefect::Corrupt {
-            part: UnitPart::Seal,
-            reason: "the seal does not cover the record and proof".to_owned(),
-        });
-    }
-    Ok((record, proof))
-}
-
-fn decode_record(bytes: &[u8]) -> Result<DeploymentRecord, UnitDefect> {
-    let record = DeploymentRecord::decode(bytes).map_err(|error| UnitDefect::Corrupt {
-        part: UnitPart::Record,
-        reason: error.to_string(),
-    })?;
-    record.validate().map_err(|error| UnitDefect::Corrupt {
-        part: UnitPart::Record,
-        reason: error.to_string(),
-    })?;
-    Ok(record)
-}
-
-/// One half of a commit unit, its seal, or the commit that publishes it.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum UnitPart {
-    Record,
-    Proof,
-    Seal,
-    Commit,
-}
-
-impl Display for UnitPart {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(match self {
-            Self::Record => "deployment record",
-            Self::Proof => "admission proof",
-            Self::Seal => "seal",
-            Self::Commit => "commit",
-        })
-    }
-}
-
-/// Why one unit was set aside instead of loaded. Every variant names what the
-/// unit is missing or which part failed.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum UnitDefect {
-    /// Publication stopped before the unit was committed; the interrupted
-    /// attempt ends before this part.
-    Interrupted(UnitPart),
-    /// A committed unit ends before this part.
-    Missing(UnitPart),
-    /// A committed part does not decode.
-    Corrupt { part: UnitPart, reason: String },
-    /// The proof names a different receipt digest than the file it is filed
-    /// under.
-    Misfiled { claimed: [u8; 32] },
-    /// A unit file could not be read.
-    Unreadable(String),
-}
-
-impl Display for UnitDefect {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Interrupted(part) => {
-                write!(formatter, "publication was interrupted before its {part}")
-            }
-            Self::Missing(part) => write!(formatter, "the committed unit has no {part}"),
-            Self::Corrupt { part, reason } => {
-                write!(formatter, "its {part} does not decode: {reason}")
-            }
-            Self::Misfiled { claimed } => write!(
-                formatter,
-                "its proof is filed under a different receipt digest {}",
-                hex::encode(claimed)
-            ),
-            Self::Unreadable(reason) => write!(formatter, "it could not be read: {reason}"),
-        }
-    }
-}
+use layerx_programs::deployment_envelope::{decode_record, sealed_frames};
+pub use layerx_programs::deployment_envelope::{DeploymentEnvelope, UnitDefect, UnitPart};
 
 /// One unit the journal quarantined at load, with the files that belong to it
 /// and the typed reason it is incomplete.
@@ -410,8 +179,9 @@ impl FileDeploymentJournal {
             .chain_trust
             .as_ref()
             .ok_or("deployment journal requires a persisted chain trust root")?;
-        let (evidence, _) =
+        let (evidence, admission, _) =
             verify_chain_deployment_package(trust_root, proof, *max_age_ms, Some(now_ms))?;
+        self.append(&admission)?;
         let digest: [u8; 32] = Sha256::digest(proof).into();
         let directory = self.root.join("chain-proofs");
         fs::DirBuilder::new()
@@ -486,6 +256,26 @@ impl FileDeploymentJournal {
             classify_unit(digest, &unit, &mut loaded);
         }
         Ok(loaded)
+    }
+
+    /// Replays complete units in authenticated deployment order, never digest order.
+    pub fn replay_deployments(
+        &self,
+        source: &crate::NodeProgramStateSource,
+        now: u64,
+    ) -> Result<(Vec<VerifiedDeploymentEvidence>, Vec<QuarantinedUnit>), String> {
+        let loaded = self.load()?;
+        let mut evidence = loaded
+            .units
+            .iter()
+            .map(|unit| source.verify_stored_deployment(unit.proof(), now))
+            .collect::<Result<Vec<_>, _>>()?;
+        evidence.sort_by_key(|entry| (entry.record().sequence, entry.program(), entry.version()));
+        for entry in &evidence {
+            self.audit_projection(entry)?;
+            self.export_pair(entry)?;
+        }
+        Ok((evidence, loaded.quarantined))
     }
 
     /// Reads every untrusted protocol proof for cryptographic replay by the
@@ -968,9 +758,7 @@ fn protected_replace(path: &Path, bytes: &[u8]) -> Result<(), String> {
 #[derive(serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ChainDeploymentPackage {
-    commitment: Vec<u8>,
-    code: Vec<u8>,
-    interface: Option<Vec<u8>>,
+    admission: Vec<u8>,
 }
 
 pub(crate) fn persisted_chain_trust(
@@ -1027,6 +815,7 @@ fn verify_chain_deployment_package(
 ) -> Result<
     (
         layerx_programs::chain_evidence::deployment::VerifiedDeploymentEvidence,
+        VerifiedDeploymentEvidence,
         [u8; 32],
     ),
     String,
@@ -1037,11 +826,9 @@ fn verify_chain_deployment_package(
     let (root, verifier) = persisted_chain_trust(path, max_age_ms)?;
     let package: ChainDeploymentPackage = serde_json::from_slice(bytes)
         .map_err(|error| format!("chain deployment package is invalid: {error}"))?;
-    if package.code.len() > 32 * 1024 * 1024 {
-        return Err("deployed module exceeds its bounds".into());
-    }
-    let commitment = decode_commitment_proof(&package.commitment)
-        .map_err(|error| format!("chain deployment commitment is invalid: {error:?}"))?;
+    let admission = DeploymentProof::decode(&package.admission)
+        .map_err(|error| format!("chain deployment admission is invalid: {error}"))?;
+    let commitment = &admission.state.commitment;
     let header = ChainHeader::decode(&commitment.signed_header)
         .map_err(|error| format!("chain deployment header is invalid: {error:?}"))?;
     let commit = decode_chain_commit(&commitment.commit)
@@ -1071,38 +858,15 @@ fn verify_chain_deployment_package(
     if commitment.store_name != HOST_STORE_NAME {
         return Err("deployment proof must use the lxphost store".into());
     }
-    let prefix = layerx_programs::chain_evidence::programs_state_key(b"program\0");
-    let program_bytes = commitment
-        .key
-        .strip_prefix(prefix.as_slice())
-        .and_then(|bytes| <[u8; 32]>::try_from(bytes).ok())
-        .ok_or("deployment proof must address a Programs record")?;
-    let program =
-        layerx_programs::ProgramId::new(program_bytes).map_err(|error| error.to_string())?;
-    let value = commitment
-        .value
-        .as_deref()
-        .ok_or("deployment proof has no program record")?;
-    layerx_programs::chain_proof::state::verify_state(
-        &head,
-        &commitment.store_name,
-        &commitment.key,
-        value,
-        &commitment.proof_ops,
-    )
-    .map_err(|error| format!("chain deployment state verification refused: {error:?}"))?;
-    let proof = ChainDeploymentProof {
-        program_state: ChainProgramStateProof {
-            program,
-            ops: commitment.proof_ops,
-        },
-        code: package.code,
-        interface: package.interface,
-    };
-    let evidence = proof
+    let observation = now_ms.ok_or("chain deployment verification needs an observation time")?;
+    let verified = verifier
+        .verify_deployment(&admission, observation)
+        .map_err(|error| format!("chain deployment execution verification refused: {error}"))?;
+    let evidence = admission
+        .deployment
         .verify(&head)
         .map_err(|error| format!("chain deployment proof verification refused: {error}"))?;
-    Ok((evidence, head.header_hash()))
+    Ok((evidence, verified, head.header_hash()))
 }
 
 fn decode_chain_commit(bytes: &[u8]) -> Result<Commit, ChainProofError> {

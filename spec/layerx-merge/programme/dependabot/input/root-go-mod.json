@@ -1,0 +1,38 @@
+{
+ "slug": "root-go-mod",
+ "manifests": [
+  "go.mod"
+ ],
+ "alerts": [
+  {
+   "ghsa": "GHSA-mjcv-p78q-w5fw",
+   "number": 4697,
+   "package": "github.com/moby/sys/user",
+   "ecosystem": "go",
+   "manifest": "go.mod",
+   "severity": "medium",
+   "range": "<= 0.4.0",
+   "patched": "0.4.1"
+  },
+  {
+   "ghsa": "GHSA-9f3f-wv7r-qc8r",
+   "number": 827,
+   "package": "github.com/pion/dtls/v2",
+   "ecosystem": "go",
+   "manifest": "go.mod",
+   "severity": "medium",
+   "range": "<= 2.2.12",
+   "patched": null
+  },
+  {
+   "ghsa": "GHSA-34rh-wp3j-6cxc",
+   "number": 859,
+   "package": "github.com/pion/stun/v2",
+   "ecosystem": "go",
+   "manifest": "go.mod",
+   "severity": "medium",
+   "range": "<= 2.0.0",
+   "patched": null
+  }
+ ]
+}

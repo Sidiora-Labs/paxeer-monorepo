@@ -1,0 +1,53 @@
+[disposition.18.1485.1.1]
+finding = "18.1485.1.1"
+status = "resolved"
+evidence = "Commit fc892032f added the explicit ConstructMethod::ProgramCall refusal arm retained in bound_activity at services/human/crates/layerx-human-service/src/agents/create.rs:745, removing the reported non-exhaustive match."
+follow_up = "closure"
+
+[disposition.18.1487.1.1]
+finding = "18.1487.1.1"
+status = "resolved"
+evidence = "Commit 2ddf941d9 regenerated the SDK outputs and resealed the agent-api and generator digests in sdk/platform/pipeline.kvx, with subsequent regeneration through e66c4965e retaining the current source digest at sdk/platform/pipeline.kvx:8 and generator digest at sdk/platform/pipeline.kvx:20."
+follow_up = "closure"
+
+[disposition.18.1471.1.1]
+finding = "18.1471.1.1"
+status = "superseded"
+evidence = "Commit 24e7e1ab7 removed TestBringUpAnchorGenesisValidates with the retired script-driven anchor bring-up surface, and modules/layerxanchor/bringup_genesis_test.go:12 now exercises retained genesis validation directly without invoking the deleted script."
+follow_up = "closure"
+
+[disposition.18.1487.1.2]
+finding = "18.1487.1.2"
+status = "resolved"
+evidence = "Commit 2ddf941d9 removed the obsolete execution_v5_profile_must_admit_exactly_the_third_to_fifth_guest_abis test and published the regenerated web and JVM outputs, while sdk/platform/generators/tests/drift.rs:732 now excludes retired transport entries and asserts that faucet.claim stays outside the served catalogue."
+follow_up = "closure"
+
+[disposition.18.1471.1.3]
+finding = "18.1471.1.3"
+status = "resolved"
+evidence = "Commit 24e7e1ab7 replaced the removed checkpoint-vector dependency in TestBondReturn, TestBondReturnClosedChallenges and TestBondReturnRollback with importBondReturnCheckpoint at modules/layerxanchor/keeper/bond_return_test.go:46, which constructs and imports the checkpoint from the suite's guarantors."
+follow_up = "closure"
+
+[disposition.18.1471.1.4]
+finding = "18.1471.1.4"
+status = "resolved"
+evidence = "Commit 24e7e1ab7 replaced the removed-vector reads in anchorRetirementWrites with locally constructed arguments at precompiles/layerxanchor/retire_gate_test.go:20 and introduced importRetirementCheckpoint at precompiles/layerxanchor/retire_gate_test.go:92 for retained checkpoint-dependent assertions."
+follow_up = "closure"
+
+[disposition.18.1496.1.1]
+finding = "18.1496.1.1"
+status = "resolved"
+evidence = "Commit e8556430a changed the insufficient-bond probe to subtract one bank unit at precompiles/layerxchains/layerxchains_test.go:165 and added a separate one-wei-short probe at precompiles/layerxchains/layerxchains_test.go:176 that asserts the wei-remainder refusal."
+follow_up = "closure"
+
+[disposition.18.1502.1.1]
+finding = "18.1502.1.1"
+status = "resolved"
+evidence = "Commit 839aba41d made the MaxGasWanted admission check conditional on a positive bound at node/sequencer/limits.go:53 and supplied explicit MaxGasWanted bounds in the RPC consensus fixtures at rpc/setup_test.go:421, so an unset value no longer rejects every transaction."
+follow_up = "closure"
+
+[disposition.18.1502.1.2]
+finding = "18.1502.1.2"
+status = "resolved"
+evidence = "Commit f7d25df24 made pendingSnapshot wait for an open block before committed-state fallback at rpc/watermark_manager.go:117, updated the post-Seal pending-height assertions at rpc/pending_state_test.go:184 and supplied sufficient fixture byte capacity for subscription overflow at rpc/resolution_pending_test.go:379."
+follow_up = "closure"

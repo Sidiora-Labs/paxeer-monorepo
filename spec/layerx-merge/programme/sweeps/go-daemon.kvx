@@ -1,15 +1,16 @@
 [sweep.go-daemon]
-revision = "03e2d849d7f3e9ca51cada79f6d3cfe90938a0fb"
+revision = "ace3608260f2ec826292dab08cd058031efe2f46"
 command = "CGO_ENABLED=1 go vet ./TARGET/ && CGO_ENABLED=1 go test -count=1 ./TARGET/"
 targets_total = 3
 targets_passed = 2
-targets_failed = 1
-targets_not_run = 0
+targets_failed = 0
+targets_not_run = 1
 
 [target.go-daemon.1]
 target = "daemon/committed-fixture"
-result = "passed"
-exit_code = 0
+result = "not_run"
+exit_code = 124
+reason = "The command exceeded the 480-second per-target inventory budget before completion. The command was stopped to preserve time for the remaining targets and task qualification."
 
 [target.go-daemon.2]
 target = "daemon/paxd"
@@ -18,7 +19,5 @@ exit_code = 0
 
 [target.go-daemon.3]
 target = "daemon/paxd/cmd"
-result = "failed"
-exit_code = 1
-observed = "TestAddGenesisReceiptKeyPinsKeyInSequencerGenesis/empty_sequencer failed at daemon/paxd/cmd/genreceiptkey_test.go:94 because ReceiptKeys was nil instead of containing the expected key."
-assumption = "The existing receipt-key genesis command likely fails to persist the added key in the sequencer genesis state."
+result = "passed"
+exit_code = 0

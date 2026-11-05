@@ -1,26 +1,17 @@
+#[path = "support/repair_22_33_44_approval.rs"]
+mod durable_approval;
+
 #[path = "retired_crypto_codec_2.rs"]
 mod retired_crypto_codec_2;
 
 use layerx_human_test_support as support;
 
-use std::fmt::Write as _;
-
 use ed25519_dalek::SigningKey;
-use layerx_agent_api::identity::{
-    ActivityType as ApiActivityType, AgentDid, Asset, AuthorityRef, ExplicitSet,
+use layerx_agentd::approval::ApprovalService;
+use layerx_agentd::prepare::evm::{
+    prepare_bound, EvmPreparationState, PrecompileCall, PreparationDefaults, PrepareRequest,
+    Prepared,
 };
-use layerx_agent_api::prepare::{
-    CanonicalBytes, DisclosedAmount as ApiDisclosedAmount, Disclosure as ApiDisclosure,
-    IdempotencyRef, PreparationRef, Prepared as ApiPrepared, SigningPreimage,
-};
-use layerx_agent_api::{Amount as ApiAmount, TimestampSeconds as ApiTimestamp};
-use layerx_agentd::capability::CapabilityId;
-use layerx_agentd::policy::approval::{hold, ApprovalContext, ApprovalRegistry};
-use layerx_agentd::prepare::{
-    prepare_activity, CorePreparationBoundary, CorePreparationState, CoreStateError,
-    PreparationDefaults, PrepareRequest, Prepared,
-};
-use layerx_agentd::session::SessionId;
 use layerx_agentd::store::TenantId;
 use layerx_human_service::approvals::{
     ApprovalActivityClass, ApprovalPresentation, DisclosureRenderError, DisclosureRenderer,
@@ -28,9 +19,8 @@ use layerx_human_service::approvals::{
 };
 use layerx_intents::{compile, Intent, IntentKind, LxpSend};
 use layerx_types::account::AccountId;
-use layerx_types::activity::{Authority, TimestampBound};
 use layerx_types::amount::Amount;
-use layerx_types::ids::{AssetId, Did, IdempotencyKey};
+use layerx_types::ids::{AssetId, IdempotencyKey};
 use layerx_types::intent::{
     AuthorizationSignature, ContextHash, NetworkId, ProtocolVersion, PublicKey, SendAuthorization,
     SendAuthorizationKind, Sequence, TimestampSeconds,
@@ -42,16 +32,7 @@ use sha2::{Digest as _, Sha256};
 
 const NETWORK_ID: u32 = 77;
 const ACCOUNT_SEQUENCE: u64 = 7;
-const ENVELOPE_EXPIRY: u64 = 1_000;
 const CATALOG: &str = include_str!("../../../../../apps/web/copy/catalog.ts");
-
-struct RecordedCore(CorePreparationState);
-
-impl CorePreparationBoundary for RecordedCore {
-    fn preparation_state(&mut self, _actor: &Did) -> Result<CorePreparationState, CoreStateError> {
-        Ok(self.0.clone())
-    }
-}
 
 fn activity(module: ModuleId, ordinal: u16) -> ActivityType {
     ActivityType::new(module, ordinal)
@@ -62,10 +43,6 @@ fn registry() -> ModuleRegistry {
     let asset = ModuleRegistration::new(ModuleId::Asset, &[activity(ModuleId::Asset, 5)])
         .unwrap_or_else(|error| panic!("asset registry: {error:?}"));
     ModuleRegistry::new(&[asset]).unwrap_or_else(|error| panic!("module registry: {error:?}"))
-}
-
-fn actor() -> Did {
-    Did::new(b"did:layerx:approval-render").unwrap_or_else(|error| panic!("actor DID: {error:?}"))
 }
 
 fn account(value: &str) -> AccountId {
@@ -103,7 +80,7 @@ fn send_intent(recipient_marker: u64, amount: u128, asset: [u8; 32], key: [u8; 3
         amount,
         source_sequence: ACCOUNT_SEQUENCE,
         idempotency_key: key,
-        expires_at: 900,
+        expires_at: durable_approval::activity_expiry(),
         context_hash: [0x55; 32],
         conditions: Vec::new(),
         authorization_kind: SendAuthorizationKind::Owner as u8,
@@ -118,7 +95,7 @@ fn send_intent(recipient_marker: u64, amount: u128, asset: [u8; 32], key: [u8; 3
         Amount::from_u128(amount),
         Sequence::from_u64(ACCOUNT_SEQUENCE),
         IdempotencyKey::new(key),
-        TimestampSeconds::from_u64(900),
+        TimestampSeconds::from_u64(durable_approval::activity_expiry()),
         ContextHash::new([0x55; 32]),
         support::sign_send(
             &signer,
@@ -138,102 +115,74 @@ fn send_intent(recipient_marker: u64, amount: u128, asset: [u8; 32], key: [u8; 3
 }
 
 fn prepare(intent: &Intent, key: [u8; 32], fee_limit: u128) -> Prepared {
-    let key = nonzero_key(key);
-    let registry = registry();
-    let compiled =
-        compile(intent, &registry).unwrap_or_else(|error| panic!("compile intent: {error:?}"));
-    let mut core = RecordedCore(CorePreparationState {
-        network_id: NETWORK_ID,
-        account_sequence: ACCOUNT_SEQUENCE,
-        protocol_timestamp: 100,
-        observed_head_sequence: 91,
-        module_registry: registry,
-    });
-    prepare_activity(
-        &mut core,
+    let compiled = compile(intent, &registry()).expect("compile real transfer intent");
+    let signing_key = k256::ecdsa::SigningKey::from_slice(&[0x71; 32]).expect("EVM sender key");
+    let from = layerx_crypto::secp256k1::evm_address(
+        signing_key
+            .verifying_key()
+            .to_encoded_point(false)
+            .as_bytes(),
+    )
+    .expect("sender address");
+    let prepared = prepare_bound(
+        EvmPreparationState {
+            chain_id: 125,
+            pending_nonce: ACCOUNT_SEQUENCE,
+            base_fee_per_gas: 0,
+            head_height: 91,
+        },
         PreparationDefaults {
-            timestamp_span: ENVELOPE_EXPIRY - 90,
-            fee_limit: Amount::from_u128(fee_limit),
+            max_priority_fee_per_gas: 0,
+            max_fee_per_gas: fee_limit,
             maximum_payload_bytes: 1_024,
         },
         PrepareRequest {
-            actor: actor(),
-            authority: Authority::owner(b"approval-render-owner")
-                .unwrap_or_else(|error| panic!("authority: {error:?}")),
-            activity_type: compiled.activity_type(),
-            expected_account_sequence: Some(ACCOUNT_SEQUENCE),
-            timestamp_bound: Some(
-                TimestampBound::new(90, ENVELOPE_EXPIRY)
-                    .unwrap_or_else(|error| panic!("timestamp bound: {error:?}")),
-            ),
-            fee_limit: Some(Amount::from_u128(fee_limit)),
-            idempotency_key: IdempotencyKey::new(key),
-            payload: compiled.payload().as_bytes().to_vec(),
+            from,
+            call: PrecompileCall::ledger_transfer(compiled.payload().as_bytes().to_vec()),
+            expected_nonce: Some(ACCOUNT_SEQUENCE),
+            max_priority_fee_per_gas: None,
+            max_fee_per_gas: None,
             declared_payload_limit: 1_024,
         },
+        100_000,
     )
-    .unwrap_or_else(|error| panic!("real agent preparation: {error:?}"))
+    .expect("real EVM prepare and disclosure");
+    assert_eq!(prepared.disclosure.idempotency_key, nonzero_key(key));
+    prepared
 }
 
 fn held_digest(prepared: &Prepared, marker: u8) -> [u8; 32] {
-    let digest: [u8; 32] = Sha256::digest(&prepared.canonical_bytes).into();
-    let counterparties = prepared
-        .disclosure
-        .counterparties
-        .iter()
-        .map(|counterparty| {
-            AgentDid::new(hex(&counterparty.account))
-                .unwrap_or_else(|error| panic!("counterparty: {error:?}"))
-        })
-        .collect::<Vec<_>>();
-    let amounts = prepared
-        .disclosure
-        .amounts
-        .iter()
-        .zip(counterparties.iter().cycle())
-        .map(|(amount, counterparty)| ApiDisclosedAmount {
-            counterparty: counterparty.clone(),
-            amount: ApiAmount(amount.value),
-        })
-        .collect::<Vec<_>>();
-    let api_prepared = ApiPrepared {
-        preparation_ref: PreparationRef::new(format!("approval-render-{marker}"))
-            .unwrap_or_else(|error| panic!("preparation ref: {error:?}")),
-        unsigned_canonical_bytes: CanonicalBytes::new(prepared.canonical_bytes.clone())
-            .unwrap_or_else(|error| panic!("canonical bytes: {error:?}")),
-        signing_preimage: SigningPreimage::new(prepared.signing_preimage.to_vec())
-            .unwrap_or_else(|error| panic!("signing preimage: {error:?}")),
-        disclosure: ApiDisclosure {
-            canonical_digest: digest,
-            activity_type: ApiActivityType(prepared.disclosure.activity_type.ordinal()),
-            actor: AgentDid::new("did:layerx:approval-render")
-                .unwrap_or_else(|error| panic!("API actor: {error:?}")),
-            authority: AuthorityRef::new("approval-render-owner")
-                .unwrap_or_else(|error| panic!("authority ref: {error:?}")),
-            counterparties: ExplicitSet::allow(counterparties),
-            amounts: ExplicitSet::allow(amounts),
-            asset: Asset::new(hex(&prepared.disclosure.asset))
-                .unwrap_or_else(|error| panic!("asset: {error:?}")),
-            fee_limit: ApiAmount(prepared.disclosure.fee_limit),
-            expiry: ApiTimestamp(ENVELOPE_EXPIRY),
-            idempotency_key: IdempotencyRef::new(format!("approval-render-key-{marker}"))
-                .unwrap_or_else(|error| panic!("idempotency ref: {error:?}")),
-        },
-        expiry: ApiTimestamp(ENVELOPE_EXPIRY),
-    };
-    let registry = ApprovalRegistry::default();
-    let context = ApprovalContext {
-        tenant: TenantId::new("tenant-approval-render")
-            .unwrap_or_else(|error| panic!("tenant: {error}")),
-        agent: actor(),
-        session: SessionId([0x81; 32]),
-        capability: CapabilityId([0x82; 32]),
-        policy_version: "approval-render-v1".to_owned(),
-        request_id: [marker; 32],
-    };
-    hold(&registry, context, api_prepared, 100, 900)
-        .unwrap_or_else(|error| panic!("real agent approval hold: {error:?}"))
-        .disclosure_digest
+    let root = support::directory("render-durable-approval");
+    let tenant = TenantId::new("tenant-approval-render").expect("tenant");
+    let clock = durable_approval::clock();
+    let (registry, limiter, expiry) = durable_approval::register_and_reopen(
+        &root.join("registry"),
+        &tenant,
+        prepared,
+        marker,
+        100,
+        899,
+        clock.as_ref(),
+    );
+    let record = ApprovalService::new(&registry, &limiter, &expiry)
+        .get(
+            &tenant,
+            [marker; 32],
+            101,
+            durable_approval::current_time(clock.as_ref()),
+        )
+        .expect("production approval presentation");
+    let digest = record.canonical_bytes_digest;
+    assert_eq!(
+        digest,
+        durable_approval::preparation(prepared)
+            .disclosure
+            .canonical_digest
+    );
+    drop(expiry);
+    drop(registry);
+    std::fs::remove_dir_all(root).expect("cleanup approval store");
+    digest
 }
 
 fn verified_budget(remaining: u128, observed_at_sequence: u64) -> VerifiedBudgetAfter {
@@ -287,14 +236,6 @@ fn rendered(
             panic!("known class was unrenderable: {value:?}")
         }
     }
-}
-
-fn hex(bytes: &[u8]) -> String {
-    let mut output = String::with_capacity(bytes.len().saturating_mul(2));
-    for byte in bytes {
-        let _ = write!(output, "{byte:02x}");
-    }
-    output
 }
 
 #[test]
@@ -356,6 +297,21 @@ fn mismatched_digest_and_unverified_budget_are_refused_before_content() {
     let digest = held_digest(&prepared, 7);
     let mut budget = verified_budget(990, 107);
     budget.rung = Rung::Submitted;
+    let presentation = DisclosureRenderer::render(&prepared.disclosure, digest, budget)
+        .expect("Submitted budget with evidence renders its unverified context");
+    assert!(!presentation.can_approve());
+    let ApprovalPresentation::Rendered(value) = presentation else {
+        panic!("known activity with budget evidence must render");
+    };
+    assert_eq!(value.budget_after.rung, Rung::Submitted);
+    assert_eq!(value.budget_after, budget);
+    budget.evidence_digest = [0; 32];
+    let mut mismatched_digest = digest;
+    mismatched_digest[0] ^= 1;
+    assert_eq!(
+        DisclosureRenderer::render(&prepared.disclosure, mismatched_digest, budget),
+        Err(DisclosureRenderError::DigestMismatch)
+    );
     assert_eq!(
         DisclosureRenderer::render(&prepared.disclosure, digest, budget),
         Err(DisclosureRenderError::UnverifiedBudget)

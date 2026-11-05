@@ -1,7 +1,8 @@
 use crate::errors::ApplicationError;
 use layerx_program_sdk::ProgramError;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum AdapterError {
     Application(ApplicationError),
     Host(ProgramError),
@@ -54,6 +55,7 @@ mod wasm {
     }
 
     impl DirectCall {
+        #[cfg_attr(target_arch = "wasm32", inline(never))]
         pub fn read_context() -> AdapterResult<Self> {
             if Context::immediate_caller()?.is_some() {
                 return Err(UNAUTHORIZED.into());
@@ -102,6 +104,7 @@ mod wasm {
             codec::compare_native_principal(envelope, self.principal)?;
             Ok(())
         }
+        #[cfg_attr(target_arch = "wasm32", inline(never))]
         pub fn read_state<'a>(
             &self,
             output: &'a mut [u8],

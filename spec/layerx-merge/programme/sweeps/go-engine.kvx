@@ -1,9 +1,9 @@
 [sweep.go-engine]
-revision = "03e2d849d7f3e9ca51cada79f6d3cfe90938a0fb"
+revision = "ace3608260f2ec826292dab08cd058031efe2f46"
 command = "CGO_ENABLED=1 go vet ./TARGET/ && CGO_ENABLED=1 go test -count=1 ./TARGET/"
 targets_total = 27
-targets_passed = 25
-targets_failed = 2
+targets_passed = 27
+targets_failed = 0
 targets_not_run = 0
 
 [target.go-engine.1]
@@ -58,10 +58,8 @@ exit_code = 0
 
 [target.go-engine.11]
 target = "engine/deps/xbank/keeper"
-result = "failed"
-exit_code = 1
-observed = "engine/deps/xbank/keeper/keeper_test.go:156 (TestKeeperTestSuite/TestSendCoinsAndWei) reports a sender balance of 100 instead of the expected 50 after SendCoinsAndWei."
-assumption = "The transfer path and the test expectation of an immediately updated sender balance appear inconsistent at this revision."
+result = "passed"
+exit_code = 0
 
 [target.go-engine.12]
 target = "engine/deps/xbank/types"
@@ -125,10 +123,8 @@ exit_code = 0
 
 [target.go-engine.24]
 target = "engine/executor/precompiles"
-result = "failed"
-exit_code = 1
-observed = "engine/executor/precompiles/merge_table_test.go:13 (TestMergeAddressTableIsFailFast) expects 12 fail-fast address entries but finds 13."
-assumption = "The expected table length appears stale after the addition of the layerxchains entry at address 0x101e."
+result = "passed"
+exit_code = 0
 
 [target.go-engine.25]
 target = "engine/executor/utils"

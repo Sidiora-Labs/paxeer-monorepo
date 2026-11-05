@@ -19,10 +19,7 @@ defmodule Indexer.Fetcher.Scroll.BridgeL1 do
 
   require Logger
 
-  import Ecto.Query
-
-  alias Explorer.Chain.Scroll.{Bridge, Reader}
-  alias Explorer.Repo
+  alias Explorer.Chain.Scroll.Reader
   alias Indexer.Fetcher.RollupL1ReorgMonitor
   alias Indexer.Fetcher.Scroll.Bridge, as: BridgeFetcher
   alias Indexer.Fetcher.Scroll.Helper, as: ScrollHelper
@@ -88,7 +85,9 @@ defmodule Indexer.Fetcher.Scroll.BridgeL1 do
          # here we check for the last known L1 transaction existence to make sure there wasn't reorg
          # on L1 while the instance was down, and so we can use `last_l1_block_number` as the starting point
          {:l1_transaction_not_found, false} <-
-           {:l1_transaction_not_found, !is_nil(last_l1_transaction_hash) && is_nil(last_l1_transaction)} do
+           {:l1_transaction_not_found, !is_nil(last_l1_transaction_hash) && is_nil(last_l1_transaction)},
+         {:ok, replay_start_block} <-
+           BridgeFetcher.recover_relays(__MODULE__, json_rpc_named_arguments, max(start_block, last_l1_block_number)) do
       Process.send(self(), :continue, [])
 
       {:noreply,
@@ -97,7 +96,7 @@ defmodule Indexer.Fetcher.Scroll.BridgeL1 do
          messenger_contract: env[:messenger_contract],
          json_rpc_named_arguments: json_rpc_named_arguments,
          end_block: safe_block,
-         start_block: max(start_block, last_l1_block_number)
+         start_block: replay_start_block
        }}
     else
       {:start_block_undefined, true} ->
@@ -154,11 +153,8 @@ defmodule Indexer.Fetcher.Scroll.BridgeL1 do
     Handles L1 block reorg: removes all Deposit rows from the `scroll_bridge` table
     created beginning from the reorged block.
 
-    We only store block number for the initiating transaction of the L1->L2 or L2->L1 message,
-    so the `block_number` column doesn't contain L2 block numbers for messages initiated on L1 layer (i.e. for Deposits),
-    and that doesn't contain L1 block numbers for messages initiated on L2 layer (i.e. for Withdrawals).
-    This is the reason why we can only remove rows for Deposit operations from the `scroll_bridge` table
-    when a reorg happens on L1 layer.
+    Clears completion evidence for messages relayed in reorged blocks and
+    persists the rewind position for replay after a restart.
 
     ## Parameters
     - `reorg_block`: The block number where reorg has occurred.
@@ -168,8 +164,7 @@ defmodule Indexer.Fetcher.Scroll.BridgeL1 do
   """
   @spec reorg_handle(non_neg_integer()) :: any()
   def reorg_handle(reorg_block) do
-    {deleted_count, _} =
-      Repo.delete_all(from(b in Bridge, where: b.type == :deposit and b.block_number >= ^reorg_block))
+    deleted_count = BridgeFetcher.rewind(__MODULE__, reorg_block)
 
     if deleted_count > 0 do
       Logger.warning(

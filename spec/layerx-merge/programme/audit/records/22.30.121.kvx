@@ -1,0 +1,1209 @@
+[audit.22.30.121]
+task = "22.30.121"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 119
+findings = 41
+docs_reviewed = 13
+upgrade_ready = false
+blocking = ["quote-asset", "value-frozen", "call-response", "simulation-response", "abi-v5-authority", "executor-payer-replay"]
+
+[file.001]
+path = "modules/sequencer/keeper/ics23_market_namespaces_vector_test.go"
+lines = 224
+verdict = "clean"
+note = "Go keeper namespace manifest/blob and multistore proof production matches the Rust arbiter namespace consumer, including keys, app hash and canonical values."
+
+[file.002]
+path = "modules/sequencer/keeper/ics23_module_catalogue_vector_test.go"
+lines = 137
+verdict = "clean"
+note = "Go keeper code-blob/catalogue proofs cross into the Rust consumer with matching module keys, content hashes and multistore root binding."
+
+[file.003]
+path = "modules/sequencer/keeper/ics23_vector_test.go"
+lines = 149
+verdict = "clean"
+note = "Go sequencer key-table IAVL/multistore vectors match ChainCommitProof, including key 0x03 and 80-byte height-keyed receipt entries."
+
+[file.004]
+path = "precompiles/layerxprograms/LayerXPrograms.sol"
+lines = 276
+verdict = "issues"
+note = "Method selectors, inputs, transfer tuples, mutability and event declarations agree with the ABI; named feeAsset/frozen output disagreements with handlers are recorded."
+
+[file.005]
+path = "precompiles/layerxprograms/abi.json"
+lines = 1709
+verdict = "issues"
+note = "All 35 functions and 14 events were read, including field names, widths, tuple components, mutability and indexed fields; named output disagreements are recorded."
+
+[file.006]
+path = "precompiles/layerxprograms/abi_test.go"
+lines = 143
+verdict = "clean"
+note = "Source assertions cover: TestProgramsABIEventTopics, TestProgramsABIKeepsThirtyFiveMethods."
+
+[file.007]
+path = "precompiles/layerxprograms/activation_test.go"
+lines = 141
+verdict = "clean"
+note = "Real node merge-table activation covers the public 0x101D boundary before and after the plan height. This is the live activation path, separate from the unused programsGate helper."
+
+[file.008]
+path = "precompiles/layerxprograms/args.go"
+lines = 77
+verdict = "clean"
+note = "Reviewed declarations and their callers: decodeLegs, decodeBudget, decodeU128, decodeArgs."
+
+[file.009]
+path = "precompiles/layerxprograms/args_test.go"
+lines = 146
+verdict = "clean"
+note = "Source assertions cover: TestDecodeLegsTuple, TestDecodeBudgetAndFeeLimit."
+
+[file.010]
+path = "precompiles/layerxprograms/bank_parity_test.go"
+lines = 121
+verdict = "issues"
+note = "Source assertions cover: TestProgramsValueAccountMatchesBankBalance."
+
+[file.011]
+path = "precompiles/layerxprograms/conservation_test.go"
+lines = 329
+verdict = "clean"
+note = "Source assertions cover: TestProgramsCallsConserveFeeAsset, TestProgramsTransferConservesProgramValue."
+
+[file.012]
+path = "precompiles/layerxprograms/descriptors.go"
+lines = 3
+verdict = "clean"
+note = "Reviewed declarations and their callers: ."
+
+[file.013]
+path = "precompiles/layerxprograms/descriptors_test.go"
+lines = 71
+verdict = "clean"
+note = "Source assertions cover: TestLayerXProgramsDescriptorsLinked."
+
+[file.014]
+path = "precompiles/layerxprograms/determinism_test.go"
+lines = 224
+verdict = "clean"
+note = "Source assertions cover: TestProgramsCallLogsDeterministicAcrossRuns."
+
+[file.015]
+path = "precompiles/layerxprograms/dispatch_test.go"
+lines = 83
+verdict = "clean"
+note = "Source assertions cover: TestProgramsDispatchRefusesDuplicateRegistration, TestProgramsDispatchServesViewsUnderStaticCall."
+
+[file.016]
+path = "precompiles/layerxprograms/errors.go"
+lines = 30
+verdict = "clean"
+note = "Reviewed declarations and their callers: refusalCode, Error, kernelError."
+
+[file.017]
+path = "precompiles/layerxprograms/errors_test.go"
+lines = 94
+verdict = "clean"
+note = "Source assertions cover: TestProgramsKernelCodeRevert, TestProgramsGateRevertCodes."
+
+[file.018]
+path = "precompiles/layerxprograms/events.go"
+lines = 126
+verdict = "issues"
+note = "Reviewed declarations and their callers: programsReceiptLog, receiptEventInvariant, decodeProgramsReceiptEvent, emitReceiptEvents."
+
+[file.019]
+path = "precompiles/layerxprograms/events_call.go"
+lines = 113
+verdict = "clean"
+note = "Reviewed declarations and their callers: emitCallEvents."
+
+[file.020]
+path = "precompiles/layerxprograms/events_call_test.go"
+lines = 202
+verdict = "clean"
+note = "Source assertions cover: TestProgramsGuestEventLogs, TestProgramsCallOutcomeLog."
+
+[file.021]
+path = "precompiles/layerxprograms/events_sandbox.go"
+lines = 118
+verdict = "clean"
+note = "Reviewed declarations and their callers: emitSandboxEvents."
+
+[file.022]
+path = "precompiles/layerxprograms/events_sandbox_test.go"
+lines = 254
+verdict = "clean"
+note = "Source assertions cover: TestProgramsSandboxUsageReceiptLog, TestProgramsSandboxDestroyedAndRetiredLogs."
+
+[file.023]
+path = "precompiles/layerxprograms/events_test.go"
+lines = 243
+verdict = "clean"
+note = "Source assertions cover: TestProgramsLifecycleEventsFromReceipt, TestProgramsWindDownAndAccountEventsFromReceipt."
+
+[file.024]
+path = "precompiles/layerxprograms/export_test.go"
+lines = 61
+verdict = "clean"
+note = "Test-only typed exports and real host/EVM fixtures support the package integration paths."
+
+[file.025]
+path = "precompiles/layerxprograms/fuzz_test.go"
+lines = 183
+verdict = "clean"
+note = "Source assertions cover: FuzzProgramsDecodeArgs."
+
+[file.026]
+path = "precompiles/layerxprograms/gas.go"
+lines = 84
+verdict = "clean"
+note = "Reviewed declarations and their callers: RequiredGas."
+
+[file.027]
+path = "precompiles/layerxprograms/gas_bound_test.go"
+lines = 69
+verdict = "clean"
+note = "Source assertions cover: TestProgramsCallOutOfGasDoesNotSubmit."
+
+[file.028]
+path = "precompiles/layerxprograms/gas_charge_test.go"
+lines = 226
+verdict = "clean"
+note = "Source assertions cover: TestProgramsWriteMethodsChargeGasTable."
+
+[file.029]
+path = "precompiles/layerxprograms/gas_test.go"
+lines = 167
+verdict = "clean"
+note = "Source assertions cover: TestRequiredGasSelectors, TestRequiredGasTable, TestRequiredGasUnknownSelector."
+
+[file.030]
+path = "precompiles/layerxprograms/gate.go"
+lines = 50
+verdict = "issues"
+note = "Reviewed declarations and their callers: UpgradeKeeper, programsGate, checkActive, checkCall."
+
+[file.031]
+path = "precompiles/layerxprograms/gate_test.go"
+lines = 120
+verdict = "issues"
+note = "Source assertions cover: TestProgramsGateRefusesBeforeMergeHeight, TestProgramsGateRefusesValueAndStaticWrites."
+
+[file.032]
+path = "precompiles/layerxprograms/harness_test.go"
+lines = 104
+verdict = "clean"
+note = "Test-only typed exports and real host/EVM fixtures support the package integration paths."
+
+[file.033]
+path = "precompiles/layerxprograms/idempotency.go"
+lines = 56
+verdict = "clean"
+note = "Reviewed declarations and their callers: IdempotencyKey, nextOrdinal."
+
+[file.034]
+path = "precompiles/layerxprograms/idempotency_test.go"
+lines = 127
+verdict = "clean"
+note = "Source assertions cover: TestProgramsIdempotencyKeyDomainSeparated, TestProgramsCallOrdinalPerTransaction."
+
+[file.035]
+path = "precompiles/layerxprograms/layerxprograms.go"
+lines = 98
+verdict = "issues"
+note = "Reviewed declarations and their callers: HostKeepers, NewPrecompile, NewMergePrecompile, init, ProgramTransferred, Address, DecodeProgramTransferred."
+
+[file.036]
+path = "precompiles/layerxprograms/layerxprograms_test.go"
+lines = 141
+verdict = "clean"
+note = "Source assertions cover: TestProgramsMergeConstructorRegistered, TestProgramsExecuteUnknownMethodRefused."
+
+[file.037]
+path = "precompiles/layerxprograms/method_account.go"
+lines = 41
+verdict = "clean"
+note = "Reviewed declarations and their callers: init, registerAccountHandler."
+
+[file.038]
+path = "precompiles/layerxprograms/method_account_test.go"
+lines = 187
+verdict = "clean"
+note = "Source assertions cover: TestProgramsRegisterAccountProfile1, TestProgramsRegisterAccountDuplicateIsIdempotent."
+
+[file.039]
+path = "precompiles/layerxprograms/method_call.go"
+lines = 57
+verdict = "issues"
+note = "Reviewed declarations and their callers: callHandler, init."
+
+[file.040]
+path = "precompiles/layerxprograms/method_call_test.go"
+lines = 259
+verdict = "issues"
+note = "Source assertions cover: TestProgramsCallReturnsTerminalOutcome, TestProgramsCallFeeLimitBelowFeeReverts."
+
+[file.041]
+path = "precompiles/layerxprograms/method_deploy.go"
+lines = 30
+verdict = "clean"
+note = "Reviewed declarations and their callers: init, deployHandler."
+
+[file.042]
+path = "precompiles/layerxprograms/method_deploy_test.go"
+lines = 169
+verdict = "clean"
+note = "Source assertions cover: TestProgramsDeployRegistersProgram, TestProgramsDeployRefusesCodeHashMismatch."
+
+[file.043]
+path = "precompiles/layerxprograms/method_exit.go"
+lines = 56
+verdict = "clean"
+note = "Reviewed declarations and their callers: exitValueHandler, exitValueBoundedHandler, init."
+
+[file.044]
+path = "precompiles/layerxprograms/method_exit_test.go"
+lines = 165
+verdict = "clean"
+note = "Source assertions cover: TestProgramsExitValueDrainsToRoute, TestProgramsExitValueBoundedRefusesBelowBalance."
+
+[file.045]
+path = "precompiles/layerxprograms/method_quote.go"
+lines = 43
+verdict = "issues"
+note = "Reviewed declarations and their callers: init, quoteHandler."
+
+[file.046]
+path = "precompiles/layerxprograms/method_quote_test.go"
+lines = 266
+verdict = "issues"
+note = "Source assertions cover: TestProgramsQuoteCallFeeMatchesKernelCeiling, TestProgramsQuoteBoundsCallFee."
+
+[file.047]
+path = "precompiles/layerxprograms/method_registry.go"
+lines = 27
+verdict = "clean"
+note = "Reviewed declarations and their callers: registryReadHandler, init."
+
+[file.048]
+path = "precompiles/layerxprograms/method_registry_test.go"
+lines = 124
+verdict = "clean"
+note = "Source assertions cover: TestProgramsRegistryReadEmitsEvent, TestProgramsRegistryReadZeroProgramReverts."
+
+[file.049]
+path = "precompiles/layerxprograms/method_retire.go"
+lines = 28
+verdict = "clean"
+note = "Reviewed declarations and their callers: init, retireStorageHandler."
+
+[file.050]
+path = "precompiles/layerxprograms/method_retire_test.go"
+lines = 267
+verdict = "clean"
+note = "Source assertions cover: TestProgramsRetireStorageEmitsStorageRetired, TestProgramsRetireStorageOversizeReverts."
+
+[file.051]
+path = "precompiles/layerxprograms/method_sandbox_activate.go"
+lines = 36
+verdict = "clean"
+note = "Reviewed declarations and their callers: init, sandboxActivateHandler."
+
+[file.052]
+path = "precompiles/layerxprograms/method_sandbox_activate_test.go"
+lines = 261
+verdict = "clean"
+note = "Source assertions cover: TestProgramsSandboxActivateLease, TestProgramsSandboxActivateWrongSequenceReverts."
+
+[file.053]
+path = "precompiles/layerxprograms/method_sandbox_execute.go"
+lines = 46
+verdict = "clean"
+note = "Submits bounded sandbox inputs and emits actual usage events; returns the host terminal frame. Its test has a separate finding for the missing independent response-consumer assertion."
+
+[file.054]
+path = "precompiles/layerxprograms/method_sandbox_execute_test.go"
+lines = 389
+verdict = "issues"
+note = "Source assertions cover: TestProgramsSandboxExecuteEmitsUsage, TestProgramsSandboxExecuteZeroAssetReverts."
+
+[file.055]
+path = "precompiles/layerxprograms/method_sandbox_fund.go"
+lines = 36
+verdict = "clean"
+note = "Reviewed declarations and their callers: sandboxFundHandler, init."
+
+[file.056]
+path = "precompiles/layerxprograms/method_sandbox_fund_test.go"
+lines = 214
+verdict = "clean"
+note = "Source assertions cover: TestProgramsSandboxFundEscrowsLegs, TestProgramsSandboxFundEmptyLeaseRequestReverts."
+
+[file.057]
+path = "precompiles/layerxprograms/method_simulate.go"
+lines = 123
+verdict = "issues"
+note = "Reviewed declarations and their callers: init, simulateHandler, simulationOrdinal."
+
+[file.058]
+path = "precompiles/layerxprograms/method_simulate_test.go"
+lines = 127
+verdict = "issues"
+note = "Source assertions cover: TestProgramsSimulateCallMatchesCallOutput, TestProgramsSimulateCallLeavesStateUnchanged."
+
+[file.059]
+path = "precompiles/layerxprograms/method_tombstone.go"
+lines = 29
+verdict = "clean"
+note = "Reviewed declarations and their callers: tombstoneHandler, init."
+
+[file.060]
+path = "precompiles/layerxprograms/method_tombstone_test.go"
+lines = 162
+verdict = "clean"
+note = "Source assertions cover: TestProgramsTombstoneAfterDeadline, TestProgramsTombstoneNotDeprecatedReverts."
+
+[file.061]
+path = "precompiles/layerxprograms/method_transfer.go"
+lines = 33
+verdict = "clean"
+note = "Reviewed declarations and their callers: init, transferHandler."
+
+[file.062]
+path = "precompiles/layerxprograms/method_transfer_test.go"
+lines = 222
+verdict = "clean"
+note = "Source assertions cover: TestProgramsTransferMovesLegs, TestProgramsTransferOverdraftReverts."
+
+[file.063]
+path = "precompiles/layerxprograms/method_upgrade.go"
+lines = 34
+verdict = "clean"
+note = "Reviewed declarations and their callers: upgradeHandler, init."
+
+[file.064]
+path = "precompiles/layerxprograms/method_upgrade_test.go"
+lines = 158
+verdict = "clean"
+note = "Source assertions cover: TestProgramsUpgradeReplacesCodeHash, TestProgramsUpgradeRefusesStaleOldHash."
+
+[file.065]
+path = "precompiles/layerxprograms/method_winddown.go"
+lines = 44
+verdict = "clean"
+note = "Reviewed declarations and their callers: init, setExitRouteHandler, deprecateHandler."
+
+[file.066]
+path = "precompiles/layerxprograms/method_winddown_test.go"
+lines = 197
+verdict = "clean"
+note = "Source assertions cover: TestProgramsSetExitRouteThenDeprecate, TestProgramsDeprecateByNonOwnerReverts."
+
+[file.067]
+path = "precompiles/layerxprograms/occ_test.go"
+lines = 246
+verdict = "clean"
+note = "Source assertions cover: TestProgramsCallsMatchSequentialUnderParallelExecution."
+
+[file.068]
+path = "precompiles/layerxprograms/payload_accounts.go"
+lines = 63
+verdict = "clean"
+note = "Reviewed declarations and their callers: TransferLeg, EncodeTransferPayload, EncodeAccountPayload."
+
+[file.069]
+path = "precompiles/layerxprograms/payload_accounts_test.go"
+lines = 180
+verdict = "clean"
+note = "Source assertions cover: TestEncodeTransferPayloadLegs, TestEncodeAccountPayloadProfiles."
+
+[file.070]
+path = "precompiles/layerxprograms/payload_call.go"
+lines = 48
+verdict = "clean"
+note = "Reviewed declarations and their callers: EncodeCallPayload."
+
+[file.071]
+path = "precompiles/layerxprograms/payload_call_test.go"
+lines = 105
+verdict = "clean"
+note = "Source assertions cover: TestEncodeCallPayloadMatchesKernelDecoder, TestEncodeCallPayloadRefusesInvalidEntrypoint."
+
+[file.072]
+path = "precompiles/layerxprograms/payload_lifecycle.go"
+lines = 108
+verdict = "clean"
+note = "Reviewed declarations and their callers: lifecyclePayloadError, lifecyclePayloadSize, EncodeDeployPayload, EncodeUpgradePayload, EncodeRegistryReadPayload."
+
+[file.073]
+path = "precompiles/layerxprograms/payload_lifecycle_test.go"
+lines = 222
+verdict = "clean"
+note = "Source assertions cover: TestEncodeDeployPayloadLayout, TestEncodeUpgradePayloadLayout, TestEncodeRegistryReadPayload."
+
+[file.074]
+path = "precompiles/layerxprograms/payload_sandbox.go"
+lines = 111
+verdict = "clean"
+note = "Reviewed declarations and their callers: EncodeSandboxExecutePayload, EncodeSandboxFundPayload, EncodeSandboxActivatePayload, CheckRetireStorageRequest."
+
+[file.075]
+path = "precompiles/layerxprograms/payload_sandbox_test.go"
+lines = 189
+verdict = "clean"
+note = "Source assertions cover: TestEncodeSandboxPayloads, TestRetireStorageRequestBound."
+
+[file.076]
+path = "precompiles/layerxprograms/payload_winddown.go"
+lines = 75
+verdict = "clean"
+note = "Reviewed declarations and their callers: EncodeSetExitRoutePayload, EncodeDeprecatePayload, EncodeTombstonePayload, EncodeExitValuePayload, EncodeExitValueBoundedPayload, encodeWindDownPayload."
+
+[file.077]
+path = "precompiles/layerxprograms/payload_winddown_test.go"
+lines = 143
+verdict = "clean"
+note = "Source assertions cover: TestEncodeWindDownRouteAndDeprecate, TestEncodeWindDownTombstoneAndExits."
+
+[file.078]
+path = "precompiles/layerxprograms/principal.go"
+lines = 36
+verdict = "clean"
+note = "Reviewed declarations and their callers: EVMKeeper, principalOf."
+
+[file.079]
+path = "precompiles/layerxprograms/principal_test.go"
+lines = 135
+verdict = "clean"
+note = "Source assertions cover: TestProgramsPrincipalFromBoundDID, TestProgramsPrincipalAuthorityKindAndHash, TestProgramsPrincipalUnboundRefused."
+
+[file.080]
+path = "precompiles/layerxprograms/proof_layerxprograms_0x101d_test.go"
+lines = 433
+verdict = "issues"
+note = "Source assertions cover: TestProofLayerxprograms0x101d."
+
+[file.081]
+path = "precompiles/layerxprograms/receipt_authorities_test.go"
+lines = 106
+verdict = "clean"
+note = "Source assertions cover: TestProgramsSubmitCarriesReceiptAuthorities."
+
+[file.082]
+path = "precompiles/layerxprograms/replay_test.go"
+lines = 107
+verdict = "clean"
+note = "Source assertions cover: TestProgramsReplayedActivityReturnsStoredReceipt."
+
+[file.083]
+path = "precompiles/layerxprograms/simulate_parity_test.go"
+lines = 94
+verdict = "issues"
+note = "Source assertions cover: TestProgramsSimulateMatchesCallForEveryFixtureEntrypoint."
+
+[file.084]
+path = "precompiles/layerxprograms/submit.go"
+lines = 123
+verdict = "clean"
+note = "Reviewed declarations and their callers: PrecompileExecutor, callContext, handler, handlerTable, ReceiptAuthority, register, register, table, submit, RequiredGas, Execute."
+
+[file.085]
+path = "precompiles/layerxprograms/submit_test.go"
+lines = 153
+verdict = "clean"
+note = "Source assertions cover: TestProgramsSubmitCarriesFeeLimitAndKey, TestProgramsSubmitKernelRefusalReverts."
+
+[file.086]
+path = "precompiles/layerxprograms/view_accounts.go"
+lines = 100
+verdict = "issues"
+note = "Reviewed declarations and their callers: init, decodeAccountViewArgs, accountViewError, getProgramAccountHandler, getProgramAccountByIdHandler, getAccountProfileHandler, getValueAccountHandler."
+
+[file.087]
+path = "precompiles/layerxprograms/view_accounts_test.go"
+lines = 263
+verdict = "issues"
+note = "Source assertions cover: TestProgramsViewAccountMethodsRegistered, TestProgramsViewProgramAccountLookups, TestProgramsViewValueAccountBalance."
+
+[file.088]
+path = "precompiles/layerxprograms/view_fees.go"
+lines = 180
+verdict = "clean"
+note = "Reviewed declarations and their callers: feeScheduleHistoryReader, feeScheduleRecord, pendingFeeScheduleRecord, feeScheduleFieldsValid, decodeFeeScheduleRecord, decodePendingFeeScheduleRecord, feeScheduleReadError, getCurrentFeeScheduleHandler, getFeeScheduleHandler, getPendingFeeScheduleHandler, init."
+
+[file.089]
+path = "precompiles/layerxprograms/view_fees_test.go"
+lines = 273
+verdict = "clean"
+note = "Source assertions cover: TestProgramsViewCurrentFeeSchedule, TestProgramsViewPendingFeeSchedule."
+
+[file.090]
+path = "precompiles/layerxprograms/view_metering.go"
+lines = 99
+verdict = "clean"
+note = "Reviewed declarations and their callers: meteringSchedule, decodeMeteringSchedule, meteringReadError, getCurrentMeteringScheduleHandler, getMeteringScheduleHandler, init."
+
+[file.091]
+path = "precompiles/layerxprograms/view_metering_test.go"
+lines = 108
+verdict = "clean"
+note = "Source assertions cover: TestProgramsViewMeteringSchedules, TestProgramsViewMeteringUnknownVersion."
+
+[file.092]
+path = "precompiles/layerxprograms/view_registry.go"
+lines = 111
+verdict = "clean"
+note = "Reviewed declarations and their callers: init, registryProgramID, registryReadError, getProgramHandler, getInterfaceHandler, getProgramOwnerHandler, getStateHeadHandler, emptyStateHead."
+
+[file.093]
+path = "precompiles/layerxprograms/view_registry_test.go"
+lines = 199
+verdict = "clean"
+note = "Source assertions cover: TestProgramsViewGetProgramRecord, TestProgramsViewGetStateHeadEmptyAndUnknown, TestProgramsViewGetInterfaceAndAbsent."
+
+[file.094]
+path = "precompiles/layerxprograms/view_sandbox.go"
+lines = 62
+verdict = "clean"
+note = "Reviewed declarations and their callers: getSandboxHandler, getRetirementControlHandler, init."
+
+[file.095]
+path = "precompiles/layerxprograms/view_sandbox_test.go"
+lines = 165
+verdict = "clean"
+note = "Source assertions cover: TestProgramsViewSandboxRecord, TestProgramsViewRetirementControl."
+
+[file.096]
+path = "precompiles/layerxprograms/view_web.go"
+lines = 46
+verdict = "clean"
+note = "Reviewed declarations and their callers: getWebRequestHandler, init."
+
+[file.097]
+path = "precompiles/layerxprograms/view_web_test.go"
+lines = 160
+verdict = "clean"
+note = "Source assertions cover: TestProgramsViewWebRequestRecord, TestProgramsViewWebRequestAbsent."
+
+[file.098]
+path = "precompiles/layerxprograms/view_winddown.go"
+lines = 73
+verdict = "clean"
+note = "Reviewed declarations and their callers: getWindDownHandler, getExitRouteHandler, windDownViewError, init."
+
+[file.099]
+path = "precompiles/layerxprograms/view_winddown_test.go"
+lines = 299
+verdict = "clean"
+note = "Source assertions cover: TestProgramsViewWindDownRecord, TestProgramsViewExitRoute."
+
+[file.100]
+path = "precompiles/layerxprograms/webreader_test.go"
+lines = 472
+verdict = "clean"
+note = "Real ABI4 web-reader request, fee escrow, attestor fulfilment and persisted answer are checked through xweb. Both guest read refusals agree with decision 1977; GetProgramResult and ProgramAnswerEntries expose the committed answer."
+
+[file.101]
+path = "precompiles/layerxprograms/xweb.go"
+lines = 209
+verdict = "issues"
+note = "Reviewed declarations and their callers: callWithWebRequests, xwebContextKey, assetDenoms, configureXWeb, commitWebRequestReceipt, forwardWebRequests."
+
+[file.102]
+path = "precompiles/layerxprograms/xweb_test.go"
+lines = 534
+verdict = "issues"
+note = "Source assertions cover: TestProgramsCallRecordsFirstWebRequestFeeDenomFromAssetMapping, TestProgramsCallRefusesFirstWebRequestWithoutAssetMapping, TestProgramsCallHandlerRecordsWebRequestWithAppliedFeeLegs, TestProgramsCallForwardsGuestWebRequest, TestProgramsCallDiscardedWhenXWebRefuses."
+
+[file.103]
+path = "programs/crates/layerx-programs-arbiter/Cargo.toml"
+lines = 20
+verdict = "clean"
+note = "Workspace metadata and pinned sha2/serde_json dependencies agree with the consumers. Proof, wire and types dependencies are expressly retained for the arbiter by decision 1342."
+
+[file.104]
+path = "programs/crates/layerx-programs-arbiter/examples/market_sandbox_capture.rs"
+lines = 499
+verdict = "clean"
+note = "Real runtime execution captures market sandbox profiles, namespace state and bounded replay evidence; file and argument failures propagate to the caller."
+
+[file.105]
+path = "programs/crates/layerx-programs-arbiter/src/activity_codec.rs"
+lines = 62
+verdict = "clean"
+note = "Canonical signed-activity encoding bounds protocol, authority, payload, signature and total size; field tags and widths agree with retained wire producer bytes."
+
+[file.106]
+path = "programs/crates/layerx-programs-arbiter/src/admission.rs"
+lines = 390
+verdict = "clean"
+note = "Authenticates signed activities, governance, programs and account facts under IAVL/multistore roots. Reader.module retains all authenticated leaves after verify_prefix validates the full module."
+
+[file.107]
+path = "programs/crates/layerx-programs-arbiter/src/authority.rs"
+lines = 1070
+verdict = "issues"
+note = "Reviewed declarations and their callers: ChainCommitProof, VerifiedReplayAuthority."
+
+[file.108]
+path = "programs/crates/layerx-programs-arbiter/src/bisect.rs"
+lines = 1042
+verdict = "clean"
+note = "Bounded deterministic bisection verifies trace paths, adjacency, party order, deadlines and stake settlement. Game state is caller-owned; this library installs no running service or durable store."
+
+[file.109]
+path = "programs/crates/layerx-programs-arbiter/src/ics23.rs"
+lines = 279
+verdict = "clean"
+note = "Canonical protobuf/IAVL proof decoding checks bounds, field order, hash operations and exact key/value/root bindings against the real Go vector producer."
+
+[file.110]
+path = "programs/crates/layerx-programs-arbiter/src/lib.rs"
+lines = 22
+verdict = "clean"
+note = "Exports current AdmissionEvidence, ChainCommitProof, authority, catalogue, namespace and replay types and reuses the registry multistore implementation."
+
+[file.111]
+path = "programs/crates/layerx-programs-arbiter/src/market.rs"
+lines = 830
+verdict = "clean"
+note = "Authenticates admission, catalogue, billing, profiles and native namespaces under app hashes; validates bounded manifests/blobs and reconstructs fresh sandbox inputs. Includes admitted ABI revisions through V5."
+
+[file.112]
+path = "programs/crates/layerx-programs-arbiter/src/step.rs"
+lines = 701
+verdict = "issues"
+note = "Reviewed declarations and their callers: ReplayError, ReplayMetadata, AuthenticatedCatalogue, BoundaryProof, VerifiedReplay, VerifiedStep."
+
+[file.113]
+path = "programs/crates/layerx-programs-arbiter/tests/activity_codec.rs"
+lines = 189
+verdict = "clean"
+note = "Canonical signed-activity encoding bounds protocol, authority, payload, signature and total size; field tags and widths agree with retained wire producer bytes."
+
+[file.114]
+path = "programs/crates/layerx-programs-arbiter/tests/authority_from_prestate.rs"
+lines = 920
+verdict = "clean"
+note = "Source assertions cover: chain_commit_proof_verifies_pinned_receipt_keys_under_app_hash, authority_refuses_receipt_proof_for_another_app_hash, canonical_native_authority_matches_authenticated_historical_facts, admission_evidence_verifies_under_ics23_app_hash, admission_evidence_refuses_record_absent_from_app_hash."
+
+[file.115]
+path = "programs/crates/layerx-programs-arbiter/tests/ics23_iavl.rs"
+lines = 172
+verdict = "clean"
+note = "Source assertions cover: iavl_existence_proof_matches_go_ics23_vector, iavl_existence_proof_refuses_tampered_value."
+
+[file.116]
+path = "programs/crates/layerx-programs-arbiter/tests/market_sandbox_profile.rs"
+lines = 990
+verdict = "clean"
+note = "Source assertions cover: market_namespace_verifies_against_ics23_app_hash, market_evidence_refuses_mixed_app_hashes, genuine_signed_market_profile_claim_steps_and_cryptographic_refusals, raw_market_engine_integer_trap_and_sdk_profile_codecs."
+
+[file.117]
+path = "programs/crates/layerx-programs-arbiter/tests/proof_arbiter_crate.rs"
+lines = 1472
+verdict = "issues"
+note = "Source assertions cover: authenticated_producer_crosses_authority_and_bounded_replay_consumers_twice, keeper_admission_reaches_existing_step_consumer_twice, keeper_namespaces_cross_public_items_into_market_consumer_twice, runtime_producer_records_integer_steps_and_terminal_traps."
+
+[file.118]
+path = "programs/crates/layerx-programs-arbiter/tests/terminal_trap.rs"
+lines = 86
+verdict = "clean"
+note = "Source assertions cover: terminal_trap_replay_recomputes_the_claimed_trap_before_committing_the_trace."
+
+[file.119]
+path = "programs/crates/layerx-programs-arbiter/tests/verified_step.rs"
+lines = 1049
+verdict = "clean"
+note = "Source assertions cover: genuine_signed_serial_scheduled_trap_steps_and_bound_refusals, authenticated_admission_authority_reaches_real_bounded_step_verifier, replay_verifies_metadata_from_ics23_host_store_proof, catalogue_refuses_module_blob_absent_from_app_hash."
+
+[finding.quote-asset]
+file = "precompiles/layerxprograms/method_quote.go"
+line = 42
+class = "interface-mismatch"
+severity = "high"
+observed = "quoteHandler packs sha256(record) as the third quoteCallFee result; abi.json and LayerXPrograms.sol call this word feeAsset. getCurrentFeeSchedule instead emits the actual schedule.Asset."
+expected = "Registry row 13.pc-0x101d-quotecallfee declares the bytes32 feeAsset consumed to select the payment asset; it must agree with the active fee schedule's asset."
+proposal = "In precompiles/layerxprograms/method_quote.go return schedule.Asset as feeAsset, or explicitly version the public contract and every consumer if a schedule commitment is required; prove the returned asset against getCurrentFeeSchedule."
+owner_domain = 13
+interface = "13.pc-0x101d-quotecallfee"
+
+[finding.value-frozen]
+file = "precompiles/layerxprograms/view_accounts.go"
+line = 99
+class = "interface-mismatch"
+severity = "high"
+observed = "getValueAccountHandler returns (account.Balance.BigInt(), true) for every existing record and (0,false) when absent, while the public ABI names the boolean frozen."
+expected = "Registry row 13.pc-0x101d-getvalueaccount and the Solidity binding must expose the same boolean semantics as the producer; existence cannot be presented as an account freeze flag."
+proposal = "Return the real lxphost.ValueAccount.Frozen field from getValueAccountHandler in precompiles/layerxprograms/view_accounts.go, explicitly document the absent-account result, and prove unfrozen, frozen and absent records through the real host and EVM binding without changing balance bounds."
+owner_domain = 13
+interface = "13.pc-0x101d-getvalueaccount"
+
+[finding.call-response]
+file = "precompiles/layerxprograms/xweb.go"
+line = 84
+class = "interface-mismatch"
+severity = "high"
+observed = "callWithWebRequests packs the full Host.Execute terminal_payload via ProgramOutcome.Response, including LXP/programs/terminal-applied-legs/v1. services/agent/sdk/python/layerx_sdk/ai_market.py:2338 rejects this real result because its total byte length exceeds response_capacity=64; the Go proof at lines 94-102 and Python observer preserve that disagreement. TypeScript now accepts terminal frames only with a supplied transfer root."
+expected = "Registry row 13.pc-0x101d-call and its declared Python and TypeScript consumers must agree on the response encoding and the level at which responseCapacity applies. A valid bounded guest execution must round-trip without discarding authenticated terminal or transfer evidence."
+proposal = "Standardize and document the terminal-frame response in modules/lxphost and the 0x101D SDK contract; add a Python decoder for the canonical terminal, execution and authority wrappers using independently verified transfer evidence, enforce responseCapacity on the nested guest bytes, and prove successful decoding of real EVM outputs after host reopen."
+owner_domain = 9
+interface = "13.pc-0x101d-call"
+
+[finding.simulation-response]
+file = "precompiles/layerxprograms/method_simulate.go"
+line = 97
+class = "interface-mismatch"
+severity = "high"
+observed = "simulateHandler packs Host.Simulate's terminal_payload unchanged through ProgramOutcome.Response. Python decode_programs_call_result compares the complete frame length with the guest response_capacity, so the same valid simulation result reproduced by the real Go/EVM proof is rejected."
+expected = "Registry row 13.pc-0x101d-simulatecall must share a canonical result encoding with call and the SDKs. The guest response limit must be checked against guest bytes while terminal evidence remains bounded and authenticated."
+proposal = "Apply the canonical terminal-frame decoding contract to services/agent/sdk/python/layerx_sdk/ai_market.py for both call and simulateCall, carrying verified transfer context where required; update the real simulation consumer proof to decode successfully while retaining strict frame validation and state-unchanged assertions."
+owner_domain = 9
+interface = "13.pc-0x101d-simulatecall"
+
+[finding.abi-v5-authority]
+file = "programs/crates/layerx-programs-arbiter/src/authority.rs"
+line = 975
+class = "interface-mismatch"
+severity = "high"
+observed = "call_capabilities accepts ABI 1 and 2|3|4 only and returns ReplayError::Authority for ABI 5. derive_program_call and replay-profile derivation both reach it, while runtime abi_policy admits V5 and market.rs:501 explicitly accepts AbiRevision::V5."
+expected = "Registry row 13.rs-arb-authority-verifiedreplayauthority-derive-program-call must derive authority for the admitted program ABI versions. An authenticated V5 call with canonical capabilities must survive the authority boundary before step verification."
+proposal = "Use the shared runtime ABI capability-encoding policy in programs/crates/layerx-programs-arbiter/src/authority.rs, including V5's V2 capability encoding; transport a real admitted V5 call through admission, authority derivation and replay verification and retain unknown-version refusals."
+owner_domain = 13
+interface = "13.rs-arb-authority-verifiedreplayauthority-derive-program-call"
+
+[finding.executor-payer-replay]
+file = "programs/crates/layerx-programs-arbiter/src/step.rs"
+line = 653
+class = "interface-mismatch"
+severity = "high"
+observed = "VerifiedReplay::verify_step rejects genuine public Executor boundary pairs with ReplayError::Runtime. proof_arbiter_crate.rs:1203-1209 pins every pair to this error: AuthorizationContext::new records absent payment metadata, while replay restores the payer independently bound by the module-v4 receipt; with_payment_account is crate-private in runtime/src/abi/mod.rs:181."
+expected = "Registry row 13.rs-arb-step-verifiedreplay-verify-step must accept valid adjacent leaves emitted by the authorized executor under the same receipt-derived authority. Producer and replay consumer must commit identical payer metadata."
+proposal = "Provide an authenticated public execution entry point in programs/crates/layerx-programs-runtime that binds the receipt payer before capture; consume that path in the arbiter producer proof and require all genuine adjacent steps to verify, preserving independent payer validation and negative mutations."
+owner_domain = 13
+interface = "13.rs-arb-step-verifiedreplay-verify-step"
+
+[finding.quote-test-digest]
+file = "precompiles/layerxprograms/method_quote_test.go"
+line = 94
+class = "test-gap"
+severity = "medium"
+observed = "The quote tests assert sha256(record) as the third quoteCallFee output at lines 94 and 109 and name the value digest, even though the ABI calls it feeAsset and the current schedule view returns the actual Asset field."
+expected = "The fee quote test must prove the ABI's named payment asset against the real schedule producer, including a changed active schedule, rather than encode the quote-asset disagreement as the expected result."
+proposal = "After the quoteHandler repair, compare the third ABI output to the asset returned by getCurrentFeeSchedule and the host's decoded schedule in precompiles/layerxprograms/method_quote_test.go; retain the existing price arithmetic, overflow and state-immutability assertions."
+owner_domain = 13
+
+[finding.frozen-test-exists]
+file = "precompiles/layerxprograms/view_accounts_test.go"
+line = 249
+class = "test-gap"
+severity = "medium"
+observed = "TestProgramsViewValueAccountBalance writes both frozen=false and frozen=true account records, but expects true for every existing account. This explicitly treats the ABI's frozen output as existence and hides the discarded host Frozen field."
+expected = "The consumer-facing account view must distinguish the account's freeze state according to abi.json and LayerXPrograms.sol, with a separately defined absent-account result."
+proposal = "Make precompiles/layerxprograms/view_accounts_test.go compare the decoded boolean with the real host Frozen field for unfrozen, frozen and zero-balance records; retain uint128 boundaries, missing accounts, wrong-program refusals and state-immutability assertions."
+owner_domain = 13
+
+[finding.bank-parity-frozen]
+file = "precompiles/layerxprograms/bank_parity_test.go"
+line = 89
+class = "test-gap"
+severity = "medium"
+observed = "The bank parity test asserts the second getValueAccount output is true because a registered account must exist. The public ABI instead names that output frozen, so bank balance parity can pass while reporting all live accounts as frozen."
+expected = "Bank and EVM account views must agree on both balance and freeze state; account registration must not be substituted for the boolean's declared meaning."
+proposal = "Read the real host ValueAccount.Frozen in precompiles/layerxprograms/bank_parity_test.go and compare it with the EVM result for each existing account; keep balance, total-supply, transfer and no-write checks and cover an actual freeze transition."
+owner_domain = 13
+
+[finding.call-test-response-oracle]
+file = "precompiles/layerxprograms/method_call_test.go"
+line = 176
+class = "test-gap"
+severity = "medium"
+observed = "The call test derives its expected ABI bytes from receipt.ProgramOutcome.Response and compares the EVM result to that same field. It proves byte transport but cannot detect the known Python consumer disagreement about terminal framing and responseCapacity."
+expected = "The call result must be accepted by the declared SDK under the same bounded guest execution and authenticated transfer context, as well as matching the host producer's bytes."
+proposal = "Add a real guest with independently known bounded output to precompiles/layerxprograms/method_call_test.go and decode its terminal frame through the actual SDK with verified transfer evidence; retain cached-state parity, gas, events and refusal assertions."
+owner_domain = 13
+
+[finding.simulation-test-response-oracle]
+file = "precompiles/layerxprograms/method_simulate_test.go"
+line = 39
+class = "test-gap"
+severity = "medium"
+observed = "The simulation test builds expected bytes from outcome.Response returned by the same host path, then compares the ABI result with them. It establishes transport equality while the declared Python consumer still rejects the terminal frame at the guest response bound."
+expected = "Simulation output must agree with independently known guest output and the live consumer's response bound as well as with execution and nonmutation behavior."
+proposal = "Extend precompiles/layerxprograms/method_simulate_test.go with independently known guest output and actual SDK terminal-frame decoding, including verified transfer context; retain all before/after state and refusal assertions."
+owner_domain = 13
+
+[finding.simulation-parity-common-defect]
+file = "precompiles/layerxprograms/simulate_parity_test.go"
+line = 88
+class = "test-gap"
+severity = "medium"
+observed = "The parity test compares simulation[2] with actual[2] as response. Both contain the host terminal payload, so equality alone cannot reveal Python's rejection of the valid frame at the guest-response bound."
+expected = "The simulation parity proof must establish the declared output semantics against guest-produced bytes, in addition to equal execution results, fees and state effects."
+proposal = "Augment precompiles/layerxprograms/simulate_parity_test.go with independent guest-output assertions and actual SDK terminal-frame decoding with verified transfer context for both results; retain its existing parity matrix and no-write checks."
+owner_domain = 13
+
+[finding.public-proof-pins-defects]
+file = "precompiles/layerxprograms/proof_layerxprograms_0x101d_test.go"
+line = 94
+class = "test-gap"
+severity = "medium"
+observed = "The public proof requires real terminal frames larger than 64 bytes and Python rejection. Its TypeScript observer calls the frame decoder without its now-supported transfer-root context, and its quote helper at line 156 expects a schedule digest in feeAsset. These defect reproductions do not prove successful declared consumer round trips."
+expected = "Req 21003.1's real crossing path must demonstrate successful declared behavior as well as refusals. Real terminal evidence, independently verified transfer roots, bounded guest bytes and the actual quote fee asset must reach their consumers."
+proposal = "After reconciling SDK terminal-frame decoding and quoteHandler, make precompiles/layerxprograms/proof_layerxprograms_0x101d_test.go assert successful real SDK decoding with authenticated transfer context and schedule-asset equality; preserve malformed-frame refusals, EVM execution, independent cached comparison and host reopen coverage."
+owner_domain = 13
+
+[finding.arbiter-proof-pins-payer-gap]
+file = "programs/crates/layerx-programs-arbiter/tests/proof_arbiter_crate.rs"
+line = 1205
+class = "test-gap"
+severity = "medium"
+observed = "The real Executor proof loops over every captured adjacent boundary pair and requires Err(ReplayError::Runtime), documenting the inaccessible payer-binding gap at lines 20-25. Thus the ordinary public executor path has no successful instruction replay assertion."
+expected = "Req 21053.1 requires the real arbiter producer, public transport and consumer path to agree. Genuine authorized execution must yield verifiable steps, alongside malformed or unauthorized refusals."
+proposal = "Use the authenticated payer-bound public execution path in programs/crates/layerx-programs-arbiter/tests/proof_arbiter_crate.rs and require successful verification of every genuine adjacent pair; preserve proof transport, fresh reconstruction and payer/receipt tampering checks."
+owner_domain = 13
+
+[finding.arbiter-trap-comment]
+file = "programs/crates/layerx-programs-arbiter/tests/proof_arbiter_crate.rs"
+line = 14
+class = "doc-drift"
+severity = "low"
+observed = "The file header says call_market_sandbox_untrusted refuses unreachable with UnsupportedState and that the test pins this defect. The current runtime_producer_records_integer_steps_and_terminal_traps body instead unwraps the trap execution and checks the real terminal record."
+expected = "Comments that describe a current producer defect must match the assertion body and the terminal_trap.rs regression, which now demonstrate a supported terminal trap."
+proposal = "Update the header of programs/crates/layerx-programs-arbiter/tests/proof_arbiter_crate.rs to describe the successful trap capture and refusal coverage; keep the separate payer-binding defect description until that path is repaired."
+owner_domain = 13
+
+[finding.abi-output-semantics]
+file = "precompiles/layerxprograms/abi.json"
+line = 668
+class = "interface-mismatch"
+severity = "medium"
+observed = "The public ABI declares quoteCallFee's third output as feeAsset and getValueAccount's second output as frozen (line 571), but the handlers return a fee-record digest and account existence. Rows 13.pc-0x101d-quotecallfee and 13.pc-0x101d-getvalueaccount therefore have incompatible named result semantics across the actual implementation."
+expected = "The ABI field names must describe the values returned to generated bindings and integrators, matching getCurrentFeeSchedule.Asset and lxphost.ValueAccount.Frozen."
+proposal = "Keep the declared feeAsset and frozen meanings in precompiles/layerxprograms/abi.json, repair method_quote.go and view_accounts.go to return those actual fields, and prove ABI decoding against the real schedule and account records."
+owner_domain = 13
+interface = "13.pc-0x101d-quotecallfee"
+
+[finding.solidity-output-semantics]
+file = "precompiles/layerxprograms/LayerXPrograms.sol"
+line = 184
+class = "interface-mismatch"
+severity = "medium"
+observed = "ILayerXPrograms names getValueAccount's boolean frozen and quoteCallFee's final bytes32 feeAsset at line 203. Existing Go handlers instead encode existence and a schedule digest, so a Solidity caller using these declared names interprets the returned values incorrectly."
+expected = "Registry rows 13.pc-0x101d-getvalueaccount and 13.pc-0x101d-quotecallfee require the Solidity binding, ABI and host-backed handlers to expose identical result meanings."
+proposal = "Preserve the Solidity field semantics and repair the host-backed handlers to return account.Frozen and schedule.Asset; add a real bound-caller EVM round trip comparing both results with the host views and the named Solidity return contract."
+owner_domain = 13
+interface = "13.pc-0x101d-getvalueaccount"
+
+[finding.registry-hostkeepers]
+file = "precompiles/layerxprograms/layerxprograms.go"
+line = 23
+class = "interface-mismatch"
+severity = "medium"
+observed = "HostKeepers and NewMergePrecompile require XWebK(), including the live node adapter, while registry row 13.go-layerxprograms-hostkeepers-j52 freezes XWebKeeper(). A consumer implementing the declared interface would fail the constructor's type assertion."
+expected = "The declared keeper contract must name the exact exported method compiled by the producer and constructor, including its xweb keeper pointer type."
+proposal = "Reconcile spec/layerx-merge/interfaces.kvx and contracts/programs.md with the live XWebK() method in precompiles/layerxprograms/layerxprograms.go and node/precompiles.go; keep a constructor test that uses the actual node keeper adapter."
+owner_domain = 13
+interface = "13.go-layerxprograms-hostkeepers-j52"
+
+[finding.registry-address-type]
+file = "precompiles/layerxprograms/events.go"
+line = 14
+class = "interface-mismatch"
+severity = "medium"
+observed = "The exported Address is a common.Address variable in events.go, while registry row 13.go-layerxprograms-address-j52 declares a string constant in layerxprograms.go. Its value is correctly 0x101D, but the declared Go type, declaration kind and owning path differ."
+expected = "The public Go address contract must specify the common.Address value actually consumed by constructor registration, EVM calls and event-emitter checks."
+proposal = "Update the Address declaration contract and source path in spec/layerx-merge/interfaces.kvx and contracts/programs.md to match events.go; retain exact-address and wrong-emitter assertions in the real precompile and log consumers."
+owner_domain = 13
+interface = "13.go-layerxprograms-address-j52"
+
+[finding.registry-authority-signature]
+file = "programs/crates/layerx-programs-arbiter/src/authority.rs"
+line = 113
+class = "interface-mismatch"
+severity = "medium"
+observed = "VerifiedReplayAuthority::derive and derive_program_call now take AdmissionEvidence and ChainCommitProof. Their registry rows still name VerifiedAdmissionPrestate and a kernel merkle Proof, so the listed public signatures cannot construct the current chain-authenticated call."
+expected = "Rows 13.rs-arb-authority-verifiedreplayauthority-derive and 13.rs-arb-authority-verifiedreplayauthority-derive-program-call must describe the actual authenticated admission and sequencer key-table proof types used by producers and consumers."
+proposal = "Refresh both authority signatures, callers and contract examples in spec/layerx-merge/interfaces.kvx and contracts/programs.md from authority.rs; explicitly document app-hash trust input, receipt-key height binding and the AdmissionEvidence verification step."
+owner_domain = 13
+interface = "13.rs-arb-authority-verifiedreplayauthority-derive"
+
+[finding.registry-replay-signatures]
+file = "programs/crates/layerx-programs-arbiter/src/step.rs"
+line = 468
+class = "interface-mismatch"
+severity = "medium"
+observed = "The live verify, verify_with_batch_context and AuthenticatedCatalogue::verify_with_module take AdmissionEvidence, ChainCommitProof, host roots, multistore bytes and ICS23 proofs. The registry signatures still describe VerifiedAdmissionPrestate, StateWitness or ModuleRangeWitness and omit these authenticated chain inputs."
+expected = "Rows 13.rs-arb-step-verifiedreplay-verify, 13.rs-arb-step-verifiedreplay-verify-with-batch-context and 13.rs-arb-step-authenticatedcatalogue-verify-with-module must match the public Rust declarations and their real caller arguments."
+proposal = "Update the replay and catalogue rows and contracts/programs.md examples to the current step.rs signatures, including AuthenticatedCatalogue::verify's AdmissionEvidence type; preserve the existing app-hash, code-blob and metadata authentication checks and show reconstruction from transported chain proofs."
+owner_domain = 13
+interface = "13.rs-arb-step-verifiedreplay-verify-with-batch-context"
+
+[finding.retired-custody-wiring]
+file = "precompiles/layerxprograms/layerxprograms.go"
+line = 61
+class = "retired-reference"
+severity = "medium"
+observed = "NewMergePrecompile still discovers LayerXCustodyK and installs the retired custody keeper as the optional program-transfer asset resolver, even though the merged network's asset facts are bank and pointer facts."
+expected = "The retired inventory's custody-deposit replacement directs current asset resolution to bank 0x1001 and pointerview 0x100A; newly active Programs calls must not rely on a retired custody asset map."
+proposal = "Replace the LayerXCustodyK asset resolver in precompiles/layerxprograms/layerxprograms.go with the current host/bank asset-to-denom authority, retain xweb's governed fee-denom checks, and prove constructor wiring and asset resolution without custody genesis."
+owner_domain = 13
+
+[finding.retired-custody-denom-fallback]
+file = "precompiles/layerxprograms/xweb.go"
+line = 75
+class = "retired-reference"
+severity = "medium"
+observed = "callWithWebRequests falls back from xweb ProgramFeeDenom to p.assets.GetAsset, whose type is custodytypes.AssetMapping. Thus the live origin-2 request path retains a second denomination authority in the retired custody module."
+expected = "Program fee and transfer denomination resolution must use the merged bank/host asset authority and xweb's governed ProgramFeeDenoms consistently, including on a fresh merged genesis."
+proposal = "Replace assetDenoms and the custody fallback in precompiles/layerxprograms/xweb.go with the current native asset resolver; preserve explicit refusal for an unmapped or disallowed asset and test both fresh genesis and restart against the same bank denomination."
+owner_domain = 13
+
+[finding.custody-fixture-dependency]
+file = "precompiles/layerxprograms/xweb_test.go"
+line = 94
+class = "test-gap"
+severity = "medium"
+observed = "newWebCallHarness mounts a custody store, constructs a LayerXCustody keeper and injects it as executor.assets. This proves the legacy resolver path rather than the current bank/host denomination authority required after custody retirement."
+expected = "Origin-2 Programs request tests must establish real fee payment and result persistence on a merged configuration whose current asset authority does not depend on custody registration."
+proposal = "Build precompiles/layerxprograms/xweb_test.go around the native bank/host asset resolver and real xweb governed fee denoms; retain attestor, fee escrow, atomic rollback and answer-state assertions and add an unmapped-asset refusal."
+owner_domain = 13
+
+[finding.unused-activation-helper]
+file = "precompiles/layerxprograms/gate.go"
+line = 21
+class = "dead-code"
+severity = "low"
+observed = "programsGate.checkActive has no production caller; its only invocation is the test export. NewPrecompile requires an upgrade keeper and plan name but does not retain them. Live activation instead occurs in the node merge precompile table, which activation_test.go exercises."
+expected = "Req 13251.1 describes checkActive as the per-method activation gate, while the implemented public lifecycle is node-level activation. One documented owner should express and test the actual activation boundary."
+proposal = "Consolidate the activation contract around the live node merge gate, remove the unused programsGate helper if it has no supported standalone role, and update req 13251 and constructor documentation while retaining real before-height and done-height integration coverage."
+owner_domain = 13
+
+[finding.detached-gate-unit-test]
+file = "precompiles/layerxprograms/gate_test.go"
+line = 1
+class = "test-gap"
+severity = "low"
+observed = "The gate unit tests exercise programsGate through the test-only ProgramsGate export, while the production constructor does not install that helper. Their success alone cannot establish activation of a real 0x101D method."
+expected = "Activation evidence must follow the node constructor and real precompile dispatch used by the network; activation_test.go provides that separate path and should remain the contract's reference."
+proposal = "Align precompiles/layerxprograms/gate_test.go with the chosen live activation owner when removing or wiring programsGate; preserve the real activation_test.go before/after-height checks and value/static-call refusals."
+owner_domain = 13
+
+[finding.shadowed-call-handler]
+file = "precompiles/layerxprograms/method_call.go"
+line = 9
+class = "dead-code"
+severity = "low"
+observed = "callHandler is registered by init, but every production PrecompileExecutor constructor calls configureXWeb, whose webHandlers table unconditionally replaces call with callWithWebRequests. The separate handler therefore duplicates argument, submission, return and event logic off the live path."
+expected = "The supported call behavior should have one shared execution and response implementation so request forwarding, terminal framing and refusal handling cannot drift between a tested helper and production dispatch."
+proposal = "Refactor precompiles/layerxprograms/method_call.go and xweb.go to share one call core with explicit web-request integration, or remove the unused handler; keep the existing live EVM call and web-request atomicity tests on that shared path."
+owner_domain = 13
+
+[finding.sandbox-response-coverage]
+file = "precompiles/layerxprograms/method_sandbox_execute_test.go"
+line = 326
+class = "test-gap"
+severity = "medium"
+observed = "The real sandbox execution test decodes the return and asserts terminalResult and terminalKind, then checks payer sequence and usage events. It does not assert or consume output[2], although the ABI exposes response and the host returns a terminal frame."
+expected = "The sandboxExecute result needs a real consumer check of the third field, including canonical frame shape, independently expected guest bytes and the nested call's response limit."
+proposal = "Extend precompiles/layerxprograms/method_sandbox_execute_test.go with the actual terminal-frame consumer and independently known guest output, retaining funded escrow, sequence advancement, usage-receipt, fee-limit and rollback assertions."
+owner_domain = 13
+
+[finding.doc-02]
+file = "docs/system/precompiles.md"
+line = 40
+class = "doc-drift"
+severity = "medium"
+observed = "The generated table lists layerxprograms with address '-' and presents retired anchor, custody and verify operations as active without post-merge refusal semantics."
+expected = "The finished network is one paxd BFT chain with an embedded kernel, native Programs at 0x101D, root-path node RPC and finality at block commit; documentation must match current public interfaces and the retired inventory."
+proposal = "Update tools/docs/gen-system-docs.sh to use the actual Programs address registration and retirement metadata; regenerate docs/system/precompiles.md with merged-height refusals, bank/commit-proof replacements and corrected Programs output semantics."
+owner_domain = 16
+
+[finding.doc-03]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "The README says the kernel runs as a separate layerxd whose checkpoints settle through layerxAnchor, lists verify/custody/anchor as active surfaces and instructs make layerxd."
+expected = "The finished network is one paxd BFT chain with an embedded kernel, native Programs at 0x101D, root-path node RPC and finality at block commit; documentation must match current public interfaces and the retired inventory."
+proposal = "Rewrite README.md's architecture, precompile list and build sections around paxd's embedded kernel, block-commit finality and Programs at 0x101D; replace separate-daemon instructions and link a current merged-network developer path."
+owner_domain = 16
+
+[finding.doc-04]
+file = "docs/QUALIFICATION.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "The qualification guide requires guarantor disagreement, DA withholding, reserve reconciliation and a sequencer-offline emergency exit from the last finalized checkpoint, then treats Paxeer as a separate network trust boundary."
+expected = "The finished network is one paxd BFT chain with an embedded kernel, native Programs at 0x101D, root-path node RPC and finality at block commit; documentation must match current public interfaces and the retired inventory."
+proposal = "Rewrite docs/QUALIFICATION.md's release matrix around real host/precompile paths, committed receipts, bank conservation, sequencer WAL recovery and validator commit verification; replace retired guarantor, DA and forced-exit requirements."
+owner_domain = 16
+
+[finding.doc-05]
+file = "docs/paxeer-network.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The guide calls Paxeer the settlement and custody layer for LayerX, says ordinary LayerX activity stays elsewhere and assigns checkpoints, guarantor bonds, challenges and emergency exits to the chain."
+expected = "The finished network is one paxd BFT chain with an embedded kernel, native Programs at 0x101D, root-path node RPC and finality at block commit; documentation must match current public interfaces and the retired inventory."
+proposal = "Rewrite docs/paxeer-network.md for one chain executing the kernel inside paxd, commit finality and native bank funding; keep tenant-domain explanations while replacing checkpoint settlement, custody and separate-network claims."
+owner_domain = 16
+
+[finding.doc-06]
+file = "docs/runbooks/paxeer-x-fork.md"
+line = 4
+class = "doc-drift"
+severity = "medium"
+observed = "The runbook begins with a v6.6 plan and custody/anchor activation, invokes deleted services/platform/hosted/paxeer/gov-upgrade.sh at line 126 and mixes v7.0 rehearsals with 0x1013/0x1014 success checks."
+expected = "The finished network is one paxd BFT chain with an embedded kernel, native Programs at 0x101D, root-path node RPC and finality at block commit; documentation must match current public interfaces and the retired inventory."
+proposal = "Replace docs/runbooks/paxeer-x-fork.md's executable procedure with the current merge plan, current governance tooling, sequenced-block/reimport evidence and 0x101D activation checks; require retired-address refusals and label the old fork procedure as historical."
+owner_domain = 16
+
+[finding.doc-07]
+file = "docs/site/docs/overview/unified-network.md"
+line = 146
+class = "doc-drift"
+severity = "medium"
+observed = "The architecture page describes separate LayerX execution and bridging precompiles, publishes https://api-mainnet-beta.paxeer.network/rpc as the only unified endpoint and GET /rpc/schema, and bases joins on retired custody and anchor state."
+expected = "The finished network is one paxd BFT chain with an embedded kernel, native Programs at 0x101D, root-path node RPC and finality at block commit; documentation must match current public interfaces and the retired inventory."
+proposal = "Rewrite docs/site/docs/overview/unified-network.md for embedded kernel execution and committed-block evidence; publish root-path api1 through api14 and api-mainnet-beta node RPC, distinguish hosted px_ methods from node namespaces and replace checkpoint/custody joins."
+owner_domain = 16
+
+[finding.doc-08]
+file = "docs/site/docs/overview/quickstart.md"
+line = 7
+class = "doc-drift"
+severity = "medium"
+observed = "The quickstart promises POST /v1/programs/deploy, publishes /rpc and /rpc/ws, funds through retired 0x1013 custody credit and ends at a separate Paxeer boundary. It also documents unresolved credential and receipt-response disagreements within its own proposed path."
+expected = "The finished network is one paxd BFT chain with an embedded kernel, native Programs at 0x101D, root-path node RPC and finality at block commit; documentation must match current public interfaces and the retired inventory."
+proposal = "Replace docs/site/docs/overview/quickstart.md with a reproducible current CLI path using native bank funding, EIP-1559 deployment and calls to 0x101D, root-path node RPC and committed receipt verification; remove deleted hosted/paxeer setup and obsolete ingress/auth examples."
+owner_domain = 16
+
+[finding.doc-09]
+file = "docs/site/docs/overview/getting-started.md"
+line = 10
+class = "doc-drift"
+severity = "medium"
+observed = "The checklist names the router, exports a /rpc URL and directs register/open/mint/SEND through fresh canonical lx_sendActivity submissions using independent identity/account sequences and the old commitment ladder."
+expected = "The finished network is one paxd BFT chain with an embedded kernel, native Programs at 0x101D, root-path node RPC and finality at block commit; documentation must match current public interfaces and the retired inventory."
+proposal = "Rewrite docs/site/docs/overview/getting-started.md around native EIP-1559 operations through current precompiles, root-path node RPC, transaction-nonce recovery and block-commit finality; describe hosted credentials only for the current hosted methods."
+owner_domain = 16
+
+[finding.doc-10]
+file = "docs/site/docs/overview/payments.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The payments path publishes a /rpc router and instructs signed canonical activities, ordinal grants and the executed/batched/finalised checkpoint policy, retaining the split-network payment and recovery model."
+expected = "The finished network is one paxd BFT chain with an embedded kernel, native Programs at 0x101D, root-path node RPC and finality at block commit; documentation must match current public interfaces and the retired inventory."
+proposal = "Rewrite docs/site/docs/overview/payments.md around native bank, ledger and layerxpay operations with EIP-1559 signing, transaction-hash recovery and commit finality; preserve the HTTP 402 commercial flow while replacing retired activity/grant transport examples."
+owner_domain = 16
+
+[finding.doc-11]
+file = "docs/site/docs/overview/i18n/zh-cn.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The Chinese overview says ordinary LayerX activity needs no Paxeer transaction and periodic checkpoints settle to custody, guarantor bonds and emergency exits. Its quickstart retains old deployment flags and its repository map lists layerxd as a running daemon."
+expected = "The finished network is one paxd BFT chain with an embedded kernel, native Programs at 0x101D, root-path node RPC and finality at block commit; documentation must match current public interfaces and the retired inventory."
+proposal = "Update docs/site/docs/overview/i18n/zh-cn.md from the corrected README and quickstart, translating embedded paxd execution, native deployment to 0x101D, root RPC and block-commit finality; replace obsolete commands and daemon entries."
+owner_domain = 16
+
+[finding.doc-12]
+file = "docs/site/docs/overview/i18n/ru.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The Russian overview says ordinary LayerX execution occurs outside Paxeer and settles checkpoints to custody, guarantor bonds and emergency exits. Its example deployment flags and layerxd description retain the retired operating model."
+expected = "The finished network is one paxd BFT chain with an embedded kernel, native Programs at 0x101D, root-path node RPC and finality at block commit; documentation must match current public interfaces and the retired inventory."
+proposal = "Update docs/site/docs/overview/i18n/ru.md from the corrected README and quickstart, translating native Programs transactions, embedded paxd execution, root RPC and commit finality; regenerate the command examples from the current CLI."
+owner_domain = 16
+
+[finding.doc-13]
+file = "spec/layerx-merge/contracts/programs.md"
+line = 177
+class = "doc-drift"
+severity = "medium"
+observed = "The contract lists Address as a string constant, HostKeepers.XWebKeeper() and arbiter APIs accepting VerifiedAdmissionPrestate with kernel Proof/StateWitness. Current implementations use common.Address, XWebK(), AdmissionEvidence and ChainCommitProof/ICS23 inputs."
+expected = "The finished network is one paxd BFT chain with an embedded kernel, native Programs at 0x101D, root-path node RPC and finality at block commit; documentation must match current public interfaces and the retired inventory."
+proposal = "Refresh the served Programs and arbiter tables in spec/layerx-merge/contracts/programs.md from current declarations and registry, including response framing, feeAsset and frozen semantics; preserve the historical pin as history and describe the current AdmissionEvidence path."
+owner_domain = 13
+
+[finding.doc-payments-build-target]
+file = "docs/site/docs/overview/payments.md"
+line = 194
+class = "doc-drift"
+severity = "medium"
+observed = "Section 6 says Build and deploy the LXT20 example, but its cargo command uses programs/sdk/rust/examples/payments-merchant/Cargo.toml. It builds the merchant rather than the token whose initialize, transfer and allowance methods the text describes."
+expected = "The LXT20 artifact must come from programs/sdk/rust/examples/token-lxt20 and expose the exact token interface documented in this section."
+proposal = "Correct the manifest and artifact path in docs/site/docs/overview/payments.md to token-lxt20, give payments-merchant its own separately named example and bind each deployment command to its matching interface."
+owner_domain = 16
+
+[doc.01]
+path = "docs/system/cli.md"
+status = "accurate"
+notes = "Generated catalogue matches current clap declarations, including Programs contract calls, transaction-hash receipt lookup and the still-present local batch-facts verifier. MCP daemon wording refers to agentd."
+
+[doc.02]
+path = "docs/system/precompiles.md"
+status = "stale"
+notes = "Lines 32-41, 1170-1319 and 1552-1564 omit retirement semantics; line 40 omits the Programs address. Programs feeAsset and frozen names disagree with the implementation."
+
+[doc.03]
+path = "README.md"
+status = "stale"
+notes = "Lines 44-47, 79-83, 145 and 181 describe a separate layerxd/checkpoint system, active retired precompiles and a separate-daemon build."
+
+[doc.04]
+path = "docs/QUALIFICATION.md"
+status = "stale"
+notes = "Lines 20-21 and 79-82 require DA withholding, guarantor disagreement and checkpoint emergency exits; line 100 retains separate-network trust qualification."
+
+[doc.05]
+path = "docs/paxeer-network.md"
+status = "stale"
+notes = "Lines 3-20, 38 and 93 describe a settlement/custody domain for separate LayerX activity. Tenant-domain material remains useful."
+
+[doc.06]
+path = "docs/runbooks/paxeer-x-fork.md"
+status = "stale"
+notes = "Lines 4-8, 28, 126-138 and 310-318 retain v6.6, deleted hosted/paxeer tooling and retired smoke calls; lines 252-258 describe v7.0 rehearsals."
+
+[doc.07]
+path = "docs/site/docs/overview/unified-network.md"
+status = "misleading"
+notes = "Lines 5-27 and 49-141 describe split execution, custody and checkpoint finality; lines 146-189 publish /rpc, /rpc/schema, sixteen EVM names and old joins."
+
+[doc.08]
+path = "docs/site/docs/overview/quickstart.md"
+status = "misleading"
+notes = "Lines 7-10 and 356-450 use retired Programs REST ingress; lines 20, 164-224 and 303-309 publish router/custody funding; lines 589-650 use the deleted Paxeer boundary."
+
+[doc.09]
+path = "docs/site/docs/overview/getting-started.md"
+status = "stale"
+notes = "Lines 3-10 publish the router; lines 44-111 submit Ed25519 canonical activities; recovery retains the executed/batched/finalised ladder."
+
+[doc.10]
+path = "docs/site/docs/overview/payments.md"
+status = "stale"
+notes = "Lines 18-21 publish the router; lines 33-36, 99-165 and 229-252 retain old activity signing and grants. Lines 194-200 build merchant while claiming LXT20."
+
+[doc.11]
+path = "docs/site/docs/overview/i18n/zh-cn.md"
+status = "stale"
+notes = "Lines 14-20 retain split activity/checkpoint execution; lines 24-68 retain old cluster and deploy commands; line 98 lists layerxd."
+
+[doc.12]
+path = "docs/site/docs/overview/i18n/ru.md"
+status = "stale"
+notes = "Lines 14-20 retain the split activity/checkpoint network; lines 24-68 retain old bootstrap/deploy flags; line 98 lists layerxd."
+
+[doc.13]
+path = "spec/layerx-merge/contracts/programs.md"
+status = "stale"
+notes = "Reviewed executor/views/events, arbiter, FFI and decisions against this slice. The explicit historical pin is valid history, but tables at 176-177 and 929-996 no longer match served interfaces; decision 1342's client rationale is obsolete."

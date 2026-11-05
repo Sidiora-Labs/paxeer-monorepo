@@ -3,9 +3,7 @@ package discovery
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"encoding/json"
-	"errors"
 	"io"
 	"net/http"
 	"strconv"
@@ -156,16 +154,11 @@ func (h HTTP) Handler() http.Handler {
 			reply(w, r, nil, e)
 			return
 		}
-		var input v2.AlertCreateBody
-		if e = json.Unmarshal(raw, &input); e != nil {
-			writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST")
-			return
-		}
 		if e = h.Store.SaveRule(r.Context(), actor, rule, 0); e != nil {
 			reply(w, r, nil, e)
 			return
 		}
-		response, e := AdaptV2AlertCreate(rule, wallet, input.Threshold, squadRequestID(r), time.Now().UTC())
+		response, e := AdaptV2AlertCreate(rule, wallet, *rule.Price, squadRequestID(r), time.Now().UTC())
 		if e != nil {
 			reply(w, r, nil, e)
 			return
@@ -296,51 +289,49 @@ func (h HTTP) Handler() http.Handler {
 			writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST")
 			return
 		}
-		switch input.Action {
-		case "invite":
-			var existing Membership
-			existing, e = h.squadMember(r.Context(), id, account)
-			if errors.Is(e, sql.ErrNoRows) {
-				e = nil
-			}
-			if e == nil && existing.Revision != expected {
-				e = ErrConflict
-			}
-			if e == nil {
-				e = h.Store.Invite(r.Context(), actor, id, account, uuid.NewString(), time.Now().UTC().Add(24*time.Hour))
-			}
-		case "request":
-			if actor != account {
-				e = ErrForbidden
-			} else {
-				_, e = h.Store.RequestJoin(r.Context(), actor, id, expected)
-			}
-		case "approve":
-			_, e = h.Store.ApproveRequest(r.Context(), actor, id, account, expected, time.Now().UTC())
-		case "remove":
-			e = h.Store.SetMemberStatus(r.Context(), actor, id, account, "removed", expected)
-		case "ban":
-			e = h.Store.SetMemberStatus(r.Context(), actor, id, account, "banned", expected)
-		case "promote":
-			e = h.Store.SetMemberRole(r.Context(), actor, id, account, "moderator", expected)
-		case "demote":
-			e = h.Store.SetMemberRole(r.Context(), actor, id, account, "member", expected)
-		default:
-			e = ErrInvalid
-		}
+		result, e := h.Store.ChangeMembership(r.Context(), actor, id, account, input.Action, expected)
 		if e != nil {
 			reply(w, r, nil, e)
 			return
 		}
-		m, e := h.squadMember(r.Context(), id, account)
+		body, e := AdaptV2SquadMembership(squadRequestID(r), result.Membership, result.Squad, time.Now().UTC())
+		replyV2Squad(w, r, http.StatusOK, body, e)
+	})
+	mux.HandleFunc("GET /v2/me/squad-invitations", func(w http.ResponseWriter, r *http.Request) {
+		actor, e := h.actor(r)
+		if e != nil {
+			writeError(w, r, http.StatusUnauthorized, "AUTH_REQUIRED")
+			return
+		}
+		page, e := h.Store.InvitationInbox(r.Context(), actor, r.URL.Query().Get("after"), time.Now().UTC())
+		reply(w, r, page, e)
+	})
+	mux.HandleFunc("GET /v2/me/squad-invitations/{id}", func(w http.ResponseWriter, r *http.Request) {
+		actor, e := h.actor(r)
+		if e != nil {
+			writeError(w, r, http.StatusUnauthorized, "AUTH_REQUIRED")
+			return
+		}
+		delivery, e := h.Store.InvitationDelivery(r.Context(), actor, r.PathValue("id"), time.Now().UTC())
+		reply(w, r, delivery, e)
+	})
+	mux.HandleFunc("POST /v2/me/squad-invitations/{id}/accept", func(w http.ResponseWriter, r *http.Request) {
+		actor, e := h.actor(r)
+		if e != nil {
+			writeError(w, r, http.StatusUnauthorized, "AUTH_REQUIRED")
+			return
+		}
+		var in v2.ConnectedSquadAcceptBody
+		if e = decodeV2Squad(w, r, "ConnectedSquadAcceptBody", &in); e != nil {
+			writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST")
+			return
+		}
+		result, e := h.Store.RedeemInvitation(r.Context(), actor, r.PathValue("id"), in.Token, uint64(in.Expected), time.Now().UTC())
 		if e != nil {
 			reply(w, r, nil, e)
 			return
 		}
-		if m.Role == "" && m.JoinedAt.IsZero() {
-			m.Role = "member"
-		}
-		body, e := AdaptV2SquadMembership(squadRequestID(r), m, time.Now().UTC())
+		body, e := AdaptV2SquadMembership(squadRequestID(r), result.Membership, result.Squad, time.Now().UTC())
 		replyV2Squad(w, r, http.StatusOK, body, e)
 	})
 	mux.HandleFunc("POST /v2/discovery/squads", func(w http.ResponseWriter, r *http.Request) {
@@ -349,14 +340,14 @@ func (h HTTP) Handler() http.Handler {
 			writeError(w, r, http.StatusUnauthorized, "AUTH_REQUIRED")
 			return
 		}
-		var input struct{ ID, Name, Policy string }
-		if e = decode(w, r, &input); e != nil {
+		var input v2.ConnectedSquadCreateBody
+		if e = decodeV2Squad(w, r, "ConnectedSquadCreateBody", &input); e != nil {
 			writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST")
 			return
 		}
-		q := Squad{ID: input.ID, OwnerAccountID: actor, Name: input.Name, Policy: input.Policy, Revision: 1}
+		q := Squad{ID: input.ID, OwnerAccountID: actor, Name: input.Name, Policy: input.Policy, Visibility: "private", Revision: 1}
 		e = h.Store.CreateSquad(r.Context(), actor, q)
-		reply(w, r, q, e)
+		connectedSquadReply(w, r, q, e)
 	})
 	mux.HandleFunc("PATCH /v2/discovery/squads/{id}", func(w http.ResponseWriter, r *http.Request) {
 		actor, e := h.actor(r)
@@ -364,17 +355,13 @@ func (h HTTP) Handler() http.Handler {
 			writeError(w, r, http.StatusUnauthorized, "AUTH_REQUIRED")
 			return
 		}
-		var in struct {
-			Squad    Squad
-			Expected uint64
-		}
-		if e = decode(w, r, &in); e != nil {
+		var in v2.ConnectedSquadPatchBody
+		if e = decodeV2Squad(w, r, "ConnectedSquadPatchBody", &in); e != nil {
 			writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST")
 			return
 		}
-		in.Squad.ID = r.PathValue("id")
-		e = h.Store.UpdateSquad(r.Context(), actor, in.Squad, in.Expected)
-		reply(w, r, in.Squad, e)
+		q, e := h.Store.UpdateConnectedSquad(r.Context(), actor, r.PathValue("id"), in)
+		connectedSquadReply(w, r, q, e)
 	})
 	mux.HandleFunc("PATCH /v2/discovery/squads/{id}/members/{account}", func(w http.ResponseWriter, r *http.Request) {
 		actor, e := h.actor(r)
@@ -402,12 +389,13 @@ func (h HTTP) Handler() http.Handler {
 		var in struct {
 			Account, Token string
 			Expires        time.Time
+			Expected       uint64
 		}
 		if e = decode(w, r, &in); e != nil {
 			writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST")
 			return
 		}
-		e = h.Store.Invite(r.Context(), actor, r.PathValue("id"), in.Account, in.Token, in.Expires)
+		e = h.Store.Invite(r.Context(), actor, r.PathValue("id"), in.Account, in.Token, in.Expected, in.Expires)
 		reply(w, r, map[string]bool{"invited": e == nil}, e)
 	})
 	mux.HandleFunc("POST /v2/discovery/squads/{id}/accept", func(w http.ResponseWriter, r *http.Request) {
@@ -424,8 +412,8 @@ func (h HTTP) Handler() http.Handler {
 			writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST")
 			return
 		}
-		v, e := h.Store.AcceptInvitation(r.Context(), actor, r.PathValue("id"), in.Token, in.Expected, time.Now().UTC())
-		reply(w, r, v, e)
+		v, e := h.Store.RedeemInvitation(r.Context(), actor, r.PathValue("id"), in.Token, in.Expected, time.Now().UTC())
+		reply(w, r, v.Membership, e)
 	})
 	mux.HandleFunc("POST /v2/discovery/squads/{id}/transfer", func(w http.ResponseWriter, r *http.Request) {
 		actor, e := h.actor(r)
@@ -533,4 +521,21 @@ func (h HTTP) squadMember(ctx context.Context, id, account string) (Membership, 
 		err = json.Unmarshal(body, &m)
 	}
 	return m, err
+}
+
+func connectedSquadReply(w http.ResponseWriter, r *http.Request, q Squad, err error) {
+	if err != nil {
+		reply(w, r, nil, err)
+		return
+	}
+	if q.Validate() != nil || q.Revision > 9007199254740991 {
+		reply(w, r, nil, ErrInvalid)
+		return
+	}
+	dto := v2.ConnectedDiscoverySquad{ID: q.ID, Name: q.Name, OwnerAccountID: q.OwnerAccountID, Policy: q.Policy, Revision: v2.SafeInteger(q.Revision)}
+	body, err := json.Marshal(dto)
+	if err == nil {
+		err = v2.ValidateJSON("ConnectedDiscoverySquad", body)
+	}
+	replyV2Squad(w, r, http.StatusOK, body, err)
 }

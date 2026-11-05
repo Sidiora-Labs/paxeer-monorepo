@@ -6,12 +6,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -46,12 +46,12 @@ type EpochMemberAuthority struct {
 }
 
 type BrokerEpochController struct {
-	pool                *pgxpool.Pool
-	schema              string
 	epoch               int64
 	region              string
 	members             []EpochMemberAuthority
 	configurationSHA256 string
+	store               epochFenceStore
+	checkpoint          func(string, string) error
 }
 
 type EpochCredentialEvidence struct {
@@ -65,13 +65,14 @@ type EpochCredentialEvidence struct {
 }
 
 type EpochFenceResult struct {
-	Proposal            string                    `json:"proposal"`
-	Epoch               int64                     `json:"epoch"`
-	Region              string                    `json:"region"`
-	ConfigurationSHA256 string                    `json:"configurationSha256"`
-	CheckedUnix         int64                     `json:"checkedUnix"`
-	Evidence            []EpochCredentialEvidence `json:"evidence"`
-	ProofSHA256         string                    `json:"-"`
+	Proposal            string                          `json:"proposal"`
+	Epoch               int64                           `json:"epoch"`
+	Region              string                          `json:"region"`
+	ConfigurationSHA256 string                          `json:"configurationSha256"`
+	CheckedUnix         int64                           `json:"checkedUnix"`
+	Evidence            []EpochCredentialEvidence       `json:"evidence"`
+	ProofSHA256         string                          `json:"-"`
+	Transitions         map[string]*epochMemberProgress `json:"transitions,omitempty"`
 }
 
 func epochSHA(b []byte) string {
@@ -81,7 +82,7 @@ func epochSHA(b []byte) string {
 
 func validateEpochMember(m EpochMemberAuthority) error {
 	u, err := url.Parse(m.URL)
-	if err != nil || (u.Scheme != "nats" && u.Scheme != "tls") || u.Hostname() == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" || strings.Contains(m.URL, ",") || !epochName.MatchString(m.Name) || !epochServer.MatchString(m.ServerID) || m.Control == nil || !m.Control.IsConnected() || m.Control.ConnectedServerId() != m.ServerID || !filepath.IsAbs(m.ConfigPath) || !epochDigest.MatchString(m.ExistingSHA256) || !epochDigest.MatchString(m.ReplacementSHA256) || m.ExistingSHA256 == m.ReplacementSHA256 || len(m.Replacement) == 0 || len(m.Replacement) > 1<<20 || epochSHA(m.Replacement) != m.ReplacementSHA256 || len(m.Credentials) < 1 || len(m.Credentials) > 32 {
+	if err != nil || (u.Scheme != "nats" && u.Scheme != "tls") || u.Hostname() == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" || strings.Contains(m.URL, ",") || !epochName.MatchString(m.Name) || !epochServer.MatchString(m.ServerID) || m.Control == nil || !m.Control.IsConnected() || m.Control.ConnectedServerId() != m.ServerID || !filepath.IsAbs(m.ConfigPath) || filepath.Clean(m.ConfigPath) != m.ConfigPath || !epochDigest.MatchString(m.ExistingSHA256) || !epochDigest.MatchString(m.ReplacementSHA256) || m.ExistingSHA256 == m.ReplacementSHA256 || len(m.Replacement) == 0 || len(m.Replacement) > 1<<20 || epochSHA(m.Replacement) != m.ReplacementSHA256 || len(m.Credentials) < 1 || len(m.Credentials) > 32 {
 		return errors.New("natsdriver: explicit pinned broker member authority required")
 	}
 	if err = m.Probe.validate(); err != nil {
@@ -104,11 +105,21 @@ func NewBrokerEpochController(pool *pgxpool.Pool, schema string, epoch int64, re
 	if pool == nil || !epochSchema.MatchString(schema) || epoch < 1 || !epochName.MatchString(region) || len(members) < 1 || len(members) > 9 {
 		return nil, errors.New("natsdriver: recovery database and bounded member inventory required")
 	}
-	c := &BrokerEpochController{pool: pool, schema: pgx.Identifier{schema}.Sanitize(), epoch: epoch, region: region}
+	return newBrokerEpochController(&postgresEpochFenceStore{pool: pool, schema: pgx.Identifier{schema}.Sanitize()}, epoch, region, members)
+}
+
+func newBrokerEpochController(store epochFenceStore, epoch int64, region string, members []EpochMemberAuthority) (*BrokerEpochController, error) {
+	if store == nil || epoch < 1 || !epochName.MatchString(region) || len(members) < 1 || len(members) > 9 {
+		return nil, errors.New("natsdriver: explicit recovery authority required")
+	}
+	c := &BrokerEpochController{store: store, epoch: epoch, region: region}
+	members = append([]EpochMemberAuthority(nil), members...)
+	sort.Slice(members, func(i, j int) bool { return members[i].Name < members[j].Name })
 	seen := map[string]bool{}
 	type identity struct {
-		Name, ServerID, Existing, Replacement string
-		Credentials                           []string
+		Name, ServerID, Existing, Replacement, URL, ConfigPath string
+		Credentials                                            []EpochCredential
+		Probe                                                  ConsumerConfig
 	}
 	identities := make([]identity, 0, len(members))
 	for _, m := range members {
@@ -125,9 +136,11 @@ func NewBrokerEpochController(pool *pgxpool.Pool, schema string, epoch int64, re
 		copyMember.Replacement = append([]byte(nil), m.Replacement...)
 		copyMember.Credentials = append([]EpochCredential(nil), m.Credentials...)
 		c.members = append(c.members, copyMember)
-		item := identity{Name: m.Name, ServerID: m.ServerID, Existing: m.ExistingSHA256, Replacement: m.ReplacementSHA256}
-		for _, credential := range m.Credentials {
-			item.Credentials = append(item.Credentials, credential.ID)
+		sort.Slice(copyMember.Credentials, func(i, j int) bool { return copyMember.Credentials[i].ID < copyMember.Credentials[j].ID })
+		c.members[len(c.members)-1] = copyMember
+		item := identity{Name: m.Name, ServerID: m.ServerID, Existing: m.ExistingSHA256, Replacement: m.ReplacementSHA256, URL: m.URL, ConfigPath: m.ConfigPath, Probe: m.Probe}
+		for _, credential := range copyMember.Credentials {
+			item.Credentials = append(item.Credentials, EpochCredential{ID: credential.ID, Username: credential.Username, Password: epochSHA([]byte(credential.Password))})
 		}
 		identities = append(identities, item)
 	}
@@ -235,7 +248,13 @@ func replaceEpochConfig(m EpochMemberAuthority) error {
 	}
 	current, err := io.ReadAll(io.LimitReader(original, 1<<20+1))
 	closeErr := original.Close()
-	if err != nil || closeErr != nil || epochSHA(current) != m.ExistingSHA256 {
+	if err != nil || closeErr != nil {
+		return errors.New("natsdriver: pinned broker configuration unreadable")
+	}
+	if epochSHA(current) == m.ReplacementSHA256 {
+		return nil
+	}
+	if epochSHA(current) != m.ExistingSHA256 {
 		return errors.New("natsdriver: original broker configuration changed")
 	}
 	file, err := os.CreateTemp(directory, ".epoch-config-")
@@ -280,19 +299,10 @@ func revokeEpochMember(ctx context.Context, m EpochMemberAuthority, probes []epo
 	if err := replaceEpochConfig(m); err != nil {
 		return nil, err
 	}
-	response, err := m.Control.RequestWithContext(ctx, "$SYS.REQ.SERVER."+m.ServerID+".RELOAD", []byte("{}"))
-	if err != nil {
-		return nil, errors.New("natsdriver: authenticated server reload failed")
+	if err := reloadEpochMember(ctx, m); err != nil {
+		return nil, err
 	}
-	var reload struct {
-		Server *struct {
-			ID string `json:"id"`
-		} `json:"server"`
-		Error json.RawMessage `json:"error"`
-	}
-	if len(response.Data) > 64<<10 || json.Unmarshal(response.Data, &reload) != nil || reload.Server == nil || reload.Server.ID != m.ServerID || (len(reload.Error) > 0 && string(reload.Error) != "null") {
-		return nil, errors.New("natsdriver: broker rejected configuration reload")
-	}
+	var err error
 	evidence := make([]EpochCredentialEvidence, 0, len(probes))
 	for _, p := range probes {
 		ticker := time.NewTicker(10 * time.Millisecond)
@@ -329,89 +339,185 @@ func revokeEpochMember(ctx context.Context, m EpochMemberAuthority, probes []epo
 	return evidence, nil
 }
 
+func reloadEpochMember(ctx context.Context, m EpochMemberAuthority) error {
+	response, err := m.Control.RequestWithContext(ctx, "$SYS.REQ.SERVER."+m.ServerID+".RELOAD", []byte("{}"))
+	if err != nil {
+		return errors.New("natsdriver: authenticated server reload failed")
+	}
+	var reload struct {
+		Server *struct {
+			ID string `json:"id"`
+		} `json:"server"`
+		Error json.RawMessage `json:"error"`
+	}
+	if len(response.Data) > 64<<10 || json.Unmarshal(response.Data, &reload) != nil || reload.Server == nil || reload.Server.ID != m.ServerID || (len(reload.Error) > 0 && string(reload.Error) != "null") {
+		return errors.New("natsdriver: broker rejected configuration reload")
+	}
+	return nil
+}
+
 func (c *BrokerEpochController) Fence(ctx context.Context, proposal, actor string) (EpochFenceResult, error) {
+	return c.fence(ctx, proposal, actor, false)
+}
+
+// FenceAndBind is the admitted operational entry point. It consumes only the
+// durable, freshly verified proof; recovery activation remains the coordinator's job.
+func (c *BrokerEpochController) FenceAndBind(ctx context.Context, proposal, actor string) (EpochFenceResult, error) {
+	return c.fence(ctx, proposal, actor, true)
+}
+
+func (c *BrokerEpochController) fence(ctx context.Context, proposal, actor string, bind bool) (EpochFenceResult, error) {
 	var result EpochFenceResult
-	if c == nil || ctx == nil || !epochName.MatchString(proposal) || actor == "" || len(actor) > 128 {
+	if c == nil || c.store == nil || ctx == nil || !epochName.MatchString(proposal) || actor == "" || len(actor) > 128 {
 		return result, errors.New("natsdriver: explicit recovery proposal and actor required")
 	}
 	bounded, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
-	tx, err := c.pool.Begin(bounded)
-	if err != nil {
-		return result, err
-	}
-	defer func() {
-		cleanup, stop := context.WithTimeout(context.Background(), time.Second)
-		defer stop()
-		_ = tx.Rollback(cleanup)
-	}()
-	if _, err = tx.Exec(bounded, "SELECT "+c.schema+".assert_epoch($1,$2)", c.epoch, c.region); err != nil {
-		return result, err
-	}
-	var epoch int64
-	var region string
-	err = tx.QueryRow(bounded, "SELECT epoch,region FROM "+c.schema+".recovery_control WHERE singleton").Scan(&epoch, &region)
-	if err != nil {
-		return result, err
-	}
-	if epoch != c.epoch || region != c.region {
-		return result, errors.New("natsdriver: stale recovery authority")
-	}
-	var expected, revision int64
-	var proposalActor, state string
-	err = tx.QueryRow(bounded, "SELECT expected_epoch,revision,actor,state FROM "+c.schema+".recovery_proposals WHERE proposal_id=$1", proposal).Scan(&expected, &revision, &proposalActor, &state)
-	if err != nil {
-		return result, err
-	}
-	if expected != epoch || actor != proposalActor || (state != "proposed" && state != "validated") {
-		return result, errors.New("natsdriver: recovery proposal authority mismatch")
-	}
-	_, err = tx.Exec(bounded, "INSERT INTO "+c.schema+".recovery_broker_fences(proposal_id,expected_epoch,region,revision,actor,configuration_sha256,state) VALUES($1,$2,$3,$4,$5,$6,'applying')", proposal, epoch, region, revision, actor, c.configurationSHA256)
-	if err != nil {
-		return result, err
-	}
-	if err = tx.Commit(bounded); err != nil {
-		return result, err
-	}
-	result = EpochFenceResult{Proposal: proposal, Epoch: epoch, Region: region, ConfigurationSHA256: c.configurationSHA256, Evidence: []EpochCredentialEvidence{}}
-	succeeded := false
-	defer func() {
-		if !succeeded {
-			cleanup, stop := context.WithTimeout(context.Background(), time.Second)
-			defer stop()
-			_, _ = c.pool.Exec(cleanup, "UPDATE "+c.schema+".recovery_broker_fences SET state='failed',failure_code='BROKER_EPOCH_FENCE_FAILED' WHERE proposal_id=$1 AND state='applying' AND configuration_sha256=$2", proposal, c.configurationSHA256)
+	identity := epochFenceIdentity{Proposal: proposal, Actor: actor, Epoch: c.epoch, Region: c.region, ConfigurationSHA256: c.configurationSHA256}
+	err := c.store.run(bounded, identity, bind, func(record *epochFenceRecord, save func() error) error {
+		release, err := lockEpochMembers(c.members)
+		if err != nil {
+			return err
 		}
-	}()
-	for _, member := range c.members {
-		if err = validateEpochMember(member); err != nil {
-			return result, err
+		defer release()
+		if len(record.Members) > len(c.members) {
+			return errors.New("natsdriver: unexpected durable member progress")
 		}
-		probes, prepareErr := prepareEpochProbes(bounded, member, proposal)
-		if prepareErr != nil {
-			return result, prepareErr
+		known := map[string]bool{}
+		for _, member := range c.members {
+			known[member.Name] = true
 		}
-		evidence, revokeErr := revokeEpochMember(bounded, member, probes)
-		for _, p := range probes {
-			p.conn.Close()
+		for name := range record.Members {
+			if !known[name] {
+				return errors.New("natsdriver: unknown durable member progress")
+			}
 		}
-		if revokeErr != nil {
-			return result, revokeErr
+		record.State = "applying"
+		record.Result = nil
+		record.BoundProof = ""
+		if err := save(); err != nil {
+			return err
 		}
-		result.Evidence = append(result.Evidence, evidence...)
-	}
-	result.CheckedUnix = time.Now().Unix()
-	wire, err := json.Marshal(result)
+		result = EpochFenceResult{Proposal: proposal, Epoch: c.epoch, Region: c.region, ConfigurationSHA256: c.configurationSHA256, Evidence: []EpochCredentialEvidence{}}
+		for _, member := range c.members {
+			if err := validateEpochMember(member); err != nil {
+				return err
+			}
+			progress := record.Members[member.Name]
+			if progress == nil {
+				// A replacement without a durable prepared probe is never admitted.
+				current, err := os.ReadFile(member.ConfigPath)
+				if err != nil || epochSHA(current) != member.ExistingSHA256 {
+					return errors.New("natsdriver: original configuration required before probe preparation")
+				}
+				probes, err := prepareEpochProbes(bounded, member, proposal)
+				if err != nil {
+					return err
+				}
+				defer closeEpochProbes(probes)
+				progress = &epochMemberProgress{Stage: "prepared", Acks: map[string]string{}}
+				for _, p := range probes {
+					progress.Acks[p.credential.ID] = p.pending.Reply()
+				}
+				record.Members[member.Name] = progress
+				if err = save(); err != nil {
+					return err
+				}
+				if err = replaceEpochConfig(member); err != nil {
+					return err
+				}
+				if err = c.atCheckpoint(member.Name, "published"); err != nil {
+					return err
+				}
+				if err = reloadEpochMember(bounded, member); err != nil {
+					return err
+				}
+				if err = c.atCheckpoint(member.Name, "reloaded"); err != nil {
+					return err
+				}
+				// Still-live old connections must lose both publish and acknowledgement.
+				for _, p := range probes {
+					if err = awaitEpochClosed(bounded, p.conn); err != nil {
+						return err
+					}
+					if ack, pubErr := p.js.Publish(bounded, member.Probe.Subject, []byte("revoked-epoch-probe")); pubErr == nil || ack != nil {
+						return errors.New("natsdriver: revoked publisher survived")
+					}
+					if err = p.pending.DoubleAck(bounded); err == nil {
+						return errors.New("natsdriver: revoked acknowledgement survived")
+					}
+				}
+			} else {
+				if progress.Stage != "prepared" && progress.Stage != "verified" {
+					return errors.New("natsdriver: invalid member progress")
+				}
+				if len(progress.Acks) != len(member.Credentials) {
+					return errors.New("natsdriver: incomplete durable credential probes")
+				}
+				if err := replaceEpochConfig(member); err != nil {
+					return err
+				}
+				if err := reloadEpochMember(bounded, member); err != nil {
+					return err
+				}
+			}
+			evidence, err := verifyResumedEpochMember(bounded, member, progress)
+			if err != nil {
+				return err
+			}
+			progress.Stage = "verified"
+			progress.Evidence = evidence
+			if err = save(); err != nil {
+				return err
+			}
+			if err = c.atCheckpoint(member.Name, "verified"); err != nil {
+				return err
+			}
+			result.Evidence = append(result.Evidence, evidence...)
+		}
+		result.Transitions = record.Members
+		result.CheckedUnix = time.Now().Unix()
+		wire, err := json.Marshal(result)
+		if err != nil {
+			return err
+		}
+		result.ProofSHA256 = epochSHA(wire)
+		record.State = "verified"
+		record.Result = &result
+		record.ProofSHA256 = result.ProofSHA256
+		if bind {
+			record.BoundProof = result.ProofSHA256
+		}
+		return save()
+	})
 	if err != nil {
-		return result, err
+		return EpochFenceResult{}, err
 	}
-	result.ProofSHA256 = epochSHA(wire)
-	tag, err := c.pool.Exec(bounded, "UPDATE "+c.schema+".recovery_broker_fences f SET state='verified',proof_sha256=$2,evidence=$3::jsonb,verified_at=clock_timestamp() WHERE f.proposal_id=$1 AND f.state='applying' AND f.configuration_sha256=$4 AND EXISTS(SELECT 1 FROM "+c.schema+".recovery_control c WHERE c.singleton AND c.epoch=$5 AND c.region=$6)", proposal, result.ProofSHA256, string(wire), c.configurationSHA256, c.epoch, c.region)
-	if err != nil {
-		return result, err
-	}
-	if tag.RowsAffected() != 1 {
-		return result, fmt.Errorf("natsdriver: recovery changed before durable fence confirmation")
-	}
-	succeeded = true
 	return result, nil
+}
+
+func (c *BrokerEpochController) atCheckpoint(member, stage string) error {
+	if c.checkpoint != nil {
+		return c.checkpoint(member, stage)
+	}
+	return nil
+}
+
+func closeEpochProbes(probes []epochProbe) {
+	for _, p := range probes {
+		p.conn.Close()
+	}
+}
+
+func awaitEpochClosed(ctx context.Context, conn *nats.Conn) error {
+	ticker := time.NewTicker(10 * time.Millisecond)
+	defer ticker.Stop()
+	for !conn.IsClosed() {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+		}
+	}
+	return nil
 }

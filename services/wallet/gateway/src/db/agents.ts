@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { TransactionSerializable } from 'viem';
 import { unsignedTransactionBytes } from '../attestor/client.js';
 import type { PoolClient } from 'pg';
-import { getPool, query, withTransaction } from './pool.js';
+import { getPool, query, withTransaction, signingSessionClient } from './pool.js';
 import { env } from '../env.js';
 
 /**
@@ -83,11 +83,15 @@ function toBigIntOrNull(v: unknown): bigint | null {
 // -----------------------------------------------------------------------------
 
 /** Persist a freshly-minted challenge nonce. */
-export async function createChallenge(did: string, nonce: string, ttlSeconds: number): Promise<void> {
+export async function createChallenge(
+  did: string,
+  nonce: string,
+  ttlSeconds: number
+): Promise<void> {
   await query(
     `insert into agent_auth_challenges (nonce, did, expires_at)
      values ($1, $2, now() + ($3 || ' seconds')::interval)`,
-    [nonce, did, String(ttlSeconds)],
+    [nonce, did, String(ttlSeconds)]
   );
 }
 
@@ -103,7 +107,7 @@ export async function consumeChallenge(nonce: string, did: string): Promise<bool
         and did = $2
         and consumed_at is null
         and expires_at > now()`,
-    [nonce, did],
+    [nonce, did]
   );
   return (rowCount ?? 0) > 0;
 }
@@ -111,7 +115,7 @@ export async function consumeChallenge(nonce: string, did: string): Promise<bool
 /** Opportunistic cleanup of expired/consumed challenges. Best-effort. */
 export async function purgeExpiredChallenges(): Promise<void> {
   await query(
-    `delete from agent_auth_challenges where expires_at < now() - interval '1 hour'`,
+    `delete from agent_auth_challenges where expires_at < now() - interval '1 hour'`
   ).catch(() => undefined);
 }
 
@@ -124,7 +128,7 @@ export async function findPrincipal(did: string): Promise<AgentPrincipalRow | nu
     `select did, owner_user_id, label, key_fingerprint, public_key, wallet_id,
             is_frozen, created_at, last_seen_at
        from agent_principals where did = $1 limit 1`,
-    [did],
+    [did]
   );
   return rows[0] ?? null;
 }
@@ -134,7 +138,7 @@ export async function listPrincipalsByOwner(ownerUserId: string): Promise<AgentP
     `select did, owner_user_id, label, key_fingerprint, public_key, wallet_id,
             is_frozen, created_at, last_seen_at
        from agent_principals where owner_user_id = $1 order by created_at desc`,
-    [ownerUserId],
+    [ownerUserId]
   );
   return rows;
 }
@@ -161,16 +165,18 @@ export async function upsertPrincipalOnVerify(args: {
          set last_seen_at = now()
        returning did, owner_user_id, label, key_fingerprint, public_key, wallet_id,
                  is_frozen, created_at, last_seen_at`,
-      [args.did, args.label, args.keyFingerprint, args.publicKey, env.AGENT_DEFAULT_FROZEN],
+      [args.did, args.label, args.keyFingerprint, args.publicKey, env.AGENT_DEFAULT_FROZEN]
     );
     // Ensure a default policy row exists for this principal.
     await client.query(
       `insert into agent_policies (did, mode) values ($1, $2)
        on conflict (did) do nothing`,
-      [args.did, env.AGENT_DEFAULT_MODE],
+      [args.did, env.AGENT_DEFAULT_MODE]
     );
     // last_seen_at on a brand-new row is null; set it.
-    await client.query(`update agent_principals set last_seen_at = now() where did = $1`, [args.did]);
+    await client.query(`update agent_principals set last_seen_at = now() where did = $1`, [
+      args.did,
+    ]);
     return rows[0]!;
   });
 }
@@ -188,7 +194,7 @@ export async function claimPrincipal(did: string, ownerUserId: string): Promise<
   const { rowCount } = await query(
     `update agent_principals set owner_user_id = $2
       where did = $1 and owner_user_id is null`,
-    [did, ownerUserId],
+    [did, ownerUserId]
   );
   return (rowCount ?? 0) > 0;
 }
@@ -215,7 +221,7 @@ export async function getPolicy(did: string): Promise<AgentPolicyRow | null> {
             rate_limit_per_min, max_approve_wei::text, allow_native_transfer,
             withdrawal_allowlist_only, daily_reset_utc_hour, updated_at, updated_by
        from agent_policies where did = $1 limit 1`,
-    [did],
+    [did]
   );
   const r = rows[0];
   if (!r) return null;
@@ -242,7 +248,7 @@ export interface PolicyPatch {
 export async function upsertPolicy(
   did: string,
   patch: PolicyPatch,
-  updatedBy: string | null,
+  updatedBy: string | null
 ): Promise<AgentPolicyRow> {
   // Build a dynamic SET list over the provided keys only.
   const cols: string[] = [];
@@ -253,16 +259,27 @@ export async function upsertPolicy(
   };
   if (patch.mode !== undefined) push('mode', patch.mode);
   if (patch.max_tx_value_wei !== undefined)
-    push('max_tx_value_wei', patch.max_tx_value_wei === null ? null : patch.max_tx_value_wei.toString());
+    push(
+      'max_tx_value_wei',
+      patch.max_tx_value_wei === null ? null : patch.max_tx_value_wei.toString()
+    );
   if (patch.max_daily_value_wei !== undefined)
-    push('max_daily_value_wei', patch.max_daily_value_wei === null ? null : patch.max_daily_value_wei.toString());
+    push(
+      'max_daily_value_wei',
+      patch.max_daily_value_wei === null ? null : patch.max_daily_value_wei.toString()
+    );
   if (patch.rate_limit_per_min !== undefined) push('rate_limit_per_min', patch.rate_limit_per_min);
   if (patch.max_approve_wei !== undefined)
-    push('max_approve_wei', patch.max_approve_wei === null ? null : patch.max_approve_wei.toString());
-  if (patch.allow_native_transfer !== undefined) push('allow_native_transfer', patch.allow_native_transfer);
+    push(
+      'max_approve_wei',
+      patch.max_approve_wei === null ? null : patch.max_approve_wei.toString()
+    );
+  if (patch.allow_native_transfer !== undefined)
+    push('allow_native_transfer', patch.allow_native_transfer);
   if (patch.withdrawal_allowlist_only !== undefined)
     push('withdrawal_allowlist_only', patch.withdrawal_allowlist_only);
-  if (patch.daily_reset_utc_hour !== undefined) push('daily_reset_utc_hour', patch.daily_reset_utc_hour);
+  if (patch.daily_reset_utc_hour !== undefined)
+    push('daily_reset_utc_hour', patch.daily_reset_utc_hour);
 
   vals.push(updatedBy);
   const updatedByPlaceholder = `$${vals.length}`;
@@ -271,9 +288,11 @@ export async function upsertPolicy(
   await query(
     `insert into agent_policies (did, mode) values ($1, $2)
      on conflict (did) do nothing`,
-    [did, patch.mode ?? env.AGENT_DEFAULT_MODE],
+    [did, patch.mode ?? env.AGENT_DEFAULT_MODE]
   );
-  const setClause = [...cols, `updated_by = ${updatedByPlaceholder}`, 'updated_at = now()'].join(', ');
+  const setClause = [...cols, `updated_by = ${updatedByPlaceholder}`, 'updated_at = now()'].join(
+    ', '
+  );
   await query(`update agent_policies set ${setClause} where did = $1`, vals);
   const updated = await getPolicy(did);
   return updated!;
@@ -297,7 +316,7 @@ export async function listRules(did: string): Promise<AgentPolicyRuleRow[]> {
   }>(
     `select id::text, did, effect, subject, value, max_value_wei::text, note, created_at, created_by
        from agent_policy_rules where did = $1 order by id asc`,
-    [did],
+    [did]
   );
   return rows.map((r) => ({ ...r, max_value_wei: toBigIntOrNull(r.max_value_wei) }));
 }
@@ -325,7 +344,7 @@ export async function addRule(args: {
       args.maxValueWei != null ? args.maxValueWei.toString() : null,
       args.note ?? null,
       args.createdBy ?? null,
-    ],
+    ]
   );
   const all = await listRules(args.did);
   return all.find((r) => r.id === rows[0]!.id)!;
@@ -361,7 +380,7 @@ export async function listActiveBudgets(did: string): Promise<AgentBudgetRow[]> 
        from agent_budgets
       where did = $1 and active and expires_at > now()
       order by id asc`,
-    [did],
+    [did]
   );
   return rows.map((r) => ({ ...r, cap_wei: BigInt(r.cap_wei), spent_wei: BigInt(r.spent_wei) }));
 }
@@ -385,7 +404,7 @@ export async function addBudget(args: {
       args.capWei.toString(),
       args.expiresAt.toISOString(),
       args.createdBy ?? null,
-    ],
+    ]
   );
   const all = await listActiveBudgets(args.did);
   return all.find((b) => b.id === rows[0]!.id)!;
@@ -394,10 +413,29 @@ export async function addBudget(args: {
 export async function deactivateBudget(did: string, budgetId: string): Promise<boolean> {
   const { rowCount } = await query(
     `update agent_budgets set active = false where did = $1 and id = $2`,
-    [did, budgetId],
+    [did, budgetId]
   );
   return (rowCount ?? 0) > 0;
 }
+
+// PostgreSQL rechecks these outer predicates against the current tuple after a
+// concurrent updater releases its row lock. The selector alone uses a snapshot.
+export const BUDGET_RESERVATION_SQL = `update agent_budgets b
+        set spent_wei = spent_wei + $4
+      where b.id = (
+        select id from agent_budgets
+         where did = $1 and active and expires_at > clock_timestamp()
+           and (target_contract is null or target_contract = $2)
+           and (token is null or token = $3)
+           and spent_wei + $4 <= cap_wei
+         order by ((target_contract is not null)::int + (token is not null)::int) desc, id asc
+         limit 1
+      )
+        and b.did = $1 and b.active and b.expires_at > clock_timestamp()
+        and (b.target_contract is null or b.target_contract = $2)
+        and (b.token is null or b.token = $3)
+        and b.spent_wei + $4 <= b.cap_wei
+      returning id::text`;
 
 /**
  * Atomically reserve `valueWei` against the MOST SPECIFIC active, unexpired
@@ -406,41 +444,33 @@ export async function deactivateBudget(did: string, budgetId: string): Promise<b
  *
  * Specificity order: both scoped > target-scoped > token-scoped > unscoped.
  */
-export async function reserveBudget(args: {
-  did: string;
-  targetContract: string | null;
-  token: string | null;
-  valueWei: bigint;
-}, client?: PoolClient): Promise<string | null> {
-  const { rows } = await (client ?? getPool()).query<{ id: string }>(
-    `update agent_budgets b
-        set spent_wei = spent_wei + $4
-      where b.id = (
-        select id from agent_budgets
-         where did = $1 and active and expires_at > now()
-           and (target_contract is null or target_contract = $2)
-           and (token is null or token = $3)
-           and spent_wei + $4 <= cap_wei
-         order by ((target_contract is not null)::int + (token is not null)::int) desc, id asc
-         limit 1
-      )
-      returning id::text`,
+export async function reserveBudget(
+  args: {
+    did: string;
+    targetContract: string | null;
+    token: string | null;
+    valueWei: bigint;
+  },
+  client?: PoolClient
+): Promise<string | null> {
+  const { rows } = await (client ?? signingSessionClient() ?? getPool()).query<{ id: string }>(
+    BUDGET_RESERVATION_SQL,
     [
       args.did,
       args.targetContract ? args.targetContract.toLowerCase() : null,
       args.token ? args.token.toLowerCase() : null,
       args.valueWei.toString(),
-    ],
+    ]
   );
   return rows[0]?.id ?? null;
 }
 
 /** Release a previously reserved budget amount (called when a send fails). */
 export async function releaseBudget(budgetId: string, valueWei: bigint): Promise<void> {
-  await query(
-    `update agent_budgets set spent_wei = greatest(0, spent_wei - $2) where id = $1`,
-    [budgetId, valueWei.toString()],
-  ).catch(() => undefined);
+  await query(`update agent_budgets set spent_wei = greatest(0, spent_wei - $2) where id = $1`, [
+    budgetId,
+    valueWei.toString(),
+  ]).catch(() => undefined);
 }
 
 // -----------------------------------------------------------------------------
@@ -453,7 +483,7 @@ export async function countAgentSignaturesLastMinute(did: string): Promise<numbe
     `select count(*)::text as count
        from wallet_signatures
       where principal_did = $1 and created_at >= now() - interval '60 seconds'`,
-    [did],
+    [did]
   );
   return Number(rows[0]?.count ?? '0');
 }
@@ -464,7 +494,7 @@ export async function sumAgentDailyValue(did: string, windowStartIso: string): P
     `select coalesce(sum(value_wei), 0)::text as total
        from wallet_signatures
       where principal_did = $1 and kind = 'transaction' and created_at >= $2`,
-    [did, windowStartIso],
+    [did, windowStartIso]
   );
   return BigInt(rows[0]?.total ?? '0');
 }
@@ -476,28 +506,48 @@ export async function bindCustodyBudgetReservation(args: {
   requestNonce: string;
   transaction: TransactionSerializable;
 }): Promise<string> {
-  if (!/^[0-9a-f]{32}$/.test(args.requestNonce) || args.valueWei <= 0n || args.transaction.value !== args.valueWei) {
+  if (
+    !/^[0-9a-f]{32}$/.test(args.requestNonce) ||
+    args.valueWei <= 0n ||
+    args.transaction.value !== args.valueWei
+  ) {
     throw new Error('custody budget reservation differs from final transaction');
   }
   const transaction = unsignedTransactionBytes(args.transaction);
   return withTransaction(async (client) => {
-    const existing = await client.query<{ id: string; budget_id: string; value_wei: string; transaction: string }>(
+    const existing = await client.query<{
+      id: string;
+      budget_id: string;
+      value_wei: string;
+      transaction: string;
+    }>(
       'select id, budget_id::text, value_wei::text, unsigned_transaction as transaction from custody_budget_reservations where did = $1 and request_nonce = $2 for update',
-      [args.did, args.requestNonce],
+      [args.did, args.requestNonce]
     );
     if (existing.rows[0]) {
       const row = existing.rows[0];
-      if (row.budget_id !== args.budgetId || row.value_wei !== args.valueWei.toString() || row.transaction !== transaction) throw new Error('custody budget reservation cannot be retargeted');
+      if (
+        row.budget_id !== args.budgetId ||
+        row.value_wei !== args.valueWei.toString() ||
+        row.transaction !== transaction
+      )
+        throw new Error('custody budget reservation cannot be retargeted');
       return row.id;
     }
-    const budget = await client.query<{ id: string }>(`select id::text from agent_budgets
+    const budget = await client.query<{ id: string }>(
+      `select id::text from agent_budgets
       where id = $1 and did = $2 and active and expires_at > now() and spent_wei >= $3 and spent_wei <= cap_wei
         and token is null and (target_contract is null or lower(target_contract) = lower($4)) for update`,
-    [args.budgetId, args.did, args.valueWei.toString(), args.transaction.to ?? null]);
-    if (!budget.rows[0]) throw new Error('custody budget reservation has no matching charged grant');
+      [args.budgetId, args.did, args.valueWei.toString(), args.transaction.to ?? null]
+    );
+    if (!budget.rows[0])
+      throw new Error('custody budget reservation has no matching charged grant');
     const id = randomUUID();
-    await client.query(`insert into custody_budget_reservations (id, did, budget_id, request_nonce, unsigned_transaction, value_wei)
-      values ($1, $2, $3, $4, $5, $6)`, [id, args.did, args.budgetId, args.requestNonce, transaction, args.valueWei.toString()]);
+    await client.query(
+      `insert into custody_budget_reservations (id, did, budget_id, request_nonce, unsigned_transaction, value_wei)
+      values ($1, $2, $3, $4, $5, $6)`,
+      [id, args.did, args.budgetId, args.requestNonce, transaction, args.valueWei.toString()]
+    );
     return id;
   });
 }
@@ -505,12 +555,21 @@ export async function bindCustodyBudgetReservation(args: {
 export async function releaseCustodyBudgetReservation(id: string, did: string): Promise<void> {
   await withTransaction(async (client) => {
     const selected = await client.query<{ budget_id: string; value_wei: string }>(
-      'select budget_id::text, value_wei::text from custody_budget_reservations where id = $1 and did = $2 for update', [id, did]);
+      'select budget_id::text, value_wei::text from custody_budget_reservations where id = $1 and did = $2 for update',
+      [id, did]
+    );
     const row = selected.rows[0];
     if (!row) return;
-    const released = await client.query(`update agent_budgets set spent_wei = spent_wei - $3
-      where id = $1 and did = $2 and spent_wei >= $3`, [row.budget_id, did, row.value_wei]);
-    if (released.rowCount !== 1) throw new Error('charged custody budget reservation cannot be released');
-    await client.query('delete from custody_budget_reservations where id = $1 and did = $2', [id, did]);
+    const released = await client.query(
+      `update agent_budgets set spent_wei = spent_wei - $3
+      where id = $1 and did = $2 and spent_wei >= $3`,
+      [row.budget_id, did, row.value_wei]
+    );
+    if (released.rowCount !== 1)
+      throw new Error('charged custody budget reservation cannot be released');
+    await client.query('delete from custody_budget_reservations where id = $1 and did = $2', [
+      id,
+      did,
+    ]);
   });
 }

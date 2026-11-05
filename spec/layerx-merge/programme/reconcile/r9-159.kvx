@@ -1,0 +1,243 @@
+[reconcile.r9-159]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r9-159.1]
+interface = "interface.9.rs-agentd-human-runtime-coreleaseattestation-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 1539
+symbol = "CoreLeaseAttestation"
+evidence = "pub struct CoreLeaseAttestation declares the authenticated wall-clock/core-clock anchors and canonical bytes; the other occurrences are its impl, return types and construction."
+
+[row.r9-159.2]
+interface = "interface.9.rs-agentd-human-runtime-has-completed-capability-install"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 18288
+symbol = "has_completed_capability_install"
+evidence = "The public free function takes shared_store: &Arc<Mutex<Store>>, tenant: &TenantId and capability_id: CapabilityId, returning Result<bool, HumanOperationError>, matching the registered signature."
+
+[row.r9-159.3]
+interface = "interface.9.rs-agentd-human-runtime-humanauthorityboundary"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 1204
+symbol = "HumanAuthorityBoundary"
+evidence = "pub trait HumanAuthorityBoundary declares independently authenticated registry, subject, batch and lease authority operations; the remaining occurrences are impls, bounds and a trait-object parameter."
+
+[row.r9-159.4]
+interface = "interface.9.rs-agentd-human-runtime-productionhumanoperations"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 2219
+symbol = "ProductionHumanOperations"
+evidence = "pub struct ProductionHumanOperations<A> is the generic production operation owner containing authority, sequencer endpoint, chain, store and outboxes; other occurrences use or implement this type."
+
+[row.r9-159.5]
+interface = "interface.9.rs-agentd-human-runtime-recover-tenant-budget-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 2296
+symbol = "recover_tenant_budget"
+evidence = "pub fn recover_tenant_budget takes &mut Store, &TenantId and &BudgetRecoveryRequest and returns Result<TenantBudgetRecovery, RecoveryRefusal>; the later occurrence calls this declaration."
+
+[row.r9-159.6]
+interface = "interface.9.rs-agentd-human-runtime-recoveryrefusal-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 2250
+symbol = "RecoveryRefusal"
+evidence = "pub enum RecoveryRefusal declares Store, BudgetState, EvidenceMissing, Recovery and WritesBlocked refusal variants; the surrounding occurrences reference its type or variants."
+
+[row.r9-159.7]
+interface = "interface.9.rs-agentd-human-runtime-remotehumanauthority"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 1603
+symbol = "RemoteHumanAuthority"
+evidence = "pub struct RemoteHumanAuthority declares the TLS authority client with agent, endpoint, bearer and maximum_response_bytes fields; the impl and function-parameter occurrences use this type."
+
+[row.r9-159.8]
+interface = "interface.9.rs-agentd-human-runtime-route-operator-command-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 17742
+symbol = "route_operator_command"
+evidence = "pub fn route_operator_command declares the store_root, tenant, outbox, operator_id, request_id and OperatorCommand inputs and returns Result<HumanResponse, HumanOperationError>; the earlier occurrence is a call."
+
+[row.r9-159.9]
+interface = "interface.9.rs-agentd-human-runtime-sharedagentowner"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 2437
+symbol = "SharedAgentOwner"
+evidence = "pub struct SharedAgentOwner<A> declares owner: Arc<Mutex<UnifiedAgentOwner<A>>> and optional RPC idempotency state; its Clone and HumanOperations impls are separate uses."
+
+[row.r9-159.10]
+interface = "interface.9.rs-agentd-human-runtime-tenantbudgetrecovery-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 2268
+symbol = "TenantBudgetRecovery"
+evidence = "pub struct TenantBudgetRecovery declares recovered: RecoveredOutbox and admission: Result<(), RecoveryRefusal>; the other occurrences are the recovery function's return type and construction."
+
+[row.r9-159.11]
+interface = "interface.9.rs-agentd-human-runtime-unifiedagentowner"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 2398
+symbol = "UnifiedAgentOwner"
+evidence = "pub struct UnifiedAgentOwner<A> declares the shared operations, store, peers, approvals, budgets and sessions composition; the many impl and field-type occurrences refer to this declaration."
+
+[row.r9-159.12]
+interface = "interface.9.rs-agentd-human-runtime-verify-enrolment-expiry-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 18247
+symbol = "verify_enrolment_expiry"
+evidence = "pub fn verify_enrolment_expiry accepts &mut RemoteHumanAuthority, shared store, peer, agent and capability id and returns Result<VerifiedGrantExpiry, HumanOperationError>; the earlier occurrence calls it."
+
+[row.r9-159.13]
+interface = "interface.9.rs-agentd-remotehumanauthority-connect-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 1613
+symbol = "connect"
+evidence = "pub fn connect inside impl RemoteHumanAuthority takes endpoint, bearer, deadline, maximum_response_bytes and ca_der and returns Result<Self, HumanOperationError>; other connect occurrences are client calls."
+
+[row.r9-159.14]
+interface = "interface.9.rs-agentd-sharedagentowner-mcp-native-web-context-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 2599
+symbol = "mcp_native_web_context"
+evidence = "The public mcp_native_web_context method in impl SharedAgentOwner<A> returns Result<McpNativeWebContextV1, HumanOperationError> and delegates through self.lock(); the earlier UnifiedAgentOwner method is private."
+
+[row.r9-159.15]
+interface = "interface.9.rs-agentd-sharedagentowner-mcp-native-web-purpose-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 2626
+symbol = "mcp_native_web_purpose"
+evidence = "The public mcp_native_web_purpose method in impl SharedAgentOwner<A> takes credential, owner key, HumanPrepare, context and canonical bytes and returns NativeSendPurposeV1; the earlier same-name method is private."
+
+[row.r9-159.16]
+interface = "interface.9.rs-agentd-sharedagentowner-mcp-native-web-registry-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 2579
+symbol = "mcp_native_web_registry"
+evidence = "The public mcp_native_web_registry method in impl SharedAgentOwner<A> takes &self, a session credential and owner public key and returns Result<ModuleRegistry, HumanOperationError>; other matches are a private method and calls."
+
+[row.r9-159.17]
+interface = "interface.9.rs-agentd-sharedagentowner-mcp-native-web-search-quote-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 2588
+symbol = "mcp_native_web_search_quote"
+evidence = "The public mcp_native_web_search_quote method in impl SharedAgentOwner<A> takes a credential, owner public key and asset_id and returns Result<u128, HumanOperationError>; the earlier method is private and the later occurrence is delegation."
+
+[row.r9-159.18]
+interface = "interface.9.env-layerx-agent-authority-ca-der"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 1539
+symbol = "LAYERX_AGENT_AUTHORITY_CA_DER"
+evidence = "The Config initializer assigns authority_ca_der: read_ca(\"LAYERX_AGENT_AUTHORITY_CA_DER\")?, exactly matching the registered signature; the earlier let ca_der read configures NodeRpc instead."
+
+[row.r9-159.19]
+interface = "interface.9.env-layerx-agent-human-limit-scope"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 126
+symbol = "LAYERX_AGENT_HUMAN_LIMIT_SCOPE"
+evidence = "verified_limit reads required(\"LAYERX_AGENT_HUMAN_LIMIT_SCOPE\")?.as_str() in the let scope match, mapping tenant, agent, session, capability and counterparty to LimitScope variants."
+
+[row.r9-159.20]
+interface = "interface.9.env-layerx-agent-mcp-activity-types"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 182
+symbol = "LAYERX_AGENT_MCP_ACTIVITY_TYPES"
+evidence = "mcp_activity_types iterates required(\"LAYERX_AGENT_MCP_ACTIVITY_TYPES\")?.split(',') and parses a BTreeSet<u16>; subsequent matches are invalid-value and duplicate-value error messages."
+
+[row.r9-159.21]
+interface = "interface.9.env-layerx-agent-mcp-agent-did"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 326
+symbol = "LAYERX_AGENT_MCP_AGENT_DID"
+evidence = "mcp_enrolment initializes McpEnrolment.did with Did::new(required(\"LAYERX_AGENT_MCP_AGENT_DID\")?.as_bytes()); the following occurrence is its invalid-DID error message."
+
+[row.r9-159.22]
+interface = "interface.9.env-layerx-agent-mcp-limit-ceiling"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 222
+symbol = "LAYERX_AGENT_MCP_LIMIT_CEILING"
+evidence = "mcp_limit initializes LimitConfig.ceiling from required(\"LAYERX_AGENT_MCP_LIMIT_CEILING\")? followed by parse(); the later literal belongs to the parse-error message."
+
+[row.r9-159.23]
+interface = "interface.9.env-layerx-agent-mcp-limit-consumed"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 225
+symbol = "LAYERX_AGENT_MCP_LIMIT_CONSUMED"
+evidence = "mcp_limit initializes LimitConfig.consumed from required(\"LAYERX_AGENT_MCP_LIMIT_CONSUMED\")? followed by parse(); the later occurrence reports invalid input."
+
+[row.r9-159.24]
+interface = "interface.9.env-layerx-agent-mcp-limit-scope"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 210
+symbol = "LAYERX_AGENT_MCP_LIMIT_SCOPE"
+evidence = "mcp_limit reads required(\"LAYERX_AGENT_MCP_LIMIT_SCOPE\")?.as_str() in the let scope match that constructs LimitScope; the later literal is the invalid-scope error."
+
+[row.r9-159.25]
+interface = "interface.9.env-layerx-agent-mcp-listener-admitted-uids"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 233
+symbol = "LAYERX_AGENT_MCP_LISTENER_ADMITTED_UIDS"
+evidence = "mcp_admitted_uids iterates required(\"LAYERX_AGENT_MCP_LISTENER_ADMITTED_UIDS\")?.split(',') to parse unique u32 UIDs; later matches report invalid, repeated or non-admitting UID configurations."
+
+[row.r9-159.26]
+interface = "interface.9.env-layerx-agent-mcp-listener-mode"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 264
+symbol = "LAYERX_AGENT_MCP_LISTENER_MODE"
+evidence = "mcp_listener supplies ListenerDeclaration::new with u32::from_str_radix(&required(\"LAYERX_AGENT_MCP_LISTENER_MODE\")?, 8); the next occurrence is the invalid-octal-mode error."
+
+[row.r9-159.27]
+interface = "interface.9.env-layerx-agent-mcp-listener-owner-gid"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 261
+symbol = "LAYERX_AGENT_MCP_LISTENER_OWNER_GID"
+evidence = "mcp_listener reads required(\"LAYERX_AGENT_MCP_LISTENER_OWNER_GID\")? and parses the owner GID argument to ListenerDeclaration::new; the following literal is its parse-error message."
+
+[row.r9-159.28]
+interface = "interface.9.env-layerx-agent-mcp-listener-owner-uid"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 258
+symbol = "LAYERX_AGENT_MCP_LISTENER_OWNER_UID"
+evidence = "mcp_listener reads required(\"LAYERX_AGENT_MCP_LISTENER_OWNER_UID\")? and parses the owner UID argument to ListenerDeclaration::new; the following literal is its parse-error message."
+
+[row.r9-159.29]
+interface = "interface.9.env-layerx-agent-mcp-mode"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 313
+symbol = "LAYERX_AGENT_MCP_MODE"
+evidence = "mcp_enrolment reads required(\"LAYERX_AGENT_MCP_MODE\")?.as_str() in the let mode match, accepting full and read-only BindingMode variants; the later occurrence reports invalid mode."
+
+[row.r9-159.30]
+interface = "interface.9.env-layerx-agent-mcp-peer-uid"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 318
+symbol = "LAYERX_AGENT_MCP_PEER_UID"
+evidence = "mcp_enrolment declares let peer_uid = required(\"LAYERX_AGENT_MCP_PEER_UID\")? followed by parse(); other matches report an invalid UID, a missing configured peer or listener admission failure."

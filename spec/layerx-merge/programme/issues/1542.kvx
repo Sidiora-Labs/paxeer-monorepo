@@ -1,0 +1,7 @@
+[issue.1542]
+number = 1542
+title = "[Coherence] Kept tests still read lxp_state_store.idempotency_count and journal.has_idempotency, which this commit removes, so they no longer compile"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "duplicate"
+evidence = "Duplicate of #1531 (spec/layerx-merge/programme/issues/input/1531.md:5), which describes the same omitted test migration after commit 5af20d0e86ae6c82ed20809338a1d8d4f4ba97fb removed the fields from include/layerx/lxp_state.h:27 and include/layerx/lxp_state.h:37, while retained references remain at tests/state/lxp_test_state_root.c:184, tests/test_state_commitment_transition.c:341, tests/codec/lxp_test_idempotency_retired.c:205, tests/codec/lxp_test_global_sequence.c:225, tests/codec/lxp_test_fee_meter_refused.c:262, tests/codec/lxp_test_settled_maintenance.c:306, tests/codec/lxp_test_program_signer_binding.c:263 and tests/proof/lxp_proof_lxp_receipt_h.c:216."
+close_comment = "Duplicate of #1531: retained kernel tests still reference removed idempotency fields. The same migration must cover the state-root, state-commitment transition, codec and receipt-proof tests."

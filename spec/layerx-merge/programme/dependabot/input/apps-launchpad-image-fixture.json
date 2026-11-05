@@ -1,0 +1,48 @@
+{
+ "slug": "apps-launchpad-image-fixture",
+ "manifests": [
+  "apps/launchpad/qualification/image-dependencies/fixture/pnpm-lock.yaml"
+ ],
+ "alerts": [
+  {
+   "ghsa": "GHSA-qx2v-qp2m-jg93",
+   "number": 4693,
+   "package": "postcss",
+   "ecosystem": "npm",
+   "manifest": "apps/launchpad/qualification/image-dependencies/fixture/pnpm-lock.yaml",
+   "severity": "medium",
+   "range": "< 8.5.10",
+   "patched": "8.5.10"
+  },
+  {
+   "ghsa": "GHSA-6g55-p6wh-862q",
+   "number": 4694,
+   "package": "postcss",
+   "ecosystem": "npm",
+   "manifest": "apps/launchpad/qualification/image-dependencies/fixture/pnpm-lock.yaml",
+   "severity": "high",
+   "range": "<= 8.5.11",
+   "patched": "8.5.12"
+  },
+  {
+   "ghsa": "GHSA-r28c-9q8g-f849",
+   "number": 4695,
+   "package": "postcss",
+   "ecosystem": "npm",
+   "manifest": "apps/launchpad/qualification/image-dependencies/fixture/pnpm-lock.yaml",
+   "severity": "high",
+   "range": "<= 8.5.17",
+   "patched": "8.5.18"
+  },
+  {
+   "ghsa": "GHSA-fxqj-rqcc-2cmp",
+   "number": 4696,
+   "package": "postcss",
+   "ecosystem": "npm",
+   "manifest": "apps/launchpad/qualification/image-dependencies/fixture/pnpm-lock.yaml",
+   "severity": "medium",
+   "range": "<= 8.5.22",
+   "patched": "8.5.23"
+  }
+ ]
+}

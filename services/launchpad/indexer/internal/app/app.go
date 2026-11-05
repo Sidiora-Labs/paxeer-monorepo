@@ -216,6 +216,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	var replay *processor.ReplayRunner
 	var webhookTransport *http.Transport
 	workers := newRuntimeWorkers(logger)
+	var selectionAuthority *source.SelectionAuthority
 	defer func() {
 		if !secretOwned {
 			workers.Close()
@@ -368,19 +369,18 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		lifecycle.Committed.HistoricalConcurrency = archiveTuning.Concurrency
 		lifecycle.Committed.HistoricalReadahead = archiveTuning.Readahead
 		lifecycle.Committed.HistoricalAttemptTimeout = archiveTuning.AttemptTimeout
+		if len(lifecycle.SourceSelectionKeys) > 0 {
+			selectionAuthority, e = source.NewSelectionAuthority(d.CanonicalStreamID, lifecycle.SourceSelectionKeys)
+			if e != nil {
+				return nil, e
+			}
+			lifecycle.Committed.SelectionAuthority = selectionAuthority
+		}
 		history, e = source.CreateHistorical(ctx, lifecycle.Committed, cfg.PaxscanDatabaseURL, lifecycle.Explorer)
 		if e != nil {
 			return nil, e
 		}
-		if doc.Realm == "production" {
-			markets, e := persistedMarkets(ctx, pool)
-			if e != nil {
-				return nil, e
-			}
-			if e = qualified.Rehydrate(ctx, markets); e != nil {
-				return nil, fmt.Errorf("indexer: rehydrate qualified markets: %w", e)
-			}
-		}
+		workers.AddPeriodic("source_recovery", 5*time.Second, false, history.RPC.RecoverEndpoints)
 		if e = seedCanonicalWatermark(ctx, pool, d.CanonicalStreamID, lifecycle); e != nil {
 			return nil, e
 		}
@@ -400,10 +400,37 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		if _, e = deps.Head.Head(ctx); e != nil {
 			return nil, e
 		}
-		historicalQualified := &source.HistoricalQualifiedSource{History: history, Authority: qualified, DurableHeight: durableHeight.Load}
-		liveQualified := &source.LiveQualifiedSource{RPC: history.RPC, Authority: qualified, DurableHeight: durableHeight.Load, PriorHash: func(c context.Context, height uint64) (common.Hash, error) {
+		var historicalQualified processor.QualifiedBatchSource = &source.HistoricalQualifiedSource{History: history, Authority: qualified, DurableHeight: durableHeight.Load}
+		var liveQualified processor.QualifiedBatchSource = &source.LiveQualifiedSource{RPC: history.RPC, Authority: qualified, DurableHeight: durableHeight.Load, PriorHash: func(c context.Context, height uint64) (common.Hash, error) {
 			return durableBlockHash(c, pool, d.CanonicalStreamID, height, lifecycle)
 		}}
+		deps.Reserves = qualified
+		if doc.Realm == "production" {
+			inventory := postgresMarketInventory{pool: pool}
+			newAuthority := func(c context.Context) (*receipt.RPCQualification, error) {
+				a, e := receipt.NewRPCQualificationWithAttestation(c, runtimeRPC, doc.Production, func(c context.Context, anchor receipt.BlockAnchor) error {
+					return attestDurableAnchor(c, pool, d.CanonicalStreamID, anchor)
+				})
+				if e != nil {
+					return nil, e
+				}
+				// Each range owns this authority; keep background readahead on the durable source.
+				if e = a.ConfigureArchiveReads(archiveTuning.Concurrency, -1); e != nil {
+					return nil, e
+				}
+				return a, nil
+			}
+			reserves := &recoveringReserveReader{inventory: inventory, newAuthority: newAuthority}
+			recovery := recoveringQualifiedSource{reserves: reserves, inventory: inventory, client: runtimeRPC, newAuthority: newAuthority, history: history, durableHeight: durableHeight.Load, blockIdentity: doc.Production.BlockIdentity, priorHash: func(c context.Context, height uint64) (common.Hash, error) {
+				return durableBlockHash(c, pool, d.CanonicalStreamID, height, lifecycle)
+			}}
+			liveQualified = &recovery
+			historicalRecovery := recovery
+			historicalRecovery.historical = true
+			historicalRecovery.reserves = nil
+			historicalQualified = &historicalRecovery
+			deps.Reserves = reserves
+		}
 		deps.Quarantine = &processor.QuarantinePolicy{Registry: qualified.Registry(), SourceStream: d.CanonicalStreamID, OptionalEmitterTopics: lifecycle.OptionalEmitterTopics}
 		authorize := func(c context.Context, action string) error {
 			scope, ok := lifecycle.Operations[action]
@@ -527,25 +554,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 				return nil, e
 			}
 			workers.AddOnce(fmt.Sprintf("rebuild_%d", index), func(c context.Context) error {
-				if e := engine.Start(c, rebuild.ManifestDigest); e != nil {
-					return e
-				}
-				for {
-					status, e := engine.Status(c, 0)
-					if e != nil {
-						return e
-					}
-					if status.Status == "verified" || status.Status == "active" {
-						break
-					}
-					if e = engine.RunBlockWithBudget(c, rebuildBudget); e != nil {
-						return e
-					}
-				}
-				if rebuild.Promote {
-					return engine.Promote(c, rebuild.ExpectedAliasRevision)
-				}
-				return nil
+				return engine.Rebuild(c, rebuild.ManifestDigest, rebuildBudget, rebuild.Promote, rebuild.ExpectedAliasRevision)
 			})
 		}
 		if typedArchive != nil {
@@ -582,7 +591,6 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		deps.InventoryGeneration = d.Generation
 		deps.InventoryProjectionVersion = d.InventoryProjectionVersion
 		deps.LegacyProjection = doc.Realm == "production"
-		deps.Reserves = qualified
 	}
 	proc := processor.New(deps)
 	if cfg.NodeEnv == "production" {
@@ -606,6 +614,9 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		StartTime: time.Now(),
 	})
 
+	if selectionAuthority != nil {
+		router.Handle("/internal/source-selection", selectionAuthority.Handler(history.RPC))
+	}
 	if metrics != nil {
 		router.Handle("/metrics", metrics)
 	}
@@ -943,6 +954,7 @@ type lifecycleRebuildDocument struct {
 type lifecycleRuntimeDocument struct {
 	Version                    int                                       `json:"version"`
 	Committed                  source.CommittedOptions                   `json:"committed"`
+	SourceSelectionKeys        map[string][]byte                         `json:"sourceSelectionKeys,omitempty"`
 	EndpointSecretReferences   map[string]string                         `json:"endpointSecretReferences"`
 	Explorer                   *source.CommittedPaxscanOptions           `json:"explorer,omitempty"`
 	OptionalEmitterTopics      map[string]processor.OptionalFamilyPolicy `json:"optionalEmitterTopics"`

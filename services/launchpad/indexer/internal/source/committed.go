@@ -144,6 +144,7 @@ type CommittedSource struct {
 	cacheOrder      []common.Hash
 	accepted        map[uint64]common.Hash
 	polling         bool
+	recoveryNext    int
 	metrics         sourceMetrics
 	acceptedOrder   []uint64
 	acceptedVersion uint64
@@ -969,22 +970,33 @@ func (s *CommittedSource) fetch(ctx context.Context, e *committedEndpoint, o Fet
 	// Blocks are read concurrently with the log query; the prefetched set is
 	// merged before the sequential linkage checks below.
 	prefetched := map[uint64]batchBlock{}
-	prefetchDone := make(chan error, 1)
+	prefetchDone := make(chan struct{})
+	var prefetchErr error
 	if e.historical {
 		s.dropAheadBelow(uint64(o.FromBlock))
 	}
-	go func() { prefetchDone <- s.prefetchBlocks(ctx, e, o.FromBlock, o.ToBlock, bulk, prefetched) }()
+	go func() {
+		prefetchErr = s.prefetchBlocks(ctx, e, o.FromBlock, o.ToBlock, bulk, prefetched)
+		close(prefetchDone)
+	}()
+	prefetchMerged := false
+	waitPrefetch := func() error {
+		<-prefetchDone
+		if !prefetchMerged {
+			for height, block := range prefetched {
+				batch[height] = block
+			}
+			prefetchMerged = true
+		}
+		return prefetchErr
+	}
 	r := FetchResult{BlockTimestamps: map[uint64]int64{}, TxFromMap: map[string]string{}, Blocks: map[uint64]BlockRecord{}, ManifestDigest: s.opts.ManifestDigest}
 	if e.historical {
 		// The archive's eth_getLogs scans every block of the range; the
 		// blocks are read anyway, and their logsBloom names the few that can
 		// hold a fetched address.
-		if err := <-prefetchDone; err != nil {
+		if err := waitPrefetch(); err != nil {
 			return FetchResult{}, err
-		}
-		prefetchDone <- nil
-		for height, block := range prefetched {
-			batch[height] = block
 		}
 		logs, err := s.archiveLogs(ctx, e, o.FromBlock, o.ToBlock, addresses, bulk, batch)
 		if err != nil {
@@ -1004,7 +1016,7 @@ func (s *CommittedSource) fetch(ctx context.Context, e *committedEndpoint, o Fet
 		if end > len(addresses) {
 			end = len(addresses)
 		}
-		logs, err := s.logs(ctx, e, o.FromBlock, o.ToBlock, addresses[start:end], bulk, batch)
+		logs, err := s.logs(ctx, e, o.FromBlock, o.ToBlock, addresses[start:end], bulk, batch, waitPrefetch)
 		if err != nil {
 			<-prefetchDone
 			return FetchResult{}, err
@@ -1017,13 +1029,8 @@ func (s *CommittedSource) fetch(ctx context.Context, e *committedEndpoint, o Fet
 		}
 		r.Logs = append(r.Logs, logs...)
 	}
-	if err := <-prefetchDone; err != nil {
+	if err := waitPrefetch(); err != nil {
 		return FetchResult{}, err
-	}
-	for height, block := range prefetched {
-		if _, ok := batch[height]; !ok {
-			batch[height] = block
-		}
 	}
 	for offset := int64(0); offset <= o.ToBlock-o.FromBlock; offset++ {
 		n := o.FromBlock + offset
@@ -1165,7 +1172,7 @@ func (s *CommittedSource) batchBlock(ctx context.Context, e *committedEndpoint, 
 	}
 	return b, r, err
 }
-func (s *CommittedSource) logs(ctx context.Context, e *committedEndpoint, from, to int64, addresses []string, bulk bool, batch map[uint64]batchBlock) ([]ethtypes.Log, error) {
+func (s *CommittedSource) logs(ctx context.Context, e *committedEndpoint, from, to int64, addresses []string, bulk bool, batch map[uint64]batchBlock, waitPrefetch func() error) ([]ethtypes.Log, error) {
 	var wire []struct {
 		ethLogWire
 		BlockHash string `json:"blockHash"`
@@ -1177,11 +1184,11 @@ func (s *CommittedSource) logs(ctx context.Context, e *committedEndpoint, from, 
 		if errors.As(err, &se) && (se.Kind == RangeLimitError || se.Kind == OversizeError) && from < to {
 			s.metrics.rangeBisections.Add(1)
 			mid := from + (to-from)/2
-			a, err := s.logs(ctx, e, from, mid, addresses, bulk, batch)
+			a, err := s.logs(ctx, e, from, mid, addresses, bulk, batch, waitPrefetch)
 			if err != nil {
 				return nil, err
 			}
-			b, err := s.logs(ctx, e, mid+1, to, addresses, bulk, batch)
+			b, err := s.logs(ctx, e, mid+1, to, addresses, bulk, batch, waitPrefetch)
 			if err != nil {
 				return nil, err
 			}
@@ -1197,6 +1204,9 @@ func (s *CommittedSource) logs(ctx context.Context, e *committedEndpoint, from, 
 			return append(a, b...), nil
 		}
 		if errors.As(err, &se) && (se.Kind == OversizeError || se.Kind == RangeLimitError) && from == to {
+			if err := waitPrefetch(); err != nil {
+				return nil, err
+			}
 			// Full canonical transaction list bounds fallback work. No receipt
 			// can be omitted while claiming complete single-block coverage.
 			b, record, berr := s.batchBlock(ctx, e, uint64(from), bulk, batch)

@@ -1,0 +1,4 @@
+[disposition.8.98.1]
+finding = "8.98.1"
+status = "resolved"
+evidence = "Commit 41fd18eac gives the agent boundary its chain receipt reader: on main, services/platform/hosted/agent-boundary/src/chain_receipt.rs:243 reads pax_sequencerReceipt and services/platform/hosted/agent-boundary/src/chain_receipt.rs:313 verifies the receipt against the configured sequencer keys. Commit 5556f679cc310c255f9e6cdb0bda2c63c81df6b7 wires ChainReceipts into services/platform/hosted/agent-boundary/src/main.rs:7 and adds the retired client module prohibition at services/platform/hosted/agent-boundary/tests/retired_client_modules_w2.rs:2."

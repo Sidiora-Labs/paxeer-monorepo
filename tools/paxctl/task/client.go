@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"math/rand/v2"
+	"net"
+	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -11,6 +14,7 @@ import (
 	"github.com/urfave/cli/v3"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -50,24 +54,41 @@ func resolveKube(c *cli.Command) (*rest.Config, string, error) {
 	return cfg, ns, nil
 }
 
-// newSidecarClient builds a SidecarClient targeting one pod's proxy. The HTTP
-// client is derived from the resolved rest.Config via rest.HTTPClientFor, so the
-// full client-go auth chain (inline token, token file, exec plugin, auth
-// provider) injects the caller's identity uniformly — the in-pod
-// kube-rbac-proxy's TokenReview passes regardless of kubeconfig auth mode
-// (in-cluster SA, EKS exec plugin, cert, OIDC). The composed transport's TLS
-// settings are inert against the plaintext http:// proxy; auth injection is
-// scheme-independent. requestTimeout rides through as the client's per-request
-// Timeout. The config is copied so the per-request bound does not leak onto the
-// shared cfg used by discovery.
-func newSidecarClient(cfg *rest.Config, ns, node string, port int32) (*sidecar.SidecarClient, error) {
+// newSidecarClient uses the proxy's own CA and pod DNS identity. Kubeconfig
+// supplies authentication only; its API-server TLS policy is not proxy trust.
+func newSidecarClient(cfg *rest.Config, ns, node string, port int32, caFile string) (*sidecar.SidecarClient, error) {
+	if len(validation.IsDNS1123Label(node)) != 0 || len(validation.IsDNS1123Label(ns)) != 0 {
+		return nil, fmt.Errorf("node and namespace must be DNS labels")
+	}
+	if port == 0 {
+		port = sidecarProxyPort
+	}
+	if port < 1 || port > 65535 {
+		return nil, fmt.Errorf("proxy port must be between 1 and 65535")
+	}
+	if caFile == "" {
+		return nil, fmt.Errorf("--proxy-ca-file is required: supply the CA bundle for the sidecar proxy")
+	}
+	if cfg.Transport != nil || cfg.WrapTransport != nil {
+		return nil, fmt.Errorf("custom kubeconfig transports cannot enforce sidecar proxy TLS verification")
+	}
+	host := fmt.Sprintf("%s-0.%s.%s.svc.cluster.local", node, node, ns)
+	endpoint := url.URL{Scheme: "https", Host: net.JoinHostPort(host, strconv.Itoa(int(port)))}
 	authCfg := rest.CopyConfig(cfg)
 	authCfg.Timeout = requestTimeout
+	authCfg.TLSClientConfig.Insecure = false
+	authCfg.TLSClientConfig.ServerName = host
+	authCfg.TLSClientConfig.CAFile = caFile
+	authCfg.TLSClientConfig.CAData = nil
+	authCfg.TLSClientConfig.NextProtos = nil
 	hc, err := rest.HTTPClientFor(authCfg)
 	if err != nil {
-		return nil, fmt.Errorf("building authenticated HTTP client: %w", err)
+		return nil, fmt.Errorf("building authenticated HTTPS proxy client: %w", err)
 	}
-	return sidecar.NewSidecarClientFromPodDNS(node, ns, port, sidecar.WithHTTPDoer(hc))
+	// client-go injects credentials on each request, including redirects. Do not
+	// allow a redirect to move them to another authority or plaintext transport.
+	hc.CheckRedirect = func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse }
+	return sidecar.NewSidecarClient(endpoint.String(), sidecar.WithHTTPDoer(hc))
 }
 
 // discoverPublishNode label-selects snapshot-publish pods for the chain and

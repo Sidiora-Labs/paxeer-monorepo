@@ -2,58 +2,226 @@
 
 This is the backend of the Paxeer X Network block explorer: a fork of the
 Blockscout Elixir umbrella application, imported from `blockscout/blockscout`
-at tag `v10.2.6` (see [`../UPSTREAM.md`](../UPSTREAM.md)). It indexes the
-Paxeer X chain over its EVM JSON-RPC, stores what it indexes in PostgreSQL, and
-serves the REST and GraphQL APIs the explorer frontend in
-[`apps/explorer`](../../../apps/explorer) reads.
+at tag `v10.2.6` (see [upstream provenance](../UPSTREAM.md)). It indexes
+Paxeer mainnet-beta over node EVM JSON-RPC, stores indexed data in PostgreSQL,
+and serves the explorer frontend in [`apps/explorer`](../../../apps/explorer).
+
+Paxeer is one BFT `paxd` network, with EVM chain id **125** (`0x7d`). Its kernel
+is part of the network and proposes blocks; a receipt is final once its block
+is committed. The explorer's indexed view can lag the node. Public node
+JSON-RPC uses root URLs such as `https://api1.mainnet-beta.paxeer.network/`;
+the [explorer overview](../README.md#network-and-interfaces) lists the node
+names and links to the hosted gateway's `px_` contract. Sub-chains are tenant
+domains in the database, launchable without new infrastructure.
 
 ## Umbrella applications
 
 | Application | What it does |
 | --- | --- |
-| [`apps/ethereum_jsonrpc`](apps/ethereum_jsonrpc) | JSON-RPC client and the per-node variants, including `paxeer_x` |
-| [`apps/explorer`](apps/explorer) | Ecto schemas, the database migrations and the chain queries |
-| [`apps/indexer`](apps/indexer) | Fetchers that pull blocks, transactions, receipts and tokens from the node into the database |
-| [`apps/block_scout_web`](apps/block_scout_web) | Phoenix endpoint serving the `/api` REST and GraphQL interfaces |
+| [`apps/ethereum_jsonrpc`](apps/ethereum_jsonrpc) | JSON-RPC client and per-node variants, including `paxeer_x` |
+| [`apps/explorer`](apps/explorer) | Ecto schemas, database migrations and chain queries |
+| [`apps/indexer`](apps/indexer) | Fetches blocks, transactions, receipts and tokens into the database; includes the native price-feed fetcher |
+| [`apps/block_scout_web`](apps/block_scout_web) | Phoenix endpoint serving REST and, when enabled, GraphQL APIs |
 | [`apps/nft_media_handler`](apps/nft_media_handler) | NFT media fetching, resizing and upload, off unless enabled |
 | [`apps/utils`](apps/utils) | Helpers shared by the other applications |
 
+The umbrella's `apps/explorer` is the Elixir database application; the
+monorepo's `apps/explorer` is the separately built web frontend.
+
 ## Paxeer X additions
 
-The fork runs with `CHAIN_TYPE=paxeer_x` and
-`ETHEREUM_JSONRPC_VARIANT=paxeer_x`. On top of the upstream code it adds:
+The fork uses `CHAIN_TYPE=paxeer_x` and
+`ETHEREUM_JSONRPC_VARIANT=paxeer_x`. Its adapter,
+[`EthereumJSONRPC.PaxeerX`](apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/paxeer_x.ex),
+normalizes Cosmos-originated transaction type `0xffffffff` to the configured
+explorer type (`PAXEER_X_COSMOS_TRANSACTION_TYPE`, default `127`). EVM balances
+and values remain in 18-decimal units; they are not the six-decimal bank
+amounts. `PAXEER_X_NATIVE_COIN_DECIMALS` defaults to `18`.
 
-- `EthereumJSONRPC.PaxeerX`
-  ([`apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/paxeer_x.ex`](apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/paxeer_x.ex)),
-  which documents and handles the places where the Paxeer X EVM RPC answers
-  differ from Ethereum, such as the `0xffffffff` transaction type of
-  Cosmos-originated messages.
-- The `Explorer.Chain.PaxeerX` schemas under
-  `apps/explorer/lib/explorer/chain/paxeer_x/`, their import runners under
-  `apps/explorer/lib/explorer/chain/import/runner/paxeer_x/`, and the
-  `*_paxeer_x_*` migrations under `apps/explorer/priv/repo/migrations/`.
-- API routes under `/api/v2`: `/paxeer-x/capabilities`, `/paxeer-x/anchors`,
-  `/paxeer-x/receipts`, `/paxeer-x/receipts/:id`,
-  `/transactions/:hash/status` and `/addresses/:hash/unified`.
+Paxeer schemas live under `apps/explorer/lib/explorer/chain/paxeer_x/`,
+import runners under `apps/explorer/lib/explorer/chain/import/runner/paxeer_x/`,
+and migrations under `apps/explorer/priv/repo/migrations/`.
 
-The remaining `PAXEER_X_*` settings are read in
-[`config/runtime.exs`](config/runtime.exs).
+The registered read APIs below are relative to `/api/v2` and use `GET`.
+[`api_router.ex`](apps/block_scout_web/lib/block_scout_web/routers/api_router.ex)
+and the linked controllers define their contracts. The first table describes
+the current native account, transaction and feed APIs.
+
+| Path | Purpose |
+| --- | --- |
+| `/paxeer-x/capabilities` | [Last successful capability probe](apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/capabilities_controller.ex), plus native feed availability when present |
+| `/addresses/:address_hash_param/unified` | Native identities, balances and cursor-paginated activity |
+| `/transactions/:transaction_hash_param/status` | [Live native transaction status](apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller.ex): `submitted`, `receipted` or `committed` observation and committed height |
+| `/transactions/:transaction_hash_param/signature` | Verified native receipt, receipt key, signature and evidence-backed rung |
+| `/paxeer-x/feed/markets` | [Native price-feed markets](apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/feed_controller.ex) and latest observations |
+| `/paxeer-x/feed/markets/:market_id/updates` | Paginated observations for one market |
+| `/paxeer-x/feed/updates` | Paginated native submissions, optionally filtered by feeder or market |
+| `/paxeer-x/feed/updates/:hash` | One native submission |
+
+Historical anchor and old receipt rows are read-only data. Archive APIs serve
+these frozen items with no live settlement status; use the current capability,
+feed and native transaction-status routes linked separately above for live data.
+The archive examples below use full paths:
+
+| Path | Purpose |
+| --- | --- |
+| `/api/v2/paxeer-x/archive/anchors` | Frozen historical anchor checkpoints |
+| `/api/v2/paxeer-x/archive/receipts` | Frozen historical receipts |
+| `/api/v2/paxeer-x/archive/receipts/:id` | One frozen receipt by its full hash |
+
+### Frontend integration
+
+The web frontend's
+[`paxeerX.ts`](../../../apps/explorer/lib/api/services/general/paxeerX.ts)
+registers `paxeer_x_unified_account` and `paxeer_x_capabilities` against the
+current routes above. Its `:hash` account parameter corresponds to the
+router's `:address_hash_param`.
+[`paxeerXFeed.ts`](../../../apps/explorer/lib/api/services/general/paxeerXFeed.ts)
+registers `paxeer_x_feed_markets`, `paxeer_x_feed_update` and
+`paxeer_x_feed_market_updates`; its market `:id` corresponds to `:market_id`.
+Market lists return `items` and `chain_head`; market history returns `symbol`,
+`items` and `next_page_params`. A submission detail returns one transaction
+item with `method: "submitPrices"`, `transaction_types: ["price_update"]` and
+the recorded observations under `price_update.observations`.
+
+[`paxeerXLists.ts`](../../../apps/explorer/lib/api/services/general/paxeerXLists.ts)
+registers the transaction status and signature resources alongside explicitly
+archived anchor and receipt resources. Use `/transactions/:transaction_hash_param/status`
+for current transaction observations. Unified accounts and native feeds do
+not require archive records or the retired unprefixed anchor/receipt routes.
+
+### Native account, status and capabilities
+
+[`UnifiedAccountController`](apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/unified_account_controller.ex)
+returns `identities` (`evm`, `pax`, `did`), `balances`, `activity`,
+`next_page_params`, `page_cursor`, `first_page_cursor`, `page_number` and
+`activity_total`. Follow the returned `next_page_params.cursor` unchanged;
+cursors are bound to the account and snapshot and expire after one hour.
+Invalid cursors return HTTP `422` with `message: "Invalid activity cursor"`
+and a `reason`.
+
+[`TransactionStatusController`](apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller.ex)
+returns `rung`, `block_number` and `committed_height`. An indexed consensus
+block at or below the indexed committed head gives `committed`. Other observed
+states can be `submitted` or `receipted`; neither establishes finality. A hash
+not yet indexed can also return `committed` when its sequencer receipt and
+native transaction/result inclusion evidence verify against pinned authority.
+Its `block_number` remains null while `committed_height` reports the verified
+height. Receipt signature verification alone establishes only `receipted`.
+A hash with neither an indexed transaction nor verified receipt evidence returns
+HTTP `404`. The
+[signature endpoint](apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_controller.ex)
+returns HTTP `404` when its receipt evidence cannot be verified. Successful
+responses carry `receipt`, `receipt_key`, `signature` and `rung`, with
+`committed_height` added only for a verified committed result. These
+observations do not add another settlement network.
+
+[`CapabilitiesController`](apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/capabilities_controller.ex)
+returns `addr`, `exchange`, `bridge`, `launchpad` and `checked_at`. Capability
+probing is controlled by `PAXEER_X_CAPABILITIES_ENABLED` and
+`PAXEER_X_CAPABILITIES_REFRESH_SECONDS` (default `30`). Before a successful
+probe, the surface flags are false and `checked_at` is null; a failed refresh
+retains the previous snapshot. `price_feed: true` is included only when the
+fetcher is active or, with the indexer disabled, the database has a successfully
+scanned feed block within 1000 blocks of the indexed head.
+
+### Native feed and frozen archives
+
+The [feed controller](apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/feed_controller.ex)
+reads indexed native `MsgSubmitPrices` transactions from consensus blocks.
+Submission lists return `items` and `next_page_params`, newest first by block
+number and CometBFT index. Follow the returned pagination parameters. Failed
+submissions remain visible with `status: "error"`; each observation carries
+`accepted`. Only accepted observations of successful consensus submissions
+advance the latest market price and market history. A submission whose block
+loses consensus disappears from these reads.
+
+Enabling collection with `PAXEER_X_PRICE_FEED_ENABLED=true` requires
+`PAXEER_X_COSMOS_REST_URLS`, `PAXEER_X_COMETBFT_RPC_URLS` (comma-separated
+HTTP or HTTPS URL lists) and a non-negative `PAXEER_X_PRICE_FEED_START_BLOCK`.
+The market-discovery precompile is configured by
+`PAXEER_X_PRICE_FEED_PRECOMPILE`, default
+`0x0000000000000000000000000000000000001020`.
+`PAXEER_X_PRICE_FEED_RETENTION_DAYS` must be positive when set; unset means no
+retention limit. The Compose environment example sets it to `30`.
+
+The [archive controller](apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/archive_controller.ex)
+serves frozen history, not current finality evidence. Lists return `items` and
+`next_page_params`; each archive item has `frozen: true`. Receipts expose the
+stored historical `verification_status` (`unverified`, `sequencer_signed`,
+`batch_included`, `state_proven`, `checkpoint_finalised` or
+`settlement_anchored`), with no live `status` field. This frozen value does not
+advance as a current transaction progresses; do not poll it for settlement.
+Live transaction consumers should use the committed node's receipt interface:
+`pax_sequencerReceipt` with `px_getReceiptKeys` and native inclusion evidence,
+as verified by the explorer's
+[`SequencerReceipt`](apps/explorer/lib/explorer/chain/paxeer_x/sequencer_receipt.ex).
+Use `/api/v2/transactions/:transaction_hash_param/signature` for the verified
+receipt and evidence-backed rung, and
+`/api/v2/transactions/:transaction_hash_param/status` for current transaction
+observations. A signed receipt alone is `receipted`; verified native inclusion
+establishes `committed`. Follow the archive's returned pagination parameters. An invalid or
+unknown receipt ID returns HTTP `404`. The old unprefixed
+`/api/v2/paxeer-x/anchors` and `/api/v2/paxeer-x/receipts` routes were removed
+and return not-found; use the explicit `/archive/` paths above.
+Archive items carry `frozen: true`; their historical verification fields do
+not establish a current transaction's rung. Live native receipts and feed
+submissions do not populate these frozen archives.
+
+### Live delivery and hosted transport
+
+The V2 Phoenix WebSocket uses `/socket/v2/websocket`. Subscribe to
+`paxeer_x_feed:new_update` for native submissions, including failed submissions,
+or `paxeer_x_feed:market:<id>` for accepted observations of one non-negative
+market id. Both topics deliver `new_update` events: the submission payload
+matches its feed detail REST response, and the market payload matches its
+market history item. Reconnect through the REST lists and their pagination
+parameters to recover history; socket delivery is a live notification stream.
+
+The hosted transport must admit the same live interfaces: the status and
+signature GET paths, all four `/api/v2/paxeer-x/feed/` GET paths above, and the
+WebSocket upgrade at `/socket/v2/websocket` with both feed topics. Forward
+query parameters and preserve response status codes, payloads and lifecycle
+semantics. Frozen `/archive/` reads cannot substitute for these live interfaces.
+
+### Explorer accounts
+
+User preferences, private tags, watchlists, API keys and custom ABIs use
+`/api/account/v2`, with session authentication and CSRF protection. These
+explorer user accounts are distinct from native chain identities. See the
+[current account API blueprint](apps/block_scout_web/API%20blueprint.md) for
+routes, payloads and errors. Account functionality requires `ACCOUNT_ENABLED`;
+when disabled its API returns HTTP `404` with
+`{"message":"Account functionality is disabled"}`.
+
+Runtime settings are read in [`config/runtime.exs`](config/runtime.exs); the
+[backend Compose preset](../deploy/env/backend.example.env) documents the
+local deployment values. The public OpenAPI document is served at
+`/api/v2/openapi` when the API is enabled.
 
 ## Building and testing
 
-The Elixir and Erlang versions are pinned in
-[`.tool-versions`](.tool-versions).
+Use the Elixir and Erlang versions pinned in [`.tool-versions`](.tool-versions).
+From this directory:
 
-```
+```sh
 mix deps.get
 mix compile
 ```
 
-From the repository root, `services/explorer/deploy/tools/mix-in-builder.sh` runs any
-mix command inside the pinned builder image with a disposable PostgreSQL
-sidecar, and `scripts/explorer/gate-test.sh` runs every Paxeer X test suite;
-[`../README.md`](../README.md) describes both, the lint scripts and the local
-Docker Compose stack.
+From the monorepo root,
+`services/explorer/deploy/tools/mix-in-builder.sh` runs one mix command inside
+the pinned builder image with a disposable PostgreSQL sidecar. For example:
+
+```sh
+services/explorer/deploy/tools/mix-in-builder.sh compile
+services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/chain/paxeer_x
+```
+
+`scripts/explorer/gate-test.sh` runs the Paxeer X suites per umbrella
+application, frontend checks and signature-provider tests. The
+[explorer overview](../README.md) describes the builder, development gates,
+lint scripts and local Docker Compose stack.
 
 ## Contributing
 

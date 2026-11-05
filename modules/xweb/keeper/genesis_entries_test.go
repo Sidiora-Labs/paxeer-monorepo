@@ -53,6 +53,7 @@ func TestProgramPendingEntriesIterateInKeyOrder(t *testing.T) {
 		{Asset: low, Denom: types.ProgramFeeDenomSID},
 		{Asset: adjacent, Denom: types.ProgramFeeDenomUSDC},
 		{Asset: high, Denom: types.ProgramFeeDenomUSDL},
+		{Asset: paxProgramAsset.id, Denom: paxProgramAsset.denom},
 	}
 	for _, index := range []int{3, 1, 2, 0} {
 		s.k.setProgramFeeDenom(s.ctx, denoms[index].Asset, denoms[index].Denom)

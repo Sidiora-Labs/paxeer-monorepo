@@ -4,7 +4,7 @@ use layerx_crypto::evm_transaction::{assemble, decode_signed, recover_sender, tr
 use layerx_crypto::signer::AgentSignature;
 use layerx_types::payload::ModuleRegistry;
 
-use crate::prepare::verify_disclosure_binding;
+use crate::prepare::verify_call_binding;
 
 use super::{SigningError, SigningPreparation};
 
@@ -20,6 +20,7 @@ pub struct SubmissionBindingAudit {
 pub struct VerifiedSubmission {
     pub(super) signed_canonical_bytes: Vec<u8>,
     pub(super) audit: SubmissionBindingAudit,
+    recovered_sender: [u8; 20],
 }
 
 impl VerifiedSubmission {
@@ -31,6 +32,12 @@ impl VerifiedSubmission {
     #[must_use]
     pub fn into_exact_bytes(self) -> Vec<u8> {
         self.signed_canonical_bytes
+    }
+
+    /// The secp256k1 sender recovered while admitting these exact bytes.
+    #[must_use]
+    pub const fn recovered_sender(&self) -> [u8; 20] {
+        self.recovered_sender
     }
 
     #[must_use]
@@ -71,7 +78,6 @@ pub(crate) fn verify_exact(
     signer_address: &[u8; 20],
     _registry: &ModuleRegistry,
 ) -> Result<VerifiedSubmission, SigningError> {
-    verify_disclosure_binding(&prepared.authorization).map_err(SigningError::Disclosure)?;
     if prepared.transaction.signing_hash != prepared.transaction.call.signing_hash() {
         return Err(SigningError::PreparedBytesChanged);
     }
@@ -80,15 +86,20 @@ pub(crate) fn verify_exact(
     if call != prepared.transaction.call {
         return Err(SigningError::PreparedBytesChanged);
     }
+    verify_call_binding(&prepared.transaction).map_err(SigningError::from)?;
     let sender = recover_sender(&call, &signature).map_err(|_| SigningError::SignatureInvalid)?;
-    if sender != prepared.actor_address || &sender != signer_address {
+    if prepared.actor_address != prepared.transaction.from
+        || sender != prepared.actor_address
+        || &sender != signer_address
+    {
         return Err(SigningError::SignerMismatch);
     }
     Ok(VerifiedSubmission {
         signed_canonical_bytes: signed_canonical_bytes.to_vec(),
+        recovered_sender: sender,
         audit: SubmissionBindingAudit {
             activity_id: transaction_hash(signed_canonical_bytes),
-            idempotency_key: prepared.authorization.audit.idempotency_key,
+            idempotency_key: prepared.transaction.disclosure.idempotency_key,
             signed_byte_length: signed_canonical_bytes.len(),
         },
     })

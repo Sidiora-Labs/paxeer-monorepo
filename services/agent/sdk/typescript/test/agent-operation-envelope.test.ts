@@ -1,8 +1,8 @@
 import { readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
-  AGENT_DAEMON_RPC_PATH,
   AGENT_ENVELOPE_OPERATION_NAMES,
   AGENT_ENVELOPE_PATH,
   AgentEnvelopeTransport,
@@ -18,7 +18,7 @@ import { encodeNativePrepareRequest, encodeNativeApprovalDecision,
   type NativePrepareRequestV1, type NativeLocalGrantV1, type NativeApprovalResultV1, type Operation,
 } from "../src/generated/client.js";
 
-// Probe of the real unified gateway and full-mode daemon (harness phase "read").
+// Probe of the hosted agent envelope (harness phase "read").
 // PAXEER_X_AGENT_ENVELOPE_CASE names the private harness JSON case file; nothing is defaulted or synthesised.
 // Secret material is read from the named files and never printed.
 
@@ -26,9 +26,10 @@ function assert(condition: boolean, message: string): asserts condition {
   if (!condition) throw new Error(message);
 }
 
+class AgentOperationProbeInputError extends Error {}
+
 function refuse(message: string): never {
-  process.stderr.write(`agent-operation-envelope: refused: ${message}\n`);
-  process.exit(2);
+  throw new AgentOperationProbeInputError(message);
 }
 
 function field(source: Readonly<Record<string, unknown>>, name: string): unknown {
@@ -64,442 +65,461 @@ function secretFile(path: string, name: string): Uint8Array {
   return new Uint8Array(Buffer.from(line, "utf8"));
 }
 
-const probePath = process.env.PAXEER_X_AGENT_ENVELOPE_CASE;
-if (probePath === undefined || probePath.length === 0) refuse("PAXEER_X_AGENT_ENVELOPE_CASE is not set");
-let input: Readonly<Record<string, unknown>>;
-try {
-  const parsed = JSON.parse(readFileSync(probePath, "utf8")) as unknown;
-  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("not an object");
-  input = parsed as Readonly<Record<string, unknown>>;
-} catch { refuse("PAXEER_X_AGENT_ENVELOPE_CASE is not a readable JSON object"); }
+export async function runAgentOperationEnvelopeProbe(probePath: string): Promise<void> {
+  let input: Readonly<Record<string, unknown>>;
+  try {
+    const parsed = JSON.parse(readFileSync(probePath, "utf8")) as unknown;
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("not an object");
+    input = parsed as Readonly<Record<string, unknown>>;
+  } catch { refuse("PAXEER_X_AGENT_ENVELOPE_CASE is not a readable JSON object"); }
 
-if (text(input, "phase") !== "read") refuse("the TypeScript probe runs only phase \"read\"");
+  for (const field of ["daemon_endpoint", "client_cert_file", "client_key_file", "server_ca_file"]) {
+    if (field in input) refuse(`retired probe field ${field}`);
+  }
+  if (text(input, "phase") !== "read") refuse("the TypeScript probe runs only phase \"read\"");
 
-const operations = strings(input, "operations");
-if (operations.length !== AGENT_ENVELOPE_OPERATION_NAMES.length
-  || operations.some((name, index) => name !== AGENT_ENVELOPE_OPERATION_NAMES[index])) {
-  refuse("operations does not equal the SDK catalogue");
-}
+  const operations = strings(input, "operations");
+  if (operations.length !== AGENT_ENVELOPE_OPERATION_NAMES.length
+    || operations.some((name, index) => name !== AGENT_ENVELOPE_OPERATION_NAMES[index])) {
+    refuse("operations does not equal the SDK catalogue");
+  }
 
-const endpointText = text(input, "endpoint");
-let endpointUrl: URL;
-try { endpointUrl = new URL(endpointText); } catch { refuse("endpoint is not a URL"); }
-if (endpointUrl.protocol !== "https:" || endpointUrl.pathname !== AGENT_ENVELOPE_PATH || endpointUrl.search !== "" || endpointUrl.hash !== "") {
-  refuse(`endpoint is not an https ${AGENT_ENVELOPE_PATH} URL`);
-}
-if (endpointUrl.hostname !== text(input, "server_name")) refuse("endpoint host differs from server_name");
-const gatewayBase = new URL(endpointUrl.toString());
-gatewayBase.pathname = "/";
+  const endpointText = text(input, "endpoint");
+  let endpointUrl: URL;
+  try { endpointUrl = new URL(endpointText); } catch { refuse("endpoint is not a URL"); }
+  if (endpointUrl.protocol !== "https:" || endpointUrl.pathname !== AGENT_ENVELOPE_PATH || endpointUrl.search !== "" || endpointUrl.hash !== "") {
+    refuse(`endpoint is not an https ${AGENT_ENVELOPE_PATH} URL`);
+  }
+  if (endpointUrl.hostname !== text(input, "server_name")) refuse("endpoint host differs from server_name");
+  const gatewayBase = new URL(endpointUrl.toString());
+  gatewayBase.pathname = "/";
 
-let trustedCa: Buffer;
-if ("ca_pem" in input) {
-  try { trustedCa = readFileSync(text(input, "ca_pem")); } catch { refuse("ca_pem is unreadable"); }
-} else if ("ca_der" in input) {
-  let der: Buffer;
-  try { der = readFileSync(text(input, "ca_der")); } catch { refuse("ca_der is unreadable"); }
-  trustedCa = Buffer.from(`-----BEGIN CERTIFICATE-----\n${der.toString("base64").replace(/(.{64})/gu, "$1\n")}\n-----END CERTIFICATE-----\n`, "utf8");
-} else refuse("probe input lacks ca_pem and ca_der");
+  let trustedCa: Buffer;
+  if ("ca_pem" in input) {
+    try { trustedCa = readFileSync(text(input, "ca_pem")); } catch { refuse("ca_pem is unreadable"); }
+  } else if ("ca_der" in input) {
+    let der: Buffer;
+    try { der = readFileSync(text(input, "ca_der")); } catch { refuse("ca_der is unreadable"); }
+    trustedCa = Buffer.from(`-----BEGIN CERTIFICATE-----\n${der.toString("base64").replace(/(.{64})/gu, "$1\n")}\n-----END CERTIFICATE-----\n`, "utf8");
+  } else refuse("probe input lacks ca_pem and ca_der");
 
-let credentialInput: Readonly<Record<string, unknown>>;
-try {
-  let raw: Buffer;
-  try { raw = readFileSync(text(input, "credential_file")); } catch { refuse("credential_file is unreadable"); }
-  const parsed = JSON.parse(raw.toString("utf8")) as unknown;
-  raw.fill(0);
-  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("not an object");
-  credentialInput = parsed as Readonly<Record<string, unknown>>;
-} catch { refuse("credential_file is not a JSON object"); }
-if (Object.keys(credentialInput).length !== 4) refuse("credential_file has fields beyond tenant, session_id, token_id, generation");
-const generation = text(credentialInput, "generation");
-const tokenHex = text(credentialInput, "token_id");
-if (!/^[0-9a-f]{64}$/u.test(tokenHex)) refuse("credential token_id is not 64 lowercase hex characters");
-const tokenId = new SecretBytes(new Uint8Array(Buffer.from(tokenHex, "hex")));
-const gatewayLine = Buffer.from(secretFile(text(input, "gateway_api_key_file"), "gateway_api_key_file")).toString("utf8");
-const separator = gatewayLine.indexOf(":");
-if (separator <= 0) refuse("gateway_api_key_file is not <key_id>:<secret>");
-const gatewayKey = new LayerXKeyCredential(
-  gatewayLine.slice(0, separator),
-  new SecretBytes(new Uint8Array(Buffer.from(gatewayLine.slice(separator + 1), "utf8"))),
-);
-const responseDir = text(input, "response_dir");
-const requests = object(input, "requests");
-const cases = strings(input, "cases");
-if (cases.length === 0) refuse("cases is empty");
+  let credentialInput: Readonly<Record<string, unknown>>;
+  try {
+    let raw: Buffer;
+    try { raw = readFileSync(text(input, "credential_file")); } catch { refuse("credential_file is unreadable"); }
+    const parsed = JSON.parse(raw.toString("utf8")) as unknown;
+    raw.fill(0);
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("not an object");
+    credentialInput = parsed as Readonly<Record<string, unknown>>;
+  } catch { refuse("credential_file is not a JSON object"); }
+  if (Object.keys(credentialInput).length !== 4) refuse("credential_file has fields beyond tenant, session_id, token_id, generation");
+  const generation = text(credentialInput, "generation");
+  const tokenHex = text(credentialInput, "token_id");
+  if (!/^[0-9a-f]{64}$/u.test(tokenHex)) refuse("credential token_id is not 64 lowercase hex characters");
+  const tokenId = new SecretBytes(new Uint8Array(Buffer.from(tokenHex, "hex")));
+  const gatewayLine = Buffer.from(secretFile(text(input, "gateway_api_key_file"), "gateway_api_key_file")).toString("utf8");
+  const separator = gatewayLine.indexOf(":");
+  if (separator <= 0) refuse("gateway_api_key_file is not <key_id>:<secret>");
+  const gatewayKey = new LayerXKeyCredential(
+    gatewayLine.slice(0, separator),
+    new SecretBytes(new Uint8Array(Buffer.from(gatewayLine.slice(separator + 1), "utf8"))),
+  );
+  const responseDir = text(input, "response_dir");
+  const requests = object(input, "requests");
+  const cases = strings(input, "cases");
+  if (cases.length === 0) refuse("cases is empty");
 
-const session = new AgentSessionCredential(text(credentialInput, "tenant"), text(credentialInput, "session_id"), tokenId, generation);
-let lastResponse: { status: number; body: Buffer } | undefined;
-let responseCount = 0;
-const transportFor = (credential: AgentSessionCredential, endpoint: URL = gatewayBase): AgentEnvelopeTransport => new AgentEnvelopeTransport({
-  endpoint,
-  session: credential,
-  gatewayCredential: gatewayKey,
-  trustedCa,
-  onResponse: (status, body) => { responseCount += 1; lastResponse = { status, body: Buffer.from(body) }; },
-});
-const transport = transportFor(session);
-function observed(): { status: number; body: Buffer } | undefined { return lastResponse; }
+  const session = new AgentSessionCredential(text(credentialInput, "tenant"), text(credentialInput, "session_id"), tokenId, generation);
+  let lastResponse: { status: number; body: Buffer } | undefined;
+  let responseCount = 0;
+  const transportFor = (credential: AgentSessionCredential, endpoint: URL = gatewayBase): AgentEnvelopeTransport => new AgentEnvelopeTransport({
+    endpoint,
+    session: credential,
+    gatewayCredential: gatewayKey,
+    trustedCa,
+    onResponse: (status, body) => { responseCount += 1; lastResponse = { status, body: Buffer.from(body) }; },
+  });
+  const transport = transportFor(session);
+  function observed(): { status: number; body: Buffer } | undefined { return lastResponse; }
 
-const EXPECTED_OPERATION: Readonly<Record<string, Operation>> = Object.freeze({
-  read: "read.account",
-  program_read: "program.interface",
-  approval_list: "approval.list",
-});
+  const EXPECTED_OPERATION: Readonly<Record<string, Operation>> = Object.freeze({
+    read: "read.account",
+    program_read: "program.interface",
+    approval_list: "approval.list",
+  });
 
-const results: { case: string; outcome: "pass" | "fail"; detail: string }[] = [];
+  const results: { case: string; outcome: "pass" | "fail"; detail: string }[] = [];
 
-// Harness case ids served outside the plain read set. Mutation idempotency keys are the harness-issued per-probe keys
-// in requests.<id>.idempotency_key (fresh per language run), used verbatim and never derived or defaulted here.
-const SPECIAL_CASES: Readonly<Record<string, (name: string) => Promise<string>>> = Object.freeze({
-  read_decode_failure: (name: string) => expectDecodeOutcome(name, false),
-  mutation_decode_unknown: (name: string) => expectDecodeOutcome(name, true),
-  read_daemon: (name: string) => readDaemon(name),
-});
+  // Harness case ids served outside the plain read set. Mutation idempotency keys are the harness-issued per-probe keys
+  // in requests.<id>.idempotency_key (fresh per language run), used verbatim and never derived or defaulted here.
+  const SPECIAL_CASES: Readonly<Record<string, (name: string) => Promise<string>>> = Object.freeze({
+    read_decode_failure: (name: string) => expectDecodeOutcome(name, false),
+    read_transport_failure: (name: string) => expectDecodeOutcome(name, false, "transport-failure"),
+    mutation_decode_unknown: (name: string) => expectDecodeOutcome(name, true),
+    read_hosted: (name: string) => readHosted(name),
+    readiness_hosted: (name: string) => readHostedReadiness(name),
+  });
 
-function recordResponse(name: string): void {
-  if (lastResponse === undefined) throw new Error(`${name}: no HTTP response was received`);
-  let body: unknown;
-  try { body = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(lastResponse.body)) as unknown; }
-  catch { throw new Error(`${name}: response body is not JSON`); }
-  writeFileSync(join(responseDir, `${name}.json`), `${JSON.stringify({ status: lastResponse.status, body })}\n`, { mode: 0o600 });
-}
+  function recordResponse(name: string): void {
+    if (lastResponse === undefined) throw new Error(`${name}: no HTTP response was received`);
+    let body: unknown;
+    try { body = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(lastResponse.body)) as unknown; }
+    catch { throw new Error(`${name}: response body is not JSON`); }
+    writeFileSync(join(responseDir, `${name}.json`), `${JSON.stringify({ status: lastResponse.status, body })}\n`, { mode: 0o600 });
+  }
 
-async function runCase(name: string): Promise<void> {
-  lastResponse = undefined;
-  responseCount = 0;
-  const special = name.startsWith("proof_bundle.") ? proofBundleCase : name.startsWith("native_") ? nativeCase : SPECIAL_CASES[name];
-  if (special !== undefined) {
+  async function runCase(name: string): Promise<void> {
+    lastResponse = undefined;
+    responseCount = 0;
+    const special = name.startsWith("proof_bundle.") ? proofBundleCase : name.startsWith("native_") ? nativeCase : SPECIAL_CASES[name];
+    if (special !== undefined) {
+      try {
+        results.push({ case: name, outcome: "pass", detail: await special(name) });
+      } catch (error) {
+        results.push({ case: name, outcome: "fail", detail: describe(error) });
+      }
+      return;
+    }
     try {
-      results.push({ case: name, outcome: "pass", detail: await special(name) });
+      const expected = EXPECTED_OPERATION[name];
+      if (expected === undefined) throw new Error(`${name}: case is not implemented by the TypeScript probe`);
+      const entry = object(requests, name);
+      const operation = text(entry, "operation");
+      if (operation !== expected) throw new Error(`${name}: requests.${name}.operation is not ${expected}`);
+      const request = object(entry, "request");
+      const key = "idempotency_key" in entry ? text(entry, "idempotency_key") : undefined;
+      let success: AgentEnvelopeSuccess;
+      try {
+        success = await transport.call<unknown, AgentEnvelopeSuccess>({
+          plane: "agent",
+          operation: expected,
+          request,
+          ...(key === undefined ? {} : { idempotencyKey: idempotencyKey(key) }),
+        });
+      } finally {
+        if (observed() !== undefined) recordResponse(name);
+      }
+      assert(/^(?:0|[1-9][0-9]*)$/u.test(success.request_id), `${name}: request_id is not canonical decimal`);
+      assert("value" in success, `${name}: value missing`);
+      assert(observed()?.status === 200, `${name}: status was not 200`);
+      const status = success.verification_status as Readonly<Record<string, unknown>>;
+      results.push({ case: name, outcome: "pass", detail: `verification ${String(status.state)}` });
     } catch (error) {
       results.push({ case: name, outcome: "fail", detail: describe(error) });
     }
-    return;
   }
-  try {
-    const expected = EXPECTED_OPERATION[name];
-    if (expected === undefined) throw new Error(`${name}: case is not implemented by the TypeScript probe`);
+
+  async function proofBundleCase(name: string): Promise<string> {
+    const entry = object(requests, name), request = object(entry, "request");
+    assert(text(entry, "operation") === "read.proof_bundle" && !("idempotency_key" in entry), "proof bundle operation");
+    if (name.startsWith("proof_bundle.malformed_request.")) {
+      let failure: unknown;
+      try { await transport.call({ plane: "agent", operation: "read.proof_bundle", request }); }
+      catch (error) { failure = error; }
+      assert(failure instanceof PlatformSdkError && failure.code === "invalid-argument", "malformed proof target was accepted");
+      assert(responseCount === 0, "malformed proof request reached HTTP");
+      return "invalid request refused before HTTP";
+    }
+    if (name.startsWith("proof_bundle.refusal.")) {
+      let failure: unknown;
+      try { await transport.readProofBundle(encodeProofBundleRequest(request)); }
+      catch (error) { failure = error; }
+      assert(failure instanceof PlatformSdkError && failure.requestId !== undefined, "proof refusal absent");
+      assert(responseCount === 1 && observed() !== undefined, "proof refusal did not use real HTTP");
+      recordResponse(name);
+      const raw = observed();
+      assert(raw !== undefined, "proof refusal response absent");
+      const body = JSON.parse(raw.body.toString("utf8")) as Readonly<Record<string, unknown>>;
+      assert(raw.status === (entry.expected_status ?? 403), "proof refusal status");
+      assert(body.class === text(entry, "expected_class") && body.reason === text(entry, "expected_reason"), "proof refusal reason");
+      return "hosted proof refusal recorded";
+    }
+    const typed = encodeProofBundleRequest(request);
+    let response: Awaited<ReturnType<AgentEnvelopeTransport["readProofBundle"]>>;
+    try { response = await transport.readProofBundle(typed); }
+    finally { if (observed() !== undefined) recordResponse(name); }
+    assert(responseCount === 1 && observed()?.status === 200, "proof success did not use real HTTP");
+    const proof = checkProofBundleResponse(typed, response);
+    assert(proof.variant === field(entry, "expected_variant"), "proof variant differs from real fixture");
+    const fields = proof.variant === 4
+      ? [proof.canonical_value, proof.native_proof, proof.activity_receipt, proof.activity_receipt_sp1]
+      : [proof.canonical_value, proof.native_proof];
+    const framed = [Buffer.from("LXPB1", "ascii"), Buffer.from([proof.variant])];
+    for (const hex of fields) {
+      const value = Buffer.from(hex, "hex"), length = Buffer.alloc(4);
+      length.writeUInt32BE(value.length);
+      framed.push(length, value);
+    }
+    assert(Buffer.concat(framed).toString("hex") === response.value.value.proofs[0], "proof bytes changed during decoding");
+    let rejected = 0;
+    const reject = (value: unknown, status: unknown = response.verification_status): void => {
+      let failure: unknown;
+      try { checkProofBundleResponse(typed, { ...response, value, verification_status: status }); }
+      catch (error) { failure = error; }
+      assert(failure instanceof PlatformSdkError && failure.code === "decode-failure", "mutated real proof response accepted");
+      rejected += 1;
+    };
+    const raw = Buffer.from(response.value.value.proofs[0], "hex");
+    const badMagic = Buffer.from(raw); badMagic[0] = 0;
+    const badVariant = Buffer.from(raw); badVariant[5] = 0;
+    const emptyField = Buffer.from(raw); emptyField.writeUInt32BE(0, 6);
+    const overrun = Buffer.from(raw); overrun.writeUInt32BE(raw.length, 6);
+    const oversized = Buffer.concat(Array.from({ length: Math.ceil(262_145 / raw.length) }, () => raw)).subarray(0, 262_145);
+    for (const bytes of [raw.subarray(0, raw.length - 1), Buffer.concat([raw, Buffer.from([0])]), badMagic, badVariant, emptyField, overrun, oversized]) {
+      reject({ ...response.value, value: { ...response.value.value, proofs: [bytes.toString("hex")] } });
+    }
+    reject({ ...response.value, value: { ...response.value.value, proofs: [] } });
+    reject({ ...response.value, value: { ...response.value.value, proofs: [response.value.value.proofs[0], response.value.value.proofs[0]] } });
+    const other = Buffer.from(typed.target, "hex"); other[3] = other[3]! ^ 1;
+    reject({ ...response.value, value: { ...response.value.value, target: other.toString("hex") } });
+    reject({ ...response.value, achieved_verification_level: "SettlementAnchored" });
+    reject(response.value, { state: "achieved", level: "SettlementAnchored" });
+    reject({ ...response.value, unexpected: true });
+    for (const chain_head of [0, "00", "18446744073709551616"]) {
+      reject({ ...response.value, freshness: { ...response.value.freshness, chain_head } });
+    }
+    reject({ ...response.value, freshness: { ...response.value.freshness, relative_to: { checkpoint: response.value.freshness.latest_finalised_checkpoint } } });
+    if (proof.variant === 4) {
+      const missingLink = raw.subarray(0, 6 + 4 + proof.canonical_value.length / 2 + 4 + proof.native_proof.length / 2);
+      reject({ ...response.value, value: { ...response.value.value, proofs: [missingLink.toString("hex")] } });
+    }
+    assert(responseCount === 1, "local framing mutations unexpectedly used HTTP");
+    return `real variant ${proof.variant}; ${rejected} local framing/consistency refusals`;
+  }
+
+  function nativeOperation(value: string): Operation {
+    switch (value) {
+      case "prepare": case "approval.list": case "approval.get": case "approval.approve": case "approval.reject": return value;
+      default: throw new Error("native case names a non-native operation");
+    }
+  }
+
+  function nativePrepareInput(request: Readonly<Record<string, unknown>>): NativePrepareRequestV1 {
+    const activity = object(request, "activity"), signed = object(request, "purpose"), purpose = object(signed, "purpose");
+    assert(text(request,"variant") === "native_v1" && text(activity,"version") === "1" && text(purpose,"version") === "1", "native request version");
+    let local_grant: NativeLocalGrantV1 | null = null;
+    if (request.local_grant !== null && request.local_grant !== undefined) {
+      const grant = object(request,"local_grant");
+      assert(text(grant,"version") === "1", "native grant version");
+      local_grant = {version:"1",capability:text(grant,"capability"),session_scope:text(grant,"session_scope"),
+        expires_at_ms:text(grant,"expires_at_ms"),owner_public_key:text(grant,"owner_public_key"),signature:text(grant,"signature")};
+    }
+    return encodeNativePrepareRequest({variant:"native_v1",activity:{version:"1",module:text(activity,"module"),ordinal:text(activity,"ordinal")},
+      actor:text(request,"actor"),authority:text(request,"authority"),account_sequence:text(request,"account_sequence"),
+      not_before:text(request,"not_before"),not_after:text(request,"not_after"),idempotency_key:text(request,"idempotency_key"),
+      fee_limit:text(request,"fee_limit"),payload:text(request,"payload"),payload_hash:text(request,"payload_hash"),capability_id:text(request,"capability_id"),
+      purpose:{purpose:{version:"1",tenant:text(purpose,"tenant"),agent_did:text(purpose,"agent_did"),session_id:text(purpose,"session_id"),
+        generation:text(purpose,"generation"),expires_at_ms:text(purpose,"expires_at_ms"),capability_id:text(purpose,"capability_id"),
+        preparation_id:text(purpose,"preparation_id"),canonical_digest:text(purpose,"canonical_digest"),commitment:text(purpose,"commitment")},
+        owner_public_key:text(signed,"owner_public_key"),signature:text(signed,"signature")},local_grant});
+  }
+
+  async function nativeCase(name: string): Promise<string> {
+    const entry = object(requests,name), request = object(entry,"request");
+    const operation = nativeOperation(text(entry,"operation"));
+    const key = "idempotency_key" in entry ? idempotencyKey(text(entry,"idempotency_key")) : undefined;
+    if (name.startsWith("native_refusal.")) {
+      let failure: unknown;
+      try { await transport.call({plane:"agent",operation,request,...(key === undefined ? {} : {idempotencyKey:key})}); }
+      catch (error) { failure = error; }
+      finally { if (observed() !== undefined) recordResponse(name); }
+      assert(failure instanceof PlatformSdkError && failure.requestId !== undefined, `${name}: no typed service refusal`);
+      const observedResponse = observed();
+      assert(observedResponse !== undefined && responseCount === 1, `${name}: expected exactly one real response`);
+      const errorBody: unknown = JSON.parse(observedResponse.body.toString("utf8"));
+      assert(errorBody !== null && typeof errorBody === "object" && !Array.isArray(errorBody), `${name}: refusal shape`);
+      assert(Reflect.get(errorBody,"class") === text(entry,"expected_class") && Reflect.get(errorBody,"reason") === text(entry,"expected_reason"), `${name}: wrong service refusal`);
+      return "exact native service refusal";
+    }
+    try {
+      if (name === "native_prepare") {
+        assert(operation === "prepare" && key !== undefined, `${name}: operation or key`);
+        const result = await transport.prepareNative(nativePrepareInput(request),key);
+        assert(result.value.approval_required === field(entry,"expected_approval_required"), `${name}: approval requirement`);
+      } else if (name === "native_approval_list") {
+        assert(operation === "approval.list" && key === undefined, `${name}: operation or key`);
+        const result = await transport.approvalListNative();
+        assert(result.value.approvals.filter((row) => row.approval_id === text(entry,"expected_approval_id")).length === 1, `${name}: durable approval missing or duplicated`);
+      } else {
+        const approvalId = text(request,"approval_id");
+        let result: AgentEnvelopeSuccess<NativeApprovalResultV1>;
+        if (name === "native_approval_get") {
+          assert(operation === "approval.get" && key === undefined, `${name}: operation or key`);
+          result = await transport.approvalGetNative(approvalId);
+        } else {
+          assert(key !== undefined && (name === "native_approval_approve" && operation === "approval.approve"
+            || name === "native_approval_reject" && operation === "approval.reject"), `${name}: operation or key`);
+          result = await transport.approvalDecideNative(encodeNativeApprovalDecision({variant:"native_v1",approval_id:approvalId,
+            held_digest:text(request,"held_digest"),current_sequence:text(request,"current_sequence")}),operation === "approval.approve",key);
+        }
+        assert(result.value.state === text(entry,"expected_state") && result.value.held_digest === text(entry,"expected_held_digest"), `${name}: held state or digest changed`);
+      }
+      assert(observed()?.status === 200 && responseCount === 1, `${name}: expected exactly one real success`);
+      return "typed native result";
+    } finally { if (observed() !== undefined) recordResponse(name); }
+  }
+
+  const checks: { check: string; ok: boolean; detail: string }[] = [];
+
+  async function expectRefusal(name: string, run: () => Promise<unknown>, code: string, retry: string): Promise<void> {
+    try {
+      await run();
+      checks.push({ check: name, ok: false, detail: "succeeded where a refusal was required" });
+    } catch (error) {
+      const ok = error instanceof PlatformSdkError && error.code === code && error.retry === retry;
+      checks.push({ check: name, ok, detail: describe(error) });
+    }
+  }
+
+  function describe(error: unknown): string {
+    return error instanceof PlatformSdkError ? JSON.stringify(error.toJSON())
+      : error instanceof Error ? error.message : "non-error";
+  }
+
+  // A case entry may carry its own gateway "endpoint" (same https host and route as the case file endpoint) when the
+  // harness serves the schema-violating reply from a distinct listener; otherwise the case file endpoint is used.
+  function caseEndpoint(name: string, entry: Readonly<Record<string, unknown>>): URL {
+    if (!("endpoint" in entry)) return gatewayBase;
+    let url: URL;
+    try { url = new URL(text(entry, "endpoint")); } catch { throw new Error(`${name}: endpoint is not a URL`); }
+    if (url.protocol !== "https:" || url.pathname !== AGENT_ENVELOPE_PATH || url.search !== "" || url.hash !== ""
+      || url.hostname !== endpointUrl.hostname) throw new Error(`${name}: endpoint is not an https ${AGENT_ENVELOPE_PATH} URL on server_name`);
+    url.pathname = "/";
+    return url;
+  }
+
+  // Writes {status, body}; body is the parsed JSON, or the raw UTF-8 text when the reply is deliberately undecodable.
+  function recordRawResponse(name: string): void {
+    if (lastResponse === undefined) return;
+    const raw = lastResponse.body.toString("utf8");
+    let body: unknown;
+    try { body = JSON.parse(raw) as unknown; } catch { body = raw; }
+    writeFileSync(join(responseDir, `${name}.json`), `${JSON.stringify({ status: lastResponse.status, body })}\n`, { mode: 0o600 });
+  }
+
+  async function expectDecodeOutcome(name: string, mutation: boolean, readCode: "decode-failure" | "transport-failure" = "decode-failure"): Promise<string> {
     const entry = object(requests, name);
-    const operation = text(entry, "operation");
-    if (operation !== expected) throw new Error(`${name}: requests.${name}.operation is not ${expected}`);
+    const operation = text(entry, "operation") as Operation;
     const request = object(entry, "request");
     const key = "idempotency_key" in entry ? text(entry, "idempotency_key") : undefined;
+    if (mutation && key === undefined) throw new Error(`${name}: requests.${name} carries no idempotency_key`);
+    if (!mutation && key !== undefined) throw new Error(`${name}: a read case carries an idempotency_key`);
+    const caseTransport = transportFor(session, caseEndpoint(name, entry));
+    let refusal: unknown;
+    try {
+      await caseTransport.call({ plane: "agent", operation, request, ...(key === undefined ? {} : { idempotencyKey: idempotencyKey(key) }) });
+    } catch (error) {
+      refusal = error;
+    } finally {
+      recordRawResponse(name);
+    }
+    if (refusal === undefined) throw new Error(`${name}: succeeded where ${mutation ? "unknown-outcome" : "decode-failure"} was required`);
+    if (!(refusal instanceof PlatformSdkError)) throw refusal;
+    const [code, retry] = mutation ? ["unknown-outcome", "unknown-outcome"]
+      : readCode === "transport-failure" ? ["transport-failure", "safe"] : ["decode-failure", "never"];
+    assert(refusal.code === code && refusal.retry === retry, `${name}: expected ${code}/${retry}, got ${describe(refusal)}`);
+    assert(responseCount <= 1, `${name}: the SDK sent the envelope more than once`);
+    if (!mutation) assert(lastResponse !== undefined, `${name}: no HTTP response was received`);
+    return `${code} ${retry}, ${responseCount} response`;
+  }
+
+  async function readHosted(name: string): Promise<string> {
+    const entry = object(requests, name);
+    assert(text(entry, "operation") === "read.account" && !("idempotency_key" in entry), `${name}: hosted read operation`);
     let success: AgentEnvelopeSuccess;
     try {
       success = await transport.call<unknown, AgentEnvelopeSuccess>({
-        plane: "agent",
-        operation: expected,
-        request,
-        ...(key === undefined ? {} : { idempotencyKey: idempotencyKey(key) }),
+        plane: "agent", operation: "read.account", request: object(entry, "request"),
       });
     } finally {
       if (observed() !== undefined) recordResponse(name);
     }
     assert(/^(?:0|[1-9][0-9]*)$/u.test(success.request_id), `${name}: request_id is not canonical decimal`);
-    assert("value" in success, `${name}: value missing`);
-    assert(observed()?.status === 200, `${name}: status was not 200`);
-    const status = success.verification_status as Readonly<Record<string, unknown>>;
-    results.push({ case: name, outcome: "pass", detail: `verification ${String(status.state)}` });
-  } catch (error) {
-    results.push({ case: name, outcome: "fail", detail: describe(error) });
+    assert("value" in success && responseCount === 1 && observed()?.status === 200, `${name}: expected one hosted response`);
+    return `verification ${String((success.verification_status as Readonly<Record<string, unknown>>).state)}`;
   }
-}
 
-async function proofBundleCase(name: string): Promise<string> {
-  const entry = object(requests, name), request = object(entry, "request");
-  assert(text(entry, "operation") === "read.proof_bundle" && !("idempotency_key" in entry), "proof bundle operation");
-  if (name.startsWith("proof_bundle.malformed_request.")) {
-    let failure: unknown;
-    try { await transport.call({ plane: "agent", operation: "read.proof_bundle", request }); }
-    catch (error) { failure = error; }
-    assert(failure instanceof PlatformSdkError && failure.code === "invalid-argument", "malformed proof target was accepted");
-    assert(responseCount === 0, "malformed proof request reached HTTP");
-    return "invalid request refused before HTTP";
-  }
-  if (name.startsWith("proof_bundle.refusal.")) {
-    let failure: unknown;
-    try { await transport.readProofBundle(encodeProofBundleRequest(request)); }
-    catch (error) { failure = error; }
-    assert(failure instanceof PlatformSdkError && failure.requestId !== undefined, "proof refusal absent");
-    assert(responseCount === 1 && observed() !== undefined, "proof refusal did not use real HTTP");
-    recordResponse(name);
-    const raw = observed();
-    assert(raw !== undefined, "proof refusal response absent");
-    const body = JSON.parse(raw.body.toString("utf8")) as Readonly<Record<string, unknown>>;
-    assert(raw.status === (entry.expected_status ?? 403), "proof refusal status");
-    assert(body.class === text(entry, "expected_class") && body.reason === text(entry, "expected_reason"), "proof refusal reason");
-    return "daemon proof refusal recorded";
-  }
-  const typed = encodeProofBundleRequest(request);
-  let response: Awaited<ReturnType<AgentEnvelopeTransport["readProofBundle"]>>;
-  try { response = await transport.readProofBundle(typed); }
-  finally { if (observed() !== undefined) recordResponse(name); }
-  assert(responseCount === 1 && observed()?.status === 200, "proof success did not use real HTTP");
-  const proof = checkProofBundleResponse(typed, response);
-  assert(proof.variant === field(entry, "expected_variant"), "proof variant differs from real fixture");
-  const fields = proof.variant === 4
-    ? [proof.canonical_value, proof.native_proof, proof.activity_receipt, proof.activity_receipt_sp1]
-    : [proof.canonical_value, proof.native_proof];
-  const framed = [Buffer.from("LXPB1", "ascii"), Buffer.from([proof.variant])];
-  for (const hex of fields) {
-    const value = Buffer.from(hex, "hex"), length = Buffer.alloc(4);
-    length.writeUInt32BE(value.length);
-    framed.push(length, value);
-  }
-  assert(Buffer.concat(framed).toString("hex") === response.value.value.proofs[0], "proof bytes changed during decoding");
-  let rejected = 0;
-  const reject = (value: unknown, status: unknown = response.verification_status): void => {
-    let failure: unknown;
-    try { checkProofBundleResponse(typed, { ...response, value, verification_status: status }); }
-    catch (error) { failure = error; }
-    assert(failure instanceof PlatformSdkError && failure.code === "decode-failure", "mutated real proof response accepted");
-    rejected += 1;
-  };
-  const raw = Buffer.from(response.value.value.proofs[0], "hex");
-  const badMagic = Buffer.from(raw); badMagic[0] = 0;
-  const badVariant = Buffer.from(raw); badVariant[5] = 0;
-  const emptyField = Buffer.from(raw); emptyField.writeUInt32BE(0, 6);
-  const overrun = Buffer.from(raw); overrun.writeUInt32BE(raw.length, 6);
-  const oversized = Buffer.concat(Array.from({ length: Math.ceil(262_145 / raw.length) }, () => raw)).subarray(0, 262_145);
-  for (const bytes of [raw.subarray(0, raw.length - 1), Buffer.concat([raw, Buffer.from([0])]), badMagic, badVariant, emptyField, overrun, oversized]) {
-    reject({ ...response.value, value: { ...response.value.value, proofs: [bytes.toString("hex")] } });
-  }
-  reject({ ...response.value, value: { ...response.value.value, proofs: [] } });
-  reject({ ...response.value, value: { ...response.value.value, proofs: [response.value.value.proofs[0], response.value.value.proofs[0]] } });
-  const other = Buffer.from(typed.target, "hex"); other[3] = other[3]! ^ 1;
-  reject({ ...response.value, value: { ...response.value.value, target: other.toString("hex") } });
-  reject({ ...response.value, achieved_verification_level: "SettlementAnchored" });
-  reject(response.value, { state: "achieved", level: "SettlementAnchored" });
-  reject({ ...response.value, unexpected: true });
-  for (const chain_head of [0, "00", "18446744073709551616"]) {
-    reject({ ...response.value, freshness: { ...response.value.freshness, chain_head } });
-  }
-  reject({ ...response.value, freshness: { ...response.value.freshness, relative_to: { checkpoint: response.value.freshness.latest_finalised_checkpoint } } });
-  if (proof.variant === 4) {
-    const missingLink = raw.subarray(0, 6 + 4 + proof.canonical_value.length / 2 + 4 + proof.native_proof.length / 2);
-    reject({ ...response.value, value: { ...response.value.value, proofs: [missingLink.toString("hex")] } });
-  }
-  assert(responseCount === 1, "local framing mutations unexpectedly used HTTP");
-  return `real variant ${proof.variant}; ${rejected} local framing/consistency refusals`;
-}
-
-function nativeOperation(value: string): Operation {
-  switch (value) {
-    case "prepare": case "approval.list": case "approval.get": case "approval.approve": case "approval.reject": return value;
-    default: throw new Error("native case names a non-native operation");
-  }
-}
-
-function nativePrepareInput(request: Readonly<Record<string, unknown>>): NativePrepareRequestV1 {
-  const activity = object(request, "activity"), signed = object(request, "purpose"), purpose = object(signed, "purpose");
-  assert(text(request,"variant") === "native_v1" && text(activity,"version") === "1" && text(purpose,"version") === "1", "native request version");
-  let local_grant: NativeLocalGrantV1 | null = null;
-  if (request.local_grant !== null && request.local_grant !== undefined) {
-    const grant = object(request,"local_grant");
-    assert(text(grant,"version") === "1", "native grant version");
-    local_grant = {version:"1",capability:text(grant,"capability"),session_scope:text(grant,"session_scope"),
-      expires_at_ms:text(grant,"expires_at_ms"),owner_public_key:text(grant,"owner_public_key"),signature:text(grant,"signature")};
-  }
-  return encodeNativePrepareRequest({variant:"native_v1",activity:{version:"1",module:text(activity,"module"),ordinal:text(activity,"ordinal")},
-    actor:text(request,"actor"),authority:text(request,"authority"),account_sequence:text(request,"account_sequence"),
-    not_before:text(request,"not_before"),not_after:text(request,"not_after"),idempotency_key:text(request,"idempotency_key"),
-    fee_limit:text(request,"fee_limit"),payload:text(request,"payload"),payload_hash:text(request,"payload_hash"),capability_id:text(request,"capability_id"),
-    purpose:{purpose:{version:"1",tenant:text(purpose,"tenant"),agent_did:text(purpose,"agent_did"),session_id:text(purpose,"session_id"),
-      generation:text(purpose,"generation"),expires_at_ms:text(purpose,"expires_at_ms"),capability_id:text(purpose,"capability_id"),
-      preparation_id:text(purpose,"preparation_id"),canonical_digest:text(purpose,"canonical_digest"),commitment:text(purpose,"commitment")},
-      owner_public_key:text(signed,"owner_public_key"),signature:text(signed,"signature")},local_grant});
-}
-
-async function nativeCase(name: string): Promise<string> {
-  const entry = object(requests,name), request = object(entry,"request");
-  const operation = nativeOperation(text(entry,"operation"));
-  const key = "idempotency_key" in entry ? idempotencyKey(text(entry,"idempotency_key")) : undefined;
-  if (name.startsWith("native_refusal.")) {
-    let failure: unknown;
-    try { await transport.call({plane:"agent",operation,request,...(key === undefined ? {} : {idempotencyKey:key})}); }
-    catch (error) { failure = error; }
-    finally { if (observed() !== undefined) recordResponse(name); }
-    assert(failure instanceof PlatformSdkError && failure.requestId !== undefined, `${name}: no typed service refusal`);
-    const observedResponse = observed();
-    assert(observedResponse !== undefined && responseCount === 1, `${name}: expected exactly one real response`);
-    const errorBody: unknown = JSON.parse(observedResponse.body.toString("utf8"));
-    assert(errorBody !== null && typeof errorBody === "object" && !Array.isArray(errorBody), `${name}: refusal shape`);
-    assert(Reflect.get(errorBody,"class") === text(entry,"expected_class") && Reflect.get(errorBody,"reason") === text(entry,"expected_reason"), `${name}: wrong service refusal`);
-    return "exact native service refusal";
-  }
-  try {
-    if (name === "native_prepare") {
-      assert(operation === "prepare" && key !== undefined, `${name}: operation or key`);
-      const result = await transport.prepareNative(nativePrepareInput(request),key);
-      assert(result.value.approval_required === field(entry,"expected_approval_required"), `${name}: approval requirement`);
-    } else if (name === "native_approval_list") {
-      assert(operation === "approval.list" && key === undefined, `${name}: operation or key`);
-      const result = await transport.approvalListNative();
-      assert(result.value.approvals.filter((row) => row.approval_id === text(entry,"expected_approval_id")).length === 1, `${name}: durable approval missing or duplicated`);
-    } else {
-      const approvalId = text(request,"approval_id");
-      let result: AgentEnvelopeSuccess<NativeApprovalResultV1>;
-      if (name === "native_approval_get") {
-        assert(operation === "approval.get" && key === undefined, `${name}: operation or key`);
-        result = await transport.approvalGetNative(approvalId);
-      } else {
-        assert(key !== undefined && (name === "native_approval_approve" && operation === "approval.approve"
-          || name === "native_approval_reject" && operation === "approval.reject"), `${name}: operation or key`);
-        result = await transport.approvalDecideNative(encodeNativeApprovalDecision({variant:"native_v1",approval_id:approvalId,
-          held_digest:text(request,"held_digest"),current_sequence:text(request,"current_sequence")}),operation === "approval.approve",key);
-      }
-      assert(result.value.state === text(entry,"expected_state") && result.value.held_digest === text(entry,"expected_held_digest"), `${name}: held state or digest changed`);
-    }
-    assert(observed()?.status === 200 && responseCount === 1, `${name}: expected exactly one real success`);
-    return "typed native result";
-  } finally { if (observed() !== undefined) recordResponse(name); }
-}
-
-const checks: { check: string; ok: boolean; detail: string }[] = [];
-
-async function expectRefusal(name: string, run: () => Promise<unknown>, code: string, retry: string): Promise<void> {
-  try {
-    await run();
-    checks.push({ check: name, ok: false, detail: "succeeded where a refusal was required" });
-  } catch (error) {
-    const ok = error instanceof PlatformSdkError && error.code === code && error.retry === retry;
-    checks.push({ check: name, ok, detail: describe(error) });
-  }
-}
-
-function describe(error: unknown): string {
-  return error instanceof PlatformSdkError ? JSON.stringify(error.toJSON())
-    : error instanceof Error ? error.message : "non-error";
-}
-
-// A case entry may carry its own gateway "endpoint" (same https host and route as the case file endpoint) when the
-// harness serves the schema-violating reply from a distinct listener; otherwise the case file endpoint is used.
-function caseEndpoint(name: string, entry: Readonly<Record<string, unknown>>): URL {
-  if (!("endpoint" in entry)) return gatewayBase;
-  let url: URL;
-  try { url = new URL(text(entry, "endpoint")); } catch { throw new Error(`${name}: endpoint is not a URL`); }
-  if (url.protocol !== "https:" || url.pathname !== AGENT_ENVELOPE_PATH || url.search !== "" || url.hash !== ""
-    || url.hostname !== endpointUrl.hostname) throw new Error(`${name}: endpoint is not an https ${AGENT_ENVELOPE_PATH} URL on server_name`);
-  url.pathname = "/";
-  return url;
-}
-
-// Writes {status, body}; body is the parsed JSON, or the raw UTF-8 text when the reply is deliberately undecodable.
-function recordRawResponse(name: string): void {
-  if (lastResponse === undefined) return;
-  const raw = lastResponse.body.toString("utf8");
-  let body: unknown;
-  try { body = JSON.parse(raw) as unknown; } catch { body = raw; }
-  writeFileSync(join(responseDir, `${name}.json`), `${JSON.stringify({ status: lastResponse.status, body })}\n`, { mode: 0o600 });
-}
-
-async function expectDecodeOutcome(name: string, mutation: boolean): Promise<string> {
-  const entry = object(requests, name);
-  const operation = text(entry, "operation") as Operation;
-  const request = object(entry, "request");
-  const key = "idempotency_key" in entry ? text(entry, "idempotency_key") : undefined;
-  if (mutation && key === undefined) throw new Error(`${name}: requests.${name} carries no idempotency_key`);
-  if (!mutation && key !== undefined) throw new Error(`${name}: a read case carries an idempotency_key`);
-  const caseTransport = transportFor(session, caseEndpoint(name, entry));
-  let refusal: unknown;
-  try {
-    await caseTransport.call({ plane: "agent", operation, request, ...(key === undefined ? {} : { idempotencyKey: idempotencyKey(key) }) });
-  } catch (error) {
-    refusal = error;
-  } finally {
-    recordRawResponse(name);
-  }
-  if (refusal === undefined) throw new Error(`${name}: succeeded where ${mutation ? "unknown-outcome" : "decode-failure"} was required`);
-  if (!(refusal instanceof PlatformSdkError)) throw refusal;
-  const [code, retry] = mutation ? ["unknown-outcome", "unknown-outcome"] : ["decode-failure", "never"];
-  assert(refusal.code === code && refusal.retry === retry, `${name}: expected ${code}/${retry}, got ${describe(refusal)}`);
-  assert(responseCount <= 1, `${name}: the SDK sent the envelope more than once`);
-  if (!mutation) assert(lastResponse !== undefined, `${name}: no HTTP response was received`);
-  return `${code} ${retry}, ${responseCount} response`;
-}
-
-// Daemon-surface read: only the four case-file paths daemon_endpoint, client_cert_file, client_key_file, server_ca_file are read.
-async function readDaemon(name: string): Promise<string> {
-  let daemonUrl: URL;
-  try { daemonUrl = new URL(text(input, "daemon_endpoint")); } catch { throw new Error(`${name}: daemon_endpoint is not a URL`); }
-  if (daemonUrl.protocol !== "https:" || daemonUrl.pathname !== AGENT_DAEMON_RPC_PATH || daemonUrl.search !== "" || daemonUrl.hash !== "") {
-    throw new Error(`${name}: daemon_endpoint is not an https ${AGENT_DAEMON_RPC_PATH} URL`);
-  }
-  daemonUrl.pathname = "/";
-  const readFile = (field: string): Buffer => {
-    try { return readFileSync(text(input, field)); } catch { throw new Error(`${name}: ${field} is unreadable`); }
-  };
-  const certificate = readFile("client_cert_file");
-  const privateKey = readFile("client_key_file");
-  const daemon = new AgentEnvelopeTransport({
-    endpoint: daemonUrl,
-    surface: "daemon",
-    session,
-    clientCertificate: new SecretBytes(new Uint8Array(certificate)),
-    clientKey: new SecretBytes(new Uint8Array(privateKey)),
-    trustedCa: readFile("server_ca_file"),
-    onResponse: (status, body) => { responseCount += 1; lastResponse = { status, body: Buffer.from(body) }; },
-  });
-  certificate.fill(0);
-  privateKey.fill(0);
-  const entry = object(requests, "read");
-  if (text(entry, "operation") !== "read.account") throw new Error(`${name}: requests.read.operation is not read.account`);
-  let success: AgentEnvelopeSuccess;
-  try {
-    success = await daemon.call<unknown, AgentEnvelopeSuccess>({ plane: "agent", operation: "read.account", request: object(entry, "request") });
-  } finally {
-    if (lastResponse !== undefined) recordResponse(name);
-  }
-  assert(/^(?:0|[1-9][0-9]*)$/u.test(success.request_id), `${name}: request_id is not canonical decimal`);
-  assert(lastResponse?.status === 200, `${name}: status was not 200`);
-  return `verification ${String((success.verification_status as Readonly<Record<string, unknown>>).state)}`;
-}
-
-for (const name of cases) await runCase(name);
-
-const readAccount = object(object(requests, "read"), "request");
-await expectRefusal("faucet_retired",
-  async () => {
-    const responsesBefore = responseCount;
+  async function readHostedReadiness(name: string): Promise<string> {
+    const entry = object(requests, name);
+    assert(text(entry, "operation") === "tenant.readiness" && !("idempotency_key" in entry), `${name}: readiness operation`);
+    assert(Object.keys(object(entry, "request")).length === 0, `${name}: readiness selectors are not allowed`);
     try {
-      await transport.callRetiredOperation("faucet.claim");
-    } catch (error) {
-      assert(error instanceof RetiredOperationError && error.class === "UnavailableCapability"
-        && error.reason === "unavailable_capability.faucet.claim" && error.retriability === "Terminal",
-        `faucet_retired: expected terminal retired-operation refusal, got ${describe(error)}`);
-      assert(responseCount === responsesBefore, "faucet_retired: the SDK sent a request");
-      throw error;
+      const success = await transport.tenantReadiness();
+      const expected = object(entry, "expected_readiness");
+      assert(Object.keys(expected).length === 4, `${name}: expected_readiness must have exactly four fields`);
+      for (const [key, value] of Object.entries(success.value)) {
+        assert(expected[key] === value, `${name}: readiness ${key} differs from the producer observation`);
+      }
+      assert(responseCount === 1 && observed()?.status === 200, `${name}: expected one hosted readiness response`);
+      return `writes_admitted ${success.value.writes_admitted}`;
+    } finally {
+      if (observed() !== undefined) recordResponse(name);
     }
-  },
-  "unavailable-capability", "never");
-const staleGeneration = (BigInt(generation) + 1n).toString(10);
-await expectRefusal("wrong_generation",
-  () => transportFor(new AgentSessionCredential(session.tenant, session.sessionId, tokenId, staleGeneration))
-    .call({ plane: "agent", operation: "read.account", request: readAccount }),
-  "policy-refusal", "never");
-await expectRefusal("unknown_operation_local",
-  () => transport.call({ plane: "agent", operation: "not.catalogued" as Operation, request: {} }),
-  "unavailable-capability", "never");
-await expectRefusal("missing_idempotency_local",
-  () => transport.call({ plane: "agent", operation: "budget.fund", request: {} }),
-  "invalid-argument", "never");
-await expectRefusal("noncanonical_generation_local",
-  async () => new AgentSessionCredential(session.tenant, session.sessionId, tokenId, `0${generation}`),
-  "invalid-argument", "never");
-checks.push({
-  check: "credential_redaction",
-  ok: JSON.stringify(session) === "\"[REDACTED]\"" && String(session) === "[REDACTED]",
-  detail: "session credential rendering",
-});
+  }
 
-for (const result of results) {
-  if (result.outcome === "pass") process.stdout.write(`PAXEER_X_AGENT_ENVELOPE_CASE ${result.case} passed\n`);
-  else process.stderr.write(`${JSON.stringify(result)}\n`);
+  for (const name of cases) await runCase(name);
+
+  const readAccount = object(object(requests, "read"), "request");
+  await expectRefusal("faucet_retired",
+    async () => {
+      const responsesBefore = responseCount;
+      try {
+        await transport.callRetiredOperation("faucet.claim");
+      } catch (error) {
+        assert(error instanceof RetiredOperationError && error.class === "UnavailableCapability"
+          && error.reason === "unavailable_capability.faucet.claim" && error.retriability === "Terminal",
+          `faucet_retired: expected terminal retired-operation refusal, got ${describe(error)}`);
+        assert(responseCount === responsesBefore, "faucet_retired: the SDK sent a request");
+        throw error;
+      }
+    },
+    "unavailable-capability", "never");
+  const staleGeneration = (BigInt(generation) + 1n).toString(10);
+  await expectRefusal("wrong_generation",
+    () => transportFor(new AgentSessionCredential(session.tenant, session.sessionId, tokenId, staleGeneration))
+      .call({ plane: "agent", operation: "read.account", request: readAccount }),
+    "policy-refusal", "never");
+  await expectRefusal("unknown_operation_local",
+    () => transport.call({ plane: "agent", operation: "not.catalogued" as Operation, request: {} }),
+    "unavailable-capability", "never");
+  await expectRefusal("missing_idempotency_local",
+    () => transport.call({ plane: "agent", operation: "budget.fund", request: {} }),
+    "invalid-argument", "never");
+  await expectRefusal("noncanonical_generation_local",
+    async () => new AgentSessionCredential(session.tenant, session.sessionId, tokenId, `0${generation}`),
+    "invalid-argument", "never");
+  checks.push({
+    check: "credential_redaction",
+    ok: JSON.stringify(session) === "\"[REDACTED]\"" && String(session) === "[REDACTED]",
+    detail: "session credential rendering",
+  });
+
+  for (const result of results) {
+    if (result.outcome === "pass") process.stdout.write(`PAXEER_X_AGENT_ENVELOPE_CASE ${result.case} passed\n`);
+    else process.stderr.write(`${JSON.stringify(result)}\n`);
+  }
+  for (const check of checks) if (!check.ok) process.stderr.write(`${JSON.stringify(check)}\n`);
+  const passed = results.filter((result) => result.outcome === "pass").length;
+  process.stdout.write(`PAXEER_X_AGENT_ENVELOPE_CASES=${passed}\n`);
+  const failedChecks = checks.filter((check) => !check.ok).length;
+  if (passed !== cases.length || failedChecks > 0) {
+    process.stderr.write(`agent-operation-envelope: ${cases.length - passed} of ${cases.length} cases and ${failedChecks} checks failed\n`);
+    const failures = [
+      ...results.filter((result) => result.outcome === "fail").map((result) => `${result.case}: ${result.detail}`),
+      ...checks.filter((check) => !check.ok).map((check) => `${check.check}: ${check.detail}`),
+    ];
+    throw new Error(`agent-operation-envelope qualification failed: ${failures.join("; ")}`);
+  }
+
 }
-for (const check of checks) if (!check.ok) process.stderr.write(`${JSON.stringify(check)}\n`);
-const passed = results.filter((result) => result.outcome === "pass").length;
-process.stdout.write(`PAXEER_X_AGENT_ENVELOPE_CASES=${passed}\n`);
-const failedChecks = checks.filter((check) => !check.ok).length;
-if (passed !== cases.length || failedChecks > 0) {
-  process.stderr.write(`agent-operation-envelope: ${cases.length - passed} of ${cases.length} cases and ${failedChecks} checks failed\n`);
-  process.exit(1);
+
+if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const probePath = process.env.PAXEER_X_AGENT_ENVELOPE_CASE;
+  try {
+    if (probePath === undefined || probePath.length === 0) refuse("PAXEER_X_AGENT_ENVELOPE_CASE is not set");
+    await runAgentOperationEnvelopeProbe(probePath);
+  } catch (error) {
+    process.stderr.write(`agent-operation-envelope: ${error instanceof Error ? error.message : "probe failed"}\n`);
+    process.exitCode = error instanceof AgentOperationProbeInputError ? 2 : 1;
+  }
 }

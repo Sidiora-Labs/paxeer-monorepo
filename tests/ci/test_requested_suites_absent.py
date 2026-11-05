@@ -1,4 +1,5 @@
 import re
+import subprocess
 
 from retired_tests import REPO_ROOT, assert_paths_absent
 
@@ -36,3 +37,21 @@ def test_web_intake_absent():
 def test_layerxd_suite_absent():
     assert_paths_absent(["tests/test_layerxd.c"])
     _assert_no_test_references(re.compile(r"\btest_layerxd\b"))
+
+
+def test_bridge_credit_suites_absent():
+    assert_paths_absent(
+        [
+            "tests/bridge/test_credit.c",
+            "tests/bridge/test_light_credit.c",
+            "tests/bridge/sign_credit.c",
+        ]
+    )
+    result = subprocess.run(
+        ["make", "-n", "build", "test"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr

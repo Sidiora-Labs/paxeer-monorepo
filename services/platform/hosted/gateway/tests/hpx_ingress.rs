@@ -1,7 +1,7 @@
 use std::fs;
 use std::io::Write;
 use std::net::{TcpListener, TcpStream};
-use std::os::unix::fs::PermissionsExt;
+use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -11,12 +11,105 @@ use layerx_platform_gateway::http::{
 use layerx_platform_gateway::{unified_service_route, HpxIngressPolicy};
 use native_tls::Certificate;
 use serde::Deserialize;
+use std::process::{Child, Command, Stdio};
+use std::time::{Duration, Instant};
+
+fn private_directory() -> PathBuf {
+    let mut nonce = [0; 16];
+    getrandom::fill(&mut nonce).expect("random directory identity");
+    let name: String = nonce.iter().map(|byte| format!("{byte:02x}")).collect();
+    let directory = std::env::temp_dir().join(format!("gateway-hpx-{name}"));
+    std::fs::DirBuilder::new()
+        .mode(0o700)
+        .create(&directory)
+        .expect("private HPX directory");
+    directory
+}
+
+struct HpxProcess {
+    child: Child,
+    directory: PathBuf,
+}
+
+impl HpxProcess {
+    fn start() -> (Self, RealHpx) {
+        let directory = private_directory();
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../..");
+        for name in ["main.go", "go.mod"] {
+            fs::copy(
+                root.join("tools/hpx/registry").join(name),
+                directory.join(name),
+            )
+            .expect("real HPX source");
+        }
+        fs::write(
+            directory.join("hpx_ingress_test.go"),
+            include_str!("support/hpx_ingress_test.go"),
+        )
+        .expect("HPX process harness");
+        let log = fs::File::create(directory.join("hpx.log")).expect("process log");
+        let child = Command::new("go")
+            .args([
+                "test",
+                "-count=1",
+                "-run",
+                "^TestHPXIngressProcess$",
+                "-timeout",
+                "240s",
+            ])
+            .current_dir(&directory)
+            .env("PAXEER_X_HPX_GATE_DIRECTORY", &directory)
+            .env("GOMAXPROCS", "2")
+            .stdout(Stdio::from(log.try_clone().expect("log handle")))
+            .stderr(Stdio::from(log))
+            .spawn()
+            .expect("real HPX process");
+        let mut process = Self { child, directory };
+        let deadline = Instant::now() + Duration::from_secs(180);
+        while !process.directory.join("ready.json").exists() {
+            let status = process.child.try_wait().expect("HPX process status");
+            assert!(
+                status.is_none() && Instant::now() < deadline,
+                "HPX startup {status:?}: {}",
+                fs::read_to_string(process.directory.join("hpx.log")).expect("HPX log")
+            );
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        let config = serde_json::from_slice(
+            &fs::read(process.directory.join("ready.json")).expect("real HPX readiness"),
+        )
+        .expect("typed actual process");
+        (process, config)
+    }
+}
+
+impl Drop for HpxProcess {
+    fn drop(&mut self) {
+        fs::write(self.directory.join("stop"), []).expect("HPX shutdown");
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            if let Some(status) = self.child.try_wait().expect("HPX status") {
+                assert!(
+                    status.success(),
+                    "HPX exit {status}: {}",
+                    fs::read_to_string(self.directory.join("hpx.log")).expect("HPX log")
+                );
+                break;
+            }
+            if Instant::now() >= deadline {
+                self.child.kill().expect("bounded HPX shutdown");
+                self.child.wait().expect("reap HPX process");
+                panic!("HPX failed to stop");
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        fs::remove_dir_all(&self.directory).expect("HPX credentials cleanup");
+    }
+}
 
 fn policy_file(value: serde_json::Value) -> PathBuf {
     static NEXT: AtomicU64 = AtomicU64::new(0);
-    let directory = PathBuf::from(
-        std::env::var_os("PAXEER_X_HPX_GATE_DIRECTORY").expect("real protected HPX gate directory"),
-    );
+    let directory = private_directory();
     let path = directory.join(format!(
         "policy-{}-{}.json",
         std::process::id(),
@@ -156,13 +249,7 @@ struct RealHpx {
 
 #[test]
 fn actual_hpx_tls_handler_observes_sanitized_socket_identity_and_original_token_checks() {
-    let path = PathBuf::from(
-        std::env::var_os("PAXEER_X_HPX_GATE_DIRECTORY").expect("real HPX gate directory"),
-    )
-    .join("ready.json");
-    let config: RealHpx =
-        serde_json::from_slice(&fs::read(path).expect("real HPX process readiness"))
-            .expect("typed actual process");
+    let (_process, config) = HpxProcess::start();
     let client = Client::without_identity(
         Certificate::from_der(
             &fs::read(Path::new(&config.ca)).expect("actual HPX TLS certificate"),

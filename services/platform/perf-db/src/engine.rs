@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use parking_lot::Mutex;
@@ -22,9 +23,99 @@ use crate::state::positions::PositionTable;
 use crate::state::pubsub::{Channel, PubSubBus, PubSubMessage};
 use crate::storage::candle_store::CandleStore;
 use crate::storage::event_store::EventStore;
-use crate::storage::snapshot::{self, DailyStatsEntry, SnapshotMarketState, StateSnapshot};
+use crate::storage::snapshot::{
+    self, CompleteStateSnapshot, DailyStatsEntry, RelationalSnapshot, SnapshotMarketState,
+    SnapshotRecovery, StateSnapshot, TickCheckpoint,
+};
 use crate::storage::tick_store::TickStore;
-use crate::storage::wal::{WalConfig, WalEntry, WalWriter};
+use crate::storage::wal::{WalConfig, WalEntry, WalPosition, WalWriter};
+use crate::storage::writer_lease::WriterLease;
+
+#[derive(Default)]
+struct MutationState {
+    position: WalPosition,
+    events: Vec<IndexedEvent>,
+    identities: HashMap<([u8; 32], u32), usize>,
+    slots: HashMap<(u64, u32, u32), [u8; 32]>,
+    poisoned: bool,
+}
+
+impl MutationState {
+    fn is_duplicate(&self, event: &IndexedEvent) -> Result<bool, PerfDbError> {
+        let key = (event.tx_hash, event.log_index);
+        if let Some(&index) = self.identities.get(&key) {
+            let encode = |value: &IndexedEvent| {
+                bincode::serialize(value).map_err(|e| PerfDbError::Serialization {
+                    context: "event identity".into(),
+                    detail: e.to_string(),
+                })
+            };
+            if encode(&self.events[index])? != encode(event)? {
+                return Err(PerfDbError::Corruption(
+                    "conflicting event redelivery or block binding".into(),
+                ));
+            }
+            return Ok(true);
+        }
+        if self
+            .slots
+            .contains_key(&(event.block_number, event.tx_index, event.log_index))
+        {
+            return Err(PerfDbError::Corruption(
+                "event canonical block slot already occupied".into(),
+            ));
+        }
+        Ok(false)
+    }
+
+    fn record(&mut self, event: IndexedEvent) {
+        self.identities
+            .insert((event.tx_hash, event.log_index), self.events.len());
+        self.slots.insert(
+            (event.block_number, event.tx_index, event.log_index),
+            event.tx_hash,
+        );
+        self.events.push(event);
+    }
+}
+
+const FIXED_SCALE: i128 = 1_000_000_000_000_000_000;
+
+struct EventApplication {
+    market: Option<MarketId>,
+    trader: Option<[u8; 20]>,
+    collateral_usd: FixedI128,
+    open_interest: Option<(MarketId, FixedI128, FixedI128)>,
+}
+
+// Compute floor(size * 1e18 / leverage) without overflowing an intermediate
+// product. All remainders are less than a positive i128 divisor, so doubling
+// and addition fit u128 even at the boundary of the fixed-point domain.
+fn checked_collateral(size: FixedI128, leverage: FixedI128) -> Result<FixedI128, PerfDbError> {
+    let invalid =
+        || PerfDbError::InvalidArgument("invalid or overflowing position collateral".into());
+    if size < 0 || leverage <= 0 {
+        return Err(invalid());
+    }
+    let size = size as u128;
+    let divisor = leverage as u128;
+    let scale = FIXED_SCALE as u128;
+    let whole = (size / divisor).checked_mul(scale).ok_or_else(invalid)?;
+    let input_remainder = size % divisor;
+    let mut remainder = 0u128;
+    let mut fraction = 0u128;
+    for bit in (0..64).rev() {
+        remainder *= 2;
+        fraction = fraction * 2 + remainder / divisor;
+        remainder %= divisor;
+        if scale & (1u128 << bit) != 0 {
+            remainder += input_remainder;
+            fraction += remainder / divisor;
+            remainder %= divisor;
+        }
+    }
+    i128::try_from(whole.checked_add(fraction).ok_or_else(invalid)?).map_err(|_| invalid())
+}
 
 /// Configuration for the PerfDB engine.
 #[derive(Debug, Clone)]
@@ -104,7 +195,12 @@ pub struct PerfDb {
     pub api_keys: ApiKeyStore,
     pub competitions: CompetitionStore,
 
-    wal: Mutex<WalWriter>,
+    wal: Mutex<Option<WalWriter>>,
+    mutation: Mutex<MutationState>,
+    tick_position: Mutex<WalPosition>,
+    read_only: bool,
+    // Last field: release only after the writable stores/WAL have been dropped.
+    _writer_lease: Option<WriterLease>,
 }
 
 impl PerfDb {
@@ -116,17 +212,139 @@ impl PerfDb {
     /// 3. Open WAL, replay entries after snapshot checkpoint
     /// 4. Open mmap stores (ticks, candles)
     pub fn open(config: PerfDbConfig) -> Result<Self, PerfDbError> {
-        std::fs::create_dir_all(&config.data_dir).map_err(|e| PerfDbError::Io {
-            context: format!("create data_dir: {}", config.data_dir.display()),
-            source: e,
-        })?;
+        Self::open_mode(config, false)
+    }
 
-        let snap = snapshot::load_latest_snapshot(&config.snapshots_dir())?;
-        let snap_block = snap.as_ref().map(|s| s.checkpoint.last_block).unwrap_or(0);
+    /// Inspect the committed tick prefix and snapshot/WAL through read-only
+    /// file handles. Recovery happens in private memory, including while a
+    /// writer is active; it never repairs files or creates storage directories.
+    pub fn open_read_only(config: PerfDbConfig) -> Result<Self, PerfDbError> {
+        Self::open_mode(config, true)
+    }
 
-        let tick_store = TickStore::open(config.ticks_dir())?;
-        let candle_store = CandleStore::open(config.candles_dir())?;
-        let candle_builder = CandleBuilder::new();
+    fn open_mode(config: PerfDbConfig, read_only: bool) -> Result<Self, PerfDbError> {
+        let writer_lease = if read_only {
+            if !config.data_dir.is_dir() {
+                return Err(PerfDbError::InvalidArgument(
+                    "inspection requires an existing database".into(),
+                ));
+            }
+            None
+        } else {
+            std::fs::create_dir_all(&config.data_dir).map_err(|e| PerfDbError::Io {
+                context: format!("create data_dir: {}", config.data_dir.display()),
+                source: e,
+            })?;
+            Some(WriterLease::acquire(&config.data_dir)?)
+        };
+
+        let snap = snapshot::load_latest_complete_engine_snapshot(&config.snapshots_dir())?;
+        let snapshot_position = snap
+            .as_ref()
+            .map(|(_, recovery)| recovery.position)
+            .unwrap_or_default();
+        let mut mutation = MutationState {
+            position: snapshot_position,
+            ..MutationState::default()
+        };
+        if let Some((_, recovery)) = &snap {
+            for event in &recovery.events {
+                if mutation.is_duplicate(event)? {
+                    return Err(PerfDbError::Corruption(
+                        "duplicate in snapshot event ledger".into(),
+                    ));
+                }
+                mutation.record(event.clone());
+            }
+        }
+
+        let tick_checkpoint = snapshot::load_tick_checkpoint(&config.data_dir)?;
+        let tick_position = tick_checkpoint
+            .as_ref()
+            .map(|cp| cp.position)
+            .unwrap_or_default();
+        let tick_counts = tick_checkpoint
+            .as_ref()
+            .map(|cp| cp.tick_counts.clone())
+            .unwrap_or_else(|| vec![0; crate::core::market::MARKET_COUNT]);
+        let candle_counts = tick_checkpoint
+            .as_ref()
+            .map(|cp| cp.candle_counts.clone())
+            .unwrap_or_else(|| vec![0; crate::core::market::MARKET_COUNT * 16]);
+        let candle_tails = tick_checkpoint
+            .as_ref()
+            .map(|cp| cp.candle_tails.clone())
+            .unwrap_or_else(|| vec![None; crate::core::market::MARKET_COUNT * 16]);
+
+        let segments = crate::storage::wal::list_segments(&config.wal.dir)?;
+        if let Some(first) = segments.iter().min() {
+            if *first > snapshot_position.segment || *first > tick_position.segment {
+                return Err(PerfDbError::Corruption(
+                    "retained WAL does not cover recovery cursors".into(),
+                ));
+            }
+        } else if snapshot_position != WalPosition::default()
+            || tick_position != WalPosition::default()
+        {
+            return Err(PerfDbError::Corruption(
+                "recovery cursors have no retained WAL".into(),
+            ));
+        }
+
+        let (tick_store, candle_store, candle_builder) = if read_only {
+            let ticks = TickStore::inspect(&config.ticks_dir(), &tick_counts)?;
+            let mut candles = CandleStore::inspection();
+            let mut builder = CandleBuilder::new();
+            for mid in 0..crate::core::market::MARKET_COUNT as MarketId {
+                for tick in ticks.ticks(mid) {
+                    for output in builder.on_tick(tick) {
+                        if let CandleOutput::Closed(candle) = output {
+                            candles.upsert(&candle)?;
+                        }
+                    }
+                }
+                for tf in Timeframe::ALL {
+                    let expected = candle_counts[mid as usize * 16 + tf as usize];
+                    if let Some(tail) = candle_tails[mid as usize * 16 + tf as usize] {
+                        candles.upsert(&tail)?;
+                    }
+                    if candles.candle_count(mid, tf) != expected {
+                        return Err(PerfDbError::Corruption(
+                            "candle prefix disagrees with tick checkpoint".into(),
+                        ));
+                    }
+                }
+            }
+            (ticks, candles, builder)
+        } else {
+            let mut ticks = TickStore::open(config.ticks_dir())?;
+            let mut candles = CandleStore::open(config.candles_dir())?;
+            // Discard only suffixes beyond the last atomically published tick
+            // cursor. Their WAL entries will be reapplied, even after another
+            // interrupted recovery. Equal ticks remain separate occurrences.
+            ticks.rewind(&tick_counts)?;
+            candles.rewind(&candle_counts)?;
+            let builder = tick_checkpoint.map(|cp| cp.builder).unwrap_or_default();
+            // An uncommitted upsert may overwrite the previously stored live
+            // bucket. Restore its exact bytes, which may differ from the
+            // builder if further live ticks arrived after the last shutdown.
+            for mid in 0..crate::core::market::MARKET_COUNT as MarketId {
+                for tf in Timeframe::ALL {
+                    if let Some(tail) = candle_tails[mid as usize * 16 + tf as usize] {
+                        if !candles
+                            .latest(mid, tf)
+                            .is_some_and(|last| last.timestamp_ns == tail.timestamp_ns)
+                        {
+                            return Err(PerfDbError::Corruption(
+                                "committed candle tail has moved".into(),
+                            ));
+                        }
+                        candles.upsert(&tail)?;
+                    }
+                }
+            }
+            (ticks, candles, builder)
+        };
 
         let market_state = MarketStateTable::new();
         let positions = PositionTable::new();
@@ -135,20 +353,37 @@ impl PerfDb {
         let pubsub = PubSubBus::with_capacity(config.pubsub_capacity);
 
         let users = UserStore::new();
-        let referrals = ReferralEngine::new();
         let checkpoint = CheckpointStore::empty();
 
         let events = EventStore::new();
         let trader_stats = TraderStatsStore::new();
         let daily_stats = DailyStatsStore::new();
         let leaderboard = Leaderboard::new(config.leaderboard_max);
-        let alerts = AlertStore::new();
-        let api_keys = ApiKeyStore::new();
-        let competitions = CompetitionStore::new();
+        let (alerts, api_keys, competitions, referrals) = match snap
+            .as_ref()
+            .and_then(|(image, _)| image.relational.as_ref())
+        {
+            Some(relational) => {
+                let stores = relational.restore_owned()?;
+                (
+                    stores.alerts,
+                    stores.api_keys,
+                    stores.competitions,
+                    stores.referrals,
+                )
+            }
+            None => (
+                AlertStore::new(),
+                ApiKeyStore::new(),
+                CompetitionStore::new(),
+                ReferralEngine::new(),
+            ),
+        };
 
-        if let Some(snap) = snap {
+        if let Some((image, _)) = snap {
+            let snap = &image.state;
             restore_snapshot(
-                &snap,
+                snap,
                 &market_state,
                 &positions,
                 &orders,
@@ -157,23 +392,25 @@ impl PerfDb {
                 &checkpoint,
                 &trader_stats,
                 &daily_stats,
-            );
+            )?;
             tracing::info!(
-                block = snap_block,
+                block = snap.checkpoint.last_block,
                 positions = snap.positions.len(),
                 users = snap.users.len(),
                 "state restored from snapshot"
             );
         }
 
-        let wal_writer = WalWriter::open(config.wal.clone())?;
-
-        let mut builder = candle_builder;
-        for mid in 0..crate::core::market::MARKET_COUNT as MarketId {
-            for tf in Timeframe::ALL {
-                if let Some(last) = candle_store.latest(mid, tf) {
-                    builder.seed(mid, tf, last);
-                }
+        let wal_writer = if read_only {
+            None
+        } else {
+            Some(WalWriter::open(config.wal.clone())?)
+        };
+        if let Some(writer) = &wal_writer {
+            if snapshot_position > writer.position() || tick_position > writer.position() {
+                return Err(PerfDbError::Corruption(
+                    "recovery cursor exceeds retained WAL".into(),
+                ));
             }
         }
 
@@ -181,7 +418,7 @@ impl PerfDb {
             config,
             tick_store: Mutex::new(tick_store),
             candle_store: Mutex::new(candle_store),
-            candle_builder: Mutex::new(builder),
+            candle_builder: Mutex::new(candle_builder),
             market_state,
             positions,
             orders,
@@ -198,18 +435,32 @@ impl PerfDb {
             api_keys,
             competitions,
             wal: Mutex::new(wal_writer),
+            mutation: Mutex::new(mutation),
+            tick_position: Mutex::new(tick_position),
+            read_only,
+            _writer_lease: writer_lease,
         };
 
+        // Snapshot event history and identity share the same durable boundary.
+        for event in &db.mutation.lock().events {
+            let (market, trader) = extract_event_keys(&event.event, &db.positions, &db.orders);
+            db.events.append(event.clone(), market, trader);
+        }
+
         let wal_dir = db.config.wal.dir.clone();
-        let replay_count = crate::storage::wal::replay(&wal_dir, |entry| {
-            db.replay_wal_entry(&entry, snap_block);
-            Ok(())
+        let replay_count = crate::storage::wal::replay_positioned(&wal_dir, |entry, position| {
+            db.replay_wal_entry(&entry, position, snapshot_position)
         })?;
+
+        if !read_only {
+            let position = db.mutation.lock().position;
+            db.persist_tick_checkpoint(position)?;
+        }
 
         if replay_count > 0 {
             tracing::info!(
                 replay_count,
-                from_block = snap_block,
+                from_segment = snapshot_position.segment,
                 "WAL entries replayed"
             );
         }
@@ -228,38 +479,110 @@ impl PerfDb {
     ///
     /// Returns candle outputs for the caller to act on (e.g. stream live candles).
     pub fn ingest_tick(&self, tick: &PriceTick) -> Result<Vec<CandleOutput>, PerfDbError> {
-        self.wal.lock().append(&WalEntry::PriceTick {
-            timestamp_ns: tick.timestamp_ns,
-            market_id: tick.market_id,
-            price: tick.price,
-        })?;
-
-        self.tick_store.lock().append(tick)?;
-
-        self.market_state
-            .set_price(tick.market_id, tick.price, tick.timestamp_ns);
-
-        let outputs = self.candle_builder.lock().on_tick(tick);
-
-        {
-            let mut cs = self.candle_store.lock();
-            for output in &outputs {
-                if let CandleOutput::Closed(candle) = output {
-                    cs.upsert(candle)?;
-                }
-            }
+        let mut mutation = self.mutation.lock();
+        self.ensure_writable(&mutation)?;
+        if tick.market_id as usize >= crate::core::market::MARKET_COUNT {
+            return Err(PerfDbError::InvalidArgument(
+                "market_id out of range".into(),
+            ));
         }
-
-        self.pubsub.publish(
-            Channel::Prices,
-            PubSubMessage::PriceUpdate {
+        let result = (|| {
+            let position = self.append_wal(&WalEntry::PriceTick {
+                timestamp_ns: tick.timestamp_ns,
                 market_id: tick.market_id,
                 price: tick.price,
-                timestamp_ns: tick.timestamp_ns,
-            },
-        );
+            })?;
+            let outputs = self.apply_tick(tick)?;
+            *self.tick_position.lock() = position;
+            mutation.position = position;
 
+            self.pubsub.publish(
+                Channel::Prices,
+                PubSubMessage::PriceUpdate {
+                    market_id: tick.market_id,
+                    price: tick.price,
+                    timestamp_ns: tick.timestamp_ns,
+                },
+            );
+
+            Ok(outputs)
+        })();
+        if result.is_err() {
+            mutation.poisoned = true;
+        }
+        result
+    }
+
+    fn ensure_writable(&self, mutation: &MutationState) -> Result<(), PerfDbError> {
+        if self.read_only {
+            return Err(PerfDbError::InvalidArgument(
+                "database inspection is read-only".into(),
+            ));
+        }
+        if mutation.poisoned {
+            return Err(PerfDbError::Corruption(
+                "mutation failed; reopen database before writing or snapshotting".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    fn append_wal(&self, entry: &WalEntry) -> Result<WalPosition, PerfDbError> {
+        let mut wal = self.wal.lock();
+        let writer = wal.as_mut().ok_or_else(|| {
+            PerfDbError::InvalidArgument("database inspection is read-only".into())
+        })?;
+        writer.append(entry)?;
+        Ok(writer.position())
+    }
+
+    fn apply_tick(&self, tick: &PriceTick) -> Result<Vec<CandleOutput>, PerfDbError> {
+        self.tick_store.lock().append(tick)?;
+        let outputs = self.candle_builder.lock().on_tick(tick);
+        let mut candles = self.candle_store.lock();
+        for output in &outputs {
+            if let CandleOutput::Closed(candle) = output {
+                candles.upsert(candle)?;
+            }
+        }
+        self.market_state
+            .set_price(tick.market_id, tick.price, tick.timestamp_ns);
         Ok(outputs)
+    }
+
+    // Called only while mutation is excluded (or before open returns). Publish
+    // a cursor only after WAL and both derived stores are durable. A crash
+    // before publication leaves a suffix that recovery rewinds and replays.
+    fn persist_tick_checkpoint(&self, position: WalPosition) -> Result<(), PerfDbError> {
+        self.wal
+            .lock()
+            .as_mut()
+            .ok_or_else(|| PerfDbError::InvalidArgument("database inspection is read-only".into()))?
+            .sync()?;
+        let ticks = self.tick_store.lock();
+        let candles = self.candle_store.lock();
+        ticks.flush()?;
+        candles.flush()?;
+        snapshot::write_tick_checkpoint(
+            &self.config.data_dir,
+            &TickCheckpoint {
+                version: 1,
+                position,
+                tick_counts: ticks.counts(),
+                candle_counts: candles.counts(),
+                candle_tails: (0..crate::core::market::MARKET_COUNT as MarketId)
+                    .flat_map(|mid| {
+                        Timeframe::ALL
+                            .into_iter()
+                            .map(|tf| candles.latest(mid, tf).copied())
+                            .collect::<Vec<_>>()
+                    })
+                    .collect(),
+                builder: self.candle_builder.lock().clone(),
+            },
+        )?;
+        *self.tick_position.lock() = position;
+        Ok(())
     }
 
     /// Process a decoded chain event from the indexer.
@@ -267,20 +590,219 @@ impl PerfDb {
     /// Updates all relevant stores based on the event variant.
     /// Writes to WAL, updates state, publishes to PubSub.
     pub fn process_event(&self, indexed: &IndexedEvent) -> Result<(), PerfDbError> {
-        self.wal
-            .lock()
-            .append(&WalEntry::IndexedEvent(indexed.clone()))?;
+        let mut mutation = self.mutation.lock();
+        self.ensure_writable(&mutation)?;
+        if mutation.is_duplicate(indexed)? {
+            return Ok(());
+        }
+        // Validate the complete effect before admitting it to the durable log.
+        // The same mutation boundary covers validation, append, application,
+        // identity recording, cursor advance and snapshot publication.
+        let application = self.prepare_event(indexed)?;
+        let position = match self.append_wal(&WalEntry::IndexedEvent(indexed.clone())) {
+            Ok(position) => position,
+            Err(error) => {
+                mutation.poisoned = true;
+                return Err(error);
+            }
+        };
 
-        self.apply_event(indexed);
+        self.apply_event(indexed, application);
+        mutation.record(indexed.clone());
+        mutation.position = position;
         Ok(())
+    }
+
+    fn prepare_event(&self, indexed: &IndexedEvent) -> Result<EventApplication, PerfDbError> {
+        let invalid = |message: &str| PerfDbError::InvalidArgument(message.into());
+        let (market, trader) = extract_event_keys(&indexed.event, &self.positions, &self.orders);
+        if market.is_some_and(|mid| mid as usize >= crate::core::market::MARKET_COUNT) {
+            return Err(invalid("event market is outside the supported registry"));
+        }
+        let mut application = EventApplication {
+            market,
+            trader,
+            collateral_usd: 0,
+            open_interest: None,
+        };
+        let mut exposure = None;
+        let bound_position = |id: &[u8; 32]| {
+            self.positions
+                .get(id)
+                .ok_or_else(|| invalid("event position is not bound"))
+        };
+        match &indexed.event {
+            Event::PositionOpened {
+                position_id,
+                market_id,
+                is_long,
+                size_usd,
+                leverage,
+                ..
+            } => {
+                if self.positions.get(position_id).is_some() {
+                    return Err(invalid("position already exists"));
+                }
+                application.collateral_usd = checked_collateral(*size_usd, *leverage)?;
+                exposure = Some((*market_id, *is_long, 0, *size_usd));
+            }
+            Event::PositionModified {
+                position_id,
+                new_size_usd,
+                new_collateral_usd,
+                new_collateral_amount,
+            } => {
+                let before = bound_position(position_id)?;
+                if before.status != PositionStatus::Open
+                    || *new_size_usd < 0
+                    || *new_collateral_usd < 0
+                    || *new_collateral_amount < 0
+                {
+                    return Err(invalid("invalid modification of open position"));
+                }
+                exposure = Some((
+                    before.market_id,
+                    before.is_long,
+                    before.size_usd,
+                    *new_size_usd,
+                ));
+            }
+            Event::PositionClosed {
+                position_id,
+                user,
+                market_id,
+                closed_size_usd,
+                is_full_close,
+                ..
+            } => {
+                let before = bound_position(position_id)?;
+                if before.status != PositionStatus::Open
+                    || before.user_address != *user
+                    || before.market_id != *market_id
+                    || *closed_size_usd < 0
+                {
+                    return Err(invalid("close does not match an open position"));
+                }
+                let remaining = if *is_full_close {
+                    0
+                } else {
+                    before
+                        .size_usd
+                        .checked_sub(*closed_size_usd)
+                        .filter(|size| *size >= 0)
+                        .ok_or_else(|| invalid("close exceeds position size"))?
+                };
+                exposure = Some((before.market_id, before.is_long, before.size_usd, remaining));
+            }
+            Event::Liquidation {
+                position_id,
+                user,
+                market_id,
+                penalty,
+                ..
+            } => {
+                let before = bound_position(position_id)?;
+                if before.status == PositionStatus::Liquidated
+                    || before.user_address != *user
+                    || before.market_id != *market_id
+                    || *penalty < 0
+                {
+                    return Err(invalid("liquidation does not match position"));
+                }
+                // The producer may emit PositionClosed immediately before
+                // Liquidation. Only exposure still open is removed here.
+                let size = if before.status == PositionStatus::Open {
+                    before.size_usd
+                } else {
+                    0
+                };
+                exposure = Some((before.market_id, before.is_long, size, 0));
+            }
+            Event::ADLExecuted {
+                position_id,
+                deleveraged_size_usd,
+            } => {
+                let before = bound_position(position_id)?;
+                if before.status != PositionStatus::Open || *deleveraged_size_usd <= 0 {
+                    return Err(invalid("ADL does not match an open position"));
+                }
+                let remaining = before
+                    .size_usd
+                    .checked_sub(*deleveraged_size_usd)
+                    .filter(|size| *size >= 0)
+                    .ok_or_else(|| invalid("ADL exceeds position size"))?;
+                exposure = Some((before.market_id, before.is_long, before.size_usd, remaining));
+            }
+            Event::OrderExecuted { order_id, .. } | Event::OrderCancelled { order_id, .. } => {
+                let order = self
+                    .orders
+                    .get(order_id)
+                    .ok_or_else(|| invalid("event order is not bound"))?;
+                if order.status != OrderStatus::Active {
+                    return Err(invalid("event order is not active"));
+                }
+                if let Event::OrderCancelled { user, .. } = &indexed.event {
+                    if *user != order.user_address {
+                        return Err(invalid("cancellation user does not match order"));
+                    }
+                }
+            }
+            Event::PriceUpdated {
+                price, timestamp, ..
+            } => {
+                if *price <= 0 || timestamp.checked_mul(1_000_000_000).is_none() {
+                    return Err(invalid("invalid oracle price or timestamp"));
+                }
+            }
+            Event::MarketCreated {
+                market_id,
+                name,
+                symbol,
+            } => {
+                let meta = crate::core::market::market_by_id(*market_id).ok_or_else(|| {
+                    invalid("market creation requires an unsupported dynamic registry")
+                })?;
+                if meta.name != name || meta.symbol != symbol {
+                    return Err(invalid(
+                        "market creation conflicts with the supported registry",
+                    ));
+                }
+            }
+            Event::VaultDeficit { deficit, .. } if *deficit < 0 => {
+                return Err(invalid("vault deficit cannot be negative"));
+            }
+            Event::OrderPlaced { .. }
+            | Event::FundingSettled { .. }
+            | Event::FundingRateUpdated { .. }
+            | Event::MarketPaused { .. }
+            | Event::CollateralDeposited { .. }
+            | Event::CollateralWithdrawn { .. }
+            | Event::VaultCreated { .. }
+            | Event::VaultDeficit { .. } => {}
+        }
+        if let Some((mid, is_long, before, after)) = exposure {
+            if before < 0 || after < 0 {
+                return Err(invalid("negative position exposure"));
+            }
+            let delta = after
+                .checked_sub(before)
+                .ok_or_else(|| invalid("position delta overflow"))?;
+            let (mut long, mut short) = self.market_state.open_interest(mid);
+            let current = if is_long { &mut long } else { &mut short };
+            *current = current
+                .checked_add(delta)
+                .filter(|value| *value >= 0)
+                .ok_or_else(|| invalid("market open interest overflow or underflow"))?;
+            application.open_interest = Some((mid, long, short));
+        }
+        Ok(application)
     }
 
     /// Apply an indexed event to every store. Shared by live processing and
     /// WAL replay so recovery reconstructs exactly the live state.
-    fn apply_event(&self, indexed: &IndexedEvent) {
-        let (market_id, trader) = extract_event_keys(&indexed.event);
-
-        self.events.append(indexed.clone(), market_id, trader);
+    fn apply_event(&self, indexed: &IndexedEvent, application: EventApplication) {
+        self.events
+            .append(indexed.clone(), application.market, application.trader);
 
         match &indexed.event {
             Event::PositionOpened {
@@ -300,7 +822,7 @@ impl PerfDb {
                     market_id: *market_id,
                     is_long: *is_long,
                     size_usd: *size_usd,
-                    collateral_usd: *size_usd / (*leverage).max(1),
+                    collateral_usd: application.collateral_usd,
                     collateral_token: *collateral_token,
                     collateral_amount: *collateral_amount,
                     entry_price: *entry_price,
@@ -320,12 +842,6 @@ impl PerfDb {
                 self.trader_stats.ensure(*user);
                 self.trader_stats.increment_open_positions(user);
 
-                if *is_long {
-                    self.market_state.add_long_oi(*market_id, *size_usd);
-                } else {
-                    self.market_state.add_short_oi(*market_id, *size_usd);
-                }
-
                 self.pubsub.publish(
                     Channel::Positions,
                     PubSubMessage::PositionUpdate(Box::new(pos)),
@@ -335,7 +851,7 @@ impl PerfDb {
             Event::PositionClosed {
                 position_id,
                 user,
-                market_id,
+                market_id: _,
                 closed_size_usd,
                 exit_price,
                 realized_pnl,
@@ -374,12 +890,6 @@ impl PerfDb {
                     .accumulate_trade(*user, date, *closed_size_usd, *realized_pnl, 0);
 
                 if let Some(pos) = self.positions.get(position_id) {
-                    if pos.is_long {
-                        self.market_state.add_long_oi(*market_id, -closed_size_usd);
-                    } else {
-                        self.market_state.add_short_oi(*market_id, -closed_size_usd);
-                    }
-
                     self.pubsub.publish(
                         Channel::Positions,
                         PubSubMessage::PositionUpdate(Box::new(pos)),
@@ -474,6 +984,10 @@ impl PerfDb {
                 penalty,
                 keeper: _,
             } => {
+                let was_open = self
+                    .positions
+                    .get(position_id)
+                    .is_some_and(|p| p.status == PositionStatus::Open);
                 self.positions.update(position_id, |p| {
                     p.status = PositionStatus::Liquidated;
                     p.exit_price = Some(*liquidation_price);
@@ -493,7 +1007,9 @@ impl PerfDb {
                     true,
                     indexed.block_timestamp,
                 );
-                self.trader_stats.decrement_open_positions(user);
+                if was_open {
+                    self.trader_stats.decrement_open_positions(user);
+                }
 
                 self.pubsub.publish(
                     Channel::Liquidations,
@@ -586,32 +1102,92 @@ impl PerfDb {
                 self.market_state.set_paused(*market_id, true);
             }
 
-            Event::PriceUpdated { .. }
-            | Event::FundingSettled { .. }
-            | Event::MarketCreated { .. }
-            | Event::ADLExecuted { .. }
-            | Event::VaultDeficit { .. } => {}
+            Event::PriceUpdated {
+                market_id,
+                price,
+                timestamp,
+            } => {
+                self.market_state.set_price(
+                    *market_id,
+                    *price as f64 / FIXED_SCALE as f64,
+                    *timestamp * 1_000_000_000,
+                );
+            }
+            Event::MarketCreated { market_id, .. } => {
+                self.market_state.set_enabled(*market_id, true);
+                self.market_state.set_paused(*market_id, false);
+            }
+            Event::ADLExecuted {
+                position_id,
+                deleveraged_size_usd,
+            } => {
+                self.positions.update(position_id, |p| {
+                    p.size_usd -= *deleveraged_size_usd;
+                    if p.size_usd == 0 {
+                        p.status = PositionStatus::Closed;
+                        p.close_tx = Some(indexed.tx_hash);
+                        p.close_block = Some(indexed.block_number);
+                        p.closed_at = Some(indexed.block_timestamp);
+                    }
+                });
+                if let Some(pos) = self.positions.get(position_id) {
+                    if pos.status == PositionStatus::Closed {
+                        self.trader_stats
+                            .decrement_open_positions(&pos.user_address);
+                    }
+                    self.pubsub.publish(
+                        Channel::Positions,
+                        PubSubMessage::PositionUpdate(Box::new(pos)),
+                    );
+                }
+            }
+            Event::FundingSettled { .. } | Event::VaultDeficit { .. } => {
+                // append above materializes the signed hourly settlement and
+                // token-unit deficit views in EventStore. These records do not
+                // authorize a per-position funding debit or deficit resolution.
+            }
         }
 
-        self.checkpoint.advance_block(indexed.block_number);
+        if let Some((market, long, short)) = application.open_interest {
+            self.market_state.set_open_interest(market, long, short);
+        }
+        self.checkpoint
+            .advance_block(self.checkpoint.last_block().max(indexed.block_number));
     }
 
     /// Replay a single WAL entry into state (used during recovery).
-    /// Indexed events with block_number <= snap_block only rebuild the event
-    /// history, which the snapshot does not hold; their state is in the snapshot.
-    fn replay_wal_entry(&self, entry: &WalEntry, snap_block: u64) {
+    fn replay_wal_entry(
+        &self,
+        entry: &WalEntry,
+        position: WalPosition,
+        snapshot_position: WalPosition,
+    ) -> Result<(), PerfDbError> {
+        let mut mutation = self.mutation.lock();
         match entry {
             WalEntry::PriceTick {
                 market_id,
                 price,
                 timestamp_ns,
             } => {
-                self.market_state
-                    .set_price(*market_id, *price, *timestamp_ns);
+                if position > *self.tick_position.lock() {
+                    self.apply_tick(&PriceTick {
+                        market_id: *market_id,
+                        price: *price,
+                        timestamp_ns: *timestamp_ns,
+                        _pad: [0; 6],
+                    })?;
+                    *self.tick_position.lock() = position;
+                } else if position > snapshot_position {
+                    self.market_state
+                        .set_price(*market_id, *price, *timestamp_ns);
+                }
             }
 
             WalEntry::Checkpoint { block_number } => {
-                self.checkpoint.advance_block(*block_number);
+                if position > snapshot_position {
+                    self.checkpoint
+                        .advance_block(self.checkpoint.last_block().max(*block_number));
+                }
             }
 
             WalEntry::BalanceUpdate {
@@ -621,25 +1197,34 @@ impl PerfDb {
                 locked,
                 available,
             } => {
-                self.balances
-                    .set_raw(*user, *token, *amount, *locked, *available);
+                if position > snapshot_position {
+                    self.balances
+                        .set_raw(*user, *token, *amount, *locked, *available);
+                }
             }
 
             WalEntry::IndexedEvent(indexed) => {
-                if indexed.block_number > snap_block {
-                    self.apply_event(indexed);
-                } else {
-                    let (market_id, trader) = extract_event_keys(&indexed.event);
-                    self.events.append(indexed.clone(), market_id, trader);
+                let duplicate = mutation.is_duplicate(indexed)?;
+                if position > snapshot_position && !duplicate {
+                    let application = self.prepare_event(indexed)?;
+                    self.apply_event(indexed, application);
+                    mutation.record(indexed.clone());
+                } else if position <= snapshot_position && !duplicate {
+                    return Err(PerfDbError::Corruption(
+                        "snapshot event ledger does not cover its WAL cursor".into(),
+                    ));
                 }
             }
 
             WalEntry::CandleUpdate { .. } | WalEntry::BatchEnd => {}
         }
+        mutation.position = mutation.position.max(position);
+        Ok(())
     }
 
     /// Update the checkpoint to a specific block (called at batch boundaries).
     pub fn save_checkpoint(&self, block: u64, hash: String, timestamp: u64) {
+        let _mutation = self.mutation.lock();
         self.checkpoint.save(block, hash, timestamp);
     }
 
@@ -701,6 +1286,19 @@ impl PerfDb {
 
     /// Create a state snapshot and write it to disk.
     pub fn snapshot(&self) -> Result<PathBuf, PerfDbError> {
+        let mut mutation = self.mutation.lock();
+        self.ensure_writable(&mutation)?;
+        let result = (|| {
+            self.persist_tick_checkpoint(mutation.position)?;
+            self.snapshot_locked(&mutation)
+        })();
+        if result.is_err() {
+            mutation.poisoned = true;
+        }
+        result
+    }
+
+    fn snapshot_locked(&self, mutation: &MutationState) -> Result<PathBuf, PerfDbError> {
         let cp = self.checkpoint.snapshot();
 
         let daily_entries: Vec<DailyStatsEntry> = {
@@ -738,31 +1336,72 @@ impl PerfDb {
             snapshot_timestamp: self.checkpoint.last_block_timestamp(),
         };
 
-        snapshot::write_snapshot(&self.config.snapshots_dir(), &snap)
+        let referrals = self.referrals.lock();
+        let relational = RelationalSnapshot::capture_stores(
+            0,
+            self.alerts.next_id(),
+            &self.alerts,
+            &self.api_keys,
+            &self.competitions,
+            &referrals,
+        );
+        // Preserve the legacy image for untouched default relational stores.
+        // The allocator remains state even when every alert has been deleted.
+        let has_relational_state = relational.next_alert_id != 1
+            || !relational.alerts.is_empty()
+            || !relational.api_keys.is_empty()
+            || !relational.competitions.is_empty()
+            || !relational.competition_entries.is_empty()
+            || referrals.tiers() != ReferralEngine::new().tiers();
+        snapshot::write_complete_engine_snapshot(
+            &self.config.snapshots_dir(),
+            &CompleteStateSnapshot {
+                version: 1,
+                state: snap,
+                relational: has_relational_state.then_some(relational),
+            },
+            SnapshotRecovery {
+                position: mutation.position,
+                events: mutation.events.clone(),
+            },
+        )
     }
 
     /// Graceful shutdown: flush all stores, sync WAL, create final snapshot.
     pub fn shutdown(&self) -> Result<(), PerfDbError> {
-        {
-            let builder = self.candle_builder.lock();
-            let mut cs = self.candle_store.lock();
-            for candle in builder.flush_all() {
-                cs.upsert(&candle)?;
+        let mut mutation = self.mutation.lock();
+        self.ensure_writable(&mutation)?;
+        let result = (|| {
+            {
+                let builder = self.candle_builder.lock();
+                let mut cs = self.candle_store.lock();
+                for candle in builder.flush_all() {
+                    cs.upsert(&candle)?;
+                }
+                cs.flush()?;
             }
-            cs.flush()?;
+
+            self.persist_tick_checkpoint(mutation.position)?;
+            self.snapshot_locked(&mutation)?;
+
+            tracing::info!("PerfDB shutdown complete");
+            Ok(())
+        })();
+        if result.is_err() {
+            mutation.poisoned = true;
         }
-
-        self.tick_store.lock().flush()?;
-        self.wal.lock().sync()?;
-        self.snapshot()?;
-
-        tracing::info!("PerfDB shutdown complete");
-        Ok(())
+        result
     }
 
     /// Sync the WAL to disk (call periodically or at batch boundaries).
     pub fn sync_wal(&self) -> Result<(), PerfDbError> {
-        self.wal.lock().sync()
+        let mut mutation = self.mutation.lock();
+        self.ensure_writable(&mutation)?;
+        let result = self.persist_tick_checkpoint(mutation.position);
+        if result.is_err() {
+            mutation.poisoned = true;
+        }
+        result
     }
 
     /// Access config.
@@ -772,7 +1411,11 @@ impl PerfDb {
 }
 
 /// Extract routing keys (market_id, trader_address) from an event for EventStore.
-fn extract_event_keys(event: &Event) -> (Option<u16>, Option<[u8; 20]>) {
+fn extract_event_keys(
+    event: &Event,
+    positions: &PositionTable,
+    orders: &OrderTable,
+) -> (Option<u16>, Option<[u8; 20]>) {
     match event {
         Event::PositionOpened {
             market_id, user, ..
@@ -780,16 +1423,20 @@ fn extract_event_keys(event: &Event) -> (Option<u16>, Option<[u8; 20]>) {
         Event::PositionClosed {
             market_id, user, ..
         } => (Some(*market_id), Some(*user)),
-        Event::PositionModified { .. } => (None, None),
+        Event::PositionModified { position_id, .. } | Event::ADLExecuted { position_id, .. } => {
+            positions
+                .get(position_id)
+                .map_or((None, None), |p| (Some(p.market_id), Some(p.user_address)))
+        }
         Event::OrderPlaced {
             market_id, user, ..
         } => (Some(*market_id), Some(*user)),
-        Event::OrderExecuted { .. } => (None, None),
-        Event::OrderCancelled { user, .. } => (None, Some(*user)),
+        Event::OrderExecuted { order_id, .. } | Event::OrderCancelled { order_id, .. } => orders
+            .get(order_id)
+            .map_or((None, None), |o| (Some(o.market_id), Some(o.user_address))),
         Event::Liquidation {
             market_id, user, ..
         } => (Some(*market_id), Some(*user)),
-        Event::ADLExecuted { .. } => (None, None),
         Event::PriceUpdated { market_id, .. } => (Some(*market_id), None),
         Event::FundingSettled { market_id, .. } => (Some(*market_id), None),
         Event::FundingRateUpdated { market_id, .. } => (Some(*market_id), None),
@@ -813,7 +1460,7 @@ fn restore_snapshot(
     checkpoint: &CheckpointStore,
     trader_stats: &TraderStatsStore,
     daily_stats: &DailyStatsStore,
-) {
+) -> Result<(), PerfDbError> {
     checkpoint.save(
         snap.checkpoint.last_block,
         snap.checkpoint.last_block_hash.clone(),
@@ -833,7 +1480,9 @@ fn restore_snapshot(
     }
 
     for user in &snap.users {
-        users.upsert(user.clone());
+        users
+            .upsert(user.clone())
+            .map_err(|error| PerfDbError::Corruption(error.to_string()))?;
     }
 
     for ts in &snap.trader_stats {
@@ -865,6 +1514,7 @@ fn restore_snapshot(
             ms.price_change_pct_24h,
         );
     }
+    Ok(())
 }
 
 /// Convert a unix timestamp (seconds) to YYYYMMDD u32.

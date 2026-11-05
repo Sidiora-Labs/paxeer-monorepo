@@ -9,7 +9,7 @@ use layerx_agent_api::subscription::{
 use layerx_agent_api::track::ReceiptRef;
 use sha2::{Digest, Sha256};
 
-use super::ingestion::{durable_event, durable_sequences, IngestError};
+use super::ingestion::{durable_event, durable_sequences, CoreEvent, IngestError};
 use super::outbound::StopSignal;
 use super::subscription::{
     Continuity, Cursor, Store as SubscriptionStore, SubscriptionError, Termination,
@@ -240,7 +240,7 @@ impl DeliveryEngine {
         let tenant = TenantId::new(record.scope.tenant.as_str())
             .map_err(|_| DeliveryError::InvalidTenant)?;
         let acknowledged_cursor = subscriptions.resume_cursor_inner(&target)?;
-        let next_sequence = acknowledged_cursor.block_height;
+        let next_sequence = 0;
         Ok(Self {
             subscriptions,
             target,
@@ -563,6 +563,7 @@ impl DeliveryEngine {
 
     fn pump(&mut self) -> Result<PumpReport, DeliveryError> {
         self.check_registered_stop()?;
+        self.check_dispatch(None)?;
         let sequences = self.eligible_sequences()?;
         let mut backfill_events = 0;
         let mut live_events = 0;
@@ -618,10 +619,11 @@ impl DeliveryEngine {
         let durable = self.subscriptions.durable()?;
         let core_event = durable_event(&durable, &self.tenant, sequence)?;
         drop(durable);
-        let cursor_sequence = sequence
+        let next_sequence = sequence
             .checked_add(1)
             .ok_or(DeliveryError::SequenceExhausted)?;
-        let identity = event_identity(sequence, &core_event.canonical_bytes);
+        let cursor = event_cursor(&core_event)?;
+        let identity = event_identity(&self.tenant, &core_event)?;
         let receipt_reference = match core_event.receipt_reference {
             Some(reference) => ReceiptReference::Verified {
                 receipt_ref: ReceiptRef::new(hex_reference(reference))
@@ -636,16 +638,12 @@ impl DeliveryEngine {
         let delivery = EventDelivery::new(
             identity,
             core_event.canonical_bytes,
-            ApiCursor {
-                block_height: cursor_sequence,
-                tx_index: 0,
-                log_index: 0,
-            },
+            cursor,
             receipt_reference,
         )
         .map_err(|_: ContractError| DeliveryError::InvalidEvent)?;
         self.next_cursor = delivery.cursor;
-        self.next_sequence = cursor_sequence;
+        self.next_sequence = next_sequence;
         Ok(Some(DeliveryItem::Event(DeliveredEvent {
             global_sequence: sequence,
             phase: if sequence < self.live_start {
@@ -666,16 +664,28 @@ impl DeliveryEngine {
 
     fn refresh_health(&mut self) -> Result<(), DeliveryError> {
         let sequences = self.eligible_sequences()?;
-        let head = sequences
-            .last()
-            .copied()
-            .map_or(self.next_sequence, |sequence| sequence.saturating_add(1));
         let acknowledged = self.subscriptions.resume_cursor_inner(&self.target)?;
         self.health.acknowledged_cursor = acknowledged;
-        self.health.lag_sequences = head.saturating_sub(acknowledged.block_height);
+        self.health.lag_sequences = sequences.len() as u64;
         self.health.lagging = self.health.lag_sequences > 0
             || self.consecutive_failures > 0
             || self.buffer.len() == self.capacity;
+        Ok(())
+    }
+
+    pub(super) fn dispatch_gate(&self) -> Result<super::subscription::DispatchGate, DeliveryError> {
+        Ok(self.subscriptions.dispatch_gate(&self.target)?)
+    }
+
+    pub(super) fn check_dispatch(&self, item: Option<&DeliveryItem>) -> Result<(), DeliveryError> {
+        let cursor = match item {
+            Some(DeliveryItem::Event(event)) => Some(Cursor::from(event.delivery.cursor)),
+            _ => None,
+        };
+        self.subscriptions.check_dispatch(&self.target, cursor)?;
+        if self.subscriptions.continuity_inner(&self.target)? != Continuity::Healthy {
+            return Err(DeliveryError::ContinuityBlocked);
+        }
         Ok(())
     }
 
@@ -687,11 +697,12 @@ impl DeliveryEngine {
         // exact subscription target was resolved before its narrowing filter.
         let record = self.subscriptions.get_inner(&self.target)?;
         let filter = &record.filter;
+        let acknowledged = record.last_acknowledged;
         let mut eligible = Vec::new();
         let durable = self.subscriptions.durable()?;
         for sequence in durable_sequences(&durable, &self.tenant)? {
             let event = durable_event(&durable, &self.tenant, sequence)?;
-            if matches_filter(filter, &event.attributes) {
+            if event_cursor(&event)? > acknowledged && matches_filter(filter, &event.attributes) {
                 eligible.push(sequence);
             }
         }
@@ -738,12 +749,14 @@ pub(super) fn delivery_attempt(
     engine: &mut DeliveryEngine,
 ) -> Result<Option<DeliveryItem>, DeliveryError> {
     engine.check_registered_stop()?;
+    engine.check_dispatch(None)?;
     if engine.buffer.is_empty() {
         match engine.pump() {
             Ok(_) | Err(DeliveryError::Backpressure { .. }) => {}
             Err(error) => return Err(error),
         }
     }
+    engine.check_dispatch(engine.buffer.front())?;
     Ok(engine.buffer.front().cloned())
 }
 
@@ -781,11 +794,57 @@ fn authorize_subscription(
         .map_err(DeliveryError::Authorization)
 }
 
-fn event_identity(sequence: u64, canonical_bytes: &[u8]) -> EventIdentity {
+fn event_cursor(event: &CoreEvent) -> Result<ApiCursor, DeliveryError> {
+    if let Some(position) = event.position() {
+        return Ok(ApiCursor {
+            block_height: position.block_height,
+            tx_index: position.tx_index,
+            log_index: position.log_index,
+        });
+    }
+    // Non-log daemon events retain their existing ordinal cursor contract.
+    Ok(ApiCursor {
+        block_height: event
+            .global_sequence
+            .checked_add(1)
+            .ok_or(DeliveryError::SequenceExhausted)?,
+        tx_index: 0,
+        log_index: 0,
+    })
+}
+
+fn event_identity(tenant: &TenantId, event: &CoreEvent) -> Result<EventIdentity, DeliveryError> {
     let mut hasher = Sha256::new();
-    hasher.update(sequence.to_be_bytes());
-    hasher.update(canonical_bytes);
-    EventIdentity::new(hasher.finalize().into())
+    if event.position().is_none() {
+        hasher.update(event.global_sequence.to_be_bytes());
+        hasher.update(&event.canonical_bytes);
+        return Ok(EventIdentity::new(hasher.finalize().into()));
+    }
+    hasher.update(b"layerx-event-identity-v2");
+    // Node event ingestion belongs to the LayerX EVM chain (125). Neither
+    // receipt promotion nor journal placement may change this namespace.
+    hasher.update(125_u64.to_be_bytes());
+    hasher.update((tenant.as_str().len() as u64).to_be_bytes());
+    hasher.update(tenant.as_str().as_bytes());
+    let log = event.log()?;
+    match log.transaction_hash {
+        Some(transaction_hash) => {
+            hasher.update(b"transaction-log");
+            hasher.update(log.block_height.to_be_bytes());
+            hasher.update(transaction_hash);
+            hasher.update(log.log_index.to_be_bytes());
+        }
+        None => {
+            // Ingestion admits hashless transactions only with a block
+            // hash and refuses replacement of their canonical log bytes.
+            hasher.update(b"block-log");
+            hasher.update(log.block_hash.ok_or(DeliveryError::InvalidEvent)?);
+            hasher.update(log.block_height.to_be_bytes());
+            hasher.update(log.tx_index.to_be_bytes());
+            hasher.update(log.log_index.to_be_bytes());
+        }
+    }
+    Ok(EventIdentity::new(hasher.finalize().into()))
 }
 
 fn matches_filter(filter: &SubscriptionFilter, event: &super::ingestion::EventAttributes) -> bool {

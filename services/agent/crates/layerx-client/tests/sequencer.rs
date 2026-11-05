@@ -171,6 +171,7 @@ fn expected_receipt() -> ExecutedReceipt {
         cumulative_gas_used: 42_000,
         effective_gas_price: 1_000_000_000,
         fee_denom: "upax".to_owned(),
+        payment_denom: "upax".to_owned(),
         fee_amount: amount,
         sponsor: [0; 20],
         from: from(),
@@ -604,6 +605,7 @@ fn pending_reads_and_send_use_the_pending_tag_and_exact_params() {
     assert_eq!(params[3], json!(["0x02f86b"]));
 }
 
+// JSON-RPC refusal coverage remains after the LNI module is removed.
 #[test]
 fn refusal_keeps_code_message_and_data() {
     let (url, server) = serve(vec![(

@@ -1,0 +1,22 @@
+[repair.22.33.1394]
+audit = "22.30.77"
+acceptance = "22998.1"
+baseline = "No pre-change verification was run: the explicit ordered gate rules prohibit tests before full implementation and invoking verify_cmd by hand; the initial tree had no JVM changes and the gate ledger had no earlier runs, so no pre-change failure is claimed. The README already contained the primary API corrections at the supplied base."
+evidence = "The bounded hf-build and hf-done private ledger records the candidate revision, exact command, exit code and log; this source record claims no unrun gate."
+proof_limit = "The declared Python-only gate does not execute the JVM or compile Java snippets: it checks documentation against real public declarations and unmodified committed producer shapes. The simultaneous requirement to execute the real JVM client and prohibition on external binaries, native artifacts and subprocess toolchains cannot be satisfied by this gate; cryptographic client execution remains unqualified."
+
+[finding.jvm-readme-verifier]
+repair = "Verification guidance uses pinned ReceiptKeys, retained raw EIP-1559 bytes and portable v2 evidence; the complete committed snippet supplies independent consensus trust, rejects a receipted downgrade, compares the separately retained transaction and requires success. Guidance distinguishes receipt signature trust from consensus trust and describes successor-header result proofs."
+tests = ["test_jvm_readme_verifier_uses_current_rungs_and_no_retired_entry_points", "test_jvm_readme_receipt_snippet_matches_production_key_and_transaction_api", "test_jvm_readme_portable_snippet_requires_commitment_and_retained_transaction", "test_jvm_readme_portable_shapes_match_unmodified_producer_evidence", "test_jvm_readme_explains_independent_consensus_and_receipt_trust"]
+
+[wiring]
+task_record = "spec/layerx-merge/spec.kvx — owning domain 8 programme: copy the finding-to-test mapping, baseline-order conflict, proof limit and exact bounded gate evidence into the task record; this task may not edit spec files."
+jvm_execution = "spec/layerx-merge/spec.kvx task.22.33.1394 — owning domain 8 JVM qualification/programme: resolve the Python-only gate's no-runtime constraint before claiming real JVM execution; qualify README snippets against LocalVerifier and PortableReceipt with the existing recorded producer receipts under a declared JVM gate."
+
+[gotcha.baseline-order]
+observed = "The audit step requests an unchanged-tree verification, but the explicit ordered gate rules prohibit running verify_cmd before implementation or by hand."
+action = "Follow the explicit gate order and record no baseline failure; root GOTCHA.kvx is outside this task's writable scope."
+
+[gotcha.jvm-proof-policy]
+observed = "A Python-only gate with no external binary, native artifact or subprocess toolchain cannot execute the production Java client."
+action = "Keep the source/recording checks explicit and record the owning-domain JVM qualification request; do not replace the client with a Python verifier or claim compilation or cryptographic execution."

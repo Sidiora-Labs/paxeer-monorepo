@@ -11,6 +11,7 @@ import (
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/state"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
+	chainstypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/telemetry"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	authtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/types"
@@ -111,24 +112,6 @@ func (k *Keeper) EndBlock(ctx sdk.Context, height int64, blockGasUsed int64) {
 		utilmetrics.GaugeEvmBlockBaseFee(baseFeeBI, height) // TODO(PLT-330): remove once evm_block_base_fee verified
 		evmKeeperMetrics.blockBaseFee.Record(ctx.Context(), bigIntToFloat64(baseFeeBI))
 	}
-	if binding := k.chainsBinding(); binding != nil {
-		denom := k.GetBaseDenom(ctx)
-		collector := k.AccountKeeper().GetModuleAddress(authtypes.FeeCollectorName)
-		for _, id := range binding.ActiveDomains(ctx) {
-			gasUsed := binding.DomainGasUsed(ctx, id, height)
-			previousFee := binding.NextBaseFee(ctx, id)
-			binding.AdjustDomainBaseFee(ctx, id, gasUsed, k.GetMinimumFeePerGas(ctx), k.GetMaximumFeePerGas(ctx), k.GetMaxDynamicBaseFeeUpwardAdjustment(ctx), k.GetMaxDynamicBaseFeeDownwardAdjustment(ctx))
-			operator, bps := binding.Operator(ctx, id)
-			if bps == 0 || gasUsed == 0 {
-				continue
-			}
-			share := previousFee.MulInt(sdk.NewIntFromUint64(gasUsed)).MulInt64(int64(bps)).QuoInt64(10000).TruncateInt()
-			if share.IsPositive() && k.BankKeeper().GetBalance(ctx, collector, denom).Amount.GTE(share) {
-				err := k.BankKeeper().SendCoinsFromModuleToAccount(ctx, authtypes.FeeCollectorName, k.GetPaxAddressOrDefault(ctx, operator), sdk.NewCoins(sdk.NewCoin(denom, share)))
-				failEndBlockOnError(fmt.Sprintf("pay domain %d operator share", id), err)
-			}
-		}
-	}
 	var coinbase sdk.AccAddress
 	if k.EthBlockTestConfig.Enabled {
 		blocks := k.BlockTest.Json.Blocks
@@ -207,6 +190,7 @@ func (k *Keeper) EndBlock(ctx sdk.Context, height int64, blockGasUsed int64) {
 			failEndBlockOnError(fmt.Sprintf("credit wei surplus %s to EVM module account", surplusWei), err)
 		}
 	}
+	k.payDomainOperatorShares(ctx, height, evmTxDeferredInfoList)
 	allBlooms := utils.Map(evmTxDeferredInfoList, func(i *types.DeferredInfo) ethtypes.Bloom { return ethtypes.BytesToBloom(i.TxBloom) })
 	evmOnlyBlooms := make([]ethtypes.Bloom, 0, len(evmTxDeferredInfoList))
 	for _, di := range evmTxDeferredInfoList {
@@ -241,4 +225,60 @@ func (k *Keeper) EndBlock(ctx sdk.Context, height int64, blockGasUsed int64) {
 	}
 	k.SetBlockBloom(ctx, allBlooms)
 	k.SetEvmOnlyBlockBloom(ctx, evmOnlyBlooms)
+}
+
+func (k *Keeper) payDomainOperatorShares(ctx sdk.Context, height int64, deferredInfos []*types.DeferredInfo) {
+	binding := k.chainsBinding()
+	if binding == nil {
+		return
+	}
+	denom := k.GetBaseDenom(ctx)
+	baseFees := make(map[uint32]sdk.Coins)
+	for _, info := range deferredInfos {
+		if info.Error != "" {
+			continue
+		}
+		msg := k.msgs[info.TxIndex]
+		if msg == nil {
+			continue
+		}
+		tx, _ := msg.AsTransaction()
+		id, ok := chainstypes.DomainOfChainID(tx.ChainId())
+		if !ok || id == 0 {
+			continue
+		}
+		receipt, err := k.GetTransientReceipt(ctx, tx.Hash(), uint64(info.TxIndex))
+		failEndBlockOnError("read executed domain transaction for fee share", err)
+		fee := binding.NextBaseFee(ctx, id).TruncateInt().Mul(sdk.NewIntFromUint64(receipt.GasUsed))
+		paidDenom := denom
+		charge, err := k.GetAnteFeeTokenCharge(ctx, tx.Hash())
+		failEndBlockOnError("read domain transaction fee denomination", err)
+		if charge != nil {
+			paidDenom = charge.Denom
+			fee, err = k.ConvertFeeToDenom(fee, charge.Rate, false)
+			failEndBlockOnError("convert domain base fee to paid denomination", err)
+		}
+		baseFees[id] = baseFees[id].Add(sdk.NewCoin(paidDenom, fee))
+	}
+	collector := k.AccountKeeper().GetModuleAddress(authtypes.FeeCollectorName)
+	for _, id := range binding.ActiveDomains(ctx) {
+		gasUsed := binding.DomainGasUsed(ctx, id, height)
+		binding.AdjustDomainBaseFee(ctx, id, gasUsed, k.GetMinimumFeePerGas(ctx), k.GetMaximumFeePerGas(ctx), k.GetMaxDynamicBaseFeeUpwardAdjustment(ctx), k.GetMaxDynamicBaseFeeDownwardAdjustment(ctx))
+		operator, bps := binding.Operator(ctx, id)
+		recipient := k.GetPaxAddressOrDefault(ctx, operator)
+		for _, fee := range baseFees[id] {
+			share := fee.Amount.MulRaw(int64(bps)).QuoRaw(10000)
+			if share.IsZero() {
+				continue
+			}
+			if fee.Denom == denom {
+				coins, wei := state.SplitUhpxWeiAmount(share.BigInt())
+				err := k.BankKeeper().SendCoinsAndWei(ctx, collector, recipient, coins, wei)
+				failEndBlockOnError(fmt.Sprintf("pay domain %d operator share", id), err)
+			} else {
+				err := k.BankKeeper().SendCoinsFromModuleToAccount(ctx, authtypes.FeeCollectorName, recipient, sdk.NewCoins(sdk.NewCoin(fee.Denom, share)))
+				failEndBlockOnError(fmt.Sprintf("pay domain %d operator share in %s", id, fee.Denom), err)
+			}
+		}
+	}
 }

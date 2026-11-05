@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	_ "modernc.org/sqlite"
 )
 
@@ -68,21 +69,44 @@ func (s *SQLiteStore) Save(r *TaskResult) error {
 		return fmt.Errorf("marshal params: %w", err)
 	}
 
-	_, err = s.db.Exec(`
-		INSERT OR REPLACE INTO task_results
-			(id, type, status, run, params, result, error, submitted_at, completed_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		r.ID,
-		r.Type,
-		string(r.Status),
-		r.Run,
-		string(params),
-		nullableRawJSON(r.Result),
-		r.Error,
-		r.SubmittedAt.UTC().Format(time.RFC3339Nano),
-		formatNullableTime(r.CompletedAt),
-	)
-	return err
+	args := []any{
+		r.Type, string(r.Status), r.Run, string(params), nullableRawJSON(r.Result),
+		r.Error, r.SubmittedAt.UTC().Format(time.RFC3339Nano), formatNullableTime(r.CompletedAt),
+	}
+	var res sql.Result
+	generation := r.Generation
+	if generation == "" {
+		generation = uuid.NewString()
+		res, err = s.db.Exec(`
+			INSERT INTO task_results
+				(type, status, run, params, result, error, submitted_at, completed_at, id, generation)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			ON CONFLICT(id) DO UPDATE SET
+				type=excluded.type, status=excluded.status, run=excluded.run,
+				params=excluded.params, result=excluded.result, error=excluded.error,
+				submitted_at=excluded.submitted_at, completed_at=excluded.completed_at,
+				generation=excluded.generation
+			WHERE task_results.status = 'failed'`, append(args, r.ID, generation)...)
+	} else {
+		res, err = s.db.Exec(`
+			UPDATE task_results SET type=?, status=?, run=?, params=?, result=?, error=?,
+				submitted_at=?, completed_at=?
+			WHERE id=? AND generation=? AND NOT EXISTS (
+				SELECT 1 FROM task_cancellations WHERE id=? AND generation=?
+			)`, append(args, r.ID, generation, r.ID, generation)...)
+	}
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrTaskGeneration
+	}
+	r.Generation = generation
+	return nil
 }
 
 func (s *SQLiteStore) Get(id string) (*TaskResult, error) {
@@ -106,21 +130,41 @@ func (s *SQLiteStore) ListStaleTasks() ([]TaskResult, error) {
 }
 
 func (s *SQLiteStore) Delete(id string) (bool, error) {
-	res, err := s.db.Exec("DELETE FROM task_results WHERE id = ?", id)
-	if err != nil {
-		return false, err
-	}
-	n, _ := res.RowsAffected()
-	return n > 0, nil
+	n, err := s.deleteTasks("id = ?", id)
+	return n > 0, err
 }
 
 func (s *SQLiteStore) DeleteByType(taskType string) (int, error) {
-	res, err := s.db.Exec("DELETE FROM task_results WHERE type = ?", taskType)
+	return s.deleteTasks("type = ?", taskType)
+}
+
+func (s *SQLiteStore) deleteTasks(predicate string, value string) (int, error) {
+	tx, err := s.db.Begin()
 	if err != nil {
 		return 0, err
 	}
-	n, _ := res.RowsAffected()
+	defer tx.Rollback()
+	if _, err := tx.Exec(`INSERT OR IGNORE INTO task_cancellations (id, generation)
+		SELECT id, generation FROM task_results WHERE status = 'running' AND `+predicate, value); err != nil {
+		return 0, err
+	}
+	res, err := tx.Exec("DELETE FROM task_results WHERE "+predicate, value)
+	if err != nil {
+		return 0, err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
 	return int(n), nil
+}
+
+func (s *SQLiteStore) ClearCancellation(id, generation string) error {
+	_, err := s.db.Exec("DELETE FROM task_cancellations WHERE id = ? AND generation = ?", id, generation)
+	return err
 }
 
 func (s *SQLiteStore) LatestByType(taskType string) (*TaskResult, error) {
@@ -133,6 +177,39 @@ func (s *SQLiteStore) LatestByType(taskType string) (*TaskResult, error) {
 		return nil, err
 	}
 	return r, nil
+}
+
+func (s *SQLiteStore) Readiness() (bool, error) {
+	rows, err := s.db.Query(`SELECT type, submitted_at FROM task_results
+		WHERE type = ? OR (type = ? AND status = ?)`,
+		string(TaskMarkNotReady), string(TaskMarkReady), string(TaskStatusCompleted))
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+
+	var release, hold time.Time
+	for rows.Next() {
+		var taskType, submittedAt string
+		if err := rows.Scan(&taskType, &submittedAt); err != nil {
+			return false, err
+		}
+		submitted, err := time.Parse(time.RFC3339Nano, submittedAt)
+		if err != nil {
+			return false, fmt.Errorf("parse readiness submitted_at: %w", err)
+		}
+		if taskType == string(TaskMarkNotReady) {
+			if submitted.After(hold) {
+				hold = submitted
+			}
+		} else if submitted.After(release) {
+			release = submitted
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return false, err
+	}
+	return !release.IsZero() && release.After(hold), nil
 }
 
 // SaveTxMarker persists a pre-broadcast marker and fsyncs it (via checkpoint,
@@ -183,7 +260,7 @@ func (s *SQLiteStore) Close() error {
 // --- query helpers ---
 
 const selectColumns = `
-	SELECT id, type, status, run, params, result, error, submitted_at, completed_at
+	SELECT id, type, status, run, params, result, error, submitted_at, completed_at, generation
 	FROM task_results`
 
 // queryMany executes a query and scans all rows into TaskResults.
@@ -222,7 +299,7 @@ func scanTaskResult(s rowScanner) (*TaskResult, error) {
 
 	if err := s.Scan(
 		&r.ID, &r.Type, &status, &r.Run, &paramsJSON, &resultJSON,
-		&r.Error, &submittedAt, &completedAt,
+		&r.Error, &submittedAt, &completedAt, &r.Generation,
 	); err != nil {
 		return nil, err
 	}

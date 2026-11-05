@@ -1,0 +1,82 @@
+{
+  "compiler": "0.8.27+commit.40a35a09.Emscripten.clang",
+  "source": "contracts/meta-ag/proxy/ERC1967Proxy.sol",
+  "contract": "ERC1967Proxy",
+  "settings": {
+    "optimizer": {
+      "enabled": true,
+      "runs": 200
+    },
+    "viaIR": true,
+    "outputSelection": {
+      "*": {
+        "*": [
+          "abi",
+          "evm.bytecode.object"
+        ]
+      }
+    }
+  },
+  "sourceHashes": {
+    "contracts/data/EventEmitter.sol": "85d0f07972972aaf265bd02ee2e1c39f85050f83d4e529d6a10eb9fc60d317ac",
+    "contracts/base/Initializable.sol": "e3c708e6b31f3e885bfed89549bfba02b69b917f33252a722e8237f92e3661a4",
+    "contracts/base/UUPSUpgradeable.sol": "039375e965483ca577b0cf202ef7bc36d067b33e0fb44a36477793db74035b2c",
+    "contracts/base/ERC1967Utils.sol": "bdb08dec0f0dadacff747dfbeb236da86d655de9b46c45afc15de431b0dc4cdb",
+    "contracts/base/AccessControl.sol": "c78177564e41cde3f4967ffe27e8e03d7b4e0855c61ce2275a0e32e1a7431972",
+    "contracts/interfaces/IEventEmitter.sol": "c384bd93510ace1643c9eca2318948a933abc1d1f4fe82ad2021f6c8de232447",
+    "contracts/interfaces/IPoolRegistry.sol": "84cb8300992bb3aefb130cc4f9a2811b2f315863fc6afbaa89b33436e308de81",
+    "contracts/base/UpgradeableBeacon.sol": "6335a2ae910ab1e706709ab2052e1287b160196a398769b9b6bae795ae0f5346",
+    "contracts/meta-ag/proxy/ERC1967Proxy.sol": "d22053bef04f1f1e28f966acc6155f0b7d0ef9b1bc6db9388f1580503a7aec33",
+    "contracts/base/Proxy.sol": "6754fcc82bbde8e3280c781e2d4650c5ae3a888e5eb9a17fa2da3f3dd3e2643b"
+  },
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "implementation",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes",
+          "name": "data",
+          "type": "bytes"
+        }
+      ],
+      "stateMutability": "payable",
+      "type": "constructor"
+    },
+    {
+      "inputs": [],
+      "name": "InitializationFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidImplementation",
+      "type": "error"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "implementation",
+          "type": "address"
+        }
+      ],
+      "name": "Upgraded",
+      "type": "event"
+    },
+    {
+      "stateMutability": "payable",
+      "type": "fallback"
+    },
+    {
+      "stateMutability": "payable",
+      "type": "receive"
+    }
+  ],
+  "bytecode": "0x608060405261024080380380610014816100b7565b928339810160408282031261009f578151916001600160a01b038316830361009f576020810151906001600160401b03821161009f57019181601f8401121561009f57825161006a610065826100e1565b6100b7565b928184526020828601011161009f576020815f928261009197018387015e840101526100fc565b604051607790816101c98239f35b5f80fd5b634e487b7160e01b5f52604160045260245ffd5b6040519190601f01601f191682016001600160401b038111838210176100dc57604052565b6100a3565b6001600160401b0381116100dc57601f01601f191660200190565b90813b156101b9577f360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc8290556001600160a01b0382167fbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b5f80a280518061016257505050565b5f926020849301905af43d156101b1573d90610180610065836100e1565b9182523d5f602084013e5b156101935750565b8051156101a257602081519101fd5b630337323560e31b5f5260045ffd5b60609061018b565b63340aafcd60e11b5f5260045ffdfe60806040525f807f360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc54368280378136915af43d5f803e15603d573d5ff35b3d5ffdfea264697066735822122061ccf8ef8fb905099aa2d4861055ddbad26a6c5a703a7de5a28e099596cdb74664736f6c634300081b0033"
+}

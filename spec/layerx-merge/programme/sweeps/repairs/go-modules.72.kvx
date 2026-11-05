@@ -1,0 +1,12 @@
+[repair.go-modules.72]
+target = "modules/layerxledger/keeper"
+command = "CGO_ENABLED=1 go vet ./modules/layerxledger/keeper/ && CGO_ENABLED=1 go test -count=1 -timeout 35m -v ./modules/layerxledger/keeper/"
+revision = "cea04b0a20fed9621b2f2580398024b38b76ff2e"
+result = "repaired"
+change = "modules/layerxledger/keeper/send_test.go and payexact_test.go enforce payment-reference replay refusal from decision 2337 while preserving successful transfers and stale-sequence checks; main_test.go reports package test wall time."
+producer_input_tests = []
+decision = "2337"
+measured_wall_time_seconds = 12.710465
+measured_package_time_seconds = 15.403
+measurement_result = "The initial verbose package run completed with payment-reference replay failures in TestPayExact and TestSendMovesBalance; no test hung."
+wall_time_measurement = "TestMain emits keeper_wall_time_seconds after all package tests and their cleanup finish."

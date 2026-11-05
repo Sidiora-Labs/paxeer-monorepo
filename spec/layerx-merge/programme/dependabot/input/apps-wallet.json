@@ -1,0 +1,29 @@
+{
+ "slug": "apps-wallet",
+ "manifests": [
+  "apps/wallet/package.json",
+  "apps/wallet/pnpm-lock.yaml"
+ ],
+ "alerts": [
+  {
+   "ghsa": "GHSA-8g5g-mxqh-grgj",
+   "number": 4659,
+   "package": "vite",
+   "ecosystem": "npm",
+   "manifest": "apps/wallet/package.json",
+   "severity": "medium",
+   "range": "= 6.4.4",
+   "patched": "6.4.5"
+  },
+  {
+   "ghsa": "GHSA-8g5g-mxqh-grgj",
+   "number": 4660,
+   "package": "vite",
+   "ecosystem": "npm",
+   "manifest": "apps/wallet/pnpm-lock.yaml",
+   "severity": "medium",
+   "range": "= 6.4.4",
+   "patched": "6.4.5"
+  }
+ ]
+}

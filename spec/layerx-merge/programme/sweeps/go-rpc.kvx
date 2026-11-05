@@ -1,17 +1,17 @@
 [sweep.go-rpc]
-revision = "03e2d849d7f3e9ca51cada79f6d3cfe90938a0fb"
+revision = "0cb4475f11d9c687ae15037e53e623b7344959f1"
 command = "CGO_ENABLED=1 go vet ./TARGET/ && CGO_ENABLED=1 go test -count=1 ./TARGET/"
 targets_total = 6
-targets_passed = 4
-targets_failed = 2
-targets_not_run = 0
+targets_passed = 5
+targets_failed = 0
+targets_not_run = 1
 
 [target.go-rpc.1]
 target = "rpc"
-result = "failed"
-exit_code = 1
-observed = "TestBlockAPILatestTagResolves at rpc/block_txcount_parity_test.go:209 expected an error containing \"pending served by sequencer\" but received nil."
-assumption = "The test likely retains an outdated pending-error expectation relative to the current sequencer-backed pending response."
+result = "not_run"
+exit_code = 124
+timeout_seconds = 660
+reason = "The 660-second per-target inventory budget expired after vet passed and while uncached tests were still running, preserving time for the remaining targets and qualification within the 30-minute task limit."
 
 [target.go-rpc.2]
 target = "rpc/config"
@@ -35,7 +35,5 @@ exit_code = 0
 
 [target.go-rpc.6]
 target = "rpc/tests"
-result = "failed"
-exit_code = 1
-observed = "rpc/tests/gas_price_test.go:31:21 fails vet because i.GasPriceHelper is undefined on *evmrpc.InfoAPI, which has only the unexported gasPriceHelper method."
-assumption = "The test likely still calls an exported helper that was removed or made private without updating its caller."
+result = "passed"
+exit_code = 0

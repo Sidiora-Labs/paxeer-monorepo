@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Focused behavior gate for task 108.0.7: tracked docs name only served hosts, carry no FAUCET_URL,
-# fund accounts through custody credit at the router URL and mark the private-network pages.
+# fund accounts through native bank sends at public root RPCs and mark the private-network pages.
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/../../.." || exit 1
 
@@ -18,14 +18,12 @@ check() {
 	fi
 }
 
-router=https://api-mainnet-beta.paxeer.network
-
 docs_names_clean() {
 	timeout 5m tools/bringup/docs-names.sh
 }
 
-funded_by_custody_credit() {
-	grep -qi 'custody credit' "$1" && grep -qF "$router" "$1" && ! grep -qw FAUCET_URL "$1"
+funded_by_native_bank_send() {
+	python3 tools/paxeer-x/gates/onboarding_funding.py "$1"
 }
 
 private_network_only() {
@@ -68,7 +66,7 @@ for page in \
 	docs/wiki/Getting-Started-Beta.md \
 	docs/wiki/Quickstart.md \
 	docs/wiki/PaymentsQuickstart.md; do
-	check "custody-credit:$page" funded_by_custody_credit "$page"
+	check "native-bank-send:$page" funded_by_native_bank_send "$page"
 done
 
 for page in \

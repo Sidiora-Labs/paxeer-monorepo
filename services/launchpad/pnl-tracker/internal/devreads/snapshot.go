@@ -2,6 +2,7 @@ package devreads
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -54,38 +55,50 @@ type tokenState struct {
 // Snapshot builds the wallet's projection. A wallet without positions yields a
 // valid empty snapshot (revision 1), never an error.
 func (r Reader) Snapshot(ctx context.Context, wallet string) (Snapshot, error) {
+	snap, _, err := r.snapshot(ctx, wallet, false)
+	return snap, err
+}
+
+// snapshot captures replay inputs in the same database view as the projection.
+func (r Reader) snapshot(ctx context.Context, wallet string, withTrades bool) (Snapshot, []replayTrade, error) {
 	wallet, err := l17.Wallet(wallet)
 	if err != nil {
-		return Snapshot{}, err
+		return Snapshot{}, nil, err
 	}
 	if r.Pool == nil {
-		return Snapshot{}, l17.ErrUnavailable
+		return Snapshot{}, nil, l17.ErrUnavailable
 	}
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	tx, err := r.Pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if err != nil {
-		return Snapshot{}, err
+		return Snapshot{}, nil, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	states, trades, maxBlock, err := loadPositions(ctx, tx, wallet)
 	if err != nil {
-		return Snapshot{}, err
+		return Snapshot{}, nil, err
 	}
 	cursor, err := indexerCursor(ctx, tx)
 	if err != nil {
-		return Snapshot{}, err
+		return Snapshot{}, nil, err
+	}
+	var replay []replayTrade
+	if withTrades {
+		replay, err = loadTrades(ctx, tx, wallet)
+		if err != nil {
+			return Snapshot{}, nil, err
+		}
 	}
 	if err = tx.Commit(ctx); err != nil {
-		return Snapshot{}, err
+		return Snapshot{}, nil, err
 	}
 	watermark, err := r.watermark(ctx, cursor, maxBlock, trades)
 	if err != nil {
-		return Snapshot{}, err
+		return Snapshot{}, nil, err
 	}
 	out := Snapshot{Wallet: wallet, Revision: watermark.ProjectionRevision, Watermark: watermark}
-	out.ID = uuid.NewSHA1(snapshotNamespace, []byte(wallet+":"+out.Revision)).String()
 	tokens := make([]string, 0, len(states))
 	for token := range states {
 		tokens = append(tokens, token)
@@ -98,15 +111,24 @@ func (r Reader) Snapshot(ctx context.Context, wallet string) (Snapshot, error) {
 		state.Known, state.Cost, state.Realized = s.known.String(), s.cost.String(), s.realized.String()
 		position, err := inventory.ProjectPosition(wallet, token, state, watermark, nil, "unpriced")
 		if err != nil {
-			return Snapshot{}, fmt.Errorf("devreads: project %s: %w", token, err)
+			return Snapshot{}, nil, fmt.Errorf("devreads: project %s: %w", token, err)
 		}
 		out.Positions = append(out.Positions, position)
 	}
+	identity, err := json.Marshal(struct {
+		Wallet    string
+		Watermark l17.Watermark
+		Positions []l17.Position
+	}{wallet, watermark, out.Positions})
+	if err != nil {
+		return Snapshot{}, nil, err
+	}
+	out.ID = uuid.NewSHA1(snapshotNamespace, identity).String()
 	out.Summary, err = l17.Aggregate(wallet, out.ID, watermark, out.Positions)
 	if err != nil {
-		return Snapshot{}, err
+		return Snapshot{}, nil, err
 	}
-	return out, nil
+	return out, replay, nil
 }
 
 // loadPositions reads the wallet's folded dev positions, merged per token (the

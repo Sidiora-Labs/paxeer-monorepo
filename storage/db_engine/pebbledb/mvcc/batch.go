@@ -68,9 +68,16 @@ func (b *Batch) Delete(storeKey string, key []byte) error {
 }
 
 func (b *Batch) Write() error {
+	latest, err := retrieveLatestVersion(b.storage)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve latest version for batch: %w", err)
+	}
+	if b.version > latest {
+		latest = b.version
+	}
 	return writeBatchOps(b.storage, b.ops, func(batch *pebble.Batch) error {
 		var versionBz [VersionSize]byte
-		binary.LittleEndian.PutUint64(versionBz[:], uint64(b.version)) //nolint:gosec // block heights are non-negative and fit in int64
+		binary.LittleEndian.PutUint64(versionBz[:], uint64(latest)) //nolint:gosec // block heights are non-negative and fit in int64
 		if err := batch.Set([]byte(latestVersionKey), versionBz[:], nil); err != nil {
 			return fmt.Errorf("failed to set latest version in batch: %w", err)
 		}
@@ -142,7 +149,7 @@ func (b *RawBatch) Write() error {
 // latest-version metadata key).
 func writeBatchOps(storage *pebble.DB, ops []batchOp, beforeCommit func(*pebble.Batch) error) (err error) {
 	startTime := time.Now()
-	batchSize := int64(len(ops))
+	var batchSize int64
 	defer func() {
 		ctx := context.Background()
 		otelMetrics.batchWriteLatency.Record(
@@ -150,7 +157,9 @@ func writeBatchOps(storage *pebble.DB, ops []batchOp, beforeCommit func(*pebble.
 			time.Since(startTime).Seconds(),
 			metric.WithAttributes(attribute.Bool("success", err == nil)),
 		)
-		otelMetrics.batchSize.Record(ctx, batchSize)
+		if err == nil {
+			otelMetrics.batchSize.Record(ctx, batchSize)
+		}
 	}()
 
 	batch := storage.NewBatch()
@@ -174,6 +183,9 @@ func writeBatchOps(storage *pebble.DB, ops []batchOp, beforeCommit func(*pebble.
 			return err
 		}
 	}
+	// Include the Pebble batch header and all encoded operations, including
+	// latest-version metadata when present. Failed commits have no size sample.
+	batchSize = int64(len(batch.Repr()))
 	return batch.Commit(defaultWriteOpts)
 }
 

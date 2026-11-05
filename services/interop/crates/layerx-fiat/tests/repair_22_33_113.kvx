@@ -1,0 +1,32 @@
+[repair.22.33.113]
+audit = "22.30.112"
+base_revision = "caa8b41ee668274ee1e5c1df6691288455c46278"
+status = "implemented; qualification is recorded by the bounded gates"
+baseline = "The supplied attempt-3 report records fiat_unit_path, fiat_resigned_vectors and fiat_settlement_path failing with exit 101 on candidate d0d6ab3fec28bf09c4c62d5d088b522a210eb480; provider authentication and payment calldata passed. No additional unchanged-tree gate was run because the ordered gate policy requires implementation first."
+evidence = "hf-build/hf-done retain the exact candidate revision, command, exit and private log in /out/run/gates.jsonl; this file does not claim an unrun gate."
+production_change = "FiatIntent::payment_calldata encodes payExact with the adapter idempotency key before signing, including credit and refund account directions."
+continuation = "The three positive repairs now use fresh producer transcripts from payment_node.rs: the real adapter creates the intent, its production encoder produces the calldata, a committed Ed25519 fixture key signs that call, the loopback peer authenticates the submitted bytes, hashes that signed envelope and produces its first receipt from the decoded call. Consumers never patch or re-sign a receipt."
+peer_protocol = "fixture_submitPayment accepts a domain-separated Ed25519-signed payment envelope, with a SHA256 activity identity; this is an explicitly labelled fixture protocol, not eth_sendRawTransaction or an EVM/chain-125 execution claim. pax_sequencerReceipt serves the peer's unchanged signed receipt and logs. All producer protocol output passes the production canonical receipt, key-window, signature, activity and log validators."
+
+[finding.fiat_unit_path]
+test = "repair_22_33_113::fiat_unit_path; adapter::fiat_unit_path_uses_unchanged_producer_evidence"
+coverage = "FiatAdapter::apply authenticates the committed signed provider facts/token via ProviderVerifier, creates the exact production intent, submits its encoded call over loopback TCP, verifies the original receipt and credits once. A new plane instance retries after completion without resubmission and retains the exact transcript, digest and one completion audit. Existing focused assertions are preserved."
+wiring_request = "services/interop/crates/layerx-interop-service/src/server.rs and services/interop/crates/layerx-fiat/Cargo.toml — owning domain 11 (fm-interop): expose the configured FiatEvidenceVerifier and durable FiatServicePlane test entry point and dependency; the fixture verifier and reopening a plane do not claim the service owner's durable restart."
+
+[finding.fiat_resigned_vectors]
+test = "repair_22_33_113::fiat_resigned_vectors; sequenced_vectors::fiat_resigned_vectors_uses_unchanged_producer_evidence"
+coverage = "All three settled rails submit freshly signed production-encoded PaymentExact calls carrying their exact adapter references. The test checks distinct activity identity, raw calldata, original signed log/reference, amount, asset, destination, canonical digest and production settlement. Positive vector replay consumes the new producer output unchanged; resigned_payment is confined to the explicitly negative provenance case. Provider recordings and submitted/reverted recordings are preserved."
+wiring_request = "rpc/sequencer_receipt_vectors_test.go and services/interop/specs/conformance/fiat/sequenced-journeys.json — owning domains sequencer/RPC and 11 (fm-interop): capture genuine chain-125 EVM PaymentExact executions for these provider references with raw signed transactions, original receipts/logs and pins; the loopback fixture protocol is the bounded gate peer, not that chain transcript."
+
+[finding.fiat_settlement_path]
+test = "repair_22_33_113::fiat_settlement_path; sequencer_settlement::fiat_settlement_path_uses_unchanged_producer_evidence"
+coverage = "All three rails traverse FiatAdapter::apply through submission, repeated pending polls, reopening the plane with the submitted activity, receipt observation, receipt-backed completion and cached retry; the peer counts exactly one submission and the gateway records exactly one completion. Changed transaction identity, signature and reference are rejected without completing a pending translation."
+wiring_request = "services/interop/crates/layerx-interop-service/src/relay.rs and services/interop/crates/layerx-interop-service/src/server.rs — owning domain 11 (fm-interop): expose the real durable journey owner with an in-process test store so it can be stopped/reopened at pending and receipted boundaries; retaining the production GatewayCore while reopening a test peer does not prove durable owner recovery."
+
+[gotcha.scope_and_baseline]
+observed = "The general workflow requests spec and GOTCHA edits plus baseline verification, while this task's explicit scope and gate order prohibit those actions."
+resolution = "Record findings and wiring here, preserve runner setup, and run only hf-build followed by hf-done on the final candidate; the runner owns publication."
+
+[gotcha.producer_reference]
+observed = "The shared receipt's payment reference and transaction identity belong to a different call; re-signing its log cannot prove execution of an adapter reference."
+resolution = "Create the adapter reference in production calldata before signing, derive a new activity hash from the submitted signed bytes and produce the peer's receipt from that same decoded call; consume that first receipt unchanged."

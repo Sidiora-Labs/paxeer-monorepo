@@ -21,6 +21,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles"
 	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
+	precompiletest "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/testutil"
 	xwebprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/xweb"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/secp256k1"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -49,6 +50,7 @@ func newPrecompileHarness(t *testing.T, setup func(ctx sdk.Context, a *app.App),
 	valPub := secp256k1.GenPrivKey().PubKey()
 	tw := app.NewTestWrapper(t, tm, valPub, true)
 	a := tw.App
+	require.NoError(t, precompiletest.Install(a))
 	for _, acct := range funded {
 		a.EvmKeeper.SetAddressMapping(tw.Ctx, acct.AccountAddress, acct.EvmAddress)
 		tw.FundAcc(acct.AccountAddress, sdk.NewCoins(sdk.NewCoin("uhpx", sdk.NewInt(fundingUhpx))))

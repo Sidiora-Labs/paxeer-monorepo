@@ -3,8 +3,9 @@
 //! the relayer's pinned-TLS `PaxeerTransport`, with a strict majority across
 //! the configured Paxeer endpoints.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
+use std::net::IpAddr;
 
 use layerx_mirror::rpc::{BroadcastResult, RpcCluster, RpcError};
 use serde_json::{json, Value};
@@ -113,12 +114,112 @@ pub struct PaxeerRpc {
     endpoints: Vec<PaxeerEndpoint>,
 }
 
+// Validate with the transport first, then normalize only the voting identity.
+fn endpoint_authority(endpoint: &PaxeerEndpoint) -> Result<(String, u16), RpcFault> {
+    let local = endpoint.url.starts_with("http://");
+    PaxeerEndpoint::new(
+        &endpoint.url,
+        endpoint.request_timeout,
+        endpoint.trust_anchor_der.clone(),
+        endpoint.expected_chain_id,
+        local,
+    )
+    .map_err(|_| RpcFault::Configuration)?;
+    normalized_authority(&endpoint.url)
+}
+
+pub(crate) fn normalized_authority(url: &str) -> Result<(String, u16), RpcFault> {
+    let (scheme, rest) = url.split_once("://").ok_or(RpcFault::Configuration)?;
+    if !matches!(scheme, "http" | "https")
+        || rest
+            .bytes()
+            .any(|byte| byte.is_ascii_whitespace() || byte.is_ascii_control())
+        || rest.contains(['@', '#', '?', '\\'])
+    {
+        return Err(RpcFault::Configuration);
+    }
+    let authority = rest.split('/').next().ok_or(RpcFault::Configuration)?;
+    let default_port = if scheme == "https" { 443 } else { 80 };
+    let (host, port) = if let Some(rest) = authority.strip_prefix('[') {
+        let (host, suffix) = rest.split_once(']').ok_or(RpcFault::Configuration)?;
+        let port = if suffix.is_empty() {
+            default_port
+        } else {
+            suffix
+                .strip_prefix(':')
+                .ok_or(RpcFault::Configuration)?
+                .parse()
+                .map_err(|_| RpcFault::Configuration)?
+        };
+        (host, port)
+    } else {
+        match authority.split_once(':') {
+            Some((host, port)) => (host, port.parse().map_err(|_| RpcFault::Configuration)?),
+            None => (authority, default_port),
+        }
+    };
+    let host = host.trim_end_matches('.').to_ascii_lowercase();
+    let host = match host.parse::<IpAddr>() {
+        Ok(IpAddr::V6(ip)) => match ip.to_ipv4_mapped() {
+            Some(ip) if ip.is_loopback() => "loopback".to_owned(),
+            Some(ip) => ip.to_string(),
+            None if ip.is_loopback() => "loopback".to_owned(),
+            None => ip.to_string(),
+        },
+        Ok(ip) if ip.is_loopback() => "loopback".to_owned(),
+        Ok(ip) => ip.to_string(),
+        Err(_) if host == "localhost" => "loopback".to_owned(),
+        Err(_) => host,
+    };
+    if host.is_empty() {
+        return Err(RpcFault::Configuration);
+    }
+    Ok((host, port))
+}
+
+pub(crate) fn validate_backend_identities<'a>(
+    identities: impl Iterator<Item = &'a str>,
+) -> Result<(), RpcFault> {
+    let mut seen = BTreeSet::new();
+    for identity in identities {
+        if identity.is_empty()
+            || identity.len() > 128
+            || !identity
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.'))
+            || !seen.insert(identity.to_ascii_lowercase())
+        {
+            return Err(RpcFault::Configuration);
+        }
+    }
+    Ok(())
+}
+
 impl PaxeerRpc {
     /// # Errors
     ///
-    /// Refuses an empty or oversized endpoint list, or endpoints bound to
-    /// different chain ids.
+    /// Configures deliberate single-endpoint operation. Multi-endpoint callers
+    /// must use `with_backends`; votes require distinct normalized authorities. Paths,
+    /// hostname case, trailing dots, default ports and loopback spellings do
+    /// not create independent backends. TLS endpoints must also use distinct
+    /// pinned public keys, so a certificate alias cannot acquire another vote.
+    /// This is a conservative configuration check; operators must still ensure
+    /// that separately authenticated services have independent backends.
     pub fn new(endpoints: Vec<PaxeerEndpoint>) -> Result<Self, RpcFault> {
+        if endpoints.len() != 1 {
+            return Err(RpcFault::Configuration);
+        }
+        Self::validated(endpoints)
+    }
+
+    /// Multi-endpoint operation requires the operator to identify each
+    /// independent backend explicitly, including services reached via aliases.
+    pub fn with_backends(backends: Vec<(String, PaxeerEndpoint)>) -> Result<Self, RpcFault> {
+        validate_backend_identities(backends.iter().map(|(identity, _)| identity.as_str()))?;
+        Self::validated(backends.into_iter().map(|(_, endpoint)| endpoint).collect())
+    }
+
+    fn validated(endpoints: Vec<PaxeerEndpoint>) -> Result<Self, RpcFault> {
         let Some(first) = endpoints.first() else {
             return Err(RpcFault::Configuration);
         };
@@ -128,6 +229,23 @@ impl PaxeerRpc {
                 .any(|endpoint| endpoint.expected_chain_id != first.expected_chain_id)
         {
             return Err(RpcFault::Configuration);
+        }
+        let mut authorities = BTreeSet::new();
+        let mut pinned_keys = BTreeSet::new();
+        for endpoint in &endpoints {
+            let authority = endpoint_authority(endpoint)?;
+            if !authorities.insert(authority) {
+                return Err(RpcFault::Configuration);
+            }
+            if let Some(der) = &endpoint.trust_anchor_der {
+                let key = openssl::x509::X509::from_der(der)
+                    .and_then(|certificate| certificate.public_key())
+                    .and_then(|key| key.public_key_to_der())
+                    .map_err(|_| RpcFault::Configuration)?;
+                if !pinned_keys.insert(key) {
+                    return Err(RpcFault::Configuration);
+                }
+            }
         }
         Ok(Self { endpoints })
     }

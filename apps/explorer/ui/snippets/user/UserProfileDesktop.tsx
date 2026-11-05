@@ -1,7 +1,7 @@
-import { type ButtonProps } from '@chakra-ui/react';
 import dynamic from 'next/dynamic';
 
 import config from 'configs/app';
+import type { ButtonProps } from 'toolkit/chakra/button';
 import UserProfileAuth0 from 'ui/snippets/user/profile/auth0/UserProfileDesktop';
 import UserWalletDesktop from 'ui/snippets/user/wallet/UserWalletDesktop';
 

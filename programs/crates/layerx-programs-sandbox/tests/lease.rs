@@ -81,6 +81,7 @@ fn proven_transition(
     lease: &Lease,
     mut transition: LeaseTransition,
     batch: u64,
+    accounting: Option<(LeaseUsage, u128)>,
 ) -> (LeaseTransition, Vec<u8>, chain::ChainFixture) {
     transition.activity_id = Sha256::digest(call_payload(lease.host_program(), transition)).into();
     let mut canonical = lease
@@ -89,6 +90,26 @@ fn proven_transition(
     // The fixed fields precede the state tag and the length-prefixed receipt history.
     let state_offset =
         b"LayerX/programs/sandbox/lease-state/v3\0".len() + 8 * 32 + 16 + 18 * 8 + 4 + 7 * 8 + 16;
+    if let Some((usage, escrow_consumed)) = accounting {
+        let usage_offset = b"LayerX/programs/sandbox/lease-state/v3\0".len() + 8 * 32 + 16 + 10 * 8;
+        for (index, value) in [
+            usage.cpu_fuel,
+            usage.memory_bytes,
+            usage.storage_read_bytes,
+            usage.storage_write_bytes,
+            usage.output_values,
+            usage.output_bytes,
+            usage.table_elements,
+            usage.namespace_bytes,
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let offset = usage_offset + index * 8;
+            canonical[offset..offset + 8].copy_from_slice(&value.to_be_bytes());
+        }
+        canonical[state_offset - 16..state_offset].copy_from_slice(&escrow_consumed.to_be_bytes());
+    }
     canonical[state_offset] = transition.to as u8;
     canonical[state_offset + 1] = u8::try_from(lease.history().len() + 1)
         .unwrap_or_else(|error| panic!("history length: {error}"));
@@ -124,7 +145,21 @@ fn verified(
     transition: LeaseTransition,
     batch: u64,
 ) -> (LeaseTransition, TransitionEvidence) {
-    let (transition, canonical, fixture) = proven_transition(lease, transition, batch);
+    verified_accounting(lease, transition, batch, None)
+}
+
+fn verified_accounting(
+    lease: &Lease,
+    transition: LeaseTransition,
+    batch: u64,
+    accounting: Option<(LeaseUsage, u128)>,
+) -> (LeaseTransition, TransitionEvidence) {
+    let (transition, canonical, fixture) = proven_transition(lease, transition, batch, accounting);
+    let canonical = Lease::decode_state(&canonical)
+        .unwrap_or_else(|error| panic!("transition state: {error}"))
+        .canonical_state_bytes()
+        .unwrap_or_else(|error| panic!("canonical transition state: {error}"));
+
     let head = fixture
         .verifier
         .verify_head(&fixture.header, &fixture.commit)
@@ -147,7 +182,7 @@ fn verified(
 }
 
 fn wrong_principal_refusal(lease: &Lease, transition: LeaseTransition, batch: u64) -> LeaseRefusal {
-    let (transition, canonical, fixture) = proven_transition(lease, transition, batch);
+    let (transition, canonical, fixture) = proven_transition(lease, transition, batch, None);
     let head = fixture
         .verifier
         .verify_head(&fixture.header, &fixture.commit)
@@ -192,6 +227,34 @@ fn transition(
             usage_observation_digest: observation,
         },
         batch,
+    )
+}
+
+fn bound_transition(
+    lease: &Lease,
+    usage: LeaseUsage,
+    escrow_consumed: u128,
+    batch: u64,
+) -> (LeaseTransition, TransitionEvidence) {
+    verified_accounting(
+        lease,
+        LeaseTransition {
+            lease: lease.id(),
+            tenant: lease.tenant(),
+            activity: LeaseActivity::CloseBoundExceeded,
+            from: LeaseState::Active,
+            to: LeaseState::Settling,
+            activity_id: [0; 32],
+            usage_observation_digest: usage_observation_digest(
+                lease.id(),
+                usage,
+                escrow_consumed,
+                batch,
+            )
+            .unwrap_or_else(|error| panic!("usage digest: {error}")),
+        },
+        batch,
+        Some((usage, escrow_consumed)),
     )
 }
 
@@ -364,28 +427,12 @@ fn real_bound_receipt_closes_intrinsically_and_refuses_mismatch_and_regression()
         cpu_fuel: 11,
         ..LeaseUsage::default()
     };
-    let digest = usage_observation_digest(id, usage, 5, 14)
-        .unwrap_or_else(|error| panic!("usage digest: {error}"));
-    let (close, evidence) = transition(
-        &current,
-        LeaseActivity::CloseBoundExceeded,
-        LeaseState::Active,
-        LeaseState::Settling,
-        digest,
-        14,
-    );
+    let (close, evidence) = bound_transition(&current, usage, 5, 14);
     assert_eq!(
         book.transition(id, close, evidence),
         Err(LeaseRefusal::IntrinsicActivityRequired)
     );
-    let (close, evidence) = transition(
-        &current,
-        LeaseActivity::CloseBoundExceeded,
-        LeaseState::Active,
-        LeaseState::Settling,
-        digest,
-        14,
-    );
+    let (close, evidence) = bound_transition(&current, usage, 5, 14);
     let before = book
         .get(id)
         .unwrap_or_else(|| panic!("before refusal"))
@@ -407,6 +454,19 @@ fn real_bound_receipt_closes_intrinsically_and_refuses_mismatch_and_regression()
         book.record_usage(id, usage, 5, 14, Some(&(close, evidence))),
         Ok(UsageOutcome::ClosedByBound { .. })
     ));
+    let closed = book.get(id).unwrap_or_else(|| panic!("closed lease"));
+    assert_eq!(closed.state(), LeaseState::Settling);
+    assert_eq!(closed.usage(), usage);
+    assert_eq!(closed.escrow_consumed(), 5);
+    assert_eq!(closed.state_digest(), Ok(evidence.lease_digest()));
+    assert_eq!(
+        Lease::decode_state(
+            &closed
+                .canonical_state_bytes()
+                .unwrap_or_else(|error| panic!("closed state: {error}"))
+        ),
+        Ok(closed.clone())
+    );
 }
 
 #[test]
@@ -530,21 +590,7 @@ fn real_receipts_expire_funded_and_active_leases_only_at_their_expiry_batch() {
                 Err(LeaseRefusal::SnapshotRequired)
             );
         }
-        let (early, evidence) = transition(
-            &current,
-            LeaseActivity::Expire,
-            state,
-            LeaseState::Expired,
-            [0; 32],
-            19,
-        );
-        assert_eq!(
-            book.transition(id, early, evidence),
-            Err(LeaseRefusal::NotExpired {
-                expiry: 20,
-                observed: 19
-            })
-        );
+        assert_early_expiry_is_refused(&current, state, 19);
         assert_eq!(book.get(id).map(Lease::state), Some(state));
         let (expire, evidence) = transition(
             &current,
@@ -588,7 +634,7 @@ fn altered_real_activity_and_header_evidence_are_refused() {
         activity_id: [0; 32],
         usage_observation_digest: digest,
     };
-    let (transition, canonical, fixture) = proven_transition(&lease, transition, 10);
+    let (transition, canonical, fixture) = proven_transition(&lease, transition, 10, None);
     let head = fixture
         .verifier
         .verify_head(&fixture.header, &fixture.commit)
@@ -659,7 +705,7 @@ fn drive_lifecycle_edges(book: &mut LeaseBook) {
             activity_id: [0; 32],
             usage_observation_digest: [0; 32],
         };
-        let (declared, canonical, fixture) = proven_transition(&current, declared, height);
+        let (declared, canonical, fixture) = proven_transition(&current, declared, height, None);
         let proven =
             Lease::decode_state(&canonical).unwrap_or_else(|error| panic!("proven lease: {error}"));
         assert_eq!(proven.state(), to);
@@ -765,18 +811,7 @@ fn activate_bound_receipt_lease() -> LeaseBook {
             .unwrap_or_else(|| panic!("lease"))
             .clone();
         if current.state() == LeaseState::Funded {
-            let (expire, expire_evidence) = transition(
-                &current,
-                LeaseActivity::Expire,
-                LeaseState::Funded,
-                LeaseState::Expired,
-                [0; 32],
-                12,
-            );
-            assert!(matches!(
-                book.transition(current.id(), expire, expire_evidence),
-                Err(LeaseRefusal::NotExpired { .. })
-            ));
+            assert_early_expiry_is_refused(&current, LeaseState::Funded, 12);
         }
         let (declared, evidence) = transition(&current, activity, from, to, [0; 32], batch);
         if activity == LeaseActivity::Activate {
@@ -927,5 +962,39 @@ fn refill_principal_and_refuse_overflow(book: &mut LeaseBook) {
     assert_eq!(
         book.insert_requested(lease, request, evidence),
         Err(LeaseRefusal::PrincipalLeaseLimit)
+    );
+}
+
+fn assert_early_expiry_is_refused(lease: &Lease, state: LeaseState, batch: u64) {
+    let (transition, canonical, fixture) = proven_transition(
+        lease,
+        LeaseTransition {
+            lease: lease.id(),
+            tenant: lease.tenant(),
+            activity: LeaseActivity::Expire,
+            from: state,
+            to: LeaseState::Expired,
+            activity_id: [0; 32],
+            usage_observation_digest: [0; 32],
+        },
+        batch,
+        None,
+    );
+    let head = fixture
+        .verifier
+        .verify_head(&fixture.header, &fixture.commit)
+        .unwrap();
+    let key = layerx_programs_sandbox::sandbox_state_key(0, lease.id().bytes()).unwrap();
+    let ops = fixture.prove(&key).unwrap();
+    assert_eq!(
+        TransitionEvidence::verify_call(
+            &head,
+            lease,
+            transition,
+            &AuthorizationContext::new(lease.tenant(), CapabilitySet::empty()),
+            &canonical,
+            &ops
+        ),
+        Err(LeaseRefusal::InvalidCanonicalEvidence)
     );
 }

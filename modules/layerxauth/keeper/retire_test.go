@@ -72,6 +72,10 @@ func TestAuthModuleStoreHasNoIdempotencyKeys(t *testing.T) {
 			receipt, err := host.Execute(lxphost.WithSequence(ctx, 41), activity, actor.Authority)
 			require.NoError(t, err)
 			require.Equal(t, lxphost.Code(0), receipt.ResultCode)
+			beforeRefusal := authViewStores(ctx, hostKey)
+			_, err = k.RecordLifecycle(ctx, actor, registration[:4], [32]byte{0x43})
+			require.Error(t, err)
+			require.Equal(t, beforeRefusal, authViewStores(ctx, hostKey))
 			db := state.NewDBImpl(ctx.WithEventManager(sdk.NewEventManager()), &a.EvmKeeper, true)
 			ctx = db.Ctx()
 			evm := &vm.EVM{StateDB: db, TxContext: vm.TxContext{Origin: caller}}
@@ -100,6 +104,11 @@ func TestAuthModuleStoreHasNoIdempotencyKeys(t *testing.T) {
 			require.Equal(t, types.DefaultParams(), storedParams)
 			assertParamsOnly := func(stage string) {
 				t.Helper()
+				// This test executes identity registration, a grant and its revoke,
+				// but no LX_ASSET_SEND, so it creates no host payment references.
+				references := sdk.KVStorePrefixIterator(ctx.KVStore(hostKey), []byte{0x04})
+				require.False(t, references.Valid(), "%s: no successful asset send wrote a payment reference", stage)
+				require.NoError(t, references.Close())
 				iterator := ctx.KVStore(moduleKey).Iterator(nil, nil)
 				defer func() { require.NoError(t, iterator.Close()) }()
 				var keys [][]byte
@@ -107,6 +116,8 @@ func TestAuthModuleStoreHasNoIdempotencyKeys(t *testing.T) {
 					key := bytes.Clone(iterator.Key())
 					require.NotEmpty(t, key, stage)
 					require.NotContains(t, []byte{0x02, 0x03}, key[0], "%s: retired idempotency key %x", stage, key)
+					require.NotEqual(t, byte(0x04), key[0],
+						"%s: non-send replay marker %x is written by keeper/revoke.go in RevokeGrant, not by an asset send", stage, key)
 					require.Equal(t, types.ParamsKey, key, "%s: unexpected module key %x", stage, key)
 					require.Equal(t, paramsBefore, iterator.Value(), stage)
 					keys = append(keys, key)
@@ -153,6 +164,12 @@ func TestAuthModuleStoreHasNoIdempotencyKeys(t *testing.T) {
 			require.Len(t, db.GetAllLogs(), logCount+2)
 			require.Equal(t, abi.Events["GrantRevoked"].ID, db.GetAllLogs()[logCount].Topics[0])
 			assertParamsOnly("after revoke")
+			beforeReplay := len(db.GetAllLogs())
+			data, err = call("revokeGrant", grantID, uint8(1), sequence)
+			require.ErrorIs(t, err, vm.ErrExecutionReverted)
+			require.NotEmpty(t, data)
+			require.Len(t, db.GetAllLogs(), beforeReplay)
+			assertParamsOnly("after refused revoke replay")
 		})
 	}
 }
@@ -169,7 +186,11 @@ func retirementAuthGrantBody(didID, delegate [32]byte, timestamp uint64, kind by
 	field(didID[:])
 	body = append(body, kind)
 	field(delegate[:])
-	u64(1 << 9)
+	if kind == 3 {
+		u64(1 << 1)
+	} else {
+		u64(1 << 9)
+	}
 	body = binary.BigEndian.AppendUint16(body, 4)
 	body = binary.BigEndian.AppendUint16(body, 5)
 	if kind == 2 {

@@ -1,4 +1,5 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
+source docker/localnode/scripts/localnode_common.sh
 
 # Input parameters
 NODE_ID=${ID:-0}
@@ -10,7 +11,7 @@ echo "Adding account $ACCOUNT_NAME"
 printf "12345678\n12345678\ny\n" | paxd keys add $ACCOUNT_NAME >/dev/null 2>&1
 
 override_genesis() {
-  cat ~/.pax/config/genesis.json | jq "$1" > ~/.pax/config/tmp_genesis.json && mv ~/.pax/config/tmp_genesis.json ~/.pax/config/genesis.json;
+  cat "$PAX_HOME"/config/genesis.json | jq "$1" > "$PAX_HOME"/config/tmp_genesis.json && mv "$PAX_HOME"/config/tmp_genesis.json "$PAX_HOME"/config/genesis.json;
 }
 
 override_genesis '.app_state["mint"]["params"]["mint_denom"]="uhpx"'
@@ -20,7 +21,7 @@ override_genesis '.app_state["slashing"]["params"]["signed_blocks_window"]="1000
 override_genesis '.app_state["slashing"]["params"]["min_signed_per_window"]="0.050000000000000000"'
 override_genesis '.app_state["staking"]["params"]["max_validators"]="50"'
 override_genesis '.consensus_params["block"]["max_gas"]="35000000"'
-# Set MaxGasWanted to be 2x of MaxGas, similar to mainnet, in order to avoid false-positive gas related issue reports. 
+# Set MaxGasWanted to be 2x of MaxGas, similar to mainnet, in order to avoid false-positive gas related issue reports.
 override_genesis '.consensus_params["block"]["max_gas_wanted"]="70000000"'
 override_genesis '.app_state["staking"]["params"]["unbonding_time"]="10s"'
 
@@ -51,21 +52,19 @@ override_genesis '.app_state["gov"]["tally_params"]["expedited_threshold"]="0.9"
 while read account; do
   echo "Adding: $account"
   paxd add-genesis-account "$account" 1000000000000000000000uhpx,1000000000000000000000uusdc,1000000000000000000000uatom
-done <build/generated/genesis_accounts.txt
+done <"$SHARED_DIR/genesis_accounts.txt"
 
 # add funds to admin account
 printf "12345678\n" | paxd add-genesis-account admin 1000000000000000000000uhpx,1000000000000000000000uusdc,1000000000000000000000uatom
 
-mkdir -p ~/exported_keys
-cp -r build/generated/gentx/* ~/.pax/config/gentx
-cp -r build/generated/exported_keys ~/exported_keys
+cp -r "$SHARED_DIR"/gentx/* "$PAX_HOME"/config/gentx
 
 # add validators to genesis
-/usr/bin/add_validator_to_gensis.sh
+bash docker/localnode/scripts/step3_add_validator_to_genesis.sh
 
 # collect gentxs
 echo "Collecting all gentx"
 paxd collect-gentxs >/dev/null 2>&1
 
-cp ~/.pax/config/genesis.json build/generated/genesis.json
+cp "$PAX_HOME"/config/genesis.json "$SHARED_DIR/genesis.json"
 echo "Genesis file has been created successfully"

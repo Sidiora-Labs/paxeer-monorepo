@@ -7,6 +7,9 @@ mod reclaim;
 mod recovery;
 mod spend;
 
+pub(crate) use archive::check_retained_history_write;
+pub(crate) use recovery::rung_from_rank;
+
 pub use archive::{
     AgentBalance, ArchiveAgentContract, ArchiveBoundary, ArchiveError, ArchiveJourney,
     ArchiveRequest, ArchiveStage, ArchiveStatus, ArchivedHistoryEntry, FundsDispositionEvidence,
@@ -25,20 +28,20 @@ pub use create::{
     AgentCreationContract, AgentCreationError, AgentEvidence, AgentFailure, CapabilityProvision,
     CreateAgentRequest, CreationContext, CreationJourney, CreationProjection, CreationStage,
     CreationState, CreationStatus, NativeAgentCreationContract, NativeFeeConsent,
-    NativeFundingEvidence, NativeFundingRequest, NativeIdentityRevisionRequest,
-    NativeOnboardingRequest, ProtocolAction, ProtocolEvidence, PurposePresetCatalog,
-    ScopedAgentCreationContract, SessionProvision, StageState,
+    NativeFundingEvidence, NativeFundingRequest, NativeIdentityCreationRequest,
+    NativeIdentityRevisionRequest, NativeOnboardingRequest, ProtocolAction, ProtocolEvidence,
+    PurposePresetCatalog, ScopedAgentCreationContract, SessionProvision, StageState,
 };
 pub use reclaim::{
     Reclaim, ReclaimAgentBoundary, ReclaimAgentContext, ReclaimError, ReclaimMechanism,
     ReclaimRequest, ReclaimResult, ReclaimStage, ReclaimStatus,
 };
 pub use recovery::{
-    AgentKeyChallenge, AgentKeyChangeKind, AgentKeyChangeRequest, AgentKeyChangeStage,
-    AgentRecovery, AgentRecoveryBoundary, AgentRecoveryBoundaryError, AgentRecoveryError,
-    ChallengeDelay, CompetingRotation, ProtocolKeyChangeEvidence, ProtocolKeyChangeObservation,
-    ProtocolKeyChangeState, RECOVERY_DELAY_COPY_KEY, ROTATION_COMPETITION_COPY_KEY,
-    ROTATION_DELAY_COPY_KEY,
+    decode_budget_snapshot, AgentKeyChallenge, AgentKeyChangeKind, AgentKeyChangeRequest,
+    AgentKeyChangeStage, AgentRecovery, AgentRecoveryBoundary, AgentRecoveryBoundaryError,
+    AgentRecoveryError, ChallengeDelay, CompetingRotation, ProtocolKeyChangeEvidence,
+    ProtocolKeyChangeObservation, ProtocolKeyChangeState, RECOVERY_DELAY_COPY_KEY,
+    ROTATION_COMPETITION_COPY_KEY, ROTATION_DELAY_COPY_KEY,
 };
 pub use spend::{
     AgentShell, AgentSpendSurfaces, AgentSpendView, ReconciliationDirection, ShellAgentSpend,

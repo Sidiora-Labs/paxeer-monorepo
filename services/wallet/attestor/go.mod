@@ -3,9 +3,9 @@ module github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor
 go 1.25.8
 
 require (
-	filippo.io/edwards25519 v1.1.0
+	filippo.io/edwards25519 v1.1.1
 	github.com/Sidiora-Labs/Paxeer-X-Network v0.0.0
-	github.com/ethereum/go-ethereum v1.16.8
+	github.com/ethereum/go-ethereum v1.17.0
 	github.com/getamis/alice v1.0.9-0.20260916062408-d8fd6861d3b2
 	github.com/holiman/uint256 v1.3.2
 	github.com/lestrrat-go/jwx/v2 v2.1.7
@@ -25,13 +25,11 @@ require (
 	github.com/bits-and-blooms/bitset v1.24.3 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.3.5 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/consensys/gnark-crypto v0.18.0 // indirect
+	github.com/consensys/gnark-crypto v0.18.1 // indirect
 	github.com/crate-crypto/go-eth-kzg v1.4.0 // indirect
-	github.com/crate-crypto/go-ipa v0.0.0-20240724233137-53bbb0ceb27a // indirect
 	github.com/decred/dcrd/dcrec/edwards v1.0.0 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.1 // indirect
 	github.com/ethereum/c-kzg-4844/v2 v2.1.5 // indirect
-	github.com/ethereum/go-verkle v0.2.2 // indirect
 	github.com/getamis/sirius v1.1.7 // indirect
 	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/goccy/go-json v0.10.6 // indirect

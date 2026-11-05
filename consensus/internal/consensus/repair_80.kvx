@@ -1,0 +1,9 @@
+[repair.22.31.80]
+finding = "wal-proposal-receive-time"
+proof = "TestRepair_80_WALProposalReceiveTime: production proposal creation and signing, consensus network codec transport, WAL Append/Sync/Close/reopen, catchupReplay, PBTS boundary decisions and identical signed prevotes with a reloaded FilePV that still refuses conflicting votes."
+compatibility = "TestRepair_80_LegacyProposalFailsClosed rejects legacy proposals with missing receive timestamps before replay changes state; TestRepair_80_LegacyNonProposal retains legacy non-proposal support; TestRepair_80_InvalidReceiveTime rejects invalid or ambiguous timestamp metadata."
+signature = "TestRepair_80_ProposalSignatureStillRequired persists and replays a proposal with a changed signed timestamp and proves rejection with no accepted proposal or emitted vote."
+wire = "Persist actual msgInfo.ReceiveTime as google.protobuf.Timestamp at TimedWALMessage field 3; retain field 1 as the independent append/debug clock and retain the existing WAL size bound."
+wiring_request = "Domain 5 (fm-node-runtime): add google.protobuf.Timestamp receive_time = 3 to consensus/proto/tendermint/consensus/wal.proto TimedWALMessage and regenerate its codec; replace the in-scope wire adapter with the generated field without changing its encoding or legacy fail-closed policy."
+baseline = "No earlier gate ledger exists; unchanged-tree verify was not run because task Order 1/4 permits verification only through hf-done after complete implementation and hf-build. No baseline failures are claimed."
+evidence = "The runner's bounded hf-build/hf-done ledger records the exact candidate revision, command, exit code and private log; this record does not claim an unrun gate."

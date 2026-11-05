@@ -1,0 +1,16 @@
+[repair.22.33.662]
+finding = "vesting-cli-network-signature"
+tests = ["TestRepairM_662_NetworkSignature", "TestRepairM_662_VestingCLINetwork"]
+proof = "The signature regression checks the norace entry point; the real single-validator network runs every existing CLI case and queries persisted vesting account types, allocations, end times and balances."
+baseline = "Not run: the explicit gate order reserves verification for hf-done after implementation and hf-build; no baseline failure is claimed."
+fixture = "The local suite leaves InitChain to the network's generated genesis and installs the committed in-process OpenTelemetry provider."
+wiring_request = "sdk/testutil/network/network.go, cosmos-fork domain: default AppConstructor eagerly initializes genesis; network consumers currently need app.Setup(t, true, false, false) so consensus can initialize their generated genesis."
+evidence = "The runner records the exact candidate revision, command, exit code and private evidence location in its hf-done ledger."
+
+[qualification.first]
+revision = "96d7666ff3c7cc72283bc7b1e93331114de780cc"
+command = "cg spec done 22.33.662 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/repair-m662-first.log"
+observed = "Both creation cases returned insufficient-fee code 13: the suite paid 10uhpx while genesis requires 0.01uhpx per gas (2000uhpx for the unchanged 200000 gas limit)."
+repair = "Derive CLI gas prices from the configured genesis and validator minimums; retain every original assertion and gas limit and include RawLog in failed code assertions."

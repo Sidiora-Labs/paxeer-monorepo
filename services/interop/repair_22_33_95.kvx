@@ -1,0 +1,16 @@
+[repair.22.33.95]
+audit = "22.30.110"
+acceptance = "22998.1"
+base_revision = "9d1a06c7f3635f5556023760af7a75ee9755efdd"
+build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml --tests"
+verify_cmd = "cargo test --locked --manifest-path services/interop/Cargo.toml --test repair_22_33_95"
+evidence = "The runner records the verified candidate revision, command, exit and private log in /out/run/gates.jsonl and the task done record."
+baseline = "Not run: the ordered instructions prohibit testing before complete implementation and running verify_cmd outside hf-done; the initial gate ledger was absent, so no pre-change test failure is claimed."
+continuation = "Attempt 1 implementation retained; its dependent-crate check failed in the human-service observed-balances test, repaired by required producer task 22.31.443. Attempt 2 qualifies the retained repair on the current base through hf-build and hf-done."
+
+[finding.portable_v1_instructions]
+test = "portable_v1_instructions_example_matches_compiled_consumer"
+additional_tests = ["portable_v1_instructions_recorded_producer_transport_consumer", "portable_v1_instructions_height_ranged_keys_use_signed_height", "portable_v1_instructions_proof_cannot_supply_trust_or_enable_v1"]
+repair = "Retain the existing v2 wire specification and recorded JSON example; add an exact-source compiled public consumer example, explicit unsupported archival v1 guidance and real recorded export/JSON/verification coverage of independent height-ranged pins."
+test_registration = "The virtual workspace has no root package; layerx-portable registers ../../tests/repair_22_33_95.rs as the integration target selected by the declared workspace command."
+wiring_requests = []

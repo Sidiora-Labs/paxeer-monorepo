@@ -154,7 +154,7 @@ fn paxeer_endpoints_are_built_without_the_verifier_crate() {
     let anchor = file.directory.join("paxeer-ca.der");
     std::fs::write(&anchor, &der).expect("write configured trust anchor");
     value["paxeer"]["endpoints"] = json!([
-        {"url": "https://paxeer.example.invalid/rpc", "trust_anchor_der": anchor, "request_timeout_ms": 1234},
+        {"url": "https://paxeer.example.invalid/", "trust_anchor_der": anchor, "request_timeout_ms": 1234},
         {"url": "http://127.0.0.1:8545", "local_emulator": true, "request_timeout_ms": 5678}
     ]);
     std::fs::write(
@@ -165,7 +165,7 @@ fn paxeer_endpoints_are_built_without_the_verifier_crate() {
     let mut config = file.load().expect("load endpoint config");
     let endpoints: Vec<PaxeerEndpoint> = config.paxeer_endpoints().expect("build native endpoints");
     assert_eq!(endpoints.len(), 2);
-    assert_eq!(endpoints[0].url, "https://paxeer.example.invalid/rpc");
+    assert_eq!(endpoints[0].url, "https://paxeer.example.invalid/");
     assert_eq!(endpoints[0].expected_chain_id, 125);
     assert_eq!(endpoints[0].request_timeout, Duration::from_millis(1234));
     assert_eq!(
@@ -620,4 +620,13 @@ fn required_solana_fields_cannot_be_omitted() {
             "{detail}"
         );
     }
+}
+
+#[allow(dead_code)]
+#[path = "support/repair_22_33_68.rs"]
+mod repair_22_33_68_support;
+
+#[test]
+fn repair_22_33_68_configured_root_transport() {
+    repair_22_33_68_support::configured_root_transport();
 }

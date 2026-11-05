@@ -2,6 +2,7 @@
 import argparse
 import hashlib
 import http.client
+import ipaddress
 import json
 import os
 from pathlib import Path
@@ -837,7 +838,99 @@ def env_digest(env):
     ).hexdigest()
 
 
-def load_config(env, phase, rehearsal_path=None, no_rehearsal=False):
+HANDOFF_KEYS = frozenset(
+    "kind version chain_id halt_height new_bin_sha256 inventory_sha256 pools".split()
+)
+
+
+def isolated_inventory(env):
+    require(
+        required(env, "CHAIN_ID").startswith("rehearsal_"),
+        "HANDOFF_CHAIN_NOT_ISOLATED",
+    )
+    inventory = Path(required(env, "INVENTORY_FILE"))
+    rows = json.loads(inventory.read_text())["nodes"]
+    require(isinstance(rows, list) and bool(rows), "INVENTORY_EMPTY")
+    for row in rows:
+        for field in ("consensus_rpc", "evm_rpc"):
+            host = urllib.parse.urlsplit(validate_url(row[field])).hostname
+            require(ipaddress.ip_address(host).is_loopback, "HANDOFF_RPC_NOT_LOOPBACK")
+    return sha256_file(inventory)
+
+
+def write_rehearsal_handoff(env_file, pool_record, path):
+    from rehearsal.pool_parity import load_record
+
+    env = read_env(env_file)
+    counts, _, _ = load_record(pool_record)
+    binary = Path(required(env, "BIN_DIR")) / "paxd"
+    digest = sha256_file(binary)
+    require(digest == required(env, "RELEASE_SHA256"), "HANDOFF_BINARY_MISMATCH")
+    height = positive_int(required(env, "HALT_HEIGHT"), "HALT_HEIGHT_INVALID")
+    require(
+        json.loads(Path(pool_record).read_text())["block"] == height,
+        "HANDOFF_POOL_HEIGHT",
+    )
+    handoff = dict(
+        kind="internal-rehearsal",
+        version=VERSION,
+        chain_id=required(env, "CHAIN_ID"),
+        halt_height=height,
+        new_bin_sha256=digest,
+        inventory_sha256=isolated_inventory(env),
+        pools=sum(counts),
+    )
+    path = Path(path)
+    require(path.name != "rehearsal.json", "HANDOFF_IS_NOT_A_RECEIPT")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(mode="w", dir=path.parent, delete=False) as stream:
+        temporary = Path(stream.name)
+        try:
+            json.dump(handoff, stream, sort_keys=True)
+            stream.flush()
+            os.fsync(stream.fileno())
+            os.replace(temporary, path)
+        finally:
+            temporary.unlink(missing_ok=True)
+
+
+def load_rehearsal_handoff(env, path):
+    handoff = json.loads(Path(path).read_text())
+    require(isinstance(handoff, dict) and set(handoff) == HANDOFF_KEYS, "HANDOFF_KEYS")
+    require(
+        handoff["kind"] == "internal-rehearsal" and handoff["version"] == VERSION,
+        "HANDOFF_KIND",
+    )
+    require(handoff["chain_id"] == required(env, "CHAIN_ID"), "HANDOFF_CHAIN_MISMATCH")
+    require(
+        type(handoff["halt_height"]) is int
+        and handoff["halt_height"]
+        == positive_int(required(env, "HALT_HEIGHT"), "HALT_HEIGHT_INVALID"),
+        "HANDOFF_HEIGHT_MISMATCH",
+    )
+    require(
+        handoff["inventory_sha256"] == isolated_inventory(env),
+        "HANDOFF_INVENTORY_MISMATCH",
+    )
+    require(
+        handoff["new_bin_sha256"]
+        == required(env, "RELEASE_SHA256")
+        == sha256_file(Path(required(env, "BIN_DIR")) / "paxd"),
+        "HANDOFF_BINARY_MISMATCH",
+    )
+    return positive_int(handoff["pools"], "HANDOFF_POOLS_INVALID", allow_zero=True)
+
+
+def load_config(
+    env, phase, rehearsal_path=None, no_rehearsal=False, rehearsal_handoff=None
+):
+    if rehearsal_handoff is not None:
+        require(
+            phase == "markets" and rehearsal_path is None and not no_rehearsal,
+            "HANDOFF_MARKETS_ONLY",
+        )
+    if no_rehearsal:
+        require(phase not in ("full", "post"), "PRODUCTION_REQUIRES_ROLLBACK_RECEIPT")
     if phase == "services":
         for url in shlex.split(required(env, "DATA_SERVICE_URLS")):
             validate_url(url)
@@ -868,7 +961,9 @@ def load_config(env, phase, rehearsal_path=None, no_rehearsal=False):
             "PREVIOUS_VERSION_REQUIRED",
         )
     pools = None
-    if phase in ("markets", "full", "post") and no_rehearsal:
+    if rehearsal_handoff is not None:
+        pools = load_rehearsal_handoff(env, rehearsal_handoff)
+    elif phase in ("markets", "full", "post") and no_rehearsal:
         require(
             sha256_file(binary) == required(env, "RELEASE_SHA256"),
             "BIN_DIR paxd does not match RELEASE_SHA256",
@@ -904,11 +999,13 @@ def load_config(env, phase, rehearsal_path=None, no_rehearsal=False):
     return nodes, halt, chain, previous, pools
 
 
-def run_phase(env, phase, outcome, rehearsal_path=None, no_rehearsal=False):
+def run_phase(
+    env, phase, outcome, rehearsal_path=None, no_rehearsal=False, rehearsal_handoff=None
+):
     if phase == "inputs":
         check_inputs(env, outcome, remote=True)
         return outcome.finish()
-    config = load_config(env, phase, rehearsal_path, no_rehearsal)
+    config = load_config(env, phase, rehearsal_path, no_rehearsal, rehearsal_handoff)
     if phase == "services":
         check_services(env, outcome)
         return outcome.finish()
@@ -999,13 +1096,18 @@ def run_phase(env, phase, outcome, rehearsal_path=None, no_rehearsal=False):
 def main(argv=None):
     parser = argparse.ArgumentParser(
         description="Verify Paxeer X Network rollout phases without changing chain state.",
-        epilog="INVENTORY_FILE is JSON with nodes [{role, consensus_rpc, evm_rpc}] and previous_version for preflight/frozen, either a vX.Y.Z tag or the 7-12 character lowercase hex commit that abci_info reports. In frozen, every validator must itself report height HALT_HEIGHT with catching_up false; an unreachable validator fails naming its host, and full nodes never stand in for a validator. Roles: validator, full, archive, edge. Relative paths resolve from the working directory. List env values must be quoted. --check validates local inputs without contacting services, nodes or hosts. --phase inputs needs every key of env/rollout.env.example (VALIDATOR_HOMES, VALIDATOR_UNITS, OPERATOR_KEY_NAMES, FULLNODE_HOMES, FULLNODE_UNITS and POOL_COUNT may be empty), the release binaries paxd-v6.12.0-linux-amd64 and price-sidecar-v6.12.0-linux-amd64 in the working directory and ssh BatchMode access to every host. markets/full/post read expected values from the rehearsal receipt, --rehearsal or else RECEIPT_DIR/rehearsal.json; only --no-rehearsal takes them from the env file (POOL_COUNT, RELEASE_SHA256 against BIN_DIR/paxd) and records no rollback_rehearsed.",
+        epilog="INVENTORY_FILE is JSON with nodes [{role, consensus_rpc, evm_rpc}] and previous_version for preflight/frozen, either a vX.Y.Z tag or the 7-12 character lowercase hex commit that abci_info reports. In frozen, every validator must itself report height HALT_HEIGHT with catching_up false; an unreachable validator fails naming its host, and full nodes never stand in for a validator. Roles: validator, full, archive, edge. Relative paths resolve from the working directory. List env values must be quoted. --check validates local inputs without contacting services, nodes or hosts. --phase inputs needs every key of env/rollout.env.example (VALIDATOR_HOMES, VALIDATOR_UNITS, OPERATOR_KEY_NAMES, FULLNODE_HOMES, FULLNODE_UNITS and POOL_COUNT may be empty), the release binaries paxd-v6.12.0-linux-amd64 and price-sidecar-v6.12.0-linux-amd64 in the working directory and ssh BatchMode access to every host. markets/full/post read expected values from the rehearsal receipt, --rehearsal or else RECEIPT_DIR/rehearsal.json; --rehearsal-handoff admits the driver's measured pool count only for isolated loopback markets; --no-rehearsal is limited to diagnostic phases and takes expected values from the env file (POOL_COUNT, RELEASE_SHA256 against BIN_DIR/paxd) and records no rollback_rehearsed.",
     )
     parser.add_argument("--env-file", required=True, type=Path)
     parser.add_argument("--phase", choices=PHASES, default="post")
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--receipt", type=Path)
     parser.add_argument("--rehearsal", type=Path)
+    parser.add_argument(
+        "--rehearsal-handoff",
+        type=Path,
+        help="internal loopback rehearsal markets only; never rollout evidence",
+    )
     parser.add_argument("--no-rehearsal", action="store_true")
     args = parser.parse_args(argv)
     if args.check and args.receipt:
@@ -1019,9 +1121,14 @@ def main(argv=None):
         if args.check and args.phase == "inputs":
             check_inputs(env, outcome, remote=False)
         elif args.check:
-            load_config(env, args.phase, args.rehearsal, args.no_rehearsal)
+            load_config(
+                env, args.phase, args.rehearsal, args.no_rehearsal, args.rehearsal_handoff
+            )
         else:
-            run_phase(env, args.phase, outcome, args.rehearsal, args.no_rehearsal)
+            run_phase(
+                env, args.phase, outcome, args.rehearsal, args.no_rehearsal,
+                args.rehearsal_handoff,
+            )
 
     if args.phase in ("markets", "full", "post") and args.no_rehearsal:
         print(

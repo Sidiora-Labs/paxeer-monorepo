@@ -1,5 +1,3 @@
-import fetch, { AbortError } from 'node-fetch';
-
 import buildUrl from 'nextjs/utils/buildUrl';
 import { httpLogger } from 'nextjs/utils/logger';
 
@@ -34,9 +32,13 @@ export default async function fetchApi<R extends ResourceName = never, S = Resou
       httpLogger.logger.error({ message: 'API fetch', url, code: response.status, duration });
     }
 
+    if (!response.ok) {
+      return;
+    }
+
     return await response.json() as Promise<S>;
   } catch (error) {
-    const code = error instanceof AbortError ? 504 : 500;
+    const code = error instanceof Error && error.name === 'AbortError' ? 504 : 500;
     const duration = end?.({ route: params.resource, code });
     httpLogger.logger.error({ message: 'API fetch', url, code, duration });
   } finally {

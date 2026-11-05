@@ -1,3 +1,4 @@
+import os
 import pathlib
 import subprocess
 
@@ -8,9 +9,13 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 def test_kernel_rule_builds_and_runs_codec_primitives():
     source = "tests/codec/lxp_test_codec_primitives.c"
     target = "build/tests/kernel/codec/lxp_test_codec_primitives"
+    environment = os.environ.copy()
+    for name in ("MAKEFLAGS", "MFLAGS", "MAKELEVEL"):
+        environment.pop(name, None)
     build = subprocess.run(
         ["make", "-W", source, target],
         cwd=ROOT,
+        env=environment,
         capture_output=True,
         text=True,
         check=False,

@@ -11,7 +11,6 @@
 #include "layerx/lxp_hash.h"
 #include "layerx/lxp_state_proof.h"
 #include "layerx/programs.h"
-#include "layerx/lxp_replica.h"
 
 #include "../modules/programs/event.h"
 
@@ -208,6 +207,7 @@ static lxp_result kernel_program_signer_binding(
         lxp_activity_module_id(activity->activity_type) != LXP_MODULE_PROGRAMS)
         return LXP_OK;
     if (authority == NULL || identity == NULL || activity->authority.length != 32U ||
+        activity->authority.bytes == NULL ||
         memcmp(authority->actor, identity->did_id, 32U) != 0 ||
         memcmp(authority->principal, identity->did_id, 32U) != 0 ||
         memcmp(authority->verified_key, activity->authority.bytes, 32U) != 0)
@@ -351,6 +351,7 @@ lxp_result lxp_kernel_bind_migration_admission(
     const lxp_kernel_execution *execution)
 {
     lxp_migration_admission_facts facts;
+    lxp_identity *identity;
     const lxp_module_registration *registration;
     lx_programs_fee_schedule fee_schedule;
     lx_programs_metering_schedule metering;
@@ -375,7 +376,16 @@ lxp_result lxp_kernel_bind_migration_admission(
     (void)memset(&facts, 0, sizeof(facts));
     status = lxp_activity_check_envelope(activity, execution->network_id);
     if (status == LXP_OK) status = lxp_activity_verify_payload_hash(activity);
-    if (status == LXP_OK) status = lxp_activity_verify_signature(activity);
+    if (status == LXP_OK &&
+        activity->protocol_version == LXP_PROTOCOL_VERSION_STATE_COMMITMENT) {
+        if (execution->identities == NULL) return LXP_ERR_AUTH_SCOPE;
+        status = lxp_identity_resolve(execution->identities,
+            activity->actor_did.bytes, activity->actor_did.length, &identity);
+        if (status == LXP_OK)
+            status = kernel_program_signer_binding(activity, execution, identity);
+    } else if (status == LXP_OK) {
+        status = lxp_activity_verify_signature(activity);
+    }
     if (status != LXP_OK) return status;
     mark = lxp_arena_mark(execution->arena);
     status = lxp_activity_encode(activity, execution->arena, &canonical);
@@ -2188,9 +2198,8 @@ lxp_result lxp_kernel_register_module(lxp_kernel *kernel,
             !registration_active(current, kernel->epoch)) continue;
         if (iface->abi_version <= current->abi_version)
             return LXP_ERR_VERSION_UNSUPPORTED;
-        current->disabled_epoch = kernel->epoch;
     }
-    if (kernel->module_count == LXP_KERNEL_MAX_MODULE_REGISTRATIONS)
+    if (kernel->module_count >= LXP_KERNEL_MAX_MODULE_REGISTRATIONS)
         return LXP_ERR_ARENA_EXHAUSTED;
     registration = &kernel->modules[kernel->module_count];
     (void)memset(registration, 0, sizeof(*registration));
@@ -2204,6 +2213,12 @@ lxp_result lxp_kernel_register_module(lxp_kernel *kernel,
     registration->enabled_epoch = kernel->epoch;
     registration->disabled_epoch = UINT64_MAX;
     registration->enabled = true;
+    for (i = 0U; i < kernel->module_count; ++i) {
+        lxp_module_registration *current = &kernel->modules[i];
+        if (current->module_id == iface->module_id &&
+            registration_active(current, kernel->epoch))
+            current->disabled_epoch = kernel->epoch;
+    }
     ++kernel->module_count;
     return LXP_OK;
 }
@@ -3119,19 +3134,13 @@ static lxp_result prestate_module(prestate_snapshot *snapshot,
     if (kernel->module_kv_count > LXP_KERNEL_MAX_MODULE_KV ||
         kernel->blob_count > LXP_KERNEL_MAX_BLOBS ||
         kernel->module_count > LXP_KERNEL_MAX_MODULE_REGISTRATIONS ||
-        kernel->state->count > LXP_STATE_MAX_CELLS ||
-        kernel->state->idempotency_count > LXP_STATE_MAX_IDEMPOTENCY)
+        kernel->state->count > LXP_STATE_MAX_CELLS)
         status = LXP_ERR_LENGTH_LIMIT;
     if (status == LXP_OK && module == 0U) {
         for (index = 0U; index < kernel->state->count; ++index) {
             keys[count].length = 33U;
             keys[count].bytes[0] = 1U;
             memcpy(keys[count++].bytes + 1U, kernel->state->cells[index].key, 32U);
-        }
-        for (index = 0U; index < kernel->state->idempotency_count; ++index) {
-            keys[count].length = 33U;
-            keys[count].bytes[0] = 2U;
-            memcpy(keys[count++].bytes + 1U, kernel->state->idempotency[index].key_hash, 32U);
         }
         for (index = 0U; index < kernel->module_count; ++index) {
             keys[count].length = 7U;

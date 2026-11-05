@@ -1,0 +1,1770 @@
+# Pre-upgrade audit of the pinned Paxeer-Network/paxctl snapshot.
+# Provenance: tools/paxctl/VENDOR.kvx, upstream SHA 70e06f96687a810a71803b3bca6c80582313ea34.
+# Vendored verdicts retain upstream provenance; they are not clean compatibility verdicts.
+
+[audit.22.30.180]
+task = "22.30.180"
+revision = "9d9e94b1751d89ba849d2d3d0f89b48fabce9756"
+files_reviewed = 223
+findings = 35
+docs_reviewed = 8
+upgrade_ready = false
+blocking = ["unsafe-default-auth","reset-live-or-validator-state","paxd-process-invisible","delete-resurrection","witness-duplication","native-fee-denom","genesis-address-prefix","genesis-key-leak","genesis-hash-recovery","unverified-genesis","config-path-traversal","trace-errors-discarded","diff-trace-coverage","proxy-plaintext","snapshot-extraction-symlinks","task-param-number-precision","tx-marker-adopts-different-request"]
+
+[file.001]
+path = "tools/paxctl/.agent/runbooks/seictl-smoke.md"
+lines = 229
+verdict = "issues"
+note = "Pinned upstream snapshot 70e06f96687a810a71803b3bca6c80582313ea34; findings: retired-smoke-commands."
+
+[file.002]
+path = "tools/paxctl/.github/workflows/ghcr.yml"
+lines = 63
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.003]
+path = "tools/paxctl/.github/workflows/uci-lint.yml"
+lines = 19
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.004]
+path = "tools/paxctl/.github/workflows/uci-release-check.yml"
+lines = 19
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.005]
+path = "tools/paxctl/.github/workflows/uci-release-publish.yml"
+lines = 25
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.006]
+path = "tools/paxctl/.github/workflows/uci-stale-check.yml"
+lines = 20
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.007]
+path = "tools/paxctl/.goreleaser.yaml"
+lines = 145
+verdict = "issues"
+note = "Pinned upstream snapshot 70e06f96687a810a71803b3bca6c80582313ea34; findings: release-provenance-not-stamped."
+
+[file.008]
+path = "tools/paxctl/CLAUDE.md"
+lines = 57
+verdict = "issues"
+note = "Pinned upstream snapshot 70e06f96687a810a71803b3bca6c80582313ea34; findings: architecture-page-drift."
+
+[file.009]
+path = "tools/paxctl/Dockerfile"
+lines = 14
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.010]
+path = "tools/paxctl/LICENSE.md"
+lines = 201
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream documentation."
+
+[file.011]
+path = "tools/paxctl/Makefile"
+lines = 40
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.012]
+path = "tools/paxctl/README.md"
+lines = 444
+verdict = "issues"
+note = "Pinned upstream snapshot 70e06f96687a810a71803b3bca6c80582313ea34; findings: upstream-install-instructions."
+
+[file.013]
+path = "tools/paxctl/await.go"
+lines = 164
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.014]
+path = "tools/paxctl/config.go"
+lines = 208
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.015]
+path = "tools/paxctl/genesis.go"
+lines = 95
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.016]
+path = "tools/paxctl/hardcut_test.go"
+lines = 63
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.017]
+path = "tools/paxctl/internal/cliutil/client.go"
+lines = 62
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.018]
+path = "tools/paxctl/internal/cliutil/errors.go"
+lines = 48
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.019]
+path = "tools/paxctl/internal/cliutil/errors_test.go"
+lines = 111
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.020]
+path = "tools/paxctl/internal/cliutil/output.go"
+lines = 41
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.021]
+path = "tools/paxctl/internal/cliutil/output_test.go"
+lines = 96
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.022]
+path = "tools/paxctl/internal/cliutil/parse.go"
+lines = 273
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.023]
+path = "tools/paxctl/internal/cliutil/parse_test.go"
+lines = 300
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.024]
+path = "tools/paxctl/internal/cliutil/version.go"
+lines = 9
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.025]
+path = "tools/paxctl/internal/cliutil/watch.go"
+lines = 153
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.026]
+path = "tools/paxctl/internal/cliutil/watch_test.go"
+lines = 144
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.027]
+path = "tools/paxctl/internal/patch/file.go"
+lines = 51
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.028]
+path = "tools/paxctl/internal/patch/json.go"
+lines = 55
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.029]
+path = "tools/paxctl/internal/patch/merge.go"
+lines = 30
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.030]
+path = "tools/paxctl/internal/patch/merge_test.go"
+lines = 55
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.031]
+path = "tools/paxctl/internal/patch/toml.go"
+lines = 54
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.032]
+path = "tools/paxctl/internal/seiapi/seiapi.go"
+lines = 63
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.033]
+path = "tools/paxctl/internal/testenv/testenv.go"
+lines = 155
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.034]
+path = "tools/paxctl/main.go"
+lines = 91
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.035]
+path = "tools/paxctl/outputter.go"
+lines = 58
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.036]
+path = "tools/paxctl/patch.go"
+lines = 121
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.037]
+path = "tools/paxctl/report.go"
+lines = 139
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.038]
+path = "tools/paxctl/report_list.go"
+lines = 168
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.039]
+path = "tools/paxctl/report_list_test.go"
+lines = 123
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.040]
+path = "tools/paxctl/report_test.go"
+lines = 108
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.041]
+path = "tools/paxctl/seinetwork/apply.go"
+lines = 161
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.042]
+path = "tools/paxctl/seinetwork/cmd.go"
+lines = 28
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.043]
+path = "tools/paxctl/seinetwork/delete.go"
+lines = 103
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.044]
+path = "tools/paxctl/seinetwork/get.go"
+lines = 81
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.045]
+path = "tools/paxctl/seinetwork/gvk.go"
+lines = 14
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.046]
+path = "tools/paxctl/seinetwork/list.go"
+lines = 101
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.047]
+path = "tools/paxctl/seinetwork/presets.go"
+lines = 36
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.048]
+path = "tools/paxctl/seinetwork/presets/genesis-chain.yaml"
+lines = 7
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.049]
+path = "tools/paxctl/seinetwork/render.go"
+lines = 133
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.050]
+path = "tools/paxctl/seinetwork/render_test.go"
+lines = 243
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.051]
+path = "tools/paxctl/seinetwork/watch.go"
+lines = 89
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.052]
+path = "tools/paxctl/seinetwork/watch_test.go"
+lines = 23
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.053]
+path = "tools/paxctl/seinode/apply.go"
+lines = 160
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.054]
+path = "tools/paxctl/seinode/cmd.go"
+lines = 26
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.055]
+path = "tools/paxctl/seinode/delete.go"
+lines = 97
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.056]
+path = "tools/paxctl/seinode/get.go"
+lines = 85
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.057]
+path = "tools/paxctl/seinode/gvk.go"
+lines = 14
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.058]
+path = "tools/paxctl/seinode/jsoncontract_test.go"
+lines = 89
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.059]
+path = "tools/paxctl/seinode/list.go"
+lines = 106
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.060]
+path = "tools/paxctl/seinode/presets.go"
+lines = 36
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.061]
+path = "tools/paxctl/seinode/presets/rpc.yaml"
+lines = 6
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.062]
+path = "tools/paxctl/seinode/render.go"
+lines = 163
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.063]
+path = "tools/paxctl/seinode/render_test.go"
+lines = 367
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.064]
+path = "tools/paxctl/seinode/roundtrip_test.go"
+lines = 146
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.065]
+path = "tools/paxctl/seinode/watch.go"
+lines = 166
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.066]
+path = "tools/paxctl/seinode/watch_caughtup_test.go"
+lines = 43
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.067]
+path = "tools/paxctl/seinode/watch_test.go"
+lines = 26
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.068]
+path = "tools/paxctl/serve.go"
+lines = 223
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.069]
+path = "tools/paxctl/serve_test.go"
+lines = 148
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.070]
+path = "tools/paxctl/sidecar/actions/process.go"
+lines = 146
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.071]
+path = "tools/paxctl/sidecar/actions/process_test.go"
+lines = 174
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.072]
+path = "tools/paxctl/sidecar/api/codegen.yaml"
+lines = 7
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.073]
+path = "tools/paxctl/sidecar/api/generate.go"
+lines = 3
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.074]
+path = "tools/paxctl/sidecar/api/openapi.yaml"
+lines = 270
+verdict = "issues"
+note = "Pinned upstream snapshot 70e06f96687a810a71803b3bca6c80582313ea34; findings: task-schema-omits-run-and-routes."
+
+[file.075]
+path = "tools/paxctl/sidecar/client/client.go"
+lines = 360
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.076]
+path = "tools/paxctl/sidecar/client/client_test.go"
+lines = 490
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.077]
+path = "tools/paxctl/sidecar/client/gov_param_change_test.go"
+lines = 110
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.078]
+path = "tools/paxctl/sidecar/client/tasks.go"
+lines = 929
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.079]
+path = "tools/paxctl/sidecar/client/tasks_genesis_accounts_test.go"
+lines = 109
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.080]
+path = "tools/paxctl/sidecar/client/tasks_test.go"
+lines = 637
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.081]
+path = "tools/paxctl/sidecar/engine/checkpoint.go"
+lines = 24
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.082]
+path = "tools/paxctl/sidecar/engine/engine.go"
+lines = 485
+verdict = "issues"
+note = "Pinned upstream snapshot 70e06f96687a810a71803b3bca6c80582313ea34; findings: delete-resurrection, ready-lost-on-restart, store-failure-becomes-not-found."
+
+[file.083]
+path = "tools/paxctl/sidecar/engine/engine_e2e_test.go"
+lines = 313
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.084]
+path = "tools/paxctl/sidecar/engine/engine_test.go"
+lines = 1203
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.085]
+path = "tools/paxctl/sidecar/engine/mark_not_ready_test.go"
+lines = 433
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.086]
+path = "tools/paxctl/sidecar/engine/metrics.go"
+lines = 54
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.087]
+path = "tools/paxctl/sidecar/engine/sqlite_migrations.go"
+lines = 151
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.088]
+path = "tools/paxctl/sidecar/engine/sqlite_store.go"
+lines = 273
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.089]
+path = "tools/paxctl/sidecar/engine/sqlite_store_test.go"
+lines = 389
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.090]
+path = "tools/paxctl/sidecar/engine/store.go"
+lines = 41
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.091]
+path = "tools/paxctl/sidecar/engine/typed_handler.go"
+lines = 50
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.092]
+path = "tools/paxctl/sidecar/engine/typed_handler_test.go"
+lines = 154
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.093]
+path = "tools/paxctl/sidecar/engine/types.go"
+lines = 153
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.094]
+path = "tools/paxctl/sidecar/rpc/client.go"
+lines = 131
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.095]
+path = "tools/paxctl/sidecar/rpc/client_test.go"
+lines = 160
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.096]
+path = "tools/paxctl/sidecar/rpc/status.go"
+lines = 72
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.097]
+path = "tools/paxctl/sidecar/rpc/status_test.go"
+lines = 125
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.098]
+path = "tools/paxctl/sidecar/rpc/types.go"
+lines = 61
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.099]
+path = "tools/paxctl/sidecar/s3/client.go"
+lines = 82
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.100]
+path = "tools/paxctl/sidecar/s3/client_test.go"
+lines = 146
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.101]
+path = "tools/paxctl/sidecar/s3/emit.go"
+lines = 150
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.102]
+path = "tools/paxctl/sidecar/s3/emit_test.go"
+lines = 167
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.103]
+path = "tools/paxctl/sidecar/s3/errors.go"
+lines = 55
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.104]
+path = "tools/paxctl/sidecar/s3/errors_test.go"
+lines = 120
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.105]
+path = "tools/paxctl/sidecar/server/auth.go"
+lines = 135
+verdict = "issues"
+note = "Pinned upstream snapshot 70e06f96687a810a71803b3bca6c80582313ea34; findings: unsafe-default-auth, registry-token-collisions."
+
+[file.106]
+path = "tools/paxctl/sidecar/server/auth_test.go"
+lines = 145
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.107]
+path = "tools/paxctl/sidecar/server/keyring.go"
+lines = 108
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.108]
+path = "tools/paxctl/sidecar/server/keyring_test.go"
+lines = 124
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.109]
+path = "tools/paxctl/sidecar/server/server.go"
+lines = 248
+verdict = "issues"
+note = "Pinned upstream snapshot 70e06f96687a810a71803b3bca6c80582313ea34; findings: task-param-number-precision, unbounded-task-admission."
+
+[file.110]
+path = "tools/paxctl/sidecar/server/server_test.go"
+lines = 519
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.111]
+path = "tools/paxctl/sidecar/shadow/close_test.go"
+lines = 50
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.112]
+path = "tools/paxctl/sidecar/shadow/comparator.go"
+lines = 196
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.113]
+path = "tools/paxctl/sidecar/shadow/comparator_migration_test.go"
+lines = 142
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.114]
+path = "tools/paxctl/sidecar/shadow/comparator_test.go"
+lines = 441
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.115]
+path = "tools/paxctl/sidecar/shadow/fetch.go"
+lines = 43
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.116]
+path = "tools/paxctl/sidecar/shadow/fetch_test.go"
+lines = 243
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.117]
+path = "tools/paxctl/sidecar/shadow/keysource.go"
+lines = 129
+verdict = "issues"
+note = "Pinned upstream snapshot 70e06f96687a810a71803b3bca6c80582313ea34; findings: trace-errors-discarded, diff-trace-coverage."
+
+[file.118]
+path = "tools/paxctl/sidecar/shadow/keysource_test.go"
+lines = 115
+verdict = "issues"
+note = "Pinned upstream snapshot 70e06f96687a810a71803b3bca6c80582313ea34; findings: trace-fixture-hides-producer."
+
+[file.119]
+path = "tools/paxctl/sidecar/shadow/layer0.go"
+lines = 66
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.120]
+path = "tools/paxctl/sidecar/shadow/layer1.go"
+lines = 119
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.121]
+path = "tools/paxctl/sidecar/shadow/layer2.go"
+lines = 123
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.122]
+path = "tools/paxctl/sidecar/shadow/layer2_test.go"
+lines = 244
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.123]
+path = "tools/paxctl/sidecar/shadow/metrics.go"
+lines = 35
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.124]
+path = "tools/paxctl/sidecar/shadow/render.go"
+lines = 152
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.125]
+path = "tools/paxctl/sidecar/shadow/render_layer2_test.go"
+lines = 41
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.126]
+path = "tools/paxctl/sidecar/shadow/report.go"
+lines = 57
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.127]
+path = "tools/paxctl/sidecar/shadow/types.go"
+lines = 164
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.128]
+path = "tools/paxctl/sidecar/tasks/assemble_genesis.go"
+lines = 701
+verdict = "issues"
+note = "Pinned upstream snapshot 70e06f96687a810a71803b3bca6c80582313ea34; findings: genesis-hash-recovery, external-accounts-block-assembly-retry."
+
+[file.129]
+path = "tools/paxctl/sidecar/tasks/assemble_genesis_dedup_test.go"
+lines = 149
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.130]
+path = "tools/paxctl/sidecar/tasks/assemble_genesis_external_test.go"
+lines = 467
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.131]
+path = "tools/paxctl/sidecar/tasks/assemble_genesis_test.go"
+lines = 379
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.132]
+path = "tools/paxctl/sidecar/tasks/assemble_genesis_validators.go"
+lines = 162
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.133]
+path = "tools/paxctl/sidecar/tasks/assemble_genesis_validators_test.go"
+lines = 210
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.134]
+path = "tools/paxctl/sidecar/tasks/await_condition.go"
+lines = 163
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.135]
+path = "tools/paxctl/sidecar/tasks/await_condition_test.go"
+lines = 326
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.136]
+path = "tools/paxctl/sidecar/tasks/config.go"
+lines = 117
+verdict = "issues"
+note = "Pinned upstream snapshot 70e06f96687a810a71803b3bca6c80582313ea34; findings: config-path-traversal."
+
+[file.137]
+path = "tools/paxctl/sidecar/tasks/config_apply.go"
+lines = 137
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.138]
+path = "tools/paxctl/sidecar/tasks/config_apply_test.go"
+lines = 257
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.139]
+path = "tools/paxctl/sidecar/tasks/config_reload.go"
+lines = 81
+verdict = "issues"
+note = "Pinned upstream snapshot 70e06f96687a810a71803b3bca6c80582313ea34; findings: reload-no-runtime-effect."
+
+[file.140]
+path = "tools/paxctl/sidecar/tasks/config_reload_test.go"
+lines = 88
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.141]
+path = "tools/paxctl/sidecar/tasks/config_test.go"
+lines = 327
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.142]
+path = "tools/paxctl/sidecar/tasks/config_validate.go"
+lines = 76
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.143]
+path = "tools/paxctl/sidecar/tasks/config_validate_test.go"
+lines = 75
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.144]
+path = "tools/paxctl/sidecar/tasks/defaults/config.toml"
+lines = 18
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.145]
+path = "tools/paxctl/sidecar/tasks/defaults/defaults.go"
+lines = 6
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.146]
+path = "tools/paxctl/sidecar/tasks/evm_logical_digest.go"
+lines = 336
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.147]
+path = "tools/paxctl/sidecar/tasks/evm_logical_digest_test.go"
+lines = 329
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.148]
+path = "tools/paxctl/sidecar/tasks/generate_gentx.go"
+lines = 458
+verdict = "issues"
+note = "Pinned upstream snapshot 70e06f96687a810a71803b3bca6c80582313ea34; findings: genesis-address-prefix, gentx-not-crash-resumable."
+
+[file.149]
+path = "tools/paxctl/sidecar/tasks/generate_gentx_test.go"
+lines = 44
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.150]
+path = "tools/paxctl/sidecar/tasks/generate_identity.go"
+lines = 95
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.151]
+path = "tools/paxctl/sidecar/tasks/generate_identity_test.go"
+lines = 73
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.152]
+path = "tools/paxctl/sidecar/tasks/genesis.go"
+lines = 219
+verdict = "issues"
+note = "Pinned upstream snapshot 70e06f96687a810a71803b3bca6c80582313ea34; findings: unverified-genesis."
+
+[file.153]
+path = "tools/paxctl/sidecar/tasks/genesis_overrides.go"
+lines = 106
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.154]
+path = "tools/paxctl/sidecar/tasks/genesis_overrides_test.go"
+lines = 329
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.155]
+path = "tools/paxctl/sidecar/tasks/genesis_peers.go"
+lines = 134
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.156]
+path = "tools/paxctl/sidecar/tasks/genesis_test.go"
+lines = 186
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.157]
+path = "tools/paxctl/sidecar/tasks/genesis_writeback.go"
+lines = 55
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.158]
+path = "tools/paxctl/sidecar/tasks/gov_param_change.go"
+lines = 180
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.159]
+path = "tools/paxctl/sidecar/tasks/gov_param_change_test.go"
+lines = 166
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.160]
+path = "tools/paxctl/sidecar/tasks/gov_result.go"
+lines = 121
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.161]
+path = "tools/paxctl/sidecar/tasks/gov_result_test.go"
+lines = 231
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.162]
+path = "tools/paxctl/sidecar/tasks/gov_software_upgrade.go"
+lines = 153
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.163]
+path = "tools/paxctl/sidecar/tasks/gov_software_upgrade_test.go"
+lines = 145
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.164]
+path = "tools/paxctl/sidecar/tasks/gov_vote.go"
+lines = 108
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.165]
+path = "tools/paxctl/sidecar/tasks/gov_vote_test.go"
+lines = 100
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.166]
+path = "tools/paxctl/sidecar/tasks/mark_not_ready.go"
+lines = 51
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.167]
+path = "tools/paxctl/sidecar/tasks/mark_not_ready_test.go"
+lines = 39
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.168]
+path = "tools/paxctl/sidecar/tasks/peers.go"
+lines = 16
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.169]
+path = "tools/paxctl/sidecar/tasks/ready.go"
+lines = 15
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.170]
+path = "tools/paxctl/sidecar/tasks/reset_data.go"
+lines = 175
+verdict = "issues"
+note = "Pinned upstream snapshot 70e06f96687a810a71803b3bca6c80582313ea34; findings: reset-live-or-validator-state."
+
+[file.171]
+path = "tools/paxctl/sidecar/tasks/reset_data_test.go"
+lines = 177
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.172]
+path = "tools/paxctl/sidecar/tasks/restart_seid.go"
+lines = 200
+verdict = "issues"
+note = "Pinned upstream snapshot 70e06f96687a810a71803b3bca6c80582313ea34; findings: paxd-process-invisible."
+
+[file.173]
+path = "tools/paxctl/sidecar/tasks/restart_seid_test.go"
+lines = 192
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.174]
+path = "tools/paxctl/sidecar/tasks/result_compare.go"
+lines = 346
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.175]
+path = "tools/paxctl/sidecar/tasks/result_compare_test.go"
+lines = 208
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.176]
+path = "tools/paxctl/sidecar/tasks/result_export.go"
+lines = 310
+verdict = "issues"
+note = "Pinned upstream snapshot 70e06f96687a810a71803b3bca6c80582313ea34; findings: export-false-retry-success, export-checkpoint-not-destination-bound."
+
+[file.177]
+path = "tools/paxctl/sidecar/tasks/result_export_test.go"
+lines = 572
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.178]
+path = "tools/paxctl/sidecar/tasks/sign_and_broadcast.go"
+lines = 516
+verdict = "issues"
+note = "Pinned upstream snapshot 70e06f96687a810a71803b3bca6c80582313ea34; findings: native-fee-denom, tx-marker-adopts-different-request."
+
+[file.179]
+path = "tools/paxctl/sidecar/tasks/sign_and_broadcast_test.go"
+lines = 890
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.180]
+path = "tools/paxctl/sidecar/tasks/snapshot_restore.go"
+lines = 329
+verdict = "issues"
+note = "Pinned upstream snapshot 70e06f96687a810a71803b3bca6c80582313ea34; findings: snapshot-extraction-symlinks."
+
+[file.181]
+path = "tools/paxctl/sidecar/tasks/snapshot_restore_test.go"
+lines = 437
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.182]
+path = "tools/paxctl/sidecar/tasks/snapshot_upload.go"
+lines = 493
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.183]
+path = "tools/paxctl/sidecar/tasks/snapshot_upload_metrics.go"
+lines = 50
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.184]
+path = "tools/paxctl/sidecar/tasks/snapshot_upload_test.go"
+lines = 709
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.185]
+path = "tools/paxctl/sidecar/tasks/statesync.go"
+lines = 361
+verdict = "issues"
+note = "Pinned upstream snapshot 70e06f96687a810a71803b3bca6c80582313ea34; findings: witness-duplication."
+
+[file.186]
+path = "tools/paxctl/sidecar/tasks/statesync_test.go"
+lines = 697
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.187]
+path = "tools/paxctl/sidecar/tasks/stop_seid.go"
+lines = 109
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.188]
+path = "tools/paxctl/sidecar/tasks/stop_seid_test.go"
+lines = 76
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.189]
+path = "tools/paxctl/sidecar/tasks/transactions.go"
+lines = 211
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.190]
+path = "tools/paxctl/sidecar/tasks/transactions_test.go"
+lines = 50
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.191]
+path = "tools/paxctl/sidecar/tasks/typed_handler_integration_test.go"
+lines = 339
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.192]
+path = "tools/paxctl/sidecar/tasks/upload_genesis_artifacts.go"
+lines = 154
+verdict = "issues"
+note = "Pinned upstream snapshot 70e06f96687a810a71803b3bca6c80582313ea34; findings: genesis-key-leak."
+
+[file.193]
+path = "tools/paxctl/sidecar/tasks/upload_genesis_artifacts_test.go"
+lines = 124
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.194]
+path = "tools/paxctl/sidecar/wire/genesis_accounts.go"
+lines = 27
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.195]
+path = "tools/paxctl/sidecar/wire/wire.go"
+lines = 125
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.196]
+path = "tools/paxctl/sidecar/wire/wire_test.go"
+lines = 58
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.197]
+path = "tools/paxctl/task/client.go"
+lines = 110
+verdict = "issues"
+note = "Pinned upstream snapshot 70e06f96687a810a71803b3bca6c80582313ea34; findings: proxy-plaintext."
+
+[file.198]
+path = "tools/paxctl/task/client_test.go"
+lines = 24
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.199]
+path = "tools/paxctl/task/cmd.go"
+lines = 40
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.200]
+path = "tools/paxctl/task/delete.go"
+lines = 58
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.201]
+path = "tools/paxctl/task/get.go"
+lines = 61
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.202]
+path = "tools/paxctl/task/list.go"
+lines = 43
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.203]
+path = "tools/paxctl/task/output.go"
+lines = 48
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.204]
+path = "tools/paxctl/task/snapshot_upload.go"
+lines = 274
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.205]
+path = "tools/paxctl/task/snapshot_upload_test.go"
+lines = 355
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.206]
+path = "tools/paxctl/task/submit.go"
+lines = 74
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.207]
+path = "tools/paxctl/version.json"
+lines = 3
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.208]
+path = "tools/paxctl/workflow/README.md"
+lines = 125
+verdict = "issues"
+note = "Pinned upstream snapshot 70e06f96687a810a71803b3bca6c80582313ea34; findings: workflow-witness-promise."
+
+[file.209]
+path = "tools/paxctl/workflow/apply.go"
+lines = 157
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.210]
+path = "tools/paxctl/workflow/cmd.go"
+lines = 31
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.211]
+path = "tools/paxctl/workflow/delete.go"
+lines = 102
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.212]
+path = "tools/paxctl/workflow/get.go"
+lines = 85
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.213]
+path = "tools/paxctl/workflow/gvk.go"
+lines = 14
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.214]
+path = "tools/paxctl/workflow/jsoncontract_test.go"
+lines = 144
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.215]
+path = "tools/paxctl/workflow/list.go"
+lines = 104
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.216]
+path = "tools/paxctl/workflow/presets.go"
+lines = 36
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.217]
+path = "tools/paxctl/workflow/presets/state-sync.yaml"
+lines = 8
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.218]
+path = "tools/paxctl/workflow/render.go"
+lines = 191
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.219]
+path = "tools/paxctl/workflow/render_test.go"
+lines = 182
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.220]
+path = "tools/paxctl/workflow/state_sync.go"
+lines = 284
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.221]
+path = "tools/paxctl/workflow/state_sync_test.go"
+lines = 60
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[file.222]
+path = "tools/paxctl/workflow/watch.go"
+lines = 92
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream implementation or configuration."
+
+[file.223]
+path = "tools/paxctl/workflow/watch_test.go"
+lines = 67
+verdict = "vendored"
+note = "Vendored from Paxeer-Network/paxctl at 70e06f96687a810a71803b3bca6c80582313ea34 under tools/paxctl/VENDOR.kvx; retained upstream test."
+
+[finding.unsafe-default-auth]
+file = "tools/paxctl/sidecar/server/auth.go"
+line = 90
+class = "security"
+severity = "high"
+observed = "An unset SEI_SIDECAR_AUTHN_MODE selects unauthenticated mode and BindAddress exposes :7777 on every interface; registered handlers include reset-data and governance signing with the unlocked keyring."
+expected = "The operational task API must restrict destructive and signing actions to authorized callers; omission of a deployment setting must not grant network peers that authority."
+proposal = "In tools/paxctl/sidecar/server/auth.go and serve.go, default to a loopback authenticated deployment, require an explicit isolated-development override for unauthenticated exposure, and refuse signing or destructive handlers on an unprotected listener."
+owner_domain = 16
+interface = "16.env-paxctl-sei-sidecar-authn-mode"
+
+[finding.reset-live-or-validator-state]
+file = "tools/paxctl/sidecar/tasks/reset_data.go"
+line = 82
+class = "runtime-risk"
+severity = "high"
+observed = "reset-data treats any failed RPC status probe as permission to erase data/ and writes priv_validator_state.json at height zero; the direct task handler checks neither a durable hold nor node mode nor process exit."
+expected = "A data reset must require a confirmed stopped non-validator under a durable hold; a disabled or wedged RPC cannot prove that the node stopped, and validator anti-double-sign state must survive."
+proposal = "In tools/paxctl/sidecar/tasks/reset_data.go, require a persisted workflow hold, corroborated process termination and verified full-node role before erasure; refuse active-validator identities and preserve last-sign state independently of chain data."
+owner_domain = 16
+interface = "16.cfg-paxctl-task-type-reset-data"
+
+[finding.paxd-process-invisible]
+file = "tools/paxctl/sidecar/tasks/restart_seid.go"
+line = 22
+class = "interface-mismatch"
+severity = "high"
+observed = "seidStartFinder requires /proc comm and argv to name seid start, so a running paxd start is never found; stop/restart fail when its RPC answers and can falsely report stopped when that RPC is unavailable."
+expected = "The merged network's only chain daemon is paxd; stop-seid and restart-seid must discover and control the actual node process while preserving their published task identifiers."
+proposal = "Adapt process discovery in tools/paxctl/sidecar/tasks/restart_seid.go, stop_seid.go and await_condition.go to the deployed paxd identity, pass it through explicit configuration and prove stop/restart against a real paxd child process."
+owner_domain = 16
+interface = "16.cfg-paxctl-task-type-restart-seid"
+
+[finding.delete-resurrection]
+file = "tools/paxctl/sidecar/engine/engine.go"
+line = 308
+class = "restart-recovery"
+severity = "high"
+observed = "RemoveResult cancels and deletes without joining the handler; runTaskSync still saves a successful canceled run unconditionally, and Save uses INSERT OR REPLACE without checking generation. Late completion can recreate a deleted row or overwrite a resubmission."
+expected = "DELETE's true-deletion contract and per-ID task generations must prevent obsolete work from replacing a newer task or resurrecting deleted recovery state."
+proposal = "In tools/paxctl/sidecar/engine, make terminal writes conditional on the persisted task generation and deletion state; retain a durable cancellation tombstone until the old handler has stopped and exercise DELETE/completion/resubmit interleavings."
+owner_domain = 16
+interface = "16.http-paxctl-delete-v0-tasks-id"
+
+[finding.ready-lost-on-restart]
+file = "tools/paxctl/sidecar/engine/engine.go"
+line = 89
+class = "restart-recovery"
+severity = "medium"
+observed = "NewEngine starts ready=false and RehydrateStaleTasks reads only running rows; a previously completed mark-ready is never replayed, while Submit of its existing completed UUID returns without restoring readiness."
+expected = "After a sidecar-only restart, the persisted release/hold lifecycle must determine readiness consistently, including deterministic re-delivery of an already completed mark-ready."
+proposal = "Persist and restore the effective hold/release state in tools/paxctl/sidecar/engine before serving probes, ordered against the newest hold; add a disk-backed restart case with only a completed mark-ready and repeated submission."
+owner_domain = 16
+interface = "16.http-paxctl-get-v0-healthz"
+
+[finding.witness-duplication]
+file = "tools/paxctl/sidecar/tasks/statesync.go"
+line = 125
+class = "security"
+severity = "high"
+observed = "Configure silently duplicates the sole reachable RPC witness and obtains both trust height and hash from that same server; two configured candidates can therefore degrade to a single authority after the wipe."
+expected = "The state-sync workflow promises independent primary/witness verification; an unavailable second witness must not be replaced with a duplicate of the primary."
+proposal = "In tools/paxctl/sidecar/tasks/statesync.go, require at least two distinct reachable witnesses on the configured chain, compare the trust point and fail closed before reset-data when the quorum cannot be established."
+owner_domain = 16
+interface = "16.cfg-paxctl-tasks-statesync-statesyncrequest-rpcservers"
+
+[finding.registry-token-collisions]
+file = "tools/paxctl/sidecar/server/auth.go"
+line = 90
+class = "wiring-gap"
+severity = "low"
+observed = "The package consumes list links this auth mode token to 10.err-human-api-unauthenticated and duplicate_header to interop error rows; it also links local namespace, peers, transport, ID and BUILD_DIR identifiers to unrelated service contracts."
+expected = "Interface consumers must be identified by actual imports, calls or serialized boundaries; sharing a word does not make the sidecar a human API, bridge relayer, mirror or benchmark client."
+proposal = "In spec/layerx-merge/interfaces.kvx and the audit package generator, replace lexical caller matches with traced dependencies; remove spurious cross-domain consumers and retain the actual node RPC and configuration contracts."
+owner_domain = 16
+
+[finding.native-fee-denom]
+file = "tools/paxctl/sidecar/tasks/sign_and_broadcast.go"
+line = 40
+class = "interface-mismatch"
+severity = "high"
+observed = "checkFeesDenom permits only usei, rejecting every uhpx fee requested by a Paxeer operator; governance proposal deposit validation uses the same constant. node/params/config.go declares BaseCoinUnit and DefaultBondDenom as uhpx, so the task policy disagrees with the deployed chain."
+expected = "Governance vote, software-upgrade and parameter-change requests must sign valid fees for the deployed Paxeer chain and agree with its native denomination."
+proposal = "Replace the Sei-only fee and proposal-deposit policy in tools/paxctl/sidecar/tasks/sign_and_broadcast.go, gov_param_change.go and gov_software_upgrade.go with explicit Paxeer chain configuration verified against node parameters, and exercise all governance tasks through the real paxd transaction decoder and fee admission."
+owner_domain = 16
+interface = "16.cfg-paxctl-tasks-gov-vote-govvoterequest-fees"
+
+[finding.genesis-address-prefix]
+file = "tools/paxctl/sidecar/tasks/generate_gentx.go"
+line = 451
+class = "interface-mismatch"
+severity = "high"
+observed = "ensureBech32 forces sei, seivaloper and seivalcons prefixes in the ceremony SDK; node/params/config.go configures pax, paxvaloper and paxvalcons. Genesis accounts and generated validator messages therefore carry or require the wrong address encoding."
+expected = "The genesis account and validator address contract must use the same prefixes and validation rules as paxd for every generated or externally supplied account."
+proposal = "Configure tools/paxctl's ceremony and client validation from Paxeer's address contract, retaining byte lengths, and qualify a generated gentx plus external and vesting accounts through the real paxd InitChain path."
+owner_domain = 16
+interface = "16.cfg-paxctl-wire-genesis-accounts-genesisaccountentry-address"
+
+[finding.genesis-key-leak]
+file = "tools/paxctl/sidecar/tasks/upload_genesis_artifacts.go"
+line = 135
+class = "security"
+severity = "high"
+observed = "uploadIdentity copies the entire config/node_key.json into the shared S3 identity.json artifact; that file contains priv_key.value, while the assembler consumes only node_key.id."
+expected = "A ceremony identity manifest must publish only the public node identity; the P2P authentication private key must remain on the node."
+proposal = "In tools/paxctl/sidecar/tasks/upload_genesis_artifacts.go, emit an explicit public-only identity DTO containing the validated node ID and public key, reject secret fields in the consumer, and rotate keys already published through this path."
+owner_domain = 16
+interface = "16.cfg-paxctl-task-type-upload-genesis-artifacts"
+
+[finding.genesis-hash-recovery]
+file = "tools/paxctl/sidecar/tasks/assemble_genesis.go"
+line = 131
+class = "interface-mismatch"
+severity = "high"
+observed = "The assembler writes its done marker before the engine persists AssembleGenesisResult; after a crash in that interval the rehydrated handler returns nil,nil from the marker branch, so the completed task omits genesisHash."
+expected = "The authenticated genesisHash must round-trip to the controller and followers after restart as well as on the first run; a completed assembly must always retain the hash of the exact published bytes."
+proposal = "Persist the public assembly result durably with its completion state in tools/paxctl/sidecar/tasks/assemble_genesis.go and the engine store; return the recorded hash on replay and prove a crash after upload/marker but before result persistence."
+owner_domain = 16
+interface = "16.cfg-paxctl-tasks-assemble-genesis-assemblegenesisresult-genesishash"
+
+[finding.unverified-genesis]
+file = "tools/paxctl/sidecar/tasks/genesis.go"
+line = 156
+class = "security"
+severity = "high"
+observed = "ExpectedGenesisHash is optional, Fetch passes an empty string, and the marker branch bypasses later hash checks entirely; an S3 genesis with no authenticated digest is accepted and permanently marked complete."
+expected = "Every custom-chain genesis downloaded from attacker-writable shared storage must be checked against the authenticated assembler result before becoming the node's trust root, including after retry."
+proposal = "Require a canonical SHA-256 digest for S3 genesis in tools/paxctl/sidecar/tasks/genesis.go, bind the marker to chain and digest, verify existing completed content on replay, and atomically publish only verified bytes."
+owner_domain = 16
+interface = "16.cfg-paxctl-tasks-genesis-configuregenesisrequest-expectedgenesishash"
+
+[finding.config-path-traversal]
+file = "tools/paxctl/sidecar/tasks/config.go"
+line = 66
+class = "security"
+severity = "high"
+observed = "PatchFiles joins an unrestricted caller-supplied filename under homeDir/config; ../ segments can escape that directory and mergeAndWrite can create or replace any writable TOML destination, with no allowed-name or symlink check."
+expected = "The configuration task's authority must be limited to the node configuration files named by its contract and must not become arbitrary filesystem write access."
+proposal = "Allowlist app.toml, client.toml and config.toml in tools/paxctl/sidecar/tasks/config.go, reject path separators and traversal, resolve the destination beneath a confined directory without following symlinks, and reject the whole request before writing if any file is invalid."
+owner_domain = 16
+interface = "16.cfg-paxctl-tasks-config-configpatchrequest-files"
+
+[finding.reload-no-runtime-effect]
+file = "tools/paxctl/sidecar/tasks/config_reload.go"
+line = 75
+class = "wiring-gap"
+severity = "medium"
+observed = "ConfigReloader validates and writes hot-reload fields then returns success without signaling or invoking a node reload API; its own TODO states that applying the running configuration is unimplemented."
+expected = "A task called config-reload must complete only after the running node has applied the requested settings, or report that a restart is required."
+proposal = "Wire tools/paxctl/sidecar/tasks/config_reload.go to the supported paxd reload mechanism with read-back confirmation, or return an explicit restart-required outcome until that mechanism exists."
+owner_domain = 16
+interface = "16.cfg-paxctl-task-type-config-reload"
+
+[finding.trace-errors-discarded]
+file = "tools/paxctl/sidecar/shadow/keysource.go"
+line = 66
+class = "interface-mismatch"
+severity = "high"
+observed = "prestateTxTrace decodes only result and ignores the producer's per-transaction error field (core/deps/geth/eth/tracers/api.go:190); an HTTP-success trace entry carrying error yields empty pre/post maps and a clean zero-key Layer2Result."
+expected = "A failed transaction trace must make logical state comparison indeterminate rather than silently removing its accounts from the upgrade comparison."
+proposal = "Decode txHash, result presence and error in tools/paxctl/sidecar/shadow/keysource.go; reject any failed or missing trace, reconcile trace coverage with the block's EVM transactions and propagate an indeterminate comparison."
+owner_domain = 16
+interface = "7.rpc-debug-traceblockbynumber"
+
+[finding.diff-trace-coverage]
+file = "tools/paxctl/sidecar/shadow/keysource.go"
+line = 73
+class = "interface-mismatch"
+severity = "high"
+observed = "TraceKeySource requests diffMode=true but claims to enumerate every read or written slot; the actual prestate tracer processDiffState removes unchanged slots and whole unchanged accounts (core/deps/geth/eth/tracers/native/prestate.go:241-266), so read-only touched state and unchanged code can escape comparison."
+expected = "The upgrade comparator's touched-key contract must cover the keys real transactions read or wrote and must state accurately which axes were checked."
+proposal = "Use the actual full prestate output together with changed/new post-state accounts in tools/paxctl/sidecar/shadow/keysource.go, or a node-provided access set; verify read-only SLOAD and unchanged contract code through the real debug RPC."
+owner_domain = 16
+interface = "7.rpc-debug-traceblockbynumber"
+
+[finding.trace-fixture-hides-producer]
+file = "tools/paxctl/sidecar/shadow/keysource_test.go"
+line = 14
+class = "test-gap"
+severity = "medium"
+observed = "TestMergePrestateTraces calls a hand-written diff trace a realistic read-and-write set and asserts its union; it neither obtains actual prestateTracer output nor covers per-transaction trace errors or producer omission of unchanged slots."
+expected = "Trace coverage tests must exercise the real producer/transport/consumer path and include read-only state and trace failures, matching the brief's interface-proof rule."
+proposal = "Add an integration test in tools/paxctl/sidecar/shadow using a real paxd debug_traceBlockByNumber response for a contract that reads without writing, creates code and encounters a trace error; retain unit tests as local decoder checks."
+owner_domain = 16
+interface = "7.rpc-debug-traceblockbynumber"
+
+[finding.proxy-plaintext]
+file = "tools/paxctl/task/client.go"
+line = 70
+class = "interface-mismatch"
+severity = "high"
+observed = "newSidecarClient targets the proxy's default port 8443 through NewSidecarClientFromPodDNS, which always constructs http://; server/auth.go declares the kube-rbac-proxy listener as TLS :8443. The transport also sends kubeconfig credentials over that plaintext URL."
+expected = "The task CLI must reach the declared authenticated proxy using its actual transport scheme and verify the service identity without exposing bearer credentials."
+proposal = "Make the proxy URL and trust material explicit in tools/paxctl/task/client.go and sidecar/client/client.go, default to authenticated HTTPS with service-specific CA verification, and prove submission against the deployed TLS proxy."
+owner_domain = 16
+interface = "16.cli-paxctl-task-submit"
+
+[finding.snapshot-extraction-symlinks]
+file = "tools/paxctl/sidecar/tasks/snapshot_restore.go"
+line = 255
+class = "security"
+severity = "high"
+observed = "extractTarStream checks only lexical containment and creates archive symlinks; extractFile then opens paths with O_TRUNC while following existing symlinks. An absolute link target or a pre-existing symlink under the extraction root can redirect a later entry outside data/snapshots."
+expected = "Snapshot restoration must never write outside its dedicated destination or allow downloaded content to overwrite identity/configuration files through symlink traversal."
+proposal = "In tools/paxctl/sidecar/tasks/snapshot_restore.go, reject absolute and traversal link targets, extract through a confined directory handle that disallows symlinks, enforce archive size limits, and stage validated snapshots before atomic adoption."
+owner_domain = 16
+interface = "16.cfg-paxctl-task-type-snapshot-restore"
+
+[finding.task-param-number-precision]
+file = "tools/paxctl/sidecar/server/server.go"
+line = 119
+class = "interface-mismatch"
+severity = "high"
+observed = "POST decodes Params into map[string]any with default float64 numbers before TypedHandler re-marshals them; the typed client's uint64 proposalId and gas above 2^53 can silently change before signing, and SQLite's json.Unmarshal repeats the loss on recovery. Raw genesis overrides also pass through this conversion."
+expected = "Integer and raw JSON values in the declared typed interfaces must survive HTTP transport exactly; an accepted request must not alter governance parameters or transaction identifiers."
+proposal = "Preserve exact JSON numbers or use raw typed dispatch in tools/paxctl/sidecar/server, task/submit.go, internal/cliutil/parse.go and engine/sqlite_store.go; qualify uint64 and genesis override boundary values through the real client, HTTP ingress, signing decoder and restarted store before accepting the request."
+owner_domain = 16
+interface = "16.cfg-paxctl-tasks-gov-vote-govvoterequest-proposalid"
+
+[finding.network-overview-retired-daemon]
+file = "README.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+observed = "The overview presents two execution domains and a separately running layerxd whose checkpoints settle through layerxAnchor; the build and release sections repeat that the separate kernel is current and the merge remains a draft."
+expected = "The finished network described by the audit brief has one paxd BFT chain with the proposing kernel merged into it; committed receipts are final without a separate sequencer or settlement daemon."
+proposal = "Rewrite README.md's overview, kernel build guidance and release description around the merged paxd lifecycle, chain ID 125 and root-path public JSON-RPC; label historical standalone instructions explicitly as retired."
+owner_domain = 17
+
+[finding.monorepo-trust-boundary-drift]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The opening identifies layerxd as a current component, while Trust boundaries assigns custody, checkpoint registration, bonds, challenges and emergency exits to separate chain settlement contracts without describing the merged node lifecycle."
+expected = "Operator orientation must describe the finished one-network architecture and distinguish historical settlement machinery from the active merged kernel and chain boundary."
+proposal = "Update docs/MONOREPO.md's opening, Build boundaries and Trust boundaries with the active paxd/kernel arrangement and current custody/finality rules; preserve snapshot provenance while separating historical build targets from operational guidance."
+owner_domain = 17
+
+[finding.upstream-install-instructions]
+file = "tools/paxctl/README.md"
+line = 22
+class = "doc-drift"
+severity = "medium"
+observed = "The tool page sends operators to Sei's upstream releases and go install module, advertises Windows and ARMv7 archives absent from .goreleaser.yaml, and lists Go 1.25.4 although the checked-in module requires Go 1.26.0. It omits the network/node/workflow/task commands."
+expected = "Paxeer operators need installation and command instructions for the audited pinned tool, with platforms, toolchain and chain-specific limitations that match the delivered artifact."
+proposal = "Replace tools/paxctl/README.md's installation matrix and prerequisites with the supported Paxeer distribution and pinned source workflow, document the actual commands and auth requirements, and identify unsupported Sei-only operations until adapted."
+owner_domain = 16
+
+[finding.architecture-page-drift]
+file = "tools/paxctl/CLAUDE.md"
+line = 12
+class = "doc-drift"
+severity = "medium"
+observed = "The architecture page promises a cron scheduler and an HTTP server on 127.0.0.1:7777; the current engine runs tasks once and default auth binds :7777 on all interfaces. Its architecture list also omits the workflow and task command trees."
+expected = "The component guide must describe the actual one-shot lifecycle, authenticated proxy and listener defaults so operators do not assume automatic retries or network isolation."
+proposal = "Rewrite tools/paxctl/CLAUDE.md's architecture and operational instructions to show current task dispatch, durable recovery, workflow/task entry points and the exact auth-mode-dependent listener and proxy boundary."
+owner_domain = 16
+
+[finding.retired-smoke-commands]
+file = "tools/paxctl/.agent/runbooks/seictl-smoke.md"
+line = 28
+class = "doc-drift"
+severity = "medium"
+observed = "The smoke runbook requires the removed SeiNodeDeployment CRD and invokes onboard and bench command trees that main.go does not register. It also directs operators toward upstream environment-specific infrastructure rather than an isolated Paxeer test deployment."
+expected = "An operational smoke procedure must exercise commands that the shipped binary implements and current resource kinds on the intended chain, without requiring unrelated upstream operational inventory."
+proposal = "Replace tools/paxctl/.agent/runbooks/seictl-smoke.md with an isolated Paxeer procedure using network, node, workflow and task operations, public-only placeholders, explicit chain checks and supported current CRDs."
+owner_domain = 16
+
+[finding.workflow-witness-promise]
+file = "tools/paxctl/workflow/README.md"
+line = 30
+class = "doc-drift"
+severity = "medium"
+observed = "The workflow guide promises that the two-witness minimum prevents wiping an under-witnessed node, but the executing StateSyncConfigurer filters unavailable servers only after reset-data and duplicates the sole remaining witness."
+expected = "The documented safety guarantee must cover the executable plan and runtime witness availability, with a clear recovery state if quorum disappears before the destructive step."
+proposal = "Align tools/paxctl/workflow/README.md and the controller/sidecar preflight so distinct reachable witnesses are checked before wiping; document failure, retained hold and operator recovery with the deployed paxd naming."
+owner_domain = 16
+interface = "16.cfg-paxctl-tasks-statesync-statesyncrequest-rpcservers"
+
+[finding.task-schema-omits-run-and-routes]
+file = "tools/paxctl/sidecar/api/openapi.yaml"
+line = 228
+class = "interface-mismatch"
+severity = "medium"
+observed = "engine.TaskResult emits run on every result, but TaskResult in OpenAPI and sidecar.gen.go omits it; the CLI's typed GetTask/ListTasks decode and re-encode drops the attempt counter. startupz, livez, metrics and node-id are registered but lack operation schemas."
+expected = "The declared sidecar contract must retain the retry generation displayed to operators and cover its published routes with their response and error shapes."
+proposal = "Add the actual run field and all registered operations to tools/paxctl/sidecar/api/openapi.yaml, regenerate the light client, and qualify server responses through the generated decoder and CLI output across failed-task resubmission."
+owner_domain = 16
+interface = "16.http-paxctl-get-v0-tasks-id"
+
+[finding.release-provenance-not-stamped]
+file = "tools/paxctl/.goreleaser.yaml"
+line = 22
+class = "config-drift"
+severity = "medium"
+observed = "GoReleaser stamps main.version, main.commit, main.date and main.builtBy, but main.go declares none of them; resource renderers use internal/cliutil.Version, which remains dev. Docker also builds without the Makefile's real version linker flag."
+expected = "Published artifacts must carry the pinned release version in their resource provenance so operators can identify which implementation created a cluster object."
+proposal = "Make .goreleaser.yaml and Dockerfile stamp github.com/sei-protocol/seictl/internal/cliutil.Version using the same validated release version as the Makefile, and verify the resulting annotation from each published artifact."
+owner_domain = 16
+
+[finding.gentx-not-crash-resumable]
+file = "tools/paxctl/sidecar/tasks/generate_gentx.go"
+line = 130
+class = "restart-recovery"
+severity = "medium"
+observed = "The generate-gentx handler always creates the named validator mnemonic and rejects an existing genesis account before its final marker is written; a crash after key creation or a later ceremony error leaves replay failing on already-created state."
+expected = "A task left running must resume its original ceremony identity and converge to the same gentx after restart without requiring deletion or replacement of its signing key."
+proposal = "Persist the ceremony identity and stage in tools/paxctl/sidecar/tasks/generate_gentx.go, reuse and validate an existing key/account only when bound to that operation, and exercise crashes after key creation, account write and signed gentx write."
+owner_domain = 16
+interface = "16.cfg-paxctl-task-type-generate-gentx"
+
+[finding.external-accounts-block-assembly-retry]
+file = "tools/paxctl/sidecar/tasks/assemble_genesis.go"
+line = 444
+class = "restart-recovery"
+severity = "medium"
+observed = "addExternalGenesisAccounts mutates the local genesis before collectGentxs and both S3 uploads complete; a later error or crash reruns the handler against that mutated file and rejects the same external accounts as collisions, preventing recovery."
+expected = "An interrupted assembly must distinguish an identical operation's own persisted accounts from a conflicting pre-existing account and resume with the exact same balances and vesting schedules."
+proposal = "Build assembly from a preserved immutable input into a staged genesis in tools/paxctl/sidecar/tasks/assemble_genesis.go, persist its operation identity and adopt the stage on retry; retain collision rejection for genuinely different accounts."
+owner_domain = 16
+interface = "16.cfg-paxctl-tasks-assemble-genesis-assemblegenesisrequest-accounts"
+
+[finding.export-false-retry-success]
+file = "tools/paxctl/sidecar/tasks/result_export.go"
+line = 128
+class = "runtime-risk"
+severity = "medium"
+observed = "Export returns nil on an unavailable node RPC and on checkpoint-write failure while logging that a later scheduled run will retry. The engine has no scheduler and records the one-shot task completed; resubmitting that completed ID is a no-op."
+expected = "A requested export that cannot read its source or retain progress must report an explicit failed or no-progress outcome, with a real retry owner rather than claiming successful completion."
+proposal = "Propagate classified source/checkpoint failures from tools/paxctl/sidecar/tasks/result_export.go, define a retryable no-progress result where appropriate, and wire any intended periodic export loop explicitly with cancellation and observable progress."
+owner_domain = 16
+interface = "16.cfg-paxctl-task-type-result-export"
+
+[finding.export-checkpoint-not-destination-bound]
+file = "tools/paxctl/sidecar/tasks/result_export.go"
+line = 123
+class = "restart-recovery"
+severity = "medium"
+observed = "Every export task in a home directory shares .sei-sidecar-last-export.json containing only a height; changing bucket, prefix or rpcEndpoint reuses that height and silently skips earlier pages in the new destination. The checkpoint is overwritten without atomic replacement."
+expected = "Export progress must be bound to the source chain and destination, and an interrupted checkpoint update must not cause missing pages or require unavailable pruned history."
+proposal = "Key and validate export checkpoints by chain identity, source and destination in tools/paxctl/sidecar/tasks/result_export.go, write them atomically after durable upload, and explicitly backfill or refuse destination changes instead of inheriting unrelated progress."
+owner_domain = 16
+interface = "16.cfg-paxctl-tasks-result-export-resultexportrequest-prefix"
+
+[finding.unbounded-task-admission]
+file = "tools/paxctl/sidecar/server/server.go"
+line = 119
+class = "runtime-risk"
+severity = "medium"
+observed = "POST reads an unbounded JSON body, then each fresh task ID starts another goroutine and durable row with no queue, concurrency bound or retention policy. Long-lived snapshot and comparison tasks can accumulate alongside destructive node tasks."
+expected = "An operational sidecar must bound accepted request size, retained task state and concurrent work so reachable or authorized callers cannot exhaust the node's shared memory, disk or execution capacity."
+proposal = "Add request-size and task-count limits, a bounded persistent queue and per-node resource exclusion in tools/paxctl/sidecar/server and engine; return explicit overload errors and define safe result retention without discarding recovery markers."
+owner_domain = 16
+interface = "16.http-paxctl-post-v0-tasks"
+
+[finding.tx-marker-adopts-different-request]
+file = "tools/paxctl/sidecar/tasks/sign_and_broadcast.go"
+line = 188
+class = "interface-mismatch"
+severity = "high"
+observed = "SQLiteStore.Delete removes only task_results, retaining tx_markers keyed solely by UUID. DELETE followed by a new governance request using that UUID adopts the old signed transaction without comparing task type, signer, message or params, and can return the old result as the new request's outcome."
+expected = "Task deletion and idempotent resubmission must preserve transaction identity and must never execute or report a different governance operation under an accepted new payload."
+proposal = "Bind task UUIDs and tx markers to a canonical request fingerprint and immutable chain/signer identity in tools/paxctl/sidecar/engine and tasks/sign_and_broadcast.go; retain a tombstone and reject conflicting reuse rather than deleting evidence needed to prevent duplicate signing."
+owner_domain = 16
+interface = "16.http-paxctl-delete-v0-tasks-id"
+
+[finding.store-failure-becomes-not-found]
+file = "tools/paxctl/sidecar/engine/engine.go"
+line = 443
+class = "interface-mismatch"
+severity = "medium"
+observed = "GetResult logs a SQLite read failure and returns nil, so handleGetTask sends the same 404 used for an absent task. RecentResults likewise turns a store error into an empty successful list, hiding unavailable recovery state from polling clients."
+expected = "The HTTP contract must distinguish task absence from transient storage unavailability so controllers do not interpret an unobservable operation as missing or completed history as empty."
+proposal = "Return store errors through the engine query methods in tools/paxctl/sidecar/engine and map them to explicit retryable 503 responses in sidecar/server; teach the client and schema the same behavior and retain 404 only for confirmed absence."
+owner_domain = 16
+interface = "16.http-paxctl-get-v0-tasks-id"
+
+[doc.network-readme]
+path = "README.md"
+status = "stale"
+notes = "Lines 44-47 describe two execution domains and the separate layerxd/anchor settlement model; lines 141-147 and 181 repeat standalone build/lifecycle guidance. Rewrite for the merged paxd chain and committed-block finality; see network-overview-retired-daemon."
+
+[doc.monorepo]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Line 3 presents layerxd as current, and Build boundaries/Trust boundaries retain standalone kernel and checkpoint-settlement descriptions. The tools/paxctl pinned-snapshot provenance remains useful; see monorepo-trust-boundary-drift."
+
+[doc.tool-readme]
+path = "tools/paxctl/README.md"
+status = "stale"
+notes = "Installation lines 22-84 advertise upstream Sei releases, ARMv7 and Windows absent from the release configuration; line 110 gives an older Go prerequisite. Configuration, fee and home examples remain Sei-specific and omit the current network/node/workflow/task surfaces; see upstream-install-instructions."
+
+[doc.component-guide]
+path = "tools/paxctl/CLAUDE.md"
+status = "misleading"
+notes = "Architecture lines 11-12 promise a loopback HTTP listener and cron scheduling; default auth binds all interfaces and the engine is one-shot. The guide omits newer command trees; see architecture-page-drift."
+
+[doc.smoke-runbook]
+path = "tools/paxctl/.agent/runbooks/seictl-smoke.md"
+status = "misleading"
+notes = "Pre-flight lines 23-25 require a removed CRD; steps beginning at line 28 invoke onboard/bench commands absent from main.go. Replace upstream infrastructure instructions with supported commands on an isolated Paxeer deployment; see retired-smoke-commands."
+
+[doc.state-sync-guide]
+path = "tools/paxctl/workflow/README.md"
+status = "stale"
+notes = "Line 30 promises witness validation before wiping, but runtime witness filtering/padding happens after reset-data. Hold/release and output descriptions explain upstream intent; recovery guarantees and daemon naming require Paxeer qualification; see workflow-witness-promise."
+
+[doc.operations-contract]
+path = "spec/layerx-merge/contracts/operations.md"
+status = "stale"
+notes = "Reviewed the paxctl-cli, paxctl-config, paxctl-env, paxctl-formats, paxctl-metrics and paxctl-routes sections (8535-9358). They inventory upstream names rather than a Paxeer adaptation; route notes claim OpenAPI coverage for operations missing from the schema, and result/recovery and TLS mismatches are detailed in this record."
+
+[doc.license]
+path = "tools/paxctl/LICENSE.md"
+status = "accurate"
+notes = "The Apache License 2.0 text documents the inherited tool's licensing terms and makes no network endpoint, lifecycle or compatibility claims."
+
+

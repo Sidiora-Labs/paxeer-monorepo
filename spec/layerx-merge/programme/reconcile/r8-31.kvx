@@ -1,0 +1,485 @@
+[reconcile.r8-31]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 60
+
+[row.r8-31.1]
+interface = "interface.8.go-sdkcs-platformoperation-agentexportoffline"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 27
+symbol = "AgentExportOffline"
+evidence = "PlatformOperation still declares AgentExportOffline, at line 27 (registered line 24); the enum identifier is unchanged. Describe at line 312 maps export.offline to POST the agent envelope (empty descriptor path), with object -> VerifiedRead<OfflineExport> metadata."
+
+[row.r8-31.2]
+interface = "interface.8.go-sdkcs-platformoperation-agentfaucetclaim"
+verdict = "retired"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 25
+symbol = "AgentFaucetClaim"
+evidence = "AgentFaucetClaim is absent from the registered catalog, including the enum, Transport, Describe and generated extensions. Repository-wide literal search excluding spec/ and docs/ found only GOTCHA.kvx:12030, a historical note about retiring typed faucet tests; no live code reference remains."
+remaining_refs = 1
+remaining = ["GOTCHA.kvx:12030"]
+
+[row.r8-31.3]
+interface = "interface.8.go-sdkcs-platformoperation-agentmcpinvoke"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 28
+symbol = "AgentMcpInvoke"
+evidence = "PlatformOperation still declares AgentMcpInvoke, at line 28 (registered line 26); the enum identifier is unchanged. Describe at line 313 maps mcp.invoke to POST the agent envelope (empty descriptor path), with McpInvokeRequest -> object metadata."
+
+[row.r8-31.4]
+interface = "interface.8.go-sdkcs-platformoperation-agentpolicydryrun"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 29
+symbol = "AgentPolicyDryRun"
+evidence = "PlatformOperation still declares AgentPolicyDryRun, at line 29 (registered line 27); the enum identifier is unchanged. Describe at line 314 maps policy.dry_run to POST the agent envelope (empty descriptor path), with object -> PolicyDryRunResult metadata."
+
+[row.r8-31.5]
+interface = "interface.8.go-sdkcs-platformoperation-agentprepare"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 30
+symbol = "AgentPrepare"
+evidence = "PlatformOperation still declares AgentPrepare, at line 30 (registered line 28); the enum identifier is unchanged. Describe at line 315 maps prepare to POST the agent envelope (empty descriptor path), with PrepareRequest -> Prepared metadata."
+
+[row.r8-31.6]
+interface = "interface.8.go-sdkcs-platformoperation-agentprogramactivity"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 31
+symbol = "AgentProgramActivity"
+evidence = "PlatformOperation still declares AgentProgramActivity, at line 31 (registered line 29); the enum identifier is unchanged. The operation transport changed from GET /v1/programs/activities/{activity_id} to PlatformOperation.AgentProgramActivity => new(\"evm\", \"eth_getTransactionByHash\", null, null, false), at line 174. Describe at line 316 now uses an empty REST path and typed ProgramActivitySelector -> ProgramSubmission metadata."
+
+[row.r8-31.7]
+interface = "interface.8.go-sdkcs-platformoperation-agentprogramcall"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 32
+symbol = "AgentProgramCall"
+evidence = "PlatformOperation still declares AgentProgramCall, at line 32 (registered line 30); the enum identifier is unchanged. The operation transport changed from POST /v1/programs/call to PlatformOperation.AgentProgramCall => new(\"evm\", \"eth_sendRawTransaction\", \"0x000000000000000000000000000000000000101d\", \"call(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128)\", false), at line 175. Describe at line 317 now uses an empty REST path and typed ProgramCallRequest -> ProgramSubmission metadata."
+
+[row.r8-31.8]
+interface = "interface.8.go-sdkcs-platformoperation-agentprogramdeploy"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 33
+symbol = "AgentProgramDeploy"
+evidence = "PlatformOperation still declares AgentProgramDeploy, at line 33 (registered line 31); the enum identifier is unchanged. The operation transport changed from POST /v1/programs/deploy to PlatformOperation.AgentProgramDeploy => new(\"evm\", \"eth_sendRawTransaction\", \"0x000000000000000000000000000000000000101d\", \"deploy(bytes32,uint16,uint8,bytes32,bytes32,bytes,bytes)\", false), at line 176. Describe at line 318 now uses an empty REST path and typed NativeProgramDeployRequest -> ProgramLifecycleResponse metadata."
+
+[row.r8-31.9]
+interface = "interface.8.go-sdkcs-platformoperation-agentprogramdiscover"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 34
+symbol = "AgentProgramDiscover"
+evidence = "PlatformOperation still declares AgentProgramDiscover, at line 34 (registered line 32); the enum identifier is unchanged. The operation transport changed from GET /v1/programs/registry/{program_id} to PlatformOperation.AgentProgramDiscover => new(\"evm\", \"eth_call\", \"0x000000000000000000000000000000000000101d\", \"getProgram(bytes32)\", false), at line 177. Describe at line 319 now uses an empty REST path and typed ProgramSelector -> VerifiedProgramDiscovery metadata."
+
+[row.r8-31.10]
+interface = "interface.8.go-sdkcs-platformoperation-agentprograminterface"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 35
+symbol = "AgentProgramInterface"
+evidence = "PlatformOperation still declares AgentProgramInterface, at line 35 (registered line 33); the enum identifier is unchanged. The operation transport changed from GET /v1/programs/registry/{program_id}/interface to PlatformOperation.AgentProgramInterface => new(\"evm\", \"eth_call\", \"0x000000000000000000000000000000000000101d\", \"getInterface(bytes32)\", false), at line 178. Describe at line 320 now uses an empty REST path and typed ProgramSelector -> VerifiedProgramInterface metadata."
+
+[row.r8-31.11]
+interface = "interface.8.go-sdkcs-platformoperation-agentprogramreceipt"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 36
+symbol = "AgentProgramReceipt"
+evidence = "PlatformOperation still declares AgentProgramReceipt, at line 36 (registered line 34); the enum identifier is unchanged. The operation transport changed from GET /v1/programs/receipts/by-idempotency/{idempotency_key} to PlatformOperation.AgentProgramReceipt => new(\"evm\", \"eth_getTransactionByHash\", null, null, false), at line 179. Describe at line 321 now uses an empty REST path and typed ProgramReceiptSelector -> ProgramReceiptResponse metadata."
+
+[row.r8-31.12]
+interface = "interface.8.go-sdkcs-platformoperation-agentprogramsimulate"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 37
+symbol = "AgentProgramSimulate"
+evidence = "PlatformOperation still declares AgentProgramSimulate, at line 37 (registered line 35); the enum identifier is unchanged. The operation transport changed from POST /v1/programs/simulate to PlatformOperation.AgentProgramSimulate => new(\"evm\", \"eth_call\", \"0x000000000000000000000000000000000000101d\", \"simulateCall(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128)\", false), at line 180. Describe at line 322 now uses an empty REST path and typed ProgramCallRequest -> ProgramSimulation metadata."
+
+[row.r8-31.13]
+interface = "interface.8.go-sdkcs-platformoperation-agentprogramupgrade"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 38
+symbol = "AgentProgramUpgrade"
+evidence = "PlatformOperation still declares AgentProgramUpgrade, at line 38 (registered line 36); the enum identifier is unchanged. The operation transport changed from POST /v1/programs/upgrade to PlatformOperation.AgentProgramUpgrade => new(\"evm\", \"eth_sendRawTransaction\", \"0x000000000000000000000000000000000000101d\", \"upgrade(bytes32,uint16,uint8,bytes32,bytes32,bytes,bytes,bytes,uint128)\", false), at line 181. Describe at line 323 now uses an empty REST path and typed NativeProgramUpgradeRequest -> ProgramLifecycleResponse metadata."
+
+[row.r8-31.14]
+interface = "interface.8.go-sdkcs-platformoperation-agentprogramwinddown"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 39
+symbol = "AgentProgramWindDown"
+evidence = "PlatformOperation still declares AgentProgramWindDown, at line 39 (registered line 37); the enum identifier is unchanged. The operation transport changed from POST /v1/programs/wind-down to PlatformOperation.AgentProgramWindDown => new(\"evm\", \"eth_sendRawTransaction\", \"0x000000000000000000000000000000000000101d\", \"deprecate(bytes32,bytes32,uint64)\", false), at line 182. Describe at line 324 now uses an empty REST path and typed NativeProgramWindDownRequest -> ProgramLifecycleResponse metadata."
+
+[row.r8-31.15]
+interface = "interface.8.go-sdkcs-platformoperation-agentproject"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 40
+symbol = "AgentProject"
+evidence = "PlatformOperation still declares AgentProject, at line 40 (registered line 38); the enum identifier is unchanged. Describe at line 325 maps project to POST the agent envelope (empty descriptor path), with FeeProjectionRequest -> ProjectionResult metadata."
+
+[row.r8-31.16]
+interface = "interface.8.go-sdkcs-platformoperation-agentreadaccount"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 41
+symbol = "AgentReadAccount"
+evidence = "PlatformOperation still declares AgentReadAccount, at line 41 (registered line 39); the enum identifier is unchanged. Describe at line 326 maps read.account to POST the agent envelope (empty descriptor path), with object -> VerifiedRead<AccountValue> metadata."
+
+[row.r8-31.17]
+interface = "interface.8.go-sdkcs-platformoperation-agentreadbalance"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 42
+symbol = "AgentReadBalance"
+evidence = "PlatformOperation still declares AgentReadBalance, at line 42 (registered line 40); the enum identifier is unchanged. Describe at line 327 maps read.balance to POST the agent envelope (empty descriptor path), with object -> VerifiedRead<BalanceValue> metadata."
+
+[row.r8-31.18]
+interface = "interface.8.go-sdkcs-platformoperation-agentreadbatch"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 43
+symbol = "AgentReadBatch"
+evidence = "PlatformOperation still declares AgentReadBatch, at line 43 (registered line 41); the enum identifier is unchanged. Describe at line 328 maps read.batch to POST the agent envelope (empty descriptor path), with object -> VerifiedRead<BatchValue> metadata."
+
+[row.r8-31.19]
+interface = "interface.8.go-sdkcs-platformoperation-agentreadcheckpoint"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 44
+symbol = "AgentReadCheckpoint"
+evidence = "PlatformOperation still declares AgentReadCheckpoint, at line 44 (registered line 42); the enum identifier is unchanged. Describe at line 329 maps read.checkpoint to POST the agent envelope (empty descriptor path), with object -> VerifiedRead<CheckpointValue> metadata."
+
+[row.r8-31.20]
+interface = "interface.8.go-sdkcs-platformoperation-agentreadhistory"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 45
+symbol = "AgentReadHistory"
+evidence = "PlatformOperation still declares AgentReadHistory, at line 45 (registered line 43); the enum identifier is unchanged. Describe at line 330 maps read.history to POST the agent envelope (empty descriptor path), with object -> VerifiedRead<HistoryValue> metadata."
+
+[row.r8-31.21]
+interface = "interface.8.go-sdkcs-platformoperation-agentreadmodulestate"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 46
+symbol = "AgentReadModuleState"
+evidence = "PlatformOperation still declares AgentReadModuleState, at line 46 (registered line 44); the enum identifier is unchanged. Describe at line 331 maps read.module_state to POST the agent envelope (empty descriptor path), with object -> VerifiedRead<ModuleStateValue> metadata."
+
+[row.r8-31.22]
+interface = "interface.8.go-sdkcs-platformoperation-agentreadproofbundle"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 47
+symbol = "AgentReadProofBundle"
+evidence = "PlatformOperation still declares AgentReadProofBundle, at line 47 (registered line 45); the enum identifier is unchanged. Describe at line 332 maps read.proof_bundle to POST the agent envelope (empty descriptor path), with object -> VerifiedRead<ProofBundle> metadata."
+
+[row.r8-31.23]
+interface = "interface.8.go-sdkcs-platformoperation-agentsessionclose"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 48
+symbol = "AgentSessionClose"
+evidence = "PlatformOperation still declares AgentSessionClose, at line 48 (registered line 46); the enum identifier is unchanged. Describe at line 333 maps session.close to POST the agent envelope (empty descriptor path), with SessionClose -> AuthorityResponse<SessionRecord> metadata."
+
+[row.r8-31.24]
+interface = "interface.8.go-sdkcs-platformoperation-agentsessionlist"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 49
+symbol = "AgentSessionList"
+evidence = "PlatformOperation still declares AgentSessionList, at line 49 (registered line 47); the enum identifier is unchanged. Describe at line 334 maps session.list to POST the agent envelope (empty descriptor path), with SessionList -> AuthorityResponse<SessionRecords> metadata."
+
+[row.r8-31.25]
+interface = "interface.8.go-sdkcs-platformoperation-agentsessionopen"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 50
+symbol = "AgentSessionOpen"
+evidence = "PlatformOperation still declares AgentSessionOpen, at line 50 (registered line 48); the enum identifier is unchanged. Describe at line 335 maps session.open to POST the agent envelope (empty descriptor path), with SessionOpen -> AuthorityResponse<SessionRecord> metadata."
+
+[row.r8-31.26]
+interface = "interface.8.go-sdkcs-platformoperation-agentsessionrefresh"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 51
+symbol = "AgentSessionRefresh"
+evidence = "PlatformOperation still declares AgentSessionRefresh, at line 51 (registered line 49); the enum identifier is unchanged. Describe at line 336 maps session.refresh to POST the agent envelope (empty descriptor path), with SessionRefresh -> AuthorityResponse<SessionRecord> metadata."
+
+[row.r8-31.27]
+interface = "interface.8.go-sdkcs-platformoperation-agentsign"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 52
+symbol = "AgentSign"
+evidence = "PlatformOperation still declares AgentSign, at line 52 (registered line 50); the enum identifier is unchanged. Describe at line 337 maps sign to POST the agent envelope (empty descriptor path), with SignRequest -> Signed metadata."
+
+[row.r8-31.28]
+interface = "interface.8.go-sdkcs-platformoperation-agentsubmit"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 53
+symbol = "AgentSubmit"
+evidence = "PlatformOperation still declares AgentSubmit, at line 53 (registered line 51); the enum identifier is unchanged. Describe at line 338 maps submit to POST the agent envelope (empty descriptor path), with SubmitRequest -> TrackedSubmission metadata."
+
+[row.r8-31.29]
+interface = "interface.8.go-sdkcs-platformoperation-agentsubscriptionacknowledge"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 54
+symbol = "AgentSubscriptionAcknowledge"
+evidence = "PlatformOperation still declares AgentSubscriptionAcknowledge, at line 54 (registered line 52); the enum identifier is unchanged. Describe at line 339 maps subscription.acknowledge to POST the agent envelope (empty descriptor path), with object -> object metadata."
+
+[row.r8-31.30]
+interface = "interface.8.go-sdkcs-platformoperation-agentsubscriptioncreate"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 55
+symbol = "AgentSubscriptionCreate"
+evidence = "PlatformOperation still declares AgentSubscriptionCreate, at line 55 (registered line 53); the enum identifier is unchanged. Describe at line 340 maps subscription.create to POST the agent envelope (empty descriptor path), with object -> SubscriptionRecord metadata."
+
+[row.r8-31.31]
+interface = "interface.8.go-sdkcs-platformoperation-agentsubscriptiondelete"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 56
+symbol = "AgentSubscriptionDelete"
+evidence = "PlatformOperation still declares AgentSubscriptionDelete, at line 56 (registered line 54); the enum identifier is unchanged. Describe at line 341 maps subscription.delete to POST the agent envelope (empty descriptor path), with object -> object metadata."
+
+[row.r8-31.32]
+interface = "interface.8.go-sdkcs-platformoperation-agentsubscriptionhealth"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 57
+symbol = "AgentSubscriptionHealth"
+evidence = "PlatformOperation still declares AgentSubscriptionHealth, at line 57 (registered line 55); the enum identifier is unchanged. Describe at line 342 maps subscription.health to POST the agent envelope (empty descriptor path), with object -> SubscriptionHealth metadata."
+
+[row.r8-31.33]
+interface = "interface.8.go-sdkcs-platformoperation-agentsubscriptionlist"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 58
+symbol = "AgentSubscriptionList"
+evidence = "PlatformOperation still declares AgentSubscriptionList, at line 58 (registered line 56); the enum identifier is unchanged. Describe at line 343 maps subscription.list to POST the agent envelope (empty descriptor path), with object -> SubscriptionRecord[] metadata."
+
+[row.r8-31.34]
+interface = "interface.8.go-sdkcs-platformoperation-agentsubscriptionpause"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 59
+symbol = "AgentSubscriptionPause"
+evidence = "PlatformOperation still declares AgentSubscriptionPause, at line 59 (registered line 57); the enum identifier is unchanged. Describe at line 344 maps subscription.pause to POST the agent envelope (empty descriptor path), with object -> object metadata."
+
+[row.r8-31.35]
+interface = "interface.8.go-sdkcs-platformoperation-agentsubscriptionresume"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 60
+symbol = "AgentSubscriptionResume"
+evidence = "PlatformOperation still declares AgentSubscriptionResume, at line 60 (registered line 58); the enum identifier is unchanged. Describe at line 345 maps subscription.resume to POST the agent envelope (empty descriptor path), with object -> object metadata."
+
+[row.r8-31.36]
+interface = "interface.8.go-sdkcs-platformoperation-agenttenantreadiness"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 61
+symbol = "AgentTenantReadiness"
+evidence = "PlatformOperation still declares AgentTenantReadiness, at line 61 (registered line 59); the enum identifier is unchanged. Describe at line 346 maps tenant.readiness to POST the agent envelope (empty descriptor path), with TenantReadinessRequest -> TenantReadiness metadata."
+
+[row.r8-31.37]
+interface = "interface.8.go-sdkcs-platformoperation-agenttrack"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 62
+symbol = "AgentTrack"
+evidence = "PlatformOperation still declares AgentTrack, at line 62 (registered line 60); the enum identifier is unchanged. Describe at line 347 maps track to POST the agent envelope (empty descriptor path), with TrackRequest -> TrackedSubmission metadata."
+
+[row.r8-31.38]
+interface = "interface.8.go-sdkcs-platformoperation-agentwait"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 63
+symbol = "AgentWait"
+evidence = "PlatformOperation still declares AgentWait, at line 63 (registered line 61); the enum identifier is unchanged. Describe at line 348 maps wait to POST the agent envelope (empty descriptor path), with WaitRequest -> WaitResult metadata."
+
+[row.r8-31.39]
+interface = "interface.8.go-sdkcs-platformoperation-humanaccountbalance"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 64
+symbol = "HumanAccountBalance"
+evidence = "PlatformOperation still declares HumanAccountBalance, at line 64 (registered line 62); the enum identifier is unchanged. Describe at line 349 maps account.balance to GET /v1/account/balance, with Empty -> AccountBalance metadata."
+
+[row.r8-31.40]
+interface = "interface.8.go-sdkcs-platformoperation-humanaccountcreate"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 65
+symbol = "HumanAccountCreate"
+evidence = "PlatformOperation still declares HumanAccountCreate, at line 65 (registered line 63); the enum identifier is unchanged. Describe at line 350 maps account.create to POST /v1/accounts, with AccountCreateRequest -> AccountCreation metadata."
+
+[row.r8-31.41]
+interface = "interface.8.go-sdkcs-platformoperation-humanactivityentry"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 66
+symbol = "HumanActivityEntry"
+evidence = "PlatformOperation still declares HumanActivityEntry, at line 66 (registered line 64); the enum identifier is unchanged. Describe at line 351 maps activity.entry to GET /v1/activity/{entry_id}, with Empty -> ActivityEntryDetail metadata."
+
+[row.r8-31.42]
+interface = "interface.8.go-sdkcs-platformoperation-humanactivityexportevidence"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 67
+symbol = "HumanActivityExportEvidence"
+evidence = "PlatformOperation still declares HumanActivityExportEvidence, at line 67 (registered line 65); the enum identifier is unchanged. Describe at line 352 maps activity.export.evidence to POST /v1/activity/exports/evidence, with ExportEvidenceRequest -> ExportArtefact metadata."
+
+[row.r8-31.43]
+interface = "interface.8.go-sdkcs-platformoperation-humanactivityexportstatement"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 68
+symbol = "HumanActivityExportStatement"
+evidence = "PlatformOperation still declares HumanActivityExportStatement, at line 68 (registered line 66); the enum identifier is unchanged. Describe at line 353 maps activity.export.statement to POST /v1/activity/exports/statement, with ExportStatementRequest -> ExportArtefact metadata."
+
+[row.r8-31.44]
+interface = "interface.8.go-sdkcs-platformoperation-humanactivityquery"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 69
+symbol = "HumanActivityQuery"
+evidence = "PlatformOperation still declares HumanActivityQuery, at line 69 (registered line 67); the enum identifier is unchanged. Describe at line 354 maps activity.query to POST /v1/activity/query, with ActivityQueryRequest -> ActivityPage metadata."
+
+[row.r8-31.45]
+interface = "interface.8.go-sdkcs-platformoperation-humanagentarchive"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 70
+symbol = "HumanAgentArchive"
+evidence = "PlatformOperation still declares HumanAgentArchive, at line 70 (registered line 68); the enum identifier is unchanged. Describe at line 355 maps agent.archive to POST /v1/agents/{agent_id}/archive, with AgentArchiveRequest -> Journey metadata."
+
+[row.r8-31.46]
+interface = "interface.8.go-sdkcs-platformoperation-humanagentcreate"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 71
+symbol = "HumanAgentCreate"
+evidence = "PlatformOperation still declares HumanAgentCreate, at line 71 (registered line 69); the enum identifier is unchanged. Describe at line 356 maps agent.create to POST /v1/agents, with AgentCreateRequest -> AgentCreationJourney metadata."
+
+[row.r8-31.47]
+interface = "interface.8.go-sdkcs-platformoperation-humanagentget"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 72
+symbol = "HumanAgentGet"
+evidence = "PlatformOperation still declares HumanAgentGet, at line 72 (registered line 70); the enum identifier is unchanged. Describe at line 357 maps agent.get to GET /v1/agents/{agent_id}, with Empty -> Agent metadata."
+
+[row.r8-31.48]
+interface = "interface.8.go-sdkcs-platformoperation-humanagentlimit"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 73
+symbol = "HumanAgentLimit"
+evidence = "PlatformOperation still declares HumanAgentLimit, at line 73 (registered line 71); the enum identifier is unchanged. Describe at line 358 maps agent.limit to POST /v1/agents/{agent_id}/limit, with AgentLimitRequest -> Agent metadata."
+
+[row.r8-31.49]
+interface = "interface.8.go-sdkcs-platformoperation-humanagentlist"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 74
+symbol = "HumanAgentList"
+evidence = "PlatformOperation still declares HumanAgentList, at line 74 (registered line 72); the enum identifier is unchanged. Describe at line 359 maps agent.list to GET /v1/agents, with Empty -> AgentPage metadata."
+
+[row.r8-31.50]
+interface = "interface.8.go-sdkcs-platformoperation-humanagentpause"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 75
+symbol = "HumanAgentPause"
+evidence = "PlatformOperation still declares HumanAgentPause, at line 75 (registered line 73); the enum identifier is unchanged. Describe at line 360 maps agent.pause to POST /v1/agents/{agent_id}/pause, with Empty -> Agent metadata."
+
+[row.r8-31.51]
+interface = "interface.8.go-sdkcs-platformoperation-humanagentreclaim"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 76
+symbol = "HumanAgentReclaim"
+evidence = "PlatformOperation still declares HumanAgentReclaim, at line 76 (registered line 74); the enum identifier is unchanged. Describe at line 361 maps agent.reclaim to POST /v1/agents/{agent_id}/reclaim, with AgentReclaimRequest -> Journey metadata."
+
+[row.r8-31.52]
+interface = "interface.8.go-sdkcs-platformoperation-humanagentrecover"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 77
+symbol = "HumanAgentRecover"
+evidence = "PlatformOperation still declares HumanAgentRecover, at line 77 (registered line 75); the enum identifier is unchanged. Describe at line 362 maps agent.recover to POST /v1/agents/{agent_id}/recover, with Empty -> KeyChallenge metadata."
+
+[row.r8-31.53]
+interface = "interface.8.go-sdkcs-platformoperation-humanagentresume"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 78
+symbol = "HumanAgentResume"
+evidence = "PlatformOperation still declares HumanAgentResume, at line 78 (registered line 76); the enum identifier is unchanged. Describe at line 363 maps agent.resume to POST /v1/agents/{agent_id}/resume, with Empty -> Agent metadata."
+
+[row.r8-31.54]
+interface = "interface.8.go-sdkcs-platformoperation-humanagentrotate"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 79
+symbol = "HumanAgentRotate"
+evidence = "PlatformOperation still declares HumanAgentRotate, at line 79 (registered line 77); the enum identifier is unchanged. Describe at line 364 maps agent.rotate to POST /v1/agents/{agent_id}/rotate, with Empty -> KeyChallenge metadata."
+
+[row.r8-31.55]
+interface = "interface.8.go-sdkcs-platformoperation-humanagentrotationdisclosure"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 80
+symbol = "HumanAgentRotationDisclosure"
+evidence = "PlatformOperation still declares HumanAgentRotationDisclosure, at line 80 (registered line 78); the enum identifier is unchanged. Describe at line 365 maps agent.rotation.disclosure to POST /v1/agents/{agent_id}/rotation/disclosure, with OwnerRotationDisclosureRequest -> SecurityAction metadata."
+
+[row.r8-31.56]
+interface = "interface.8.go-sdkcs-platformoperation-humanagentrotationstart"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 81
+symbol = "HumanAgentRotationStart"
+evidence = "PlatformOperation still declares HumanAgentRotationStart, at line 81 (registered line 79); the enum identifier is unchanged. Describe at line 366 maps agent.rotation.start to POST /v1/agents/{agent_id}/rotation, with OwnerRotationRequest -> KeyChallenge metadata."
+
+[row.r8-31.57]
+interface = "interface.8.go-sdkcs-platformoperation-humanapprovalapprove"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 82
+symbol = "HumanApprovalApprove"
+evidence = "PlatformOperation still declares HumanApprovalApprove, at line 82 (registered line 80); the enum identifier is unchanged. Describe at line 367 maps approval.approve to POST /v1/approvals/{approval_id}/approve, with ApprovalApproveRequest -> ApprovalDecision metadata."
+
+[row.r8-31.58]
+interface = "interface.8.go-sdkcs-platformoperation-humanapprovalget"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 83
+symbol = "HumanApprovalGet"
+evidence = "PlatformOperation still declares HumanApprovalGet, at line 83 (registered line 81); the enum identifier is unchanged. Describe at line 368 maps approval.get to GET /v1/approvals/{approval_id}, with Empty -> ApprovalDetail metadata."
+
+[row.r8-31.59]
+interface = "interface.8.go-sdkcs-platformoperation-humanapprovallist"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 84
+symbol = "HumanApprovalList"
+evidence = "PlatformOperation still declares HumanApprovalList, at line 84 (registered line 82); the enum identifier is unchanged. Describe at line 369 maps approval.list to GET /v1/approvals, with Empty -> ApprovalPage metadata."
+
+[row.r8-31.60]
+interface = "interface.8.go-sdkcs-platformoperation-humanapprovalprogramapprove"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 85
+symbol = "HumanApprovalProgramApprove"
+evidence = "PlatformOperation still declares HumanApprovalProgramApprove, at line 85 (registered line 83); the enum identifier is unchanged. Describe at line 370 maps approval.program.approve to POST /v1/program-approvals/{approval_id}/approve, with ProgramApprovalDecisionRequest -> ProgramApprovalDecision metadata."

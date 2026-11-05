@@ -7,32 +7,18 @@ import (
 	"encoding/hex"
 	"errors"
 	_ "github.com/jackc/pgx/v5/stdlib"
-	"os"
 	"testing"
 	"time"
 )
 
 func realStore(t *testing.T) (Store, string) {
 	t.Helper()
-	dsn := os.Getenv("DISCOVERY_TEST_DATABASE_URL")
-	if dsn == "" {
-		t.Fatal("DISCOVERY_TEST_DATABASE_URL must select an isolated PostgreSQL fixture")
-	}
-	db, e := sql.Open("pgx", dsn)
-	if e != nil {
-		t.Fatal(e)
-	}
-	t.Cleanup(func() { db.Close() })
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	if _, e = db.ExecContext(ctx, Schema); e != nil {
-		t.Fatal(e)
-	}
+	s, _, _ := proofDiscoveryStore(t)
 	var id [16]byte
-	if _, e = rand.Read(id[:]); e != nil {
+	if _, e := rand.Read(id[:]); e != nil {
 		t.Fatal(e)
 	}
-	return Store{db}, hex.EncodeToString(id[:])
+	return s, hex.EncodeToString(id[:])
 }
 func TestPostgresDurableAlertCrossingAndRestart(t *testing.T) {
 	s, id := realStore(t)
@@ -67,7 +53,7 @@ func TestPostgresInvitationReplayAndRemovedAuthorization(t *testing.T) {
 	s, id := realStore(t)
 	ctx := context.Background()
 	owner, recipient := id+"o", id+"r"
-	q := Squad{ID: id, OwnerAccountID: owner, Name: "Research", Policy: "invite", Revision: 1}
+	q := Squad{ID: id, OwnerAccountID: owner, Name: "Research", Policy: "invite", Visibility: "private", Revision: 1}
 	if e := s.CreateSquad(ctx, owner, q); e != nil {
 		t.Fatal(e)
 	}
@@ -78,7 +64,7 @@ func TestPostgresInvitationReplayAndRemovedAuthorization(t *testing.T) {
 		s.DB.Exec(`DELETE FROM narrative_discovery.squads WHERE id=$1`, id)
 	})
 	token := id + id
-	if e := s.Invite(ctx, owner, id, recipient, token, time.Now().Add(time.Hour)); e != nil {
+	if e := s.Invite(ctx, owner, id, recipient, token, 0, time.Now().Add(time.Hour)); e != nil {
 		t.Fatal(e)
 	}
 	m, e := s.AcceptInvitation(ctx, recipient, id, token, 1, time.Now())
@@ -219,7 +205,7 @@ func TestPostgresSquadRecipientConfirmationAndStaleRoleEdits(t *testing.T) {
 	s, id := realStore(t)
 	ctx := context.Background()
 	owner, recipient := id+"owner", id+"recipient"
-	q := Squad{ID: id, OwnerAccountID: owner, Name: "Research", Policy: "invite", Revision: 1}
+	q := Squad{ID: id, OwnerAccountID: owner, Name: "Research", Policy: "invite", Visibility: "private", Revision: 1}
 	if err := s.CreateSquad(ctx, owner, q); err != nil {
 		t.Fatal(err)
 	}
@@ -230,7 +216,7 @@ func TestPostgresSquadRecipientConfirmationAndStaleRoleEdits(t *testing.T) {
 		s.DB.Exec(`DELETE FROM narrative_discovery.squads WHERE id=$1`, id)
 	})
 	token := id + id
-	if err := s.Invite(ctx, owner, id, recipient, token, time.Now().Add(time.Hour)); err != nil {
+	if err := s.Invite(ctx, owner, id, recipient, token, 0, time.Now().Add(time.Hour)); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.AcceptInvitation(ctx, recipient, id, token, 1, time.Now()); err != nil {

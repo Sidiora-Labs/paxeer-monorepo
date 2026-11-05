@@ -1,0 +1,23 @@
+[disposition.18.1508.2.1]
+finding = "18.1508.2.1"
+status = "environment"
+evidence = "services/launchpad/api/internal/rest/qualification_workload_test.go:1029 reads L22_MEASUREMENT_INPUT and its SHA-256 from the environment before requiring an approved measurement input, so the qualification failure reflects missing owner-provisioned measurement data."
+follow_up = "closure"
+
+[disposition.18.1508.2.2]
+finding = "18.1508.2.2"
+status = "environment"
+evidence = "sdk/launchpad/packages/sdk/package.json:29 declares the pnpm workspace dependency and apps/launchpad/pnpm-workspace.yaml:4 includes the SDK packages, so npm's unsupported workspace protocol failure reflects using the wrong package manager for the owning workspace."
+follow_up = "closure"
+
+[disposition.18.1508.2.3]
+finding = "18.1508.2.3"
+status = "environment"
+evidence = "services/launchpad/api/internal/rest/qualification_workload_test.go:1367 requires L22_MEASUREMENT_AGGREGATE_INPUT and its SHA-256 from the environment before aggregating source-bound generator results, so the qualification failure reflects missing owner-provisioned aggregate evidence."
+follow_up = "closure"
+
+[disposition.18.1043.1.2]
+finding = "18.1043.1.2"
+status = "resolved"
+evidence = "Commit 87cc739a449eccdafb3945e36445e52beda4b9f0 changed TestHttpDenyList at rpc/rpcstack_test.go:604 to expect request id 1 and the terminating newline, matching the parsed-request deny-list error response."
+follow_up = "closure"

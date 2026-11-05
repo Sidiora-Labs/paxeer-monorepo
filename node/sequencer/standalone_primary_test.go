@@ -174,14 +174,13 @@ func TestReplicatorStandaloneAcknowledgesAfterWALSync(t *testing.T) {
 		accepts = append(accepts, &wal.Accept{Seq: accepted.Seq, Height: uint64(accepted.Height), Tx: tx, Receipt: receipt})
 	}
 	release(accepts[1].Seq, accepts[0], accepts[1])
-	ack, err := r.Release(context.Background(), &wal.Lease{Epoch: 1})
+	lease := &wal.Lease{Epoch: 1, KeyID: [32]byte{1}, ExpiryMs: uint64(time.Now().Add(time.Second).UnixMilli())}
+	release(accepts[1].Seq, lease)
+	require.Equal(t, uint64(1), r.Epoch())
+	ack, err := r.Drain(context.Background())
 	require.ErrorIs(t, err, sequencer.ErrNoAck)
 	require.Equal(t, sequencer.Ack{}, ack)
-	require.Zero(t, r.Epoch())
-	ack, err = r.Drain(context.Background())
-	require.ErrorIs(t, err, sequencer.ErrNoAck)
-	require.Equal(t, sequencer.Ack{}, ack)
-	require.Equal(t, 2, syncs)
+	require.Equal(t, 3, syncs)
 
 	w.Close()
 	w, err = wal.OpenWAL(dir, wal.DefaultConfig())
@@ -192,7 +191,7 @@ func TestReplicatorStandaloneAcknowledgesAfterWALSync(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, result.Accepts)
 	require.Equal(t, accepts[1], result.LastAccept)
-	require.Nil(t, result.Lease)
+	require.Equal(t, lease, result.Lease)
 	require.Nil(t, result.Tail)
 }
 
@@ -221,6 +220,7 @@ func TestNodeStartsPrimaryWithoutStandbyAddress(t *testing.T) {
 			if !standalone {
 				l := listen(t)
 				cfg.StandbyAddress = l.Addr().String()
+				cfg.ReplicationTLS, _ = sequencer.Repair103TLSFixture(t)
 				require.NoError(t, l.Close())
 				cfg.ReplicationTimeout = replicationTimeout
 			}

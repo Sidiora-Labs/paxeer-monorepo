@@ -118,6 +118,8 @@ type sent struct {
 	block uint64
 }
 
+// TestEndToEndChainMarkets needs a disposable PostgreSQL database allowing the
+// perps schema to be dropped and migrated, and EVM and Comet RPCs for one chain.
 func TestEndToEndChainMarkets(t *testing.T) {
 	if os.Getenv(e2eDatabaseEnv) == "" || os.Getenv(e2eRPCEnv) == "" || os.Getenv(e2eCometEnv) == "" {
 		t.Fatalf("TestEndToEndChainMarkets requires %s, %s and %s to all be set", e2eDatabaseEnv, e2eRPCEnv, e2eCometEnv)
@@ -248,6 +250,8 @@ func TestEndToEndChainMarkets(t *testing.T) {
 	}
 }
 
+// TestEndToEndGraphQLMarkets uses the same database and chain inputs as
+// TestEndToEndChainMarkets; it compares gateway responses with on-chain state.
 func TestEndToEndGraphQLMarkets(t *testing.T) {
 	if os.Getenv(e2eDatabaseEnv) == "" || os.Getenv(e2eRPCEnv) == "" || os.Getenv(e2eCometEnv) == "" {
 		t.Fatalf("TestEndToEndGraphQLMarkets requires %s, %s and %s to all be set", e2eDatabaseEnv, e2eRPCEnv, e2eCometEnv)
@@ -405,9 +409,12 @@ func TestEndToEndGraphQLMarkets(t *testing.T) {
 	}
 }
 
+// TestEndToEnd additionally needs PERPS_DATA_TEST_SEED_KEY_FILE for an account
+// funded with native gas, USDL and perps collateral, a tradable PAX market 11,
+// and retained block history containing FundingSettled receipts.
 func TestEndToEnd(t *testing.T) {
-	if os.Getenv(e2eDatabaseEnv) == "" && os.Getenv(e2eRPCEnv) == "" && os.Getenv(e2eCometEnv) == "" {
-		t.Skip("TestEndToEnd needs " + e2eDatabaseEnv + ", " + e2eRPCEnv + " and " + e2eCometEnv)
+	if os.Getenv(e2eDatabaseEnv) == "" || os.Getenv(e2eRPCEnv) == "" || os.Getenv(e2eCometEnv) == "" {
+		t.Fatalf("TestEndToEnd requires %s, %s and %s to all be set", e2eDatabaseEnv, e2eRPCEnv, e2eCometEnv)
 	}
 	e := setupE2E(t)
 	ctx := context.Background()

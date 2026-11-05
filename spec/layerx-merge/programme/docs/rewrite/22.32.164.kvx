@@ -1,0 +1,17 @@
+[manifest]
+task = "22.32.164"
+domain = 16
+owner_role = "fm-tools-ops"
+pages = 2
+
+[page.1]
+path = "deploy/launchpad/production/topology/README.md"
+status = "stale"
+bytes = 11818
+source_1 = "record 22.30.170 [doc.026] (stale): Lines 10-15 invoke deploy/production/topology scripts and tests; those paths are now under deploy/launchpad/production/topology. See finding.topology_command_paths."
+
+[page.2]
+path = "deploy/launchpad/production/topology/phase2/operator-runbook.md"
+status = "stale"
+bytes = 17747
+source_1 = "record 22.30.170 [doc.027] (stale): Lines 3 and 43 set PYTHONPATH=deploy/production/topology; line 45 pins tools/production/load. Current paths are deploy/launchpad/production/topology and tools/launchpad/production/load. See finding.topology_operator_command_paths."

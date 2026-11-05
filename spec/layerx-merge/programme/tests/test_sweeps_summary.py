@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from programme.kvx import load
-from programme.sweeps_summary import ROOT, sweeps_summary
+from programme.sweeps_summary import ROOT, _load_report, sweeps_summary
 
 
 CHECKER = Path(__file__).resolve().parents[1] / "sweeps_summary.py"
@@ -127,6 +127,41 @@ def test_sweeps_summary_counts_and_copies_failures(tmp_path: Path) -> None:
     }
 
 
+@pytest.mark.parametrize("elapsed", ["780.788", "+780.788", "-780.788", "0.0"])
+def test_sweeps_summary_accepts_decimal_values(tmp_path: Path, elapsed: str) -> None:
+    directory = tmp_path / "programme" / "sweeps"
+    report = _report(
+        directory,
+        "decimal",
+        '[target.decimal.1]\ntarget = "package"\nresult = "failed"\n'
+        f"elapsed_seconds = {elapsed} # decimal measurement\n"
+        'exit_code = 1\nobserved = "The assertion failed."\n'
+        'assumption = "The expected value is stale."\n',
+        (1, 0, 1, 0),
+    )
+    parsed = _load_report(report)
+    measurement = parsed["target.decimal.1"]["elapsed_seconds"]
+    assert type(measurement) is float
+    assert measurement == float(elapsed)
+    assert type(parsed["sweep.decimal"]["targets_total"]) is int
+
+    sections = load(sweeps_summary(tmp_path))
+    assert sections["summary"] == {
+        "reports": 1,
+        "targets_total": 1,
+        "targets_passed": 0,
+        "targets_failed": 1,
+        "targets_not_run": 0,
+    }
+    assert sections["failing.1"] == {
+        "sweep": "decimal",
+        "target": "package",
+        "result": "failed",
+        "observed": "The assertion failed.",
+        "assumption": "The expected value is stale.",
+    }
+
+
 @pytest.mark.parametrize("name", ["go-modules", "go-launchpad-modules"])
 def test_sweeps_summary_second_pass_replaces_not_run(tmp_path: Path, name: str) -> None:
     directory = tmp_path / "programme" / "sweeps"
@@ -213,6 +248,7 @@ def test_sweeps_summary_second_pass_replaces_not_run(tmp_path: Path, name: str) 
         ("targets_failed = 1", "targets_failed = 0", "targets_failed"),
         ("targets_not_run = 0", "targets_not_run = 1", "targets_not_run"),
         ("targets_total = 1", 'targets_total = "1"', "targets_total"),
+        ("targets_total = 1", "targets_total = 1.0", "targets_total"),
         ('observed = "The assertion failed."\n', "", "observed"),
         ('assumption = "The expected value is stale."\n', "", "assumption"),
         ('observed = "The assertion failed."', 'observed = " "', "observed"),

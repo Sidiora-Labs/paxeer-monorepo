@@ -17,6 +17,7 @@ import (
 )
 
 func TestPhase2ReaderCompatibility(t *testing.T) {
+	frozenPool, row := phase2FrozenPool(t)
 	pool, readerDSN := phase2MigrationFixture(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -43,46 +44,6 @@ func TestPhase2ReaderCompatibility(t *testing.T) {
 	baseline := phase2RegisteredMigration(70010, baselineSQL, nil)
 	registry := map[int64]MigrationManifest{baseline.MigrationID: baseline}
 	if err = ApplyCoordinatedMigration(ctx, conn, baseline, []byte(baselineSQL), registry, baseline.InterfaceDigest, baseline.ApprovalManifestDigest, 1); err != nil {
-		t.Fatal(err)
-	}
-	raw, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "..", "launchpad", "spec", "production-system", "integration", "contracts", "v1", "examples.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var examples any
-	if err = json.Unmarshal(raw, &examples); err != nil {
-		t.Fatal(err)
-	}
-	var frozenPool []byte
-	var find func(any)
-	find = func(value any) {
-		if frozenPool != nil {
-			return
-		}
-		switch v := value.(type) {
-		case map[string]any:
-			if _, ok := v["virtualUsdlReserveRaw"]; ok {
-				candidate, _ := json.Marshal(v)
-				if interfaces.ValidateJSON("Pool", candidate) == nil {
-					frozenPool = candidate
-					return
-				}
-			}
-			for _, item := range v {
-				find(item)
-			}
-		case []any:
-			for _, item := range v {
-				find(item)
-			}
-		}
-	}
-	find(examples)
-	if frozenPool == nil {
-		t.Fatal("frozen genuine Pool contract example missing")
-	}
-	var row interfaces.Pool
-	if err = json.Unmarshal(frozenPool, &row); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = pool.Exec(ctx, "INSERT INTO stats.phase2_reader_pools VALUES($1,$2::jsonb)", row.PoolAddress, frozenPool); err != nil {
@@ -140,4 +101,49 @@ func TestPhase2ReaderCompatibility(t *testing.T) {
 		t.Fatal("independent old/new binaries required")
 	}
 	t.Logf("old_binary_sha256=%s new_binary_sha256=%s expansion_sha256=%s representation_sha256=%s old_exit=0 new_exit=0", Checksum(oldBytes), Checksum(newBytes), Checksum([]byte(expansion)), Checksum(oldBefore))
+}
+
+func phase2FrozenPool(t *testing.T) ([]byte, interfaces.Pool) {
+	t.Helper()
+	raw, err := os.ReadFile(filepath.Join("..", "..", "..", "protocol", "contracts", "v1", "examples.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var examples any
+	if err = json.Unmarshal(raw, &examples); err != nil {
+		t.Fatal(err)
+	}
+	var frozenPool []byte
+	var find func(any)
+	find = func(value any) {
+		if frozenPool != nil {
+			return
+		}
+		switch v := value.(type) {
+		case map[string]any:
+			if _, ok := v["virtualUsdlReserveRaw"]; ok {
+				candidate, _ := json.Marshal(v)
+				if interfaces.ValidateJSON("Pool", candidate) == nil {
+					frozenPool = candidate
+					return
+				}
+			}
+			for _, item := range v {
+				find(item)
+			}
+		case []any:
+			for _, item := range v {
+				find(item)
+			}
+		}
+	}
+	find(examples)
+	if frozenPool == nil {
+		t.Fatal("frozen genuine Pool contract example missing")
+	}
+	var row interfaces.Pool
+	if err = json.Unmarshal(frozenPool, &row); err != nil {
+		t.Fatal(err)
+	}
+	return frozenPool, row
 }

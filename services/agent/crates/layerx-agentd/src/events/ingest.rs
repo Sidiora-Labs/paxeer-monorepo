@@ -1,10 +1,8 @@
 use std::collections::{BTreeMap, VecDeque};
 use std::fmt::{Display, Formatter};
 
-use super::gap::{attempt_backfill, BackfillReport, Gap};
+use super::gap::{attempt_backfill, BackfillReport, EthLogSource, Gap};
 use crate::read::{Cursor, HistoryLimits};
-use layerx_client::lni::transport::FrameTransport;
-use layerx_client::rpc::history::ReadContext;
 use layerx_client::subscription::NodeSubscription;
 use layerx_types::{rung::Rung, verify as legacy};
 use serde_json::Value;
@@ -186,8 +184,8 @@ impl EventIngestor {
                     .into_iter()
                     .any(|sequence| {
                         durable_event(&store, &tenant, sequence).is_ok_and(|stored| {
-                            stored.position() == Some(position)
-                                && stored.canonical_bytes == event.canonical_bytes
+                            same_log_identity(&stored, &event)
+                                && reconcile_log(&stored, &event).is_ok()
                         })
                     });
                 if !found {
@@ -365,13 +363,28 @@ pub(super) fn durable_event(
     }
     let (receipt_reference, receipt_verification_level, attributes) =
         decode_metadata(metadata.bytes())?;
-    let event = CoreEvent {
+    let mut event = CoreEvent {
         global_sequence: sequence,
         canonical_bytes: stored_event.bytes().to_vec(),
         receipt_reference,
         receipt_verification_level,
         attributes,
     };
+    if let Ok(log) = decode_log(&event.canonical_bytes, Rung::Receipted) {
+        let position = Cursor {
+            block_height: log.block_height,
+            tx_index: log.tx_index,
+            log_index: log.log_index,
+        };
+        if let Some(evidence) = store.get(&committed_log_key(tenant.clone(), position)?) {
+            let committed =
+                CoreEvent::from_log_bytes(evidence.bytes().to_vec(), event.attributes.clone())?;
+            let level = event.receipt_verification_level;
+            event.receipt_verification_level = legacy::VerificationLevel::BATCH_INCLUDED;
+            event = reconcile_log(&event, &committed).map_err(|_| IngestError::CorruptEvent)?;
+            event.receipt_verification_level = level;
+        }
+    }
     validate_event(&event).map_err(|_| IngestError::CorruptEvent)?;
     Ok(event)
 }
@@ -613,7 +626,9 @@ pub struct EthereumLog {
     pub block_height: u64,
     pub tx_index: u32,
     pub log_index: u32,
-    pub block_hash: [u8; 32],
+    pub block_hash: Option<[u8; 32]>,
+    pub seq: Option<u64>,
+    pub transaction_hash: Option<[u8; 32]>,
     pub address: [u8; 20],
     pub topics: Vec<[u8; 32]>,
     pub data: Vec<u8>,
@@ -675,15 +690,39 @@ pub(super) fn decode_log(bytes: &[u8], rung: Rung) -> Result<EthereumLog, Ingest
         .as_array()
         .filter(|topics| topics.len() <= 4)
         .ok_or(IngestError::InvalidLog)?;
+    let seq = value
+        .get("seq")
+        .map(|_| quantity(&value, "seq"))
+        .transpose()?;
+    let block_hash = match value.get("blockHash") {
+        Some(Value::Null) if seq.is_some() && rung == Rung::Receipted => None,
+        Some(hash) => Some(
+            log_bytes(hash)?
+                .try_into()
+                .map_err(|_| IngestError::InvalidLog)?,
+        ),
+        None => return Err(IngestError::InvalidLog),
+    };
+    let transaction_hash = value
+        .get("transactionHash")
+        .map(|hash| {
+            log_bytes(hash)?
+                .try_into()
+                .map_err(|_| IngestError::InvalidLog)
+        })
+        .transpose()?;
+    if block_hash.is_none() && transaction_hash.is_none() {
+        return Err(IngestError::InvalidLog);
+    }
     Ok(EthereumLog {
         block_height: quantity(&value, "blockNumber")?,
         tx_index: u32::try_from(quantity(&value, "transactionIndex")?)
             .map_err(|_| IngestError::InvalidLog)?,
         log_index: u32::try_from(quantity(&value, "logIndex")?)
             .map_err(|_| IngestError::InvalidLog)?,
-        block_hash: log_bytes(&value["blockHash"])?
-            .try_into()
-            .map_err(|_| IngestError::InvalidLog)?,
+        block_hash,
+        seq,
+        transaction_hash,
         address: log_bytes(&value["address"])?
             .try_into()
             .map_err(|_| IngestError::InvalidLog)?,
@@ -724,13 +763,96 @@ impl EventIngestor {
             return Err(IngestError::ReceiptEvidenceMismatch);
         }
         let position = event.position().ok_or(IngestError::InvalidLog)?;
+        let pending_match = self
+            .pending
+            .iter()
+            .find(|(_, pending)| same_log_identity(pending, &event));
+        if let Some((&old_position, pending)) = pending_match {
+            let reconciled = reconcile_log(pending, &event)?;
+            let new_position = reconciled.position().ok_or(IngestError::InvalidLog)?;
+            if old_position != new_position && self.pending.contains_key(&new_position) {
+                return Err(IngestError::InvalidLog);
+            }
+            if old_position == new_position {
+                self.store.put_local(
+                    pending_key(self.tenant.clone(), old_position)?,
+                    encode_pending(&reconciled)?,
+                )?;
+            } else {
+                self.store.replace_local(
+                    &pending_key(self.tenant.clone(), old_position)?,
+                    pending_key(self.tenant.clone(), new_position)?,
+                    encode_pending(&reconciled)?,
+                )?;
+            }
+            self.pending.remove(&old_position);
+            self.pending.insert(new_position, reconciled);
+            return Ok(());
+        }
+        if self.pending.contains_key(&position) {
+            return Err(IngestError::InvalidLog);
+        }
+        let stored_match = durable_sequences(&self.store, &self.tenant)?
+            .into_iter()
+            .map(|sequence| durable_event(&self.store, &self.tenant, sequence))
+            .collect::<Result<Vec<_>, _>>()?
+            .into_iter()
+            .find(|stored| same_log_identity(stored, &event));
+        if let Some(stored) = stored_match {
+            if stored.log()?.transaction_hash.is_none() {
+                return Err(IngestError::Repeated {
+                    sequence: position.block_height,
+                });
+            }
+            let reconciled = reconcile_log(&stored, &event)?;
+            if reconciled.log()?.block_hash.is_some() {
+                let original = self
+                    .store
+                    .get(&event_key(self.tenant.clone(), stored.global_sequence)?)
+                    .ok_or(IngestError::CorruptEvent)?;
+                let original_log = decode_log(original.bytes(), Rung::Receipted)?;
+                let original_position = Cursor {
+                    block_height: original_log.block_height,
+                    tx_index: original_log.tx_index,
+                    log_index: original_log.log_index,
+                };
+                let evidence_key = committed_log_key(self.tenant.clone(), original_position)?;
+                let mut watermark = self.watermark;
+                if watermark.last_ingested == Some(stored.global_sequence) {
+                    watermark.last_position = reconciled.position();
+                }
+                let updates = vec![(
+                    watermark_key(self.tenant.clone())?,
+                    encode_watermark(watermark),
+                )];
+                if self.store.get(&evidence_key).is_some() {
+                    let mut updates = updates;
+                    updates.push((evidence_key, reconciled.canonical_bytes.clone()));
+                    self.store.update_local_batch(updates)?;
+                } else {
+                    self.store.update_local_batch_with_companion(
+                        updates,
+                        evidence_key,
+                        reconciled.canonical_bytes.clone(),
+                    )?;
+                }
+                self.watermark = watermark;
+            }
+            for buffered in &mut self.buffered {
+                if buffered.global_sequence == stored.global_sequence {
+                    *buffered = reconciled.clone();
+                }
+            }
+            return Ok(());
+        }
         if self
             .watermark
             .last_position
             .is_some_and(|last| position <= last)
-            || self.head.is_some_and(|head| position.block_height < head)
-            || self.pending.contains_key(&position)
         {
+            return Err(IngestError::InvalidLog);
+        }
+        if self.head.is_some_and(|head| position.block_height < head) {
             return Err(IngestError::Repeated {
                 sequence: position.block_height,
             });
@@ -751,18 +873,16 @@ impl EventIngestor {
     pub fn read_head(
         &mut self,
         subscription: &mut NodeSubscription,
-        transport: &mut dyn FrameTransport,
+        source: &EthLogSource,
         limits: HistoryLimits,
-        context: ReadContext,
         maximum_records: u32,
         attributes: EventAttributes,
     ) -> Result<(), IngestError> {
         let head = subscription.next().map_err(IngestError::Subscription)?;
         self.new_head(
             quantity(&head, "number")?,
-            transport,
+            source,
             limits,
-            context,
             maximum_records,
             attributes,
         )
@@ -771,9 +891,8 @@ impl EventIngestor {
     pub fn new_head(
         &mut self,
         height: u64,
-        transport: &mut dyn FrameTransport,
+        source: &EthLogSource,
         limits: HistoryLimits,
-        context: ReadContext,
         maximum_records: u32,
         attributes: EventAttributes,
     ) -> Result<(), IngestError> {
@@ -785,51 +904,68 @@ impl EventIngestor {
                 });
             }
             if let Some(gap) = Gap::between_heads(previous, height) {
-                let report = attempt_backfill(transport, gap, context, limits, maximum_records);
+                let report = attempt_backfill(source, gap, limits, maximum_records);
                 let BackfillReport::Recovered { events, .. } = report else {
                     return Err(IngestError::GapBlocked(gap));
                 };
                 let mut recovered = Vec::new();
+                let mut additions = 0;
+                let mut planned_pending = self.pending.clone();
                 for item in events {
                     let event =
                         CoreEvent::from_log_bytes(item.canonical_bytes, attributes.clone())?;
-                    if let Some(pending) = self.pending.get(&item.position) {
-                        if pending.canonical_bytes != event.canonical_bytes {
-                            return Err(IngestError::InvalidLog);
-                        }
+                    if let Some(pending) = self
+                        .pending
+                        .values()
+                        .find(|pending| same_log_identity(pending, &event))
+                    {
+                        reconcile_log(pending, &event)?;
                     } else if self
                         .watermark
                         .last_position
-                        .is_some_and(|last| item.position <= last)
+                        .is_some_and(|last| item.position.block_height <= last.block_height)
                     {
-                        let matches = durable_sequences(&self.store, &self.tenant)?
+                        let stored = durable_sequences(&self.store, &self.tenant)?
                             .into_iter()
-                            .any(|sequence| {
-                                durable_event(&self.store, &self.tenant, sequence).is_ok_and(
-                                    |stored| {
-                                        stored.position() == Some(item.position)
-                                            && stored.canonical_bytes == event.canonical_bytes
-                                    },
-                                )
-                            });
-                        if !matches {
+                            .map(|sequence| durable_event(&self.store, &self.tenant, sequence))
+                            .collect::<Result<Vec<_>, _>>()?
+                            .into_iter()
+                            .find(|stored| same_log_identity(stored, &event))
+                            .ok_or(IngestError::InvalidLog)?;
+                        reconcile_log(&stored, &event)?;
+                    } else {
+                        additions += 1;
+                    }
+                    let planned_match = planned_pending
+                        .iter()
+                        .find(|(_, pending)| same_log_identity(pending, &event))
+                        .map(|(&position, pending)| (position, pending.clone()));
+                    if let Some((old_position, pending)) = planned_match {
+                        let merged = reconcile_log(&pending, &event)?;
+                        planned_pending.remove(&old_position);
+                        let new_position = merged.position().ok_or(IngestError::InvalidLog)?;
+                        if planned_pending.insert(new_position, merged).is_some() {
                             return Err(IngestError::InvalidLog);
                         }
-                    } else {
-                        recovered.push((item.position, event));
+                    } else if !self
+                        .watermark
+                        .last_position
+                        .is_some_and(|last| item.position.block_height <= last.block_height)
+                        && planned_pending
+                            .insert(item.position, event.clone())
+                            .is_some()
+                    {
+                        return Err(IngestError::InvalidLog);
                     }
+                    recovered.push(event);
                 }
-                if self.buffered_len().saturating_add(recovered.len()) > self.capacity {
+                if self.buffered_len().saturating_add(additions) > self.capacity {
                     return Err(IngestError::Backpressure {
                         capacity: self.capacity,
                     });
                 }
-                for (position, event) in recovered {
-                    self.store.put_local(
-                        pending_key(self.tenant.clone(), position)?,
-                        encode_pending(&event)?,
-                    )?;
-                    self.pending.insert(position, event);
+                for event in recovered {
+                    self.queue_log(event)?;
                 }
             }
         }
@@ -859,6 +995,14 @@ impl EventIngestor {
         if checkpoint.rung != Rung::Committed
             || checkpoint.commit.height != checkpoint.height
             || checkpoint.commit.block_id.hash != checkpoint.block_hash
+            || crate::read::checkpoint(
+                checkpoint.height,
+                &checkpoint.header.chain_id,
+                &checkpoint.header,
+                &checkpoint.commit,
+                &checkpoint.validators,
+            )
+            .is_err()
         {
             return Err(IngestError::InvalidLog);
         }
@@ -867,7 +1011,7 @@ impl EventIngestor {
             let mut event = durable_event(&self.store, &self.tenant, sequence)?;
             if let Ok(log) = event.log() {
                 if log.block_height == checkpoint.height {
-                    if log.block_hash != checkpoint.block_hash {
+                    if log.block_hash != Some(checkpoint.block_hash) {
                         return Err(IngestError::InvalidLog);
                     }
                     event.receipt_verification_level =
@@ -881,7 +1025,8 @@ impl EventIngestor {
         }
         for event in self.pending.values().chain(self.buffered.iter()) {
             if let Ok(log) = event.log() {
-                if log.block_height == checkpoint.height && log.block_hash != checkpoint.block_hash
+                if log.block_height == checkpoint.height
+                    && log.block_hash != Some(checkpoint.block_hash)
                 {
                     return Err(IngestError::InvalidLog);
                 }
@@ -909,6 +1054,50 @@ impl EventIngestor {
         }
         Ok(())
     }
+}
+
+fn same_log_identity(left: &CoreEvent, right: &CoreEvent) -> bool {
+    match (left.log(), right.log()) {
+        (Ok(left), Ok(right)) => {
+            left.block_height == right.block_height
+                && left.log_index == right.log_index
+                && match (left.transaction_hash, right.transaction_hash) {
+                    (Some(a), Some(b)) => a == b,
+                    (None, None) => left.tx_index == right.tx_index,
+                    _ => false,
+                }
+        }
+        _ => false,
+    }
+}
+
+fn reconcile_log(stored: &CoreEvent, incoming: &CoreEvent) -> Result<CoreEvent, IngestError> {
+    let left = stored.log()?;
+    let right = incoming.log()?;
+    if !same_log_identity(stored, incoming)
+        || (left.block_hash.is_some() == right.block_hash.is_some()
+            && left.tx_index != right.tx_index)
+        || left.address != right.address
+        || left.topics != right.topics
+        || left.data != right.data
+        || left.transaction_hash != right.transaction_hash
+        || (left.transaction_hash.is_none() && stored.canonical_bytes != incoming.canonical_bytes)
+        || matches!((left.seq, right.seq), (Some(a), Some(b)) if a != b)
+        || matches!((left.block_hash, right.block_hash), (Some(a), Some(b)) if a != b)
+    {
+        return Err(IngestError::InvalidLog);
+    }
+    let mut event = stored.clone();
+    if left.block_hash.is_none() && right.block_hash.is_some() {
+        event.canonical_bytes = incoming.canonical_bytes.clone();
+    }
+    Ok(event)
+}
+
+fn committed_log_key(tenant: TenantId, position: Cursor) -> Result<TenantKey, StoreError> {
+    let mut id = b"event-committed:".to_vec();
+    id.extend_from_slice(position.to_hex().as_bytes());
+    TenantKey::new(tenant, ObjectKind::Configuration, id)
 }
 
 fn head_key(tenant: TenantId) -> Result<TenantKey, StoreError> {

@@ -59,15 +59,51 @@ import {
 const isMiddlewareError = (code: string) => (error: unknown): boolean =>
   error instanceof MiddlewareError && error.code === code;
 
+export class CommittedRungRequiresExactPaymentError extends Error {
+  public constructor() {
+    super("the committed rung requires an exact payment");
+    this.name = "CommittedRungRequiresExactPaymentError";
+  }
+}
+
+export function committedRungOffer(
+  offer: OfferFixture,
+  payment: PaymentReceiptVerification["payment"],
+): OfferFixture {
+  if (!("paymentReference" in payment)) {
+    throw new CommittedRungRequiresExactPaymentError();
+  }
+  const requirements: PaymentRequirements = {
+    ...offer.requirements,
+    extra: {
+      layerx: {
+        commitment: "committed",
+        purposeHash: toHex(payment.paymentReference),
+      },
+    },
+  };
+  return {
+    requirements,
+    paymentRequired: { ...offer.paymentRequired, accepts: [requirements] },
+  };
+}
+
 /** A session issuing and retaining signed payments from the conformance producer. */
 export class ConformancePaymentRpcSession {
   readonly #receipts = new Map<string, Readonly<Record<string, unknown>>>();
+  private readonly sequencer: ConformanceSequencer;
+  private readonly facts: ReceiptFacts;
+  private readonly requirements: PaymentRequirements;
 
   public constructor(
-    private readonly sequencer: ConformanceSequencer,
-    private readonly facts: ReceiptFacts,
-    private readonly requirements: PaymentRequirements,
-  ) {}
+    sequencer: ConformanceSequencer,
+    facts: ReceiptFacts,
+    requirements: PaymentRequirements,
+  ) {
+    this.sequencer = sequencer;
+    this.facts = facts;
+    this.requirements = requirements;
+  }
 
   public get issuedCount(): number {
     return this.#receipts.size;
@@ -91,13 +127,7 @@ export class ConformancePaymentRpcSession {
     if (receipt.rawTransaction !== raw) throw new Error("conformance-payment-mismatch");
     const keys = await new FixedReceiptKeys([this.sequencer.receiptKey()]).resolve();
     const verified = await verifyPaymentReceipt(receipt, this.requirements, keys);
-    this.#receipts.set(txHash, {
-      txHash: verified.txHash,
-      rung: verified.rung,
-      height: `0x${verified.height.toString(16)}`,
-      keyId: receipt.receiptKey.keyId,
-      receipt: receipt.signedReceipt,
-    });
+    this.#receipts.set(verified.txHash, structuredClone(receipt.receiptJson));
     return txHash;
   }
 }
@@ -236,6 +266,61 @@ export async function releasedDecision(
   return seller.handle("acct:conformance-seller", encodePaymentPayloadHeader(payload), async () => "the-paid-resource");
 }
 
+export async function assertConcurrentReceiptFulfillment(
+  offer: OfferFixture,
+  receipt: SignedReceipt,
+  resolver: FixedReceiptKeys,
+): Promise<void> {
+  const repository = new InMemoryFulfillmentRepository<string>();
+  const receiptKeys = await resolver.resolve();
+  const seller = new SellerMiddleware<string>({
+    paymentRequired: offer.paymentRequired,
+    receiptKeys,
+    authority: new ReceiptPayloadAuthority(receiptKeys),
+    fulfillments: repository,
+  });
+  const header = encodePaymentPayloadHeader(buyerPayload(offer, receipt, "seller-concurrent"));
+  let entered!: () => void;
+  const started = new Promise<void>((resolve) => { entered = resolve; });
+  let finish!: () => void;
+  const barrier = new Promise<void>((resolve) => { finish = resolve; });
+  let releases = 0;
+  const first = seller.handle("acct:conformance-seller", header, async () => {
+    releases += 1;
+    entered();
+    await barrier;
+    return "the-paid-resource";
+  });
+  await started;
+  const replay = seller.handle("acct:conformance-seller", header, async () => {
+    releases += 1;
+    return "duplicate-resource";
+  });
+  try {
+    for (const [principal, competingHeader] of [
+      ["acct:other-seller", header],
+      ["acct:conformance-seller", encodePaymentPayloadHeader(buyerPayload(offer, receipt, "competing-request"))],
+    ] as const) {
+      const conflict = await seller.handle(principal, competingHeader, async () => {
+        releases += 1;
+        return "conflicting-resource";
+      });
+      assert(conflict.kind === "refused" && conflict.status === 409, "an in-flight receipt reuse must be refused");
+      assert(conflict.kind === "refused" && !conflict.settlement.success && conflict.settlement.errorReason === "receipt_reuse", "the refusal must declare receipt reuse");
+    }
+  } finally {
+    finish();
+    await Promise.all([first, replay]);
+  }
+  const [original, repeated] = await Promise.all([first, replay]);
+  assert(original.kind === "released" && repeated.kind === "released", "matching concurrent requests must release");
+  if (original.kind === "released" && repeated.kind === "released") {
+    assert(original.resource === "the-paid-resource" && repeated.resource === original.resource, "replays must return the claimed resource");
+    assert(original.settlement.transaction === receipt.txHash && repeated.settlement.transaction === receipt.txHash, "both responses must bind the producer transaction");
+  }
+  assert(releases === 1 && repository.releaseCount === 1, "concurrent receipt claims must invoke release once");
+}
+
 export async function runScenarios(): Promise<Suite> {
   const suite = new Suite();
 
@@ -357,6 +442,10 @@ export async function runScenarios(): Promise<Suite> {
     assert(repository.releaseCount === 1, "the resource must be released only once across replays");
   });
 
+  await suite.check("seller: concurrent receipt claims release once and refuse competing requests", async () => {
+    await assertConcurrentReceiptFulfillment(offer, receipt, resolver);
+  });
+
   await suite.check("buyer: parseOffer selects only a supported requirement", async () => {
     const buyer = await buildBuyer(offer, resolver);
     const parsed = buyer.parseOffer(encodePaymentRequiredHeader(offer.paymentRequired));
@@ -432,19 +521,7 @@ export async function runScenarios(): Promise<Suite> {
   await suite.check("x402: a committed requirement refuses receipted-only evidence", async () => {
     const verification = await verifyPaymentReceipt(receipt, offer.requirements, receiptKeys);
     assert(verification.rung === "receipted", "the evidence must first verify at the receipted rung");
-    const requirements = {
-      ...offer.requirements,
-      extra: {
-        layerx: {
-          commitment: "committed",
-          purposeHash: toHex(verification.payment.paymentReference),
-        },
-      },
-    };
-    const committedOffer: OfferFixture = {
-      requirements,
-      paymentRequired: { ...offer.paymentRequired, accepts: [requirements] },
-    };
+    const committedOffer = committedRungOffer(offer, verification.payment);
     await expectThrows(
       () => verifyPaymentReceipt(receipt, committedOffer.requirements, receiptKeys),
       isMiddlewareError("verification-failure"),

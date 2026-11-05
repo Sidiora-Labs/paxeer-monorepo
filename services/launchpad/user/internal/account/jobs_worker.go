@@ -102,12 +102,8 @@ func (w Worker) prepareExport(ctx context.Context, j jobLease) (failure error) {
 	if e != nil {
 		return e
 	}
-	sealed, e := Seal(w.Runtime.ExportKey, snapshot, []byte(j.ID.String()))
+	object, e := w.writeExportObject(ctx, j, snapshot)
 	if e != nil {
-		return e
-	}
-	object := "account-exports/" + j.ID.String() + "/" + strconv.FormatInt(j.Fence, 10)
-	if e = w.Runtime.Objects.Put(ctx, object, bytes.NewReader(sealed), int64(len(sealed)), "application/octet-stream"); e != nil {
 		return e
 	}
 	ready := false
@@ -118,17 +114,7 @@ func (w Worker) prepareExport(ctx context.Context, j jobLease) (failure error) {
 			failure = errors.Join(failure, w.Runtime.Objects.Delete(cleanup, object))
 		}
 	}()
-	raw := make([]byte, 32)
-	if _, e = rand.Read(raw); e != nil {
-		return e
-	}
-	token := hex.EncodeToString(raw)
-	hash := sha256.Sum256([]byte(token))
-	authorization, e := Seal(w.Runtime.ExportKey, []byte(token), []byte(j.ID.String()))
-	if e != nil {
-		return e
-	}
-	payload, e := json.Marshal(exportMetadata{EncryptedObject: object, RetainUntil: w.Store.now().Add(24 * time.Hour), Authorization: authorization})
+	payload, hash, e := newExportMetadata(w.Runtime.ExportKey, j.ID, object, w.Store.now())
 	if e != nil {
 		return e
 	}
@@ -143,6 +129,38 @@ func (w Worker) prepareExport(ctx context.Context, j jobLease) (failure error) {
 	w.Runtime.Metrics.Observe("export", "success", time.Since(j.RequestedAt))
 	return nil
 }
+
+// writeExportObject is the worker's encrypted object publication boundary.
+func (w Worker) writeExportObject(ctx context.Context, j jobLease, snapshot json.RawMessage) (string, error) {
+	if w.Runtime == nil || w.Runtime.Objects == nil || len(w.Runtime.ExportKey) != 32 {
+		return "", errors.New("DEPENDENCY_UNAVAILABLE")
+	}
+	sealed, e := Seal(w.Runtime.ExportKey, snapshot, []byte(j.ID.String()))
+	if e != nil {
+		return "", e
+	}
+	object := "account-exports/" + j.ID.String() + "/" + strconv.FormatInt(j.Fence, 10)
+	if e = w.Runtime.Objects.Put(ctx, object, bytes.NewReader(sealed), int64(len(sealed)), "application/octet-stream"); e != nil {
+		return "", e
+	}
+	return object, nil
+}
+
+func newExportMetadata(key []byte, job uuid.UUID, object string, at time.Time) ([]byte, [32]byte, error) {
+	raw := make([]byte, 32)
+	if _, e := rand.Read(raw); e != nil {
+		return nil, [32]byte{}, e
+	}
+	token := hex.EncodeToString(raw)
+	hash := sha256.Sum256([]byte(token))
+	authorization, e := Seal(key, []byte(token), []byte(job.String()))
+	if e != nil {
+		return nil, [32]byte{}, e
+	}
+	payload, e := json.Marshal(exportMetadata{EncryptedObject: object, RetainUntil: at.Add(24 * time.Hour), Authorization: authorization})
+	return payload, hash, e
+}
+
 func (w Worker) processDeletion(ctx context.Context, j jobLease) error {
 	var payload []byte
 	if e := w.Store.DB.QueryRow(ctx, `SELECT payload FROM account_job WHERE job_id=$1 AND lease_owner=$2 AND fence=$3 AND lease_until>clock_timestamp()`, j.ID, w.Owner, j.Fence).Scan(&payload); e != nil {

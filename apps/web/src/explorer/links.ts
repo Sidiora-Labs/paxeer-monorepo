@@ -3,6 +3,7 @@ import { validExplorerIdentifier } from "./model.ts";
 /// The explorer surfaces the control plane links into, each carrying its own identifier.
 export const EXPLORER_LINK_KINDS = [
   "receipt",
+  "historical-receipt",
   "transaction",
   "address",
 ] as const;
@@ -10,7 +11,8 @@ export const EXPLORER_LINK_KINDS = [
 export type ExplorerLinkKind = (typeof EXPLORER_LINK_KINDS)[number];
 
 export type ExplorerLinkTarget =
-  | Readonly<{ kind: "receipt"; receiptId: string }>
+  | Readonly<{ kind: "receipt"; receiptId: string; transactionHash: string }>
+  | Readonly<{ kind: "historical-receipt"; receiptId: string; frozen: true }>
   | Readonly<{ kind: "transaction"; transactionHash: string }>
   | Readonly<{ kind: "address"; address: string }>;
 
@@ -25,6 +27,14 @@ export function explorerLinkPath(target: ExplorerLinkTarget): string {
     case "receipt":
       if (!validExplorerIdentifier(target.receiptId)) {
         throw new TypeError("Invalid receipt identifier");
+      }
+      if (!TRANSACTION_HASH_GRAMMAR.test(target.transactionHash)) {
+        throw new TypeError("Current receipt requires its resolved native transaction hash");
+      }
+      return `/tx/${target.transactionHash.toLowerCase()}`;
+    case "historical-receipt":
+      if (target.frozen !== true || !validExplorerIdentifier(target.receiptId)) {
+        throw new TypeError("Invalid frozen historical receipt identity");
       }
       return `/paxeer-x/receipts/${target.receiptId.toLowerCase()}`;
     case "transaction":
@@ -74,3 +84,29 @@ export function parseExplorerBaseUrl(configured: string | undefined): URL | unde
 export const EXPLORER_NAVIGATION = [
   Object.freeze({ href: "/explorer", copyKey: "explorer.navigation.overview" }),
 ] as const;
+
+export interface CurrentReceiptIdentity {
+  readonly receiptId: string;
+  readonly transactionHash: string;
+}
+
+export async function resolveReceiptLink(
+  receiptId: string,
+  read: (receiptId: string) => Promise<CurrentReceiptIdentity | undefined>,
+): Promise<ExplorerLinkTarget> {
+  if (!validExplorerIdentifier(receiptId)) throw new TypeError("Invalid receipt identifier");
+  const receipt = await read(receiptId.toLowerCase());
+  if (receipt === undefined || receipt.receiptId.toLowerCase() !== receiptId.toLowerCase()) {
+    throw new TypeError("Native receipt identity does not match the requested receipt");
+  }
+  const target = { kind: "receipt", receiptId: receipt.receiptId, transactionHash: receipt.transactionHash } as const;
+  explorerLinkPath(target);
+  return target;
+}
+
+export function historicalReceiptLinkPath(identity: Readonly<{ receiptId: string; frozen: true; }>): string {
+  if (identity.frozen !== true || !validExplorerIdentifier(identity.receiptId)) {
+    throw new TypeError("Historical receipt requires a frozen archive identity");
+  }
+  return `/api/v2/paxeer-x/archive/receipts/0x${identity.receiptId.toLowerCase()}`;
+}

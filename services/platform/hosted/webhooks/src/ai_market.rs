@@ -13,8 +13,9 @@ use std::fs::{self, File, OpenOptions};
 use std::io::{ErrorKind, Write};
 use std::path::{Path, PathBuf};
 
+use crate::chain::{ChainPolicy, CommitCertificate, ProgramStateProof};
 use ed25519_dalek::{Signer, SigningKey};
-use layerx_indexer::ai_market::{verify_block_commit, BlockCommitProof, FinalityAuthority};
+use layerx_indexer::ai_market::{BlockCommitProof, FinalityAuthority, VerifiedCommit};
 use layerx_programs_ai_market::codec::state_digest;
 use layerx_programs_ai_market::queries::{SnapshotBinding, BINDING_MAX_BYTES, FINALIZED_RANK};
 use layerx_programs_ai_market::{Digest32, Presence};
@@ -56,6 +57,18 @@ pub const MAXIMUM_ACTION_BYTES: usize = 55;
 pub const MAXIMUM_PAGE_ROWS: usize = 32;
 /// Unpublished rows a market stream holds before capture stops.
 pub const MAXIMUM_UNPUBLISHED_ROWS: usize = 4_096;
+
+/// Durable per-tenant market limit, including revoked streams (their replay floors survive).
+pub const MAXIMUM_MARKETS: usize = 128;
+/// Maximum provisional identities retained per market until finality or rollback.
+pub const MAXIMUM_PROVISIONAL: usize = 256;
+/// Maximum retained admitted identities per market; published history must be pruned.
+pub const MAXIMUM_ADMITTED: usize = 4_096;
+/// Tenant-wide identity/row limit, independent of the number of markets.
+pub const MAXIMUM_RETAINED_IDENTITIES: usize = 8_192;
+/// Public market facts version. Stored v1 events remain byte-identical on replay;
+/// v1's checkpoint_id was a store proof digest, never a checkpoint identity.
+pub const MARKET_FACTS_SCHEMA: &str = "paxai.webhook-facts.v2";
 
 const MAXIMUM_ALERTS: usize = 256;
 const MAXIMUM_APPLIED: usize = 4_096;
@@ -140,6 +153,13 @@ pub struct FinalityPolicy {
 pub struct ProducerGrant(());
 
 impl ProducerGrant {
+    /// The ingress caller must obtain `role` from its verified TLS peer leaf.
+    pub fn from_authenticated_role(role: IngressRole) -> Result<Self, MarketEventError> {
+        if role != IngressRole::Producer {
+            return Err(MarketEventError::ProducerRoleRequired);
+        }
+        Ok(Self(()))
+    }
     /// Accepts only a client leaf holding the producer role.
     ///
     /// # Errors
@@ -199,6 +219,8 @@ pub struct OperatorAlert {
 pub enum MarketEventError {
     /// A row, cursor or argument violated a declared bound or shape.
     InvalidRequest,
+    /// Capture precedes the durable source replay floor; resume requires resync.
+    HistoryExpired,
     /// The caller does not hold the internal producer role.
     ProducerRoleRequired,
     /// The block commit did not verify against the pinned validator set or
@@ -326,6 +348,8 @@ struct OutboxRow {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct Admitted {
     sequence: u64,
+    #[serde(default)]
+    observed_sequence: Option<u64>,
     identity: [u8; 32],
 }
 
@@ -342,6 +366,10 @@ struct MarketStream {
     last_sequence: u64,
     pruned_through: u64,
     finality_boundary: u64,
+    #[serde(default)]
+    replay_through: Option<u64>,
+    #[serde(default)]
+    pruned_observed_through: Option<u64>,
     latest_snapshot: Option<[u8; 32]>,
     rows: BTreeMap<u64, OutboxRow>,
     admitted: BTreeMap<String, Admitted>,
@@ -392,7 +420,7 @@ enum Stop {
 }
 
 /// The result of admitting one captured row.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub enum Admission {
     /// Matching finality evidence is not yet available; publication waits.
     Delayed,
@@ -404,7 +432,7 @@ pub enum Admission {
 }
 
 /// One resume answer for a webhook endpoint.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub enum ResumePage {
     /// Events strictly after the cursor position, in subject order.
     Events {
@@ -422,6 +450,7 @@ pub enum ResumePage {
 }
 
 /// Webhook resume cursor keys with bounded rotation overlap.
+#[derive(Clone)]
 pub struct CursorKeys {
     current: u8,
     keys: BTreeMap<u8, Zeroizing<[u8; 32]>>,
@@ -535,7 +564,7 @@ fn cursor_tag(
 pub struct MarketOutbox {
     store: Store,
     principal: Principal,
-    policy: FinalityPolicy,
+    policy: CapturePolicy,
     cursor_keys: CursorKeys,
 }
 
@@ -550,11 +579,120 @@ impl MarketOutbox {
         policy: FinalityPolicy,
         cursor_keys: CursorKeys,
     ) -> Result<Self, MarketEventError> {
+        Self::open_portable(
+            directory,
+            principal,
+            CapturePolicy {
+                chain_domain: policy.chain_domain,
+                consensus: ChainPolicy::from_native(&policy.authority)?,
+            },
+            cursor_keys,
+        )
+    }
+
+    pub fn open_portable(
+        directory: &Path,
+        principal: Principal,
+        policy: CapturePolicy,
+        cursor_keys: CursorKeys,
+    ) -> Result<Self, MarketEventError> {
+        policy.consensus.validate()?;
         Ok(Self {
             store: Store::open(directory)?,
             principal,
             policy,
             cursor_keys,
+        })
+    }
+
+    pub fn admit_document(
+        &self,
+        producer: &ProducerGrant,
+        document: &CaptureDocument,
+    ) -> Result<Admission, MarketEventError> {
+        let row = document.row()?;
+        well_formed_document(&row, &document.state, &document.store_proof)?;
+        let verified = document
+            .commit
+            .verify(&self.policy.consensus, &document.store_proof)
+            .map_err(|_| MarketEventError::CommitRejected)?;
+        let evidence = Evidence {
+            state: &document.state,
+            proof: None,
+        };
+        self.admit_examined(
+            producer,
+            &row,
+            examine(
+                &self.policy,
+                &row,
+                &evidence,
+                Some((&verified, &document.store_proof)),
+            ),
+        )
+    }
+
+    fn admit_examined(
+        &self,
+        _producer: &ProducerGrant,
+        row: &CapturedEvent,
+        examined: Result<Examined, Stop>,
+    ) -> Result<Admission, MarketEventError> {
+        let market = hex_encode(row.binding.market.as_bytes());
+        self.store.transact(|state: &mut OutboxState| {
+            if !state.streams.contains_key(&market) {
+                return Err(MarketEventError::Revoked);
+            }
+            let retained: usize = state
+                .streams
+                .values()
+                .map(|s| s.admitted.len() + s.provisional.len())
+                .sum();
+            let stream = state
+                .streams
+                .get_mut(&market)
+                .ok_or(MarketEventError::Revoked)?;
+            if retained >= MAXIMUM_RETAINED_IDENTITIES
+                && !stream.admitted.contains_key(&row.event_id)
+                && !stream.provisional.contains_key(&row.event_id)
+            {
+                return Err(state.stop(
+                    &market,
+                    Some(&row.event_id),
+                    Some(&row.snapshot_id),
+                    Stop::Capacity,
+                ));
+            }
+            admit_into(stream, &self.principal, row, examined).map_err(|stop| {
+                state.stop(&market, Some(&row.event_id), Some(&row.snapshot_id), stop)
+            })
+        })
+    }
+
+    /// Hands durable rows to hosted delivery before acknowledging them. A crash
+    /// between the two commits replays the same event into hosted deduplication.
+    pub fn drain(
+        &self,
+        service: &crate::HostedService,
+        now: u64,
+    ) -> Result<usize, MarketEventError> {
+        self.store.transact(|state: &mut OutboxState| {
+            let mut count = 0;
+            for stream in state
+                .streams
+                .values_mut()
+                .filter(|s| s.granted && s.quarantine.is_none())
+            {
+                for row in stream.rows.values_mut().filter(|row| !row.published) {
+                    service.publish(
+                        &crate::trusted::TrustedEvent::from_market(row.event.clone())?,
+                        now,
+                    )?;
+                    row.published = true;
+                    count += 1;
+                }
+            }
+            Ok(count)
         })
     }
 
@@ -578,6 +716,12 @@ impl MarketOutbox {
     fn set_grant(&self, market_id: &[u8; 32], granted: bool) -> Result<(), MarketEventError> {
         let market = hex_encode(market_id);
         self.store.transact(|state: &mut OutboxState| {
+            if !state.streams.contains_key(&market) && state.streams.len() >= MAXIMUM_MARKETS {
+                return Err(state.stop(&market, None, None, Stop::Capacity));
+            }
+            if !granted && !state.streams.contains_key(&market) {
+                return Err(MarketEventError::Revoked);
+            }
             state.streams.entry(market).or_default().granted = granted;
             Ok::<(), MarketEventError>(())
         })
@@ -603,15 +747,24 @@ impl MarketOutbox {
         evidence: &Evidence<'_>,
     ) -> Result<Admission, MarketEventError> {
         well_formed(row, evidence)?;
-        let examined = examine(&self.policy, row, evidence);
-        let market = hex_encode(row.binding.market.as_bytes());
-        self.store.transact(|state: &mut OutboxState| {
-            let stream = state.streams.entry(market.clone()).or_default();
-            let outcome = admit_into(stream, &self.principal, row, examined);
-            outcome.map_err(|stop| {
-                state.stop(&market, Some(&row.event_id), Some(&row.snapshot_id), stop)
+        let verified = evidence
+            .proof
+            .map(|proof| {
+                CommitCertificate::from_proof(&proof)?
+                    .verify(&self.policy.consensus, proof.store_proof)
             })
-        })
+            .transpose()
+            .map_err(|_| MarketEventError::CommitRejected)?;
+        self.admit_examined(
+            _producer,
+            row,
+            examine(
+                &self.policy,
+                row,
+                evidence,
+                verified.as_ref().zip(evidence.proof.map(|p| p.store_proof)),
+            ),
+        )
     }
 
     /// Removes provisional rows observed after `observed_through`. A rollback
@@ -628,7 +781,10 @@ impl MarketOutbox {
     ) -> Result<usize, MarketEventError> {
         let market = hex_encode(market_id);
         self.store.transact(|state: &mut OutboxState| {
-            let stream = state.streams.entry(market.clone()).or_default();
+            let stream = state
+                .streams
+                .get_mut(&market)
+                .ok_or(MarketEventError::Revoked)?;
             if stream.quarantine.is_some() {
                 return Err(MarketEventError::StreamQuarantined);
             }
@@ -661,6 +817,28 @@ impl MarketOutbox {
             .filter(|row| !row.published)
             .map(|row| row.event.clone())
             .collect())
+    }
+
+    /// Returns only durably admitted, granted and unpublished events for trusted
+    /// delivery adapters; callers cannot promote an arbitrary event this way.
+    pub fn pending_trusted(
+        &self,
+        market_id: &[u8; 32],
+    ) -> Result<Vec<crate::trusted::TrustedEvent>, MarketEventError> {
+        let state: OutboxState = self.store.read()?;
+        let stream = granted(&state, &hex_encode(market_id))?;
+        if stream.quarantine.is_some() {
+            return Err(MarketEventError::StreamQuarantined);
+        }
+        stream
+            .rows
+            .values()
+            .filter(|row| !row.published)
+            .map(|row| {
+                crate::trusted::TrustedEvent::from_market(row.event.clone())
+                    .map_err(MarketEventError::from)
+            })
+            .collect()
     }
 
     /// Records that `event` reached an accepting endpoint.
@@ -713,6 +891,42 @@ impl MarketOutbox {
                 return Err(MarketEventError::InvalidRequest);
             }
             let before = stream.rows.len();
+            // Only a published contiguous subject prefix proves a replay horizon.
+            // Keep the horizon strictly before every retained finalized row,
+            // including unpublished rows admitted out of source order.
+            let removed_through = stream
+                .rows
+                .range(..=sequence)
+                .map(|(_, row)| row.observed_sequence)
+                .chain(stream.pruned_observed_through)
+                .chain((sequence == stream.last_sequence).then_some(stream.finality_boundary))
+                .max();
+            stream.pruned_observed_through = removed_through;
+            let retained_floor = stream
+                .rows
+                .range(sequence.saturating_add(1)..)
+                .map(|(_, row)| row.observed_sequence)
+                .min();
+            let proven = removed_through.and_then(|through| match retained_floor {
+                Some(0) => None,
+                Some(floor) => Some(through.min(floor - 1)),
+                None => Some(through),
+            });
+            if let Some(proven) = proven {
+                let through = stream.replay_through.map_or(proven, |old| old.max(proven));
+                stream.replay_through = Some(through);
+                stream
+                    .provisional
+                    .retain(|_, row| row.observed_sequence > through);
+                stream.admitted.retain(|_, row| {
+                    row.sequence > sequence
+                        || row
+                            .observed_sequence
+                            .map_or(through < stream.finality_boundary, |observed| {
+                                observed > through
+                            })
+                });
+            }
             stream.rows.retain(|position, _| *position > sequence);
             stream.pruned_through = stream.pruned_through.max(sequence);
             Ok(before.saturating_sub(stream.rows.len()))
@@ -854,9 +1068,10 @@ struct Examined {
 }
 
 fn examine(
-    policy: &FinalityPolicy,
+    policy: &CapturePolicy,
     row: &CapturedEvent,
     evidence: &Evidence<'_>,
+    verified: Option<(&VerifiedCommit, &[u8])>,
 ) -> Result<Examined, Stop> {
     let binding = &row.binding;
     if row.decoder_version != DECODER_VERSION {
@@ -882,9 +1097,9 @@ fn examine(
         return Err(Stop::Quarantine(QuarantineCause::EventId));
     }
     let identity = identity(row);
-    match evidence.proof {
-        Some(proof) if binding.rank >= MINIMUM_PUBLICATION_RANK => {
-            certify(policy, binding, &proof)?;
+    match verified {
+        Some((proof, membership)) if binding.rank >= MINIMUM_PUBLICATION_RANK => {
+            certify(policy, binding, proof, membership, evidence.state)?;
             Ok(Examined {
                 identity,
                 finalized: true,
@@ -898,16 +1113,17 @@ fn examine(
 }
 
 fn certify(
-    policy: &FinalityPolicy,
+    policy: &CapturePolicy,
     binding: &SnapshotBinding,
-    proof: &BlockCommitProof<'_>,
+    verified: &VerifiedCommit,
+    membership: &[u8],
+    state: &[u8],
 ) -> Result<(), Stop> {
     // Match the same SnapshotBindingV2 commit fields that indexer promotion builds
     // through VerifiedCommit::finality_evidence before admitting the outbox row.
     let rejected = || Stop::Refuse(MarketEventError::CommitRejected);
     binding.finalized_head().map_err(|_| rejected())?;
-    let verified = verify_block_commit(proof, &policy.authority).map_err(|_| rejected())?;
-    if verified.chain_id != policy.authority.chain_id {
+    if verified.chain_id != policy.consensus.chain_id {
         return Err(Stop::Quarantine(QuarantineCause::CommitChain));
     }
     if verified.height == binding.execution_height
@@ -925,6 +1141,25 @@ fn certify(
     {
         return Err(rejected());
     }
+    let header =
+        layerx_programs_ai_market::queries::read_header(state, binding.chain, binding.program)
+            .map_err(|_| rejected())?;
+    if header.market != binding.market
+        || header.revision != binding.revision
+        || header.digest != binding.state_digest
+        || header.config != binding.config
+        || header.epoch != binding.epoch
+        || header.roster != binding.roster
+        || layerx_programs_ai_market::queries::policy_digest(state).map_err(|_| rejected())?
+            != binding.policy
+    {
+        return Err(rejected());
+    }
+    let membership: ProgramStateProof =
+        serde_json::from_slice(membership).map_err(|_| rejected())?;
+    membership
+        .verify(verified.app_hash, binding.program.as_bytes(), state)
+        .map_err(|_| rejected())?;
     Ok(())
 }
 
@@ -964,6 +1199,9 @@ fn admit_into(
         }
         let event = match stream.rows.get(&admitted.sequence) {
             Some(stored) => stored.event.clone(),
+            None if admitted.observed_sequence.is_none() => {
+                return Err(Stop::Refuse(MarketEventError::HistoryExpired))
+            }
             None => market_event(principal, row, admitted.sequence)
                 .map_err(|error| Stop::Refuse(error.into()))?,
         };
@@ -973,6 +1211,12 @@ fn admit_into(
         });
     }
     if stream
+        .replay_through
+        .is_some_and(|through| row.binding.observed_sequence <= through)
+    {
+        return Err(Stop::Refuse(MarketEventError::HistoryExpired));
+    }
+    if stream
         .provisional
         .get(&row.event_id)
         .is_some_and(|provisional| provisional.identity != examined.identity)
@@ -980,6 +1224,11 @@ fn admit_into(
         return Err(Stop::Quarantine(QuarantineCause::EventConflict));
     }
     if !examined.finalized {
+        if !stream.provisional.contains_key(&row.event_id)
+            && stream.provisional.len() >= MAXIMUM_PROVISIONAL
+        {
+            return Err(Stop::Capacity);
+        }
         stream.provisional.insert(
             row.event_id.clone(),
             Provisional {
@@ -989,13 +1238,7 @@ fn admit_into(
         );
         return Ok(Admission::Delayed);
     }
-    if stream
-        .rows
-        .values()
-        .filter(|stored| !stored.published)
-        .count()
-        >= MAXIMUM_UNPUBLISHED_ROWS
-    {
+    if stream.admitted.len() >= MAXIMUM_ADMITTED || stream.rows.len() >= MAXIMUM_UNPUBLISHED_ROWS {
         return Err(Stop::Capacity);
     }
     let sequence = stream
@@ -1010,6 +1253,7 @@ fn admit_into(
         row.event_id.clone(),
         Admitted {
             sequence,
+            observed_sequence: Some(row.binding.observed_sequence),
             identity: examined.identity,
         },
     );
@@ -1044,6 +1288,7 @@ fn market_event(
         Presence::Absent => "absent".to_owned(),
     };
     let values = [
+        ("facts_schema", MARKET_FACTS_SCHEMA.to_owned()),
         ("ai_action", row.action.clone()),
         ("ai_event_tag", row.ai_event_tag.to_string()),
         ("market_id", hex_encode(binding.market.as_bytes())),
@@ -1063,9 +1308,12 @@ fn market_event(
             hex_encode(binding.native_state_root.as_bytes()),
         ),
         (
-            "checkpoint_id",
+            "store_proof_digest",
             hex_encode(binding.store_proof_digest.as_bytes()),
         ),
+        ("block_height", binding.block_height.to_string()),
+        ("block_hash", hex_encode(binding.block_hash.as_bytes())),
+        ("app_hash", hex_encode(binding.app_hash.as_bytes())),
         ("achieved_rank", binding.rank.to_string()),
     ];
     let facts = values
@@ -1177,6 +1425,8 @@ struct Applied {
 struct SubjectLedger {
     last_sequence: u64,
     applied: BTreeMap<String, Applied>,
+    #[serde(default)]
+    effects: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -1205,8 +1455,9 @@ impl MarketConsumer {
         })
     }
 
-    /// Verifies one delivery and applies `effect` once, in subject order,
-    /// recording its result in the same durable transaction as the sequence.
+    /// Verifies a delivery and commits the transaction's business state, result
+    /// and sequence together. The closure prepares durable state only; it can
+    /// be replayed after an aborted transaction and must not perform external I/O.
     ///
     /// # Errors
     /// Returns [`WebhookError::InvalidRequest`] for an oversized body,
@@ -1219,7 +1470,7 @@ impl MarketConsumer {
     pub fn receive(
         &self,
         presentation: &Presentation<'_>,
-        effect: impl FnOnce(&ProtocolEvent) -> String,
+        effect: impl FnOnce(&mut ConsumerTransaction<'_>) -> String,
     ) -> Result<Consumed, WebhookError> {
         if presentation.payload.len() > MAXIMUM_REQUEST_BYTES {
             return Err(WebhookError::InvalidRequest);
@@ -1276,6 +1527,15 @@ impl MarketConsumer {
         })
     }
 
+    pub fn effect(&self, subject: &SubjectId, key: &str) -> Result<Option<String>, WebhookError> {
+        let state: ConsumerState = self.store.read()?;
+        Ok(state
+            .subjects
+            .get(subject.as_str())
+            .and_then(|s| s.effects.get(key))
+            .cloned())
+    }
+
     /// Returns the last applied sequence of `subject`.
     ///
     /// # Errors
@@ -1305,7 +1565,7 @@ fn apply_once(
     ledger: &mut SubjectLedger,
     event: &ProtocolEvent,
     body_digest: [u8; 32],
-    effect: impl FnOnce(&ProtocolEvent) -> String,
+    effect: impl FnOnce(&mut ConsumerTransaction<'_>) -> String,
 ) -> Result<Consumed, WebhookError> {
     if let Some(applied) = ledger.applied.get(event.id().as_str()) {
         if applied.body_digest != body_digest {
@@ -1327,7 +1587,10 @@ fn apply_once(
             received: sequence,
         });
     }
-    let result = effect(event);
+    let result = effect(&mut ConsumerTransaction {
+        event,
+        effects: &mut ledger.effects,
+    });
     if ledger.applied.len() >= MAXIMUM_APPLIED {
         let oldest = ledger
             .applied
@@ -1348,4 +1611,286 @@ fn apply_once(
     );
     ledger.last_sequence = sequence;
     Ok(Consumed::Applied { sequence, result })
+}
+
+/// Business state owned by the same durable transaction as the event ledger.
+/// Only writes through this value share the receiver's atomic commit.
+pub struct ConsumerTransaction<'a> {
+    event: &'a ProtocolEvent,
+    effects: &'a mut BTreeMap<String, String>,
+}
+impl std::ops::Deref for ConsumerTransaction<'_> {
+    type Target = ProtocolEvent;
+    fn deref(&self) -> &Self::Target {
+        self.event
+    }
+}
+impl ConsumerTransaction<'_> {
+    pub fn get(&self, key: &str) -> Option<&str> {
+        self.effects.get(key).map(String::as_str)
+    }
+    pub fn set(&mut self, key: &str, value: String) -> Result<(), WebhookError> {
+        if key.is_empty()
+            || key.len() > 128
+            || value.len() > 4096
+            || (!self.effects.contains_key(key) && self.effects.len() >= 4096)
+        {
+            return Err(WebhookError::InvalidRequest);
+        }
+        self.effects.insert(key.to_owned(), value);
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CapturePolicy {
+    pub chain_domain: [u8; 32],
+    pub consensus: ChainPolicy,
+}
+
+/// Producer codec for a real captured row, exact state, membership and commit.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CaptureDocument {
+    pub binding: Vec<u8>,
+    pub snapshot_id: [u8; 32],
+    pub event_id: String,
+    pub decoder_version: u16,
+    pub action: String,
+    pub ai_event_tag: u16,
+    pub source_activity_id: [u8; 32],
+    pub effect_ordinal: u16,
+    pub receipt_digest: [u8; 32],
+    pub state: Vec<u8>,
+    pub store_proof: Vec<u8>,
+    pub commit: CommitCertificate,
+}
+impl CaptureDocument {
+    pub fn from_capture(
+        row: &CapturedEvent,
+        evidence: &Evidence<'_>,
+    ) -> Result<Self, MarketEventError> {
+        well_formed(row, evidence)?;
+        let proof = evidence.proof.ok_or(MarketEventError::InvalidRequest)?;
+        let mut binding = vec![0; BINDING_MAX_BYTES];
+        let n = row
+            .binding
+            .encode(&mut binding)
+            .map_err(|_| MarketEventError::InvalidRequest)?;
+        binding.truncate(n);
+        Ok(Self {
+            binding,
+            snapshot_id: row.snapshot_id,
+            event_id: row.event_id.clone(),
+            decoder_version: row.decoder_version,
+            action: row.action.clone(),
+            ai_event_tag: row.ai_event_tag,
+            source_activity_id: row.source_activity_id,
+            effect_ordinal: row.effect_ordinal,
+            receipt_digest: row.receipt_digest,
+            state: evidence.state.to_vec(),
+            store_proof: proof.store_proof.to_vec(),
+            commit: CommitCertificate::from_proof(&proof)?,
+        })
+    }
+    fn row(&self) -> Result<CapturedEvent, MarketEventError> {
+        if self.binding.len() > BINDING_MAX_BYTES {
+            return Err(MarketEventError::InvalidRequest);
+        }
+        Ok(CapturedEvent {
+            binding: SnapshotBinding::decode(&self.binding)
+                .map_err(|_| MarketEventError::InvalidRequest)?,
+            snapshot_id: self.snapshot_id,
+            event_id: self.event_id.clone(),
+            decoder_version: self.decoder_version,
+            action: self.action.clone(),
+            ai_event_tag: self.ai_event_tag,
+            source_activity_id: self.source_activity_id,
+            effect_ordinal: self.effect_ordinal,
+            receipt_digest: self.receipt_digest,
+            manifest: UpstreamManifest::default(),
+        })
+    }
+}
+fn well_formed_document(
+    row: &CapturedEvent,
+    state: &[u8],
+    proof: &[u8],
+) -> Result<(), MarketEventError> {
+    let mut canonical = [0; BINDING_MAX_BYTES];
+    if row.binding.encode(&mut canonical).is_err()
+        || state.len() > MAXIMUM_STATE_BYTES
+        || proof.is_empty()
+        || proof.len() > MAXIMUM_EVIDENCE_BYTES
+        || !nonzero(&row.source_activity_id)
+        || !nonzero(&row.receipt_digest)
+        || row.action.is_empty()
+        || row.action.len() > MAXIMUM_ACTION_BYTES
+        || !row
+            .action
+            .bytes()
+            .all(|b| b.is_ascii_uppercase() || b.is_ascii_digit() || b == b'_')
+    {
+        return Err(MarketEventError::InvalidRequest);
+    }
+    EventId::new(&row.event_id)?;
+    Ok(())
+}
+
+#[derive(Default, Serialize, Deserialize)]
+struct TenantRegistry {
+    principals: BTreeMap<String, Principal>,
+}
+
+/// Shared producer/control-plane bridge. Each tenant retains its own durable outbox.
+pub struct MarketHub {
+    root: PathBuf,
+    policy: CapturePolicy,
+    cursor_keys: CursorKeys,
+}
+impl MarketHub {
+    pub fn new(
+        root: &Path,
+        policy: CapturePolicy,
+        cursor_keys: CursorKeys,
+    ) -> Result<Self, MarketEventError> {
+        policy.consensus.validate()?;
+        Store::open(root)?;
+        Ok(Self {
+            root: root.to_path_buf(),
+            policy,
+            cursor_keys,
+        })
+    }
+    pub fn from_environment() -> Result<Option<Self>, String> {
+        let Some(root) = std::env::var_os("LAYERX_WEBHOOKS_MARKET_OUTBOX_DIR") else {
+            return Ok(None);
+        };
+        let policy_path = std::env::var("LAYERX_WEBHOOKS_MARKET_POLICY_FILE")
+            .map_err(|_| "LAYERX_WEBHOOKS_MARKET_POLICY_FILE is required")?;
+        let policy: CapturePolicy =
+            serde_json::from_slice(&fs::read(policy_path).map_err(|e| e.to_string())?)
+                .map_err(|e| e.to_string())?;
+        let key_path = std::env::var("LAYERX_WEBHOOKS_CURSOR_KEY_FILE")
+            .map_err(|_| "LAYERX_WEBHOOKS_CURSOR_KEY_FILE is required")?;
+        let key = Zeroizing::new(fs::read_to_string(key_path).map_err(|e| e.to_string())?);
+        let keys = CursorKeys::new(
+            (
+                1,
+                crate::encoding::fixed_hex(key.trim()).map_err(|e| e.to_string())?,
+            ),
+            &[],
+        )
+        .map_err(|e| format!("market cursor keys: {e:?}"))?;
+        Self::new(Path::new(&root), policy, keys)
+            .map(Some)
+            .map_err(|e| format!("market outbox: {e:?}"))
+    }
+    fn tenant(&self, principal: &Principal) -> Result<MarketOutbox, MarketEventError> {
+        let id = hex_encode(&digest(principal.as_str().as_bytes()));
+        MarketOutbox::open_portable(
+            &self.root.join(id),
+            principal.clone(),
+            self.policy.clone(),
+            self.cursor_keys.clone(),
+        )
+    }
+    pub fn grant(&self, principal: &Principal, market: &[u8; 32]) -> Result<(), MarketEventError> {
+        Store::open(&self.root)?.transact(|registry: &mut TenantRegistry| {
+            let id = hex_encode(&digest(principal.as_str().as_bytes()));
+            if !registry.principals.contains_key(&id) && registry.principals.len() >= 4096 {
+                return Err(MarketEventError::CaptureStopped);
+            }
+            registry.principals.insert(id, principal.clone());
+            Ok(())
+        })?;
+        self.tenant(principal)?.grant(market)
+    }
+    pub fn revoke(&self, principal: &Principal, market: &[u8; 32]) -> Result<(), MarketEventError> {
+        self.tenant(principal)?.revoke(market)
+    }
+    pub fn capture(
+        &self,
+        principal: &Principal,
+        producer: &ProducerGrant,
+        document: &CaptureDocument,
+    ) -> Result<Admission, MarketEventError> {
+        self.tenant(principal)?.admit_document(producer, document)
+    }
+    pub fn resume(
+        &self,
+        principal: &Principal,
+        endpoint: &EndpointId,
+        market: &[u8; 32],
+        cursor: Option<&str>,
+        limit: usize,
+    ) -> Result<ResumePage, MarketEventError> {
+        self.tenant(principal)?
+            .resume(principal, endpoint, market, cursor, limit)
+    }
+    pub fn drain(
+        &self,
+        service: &crate::HostedService,
+        now: u64,
+    ) -> Result<usize, MarketEventError> {
+        let report = self.drain_report(service, now)?;
+        if report.failure_count > 0 {
+            return Err(WebhookError::Unavailable.into());
+        }
+        Ok(report.released)
+    }
+
+    /// Drains each tenant independently and retains failures in delivery readiness.
+    pub fn drain_report(
+        &self,
+        service: &crate::HostedService,
+        now: u64,
+    ) -> Result<crate::hosted::HostedRetentionReport, MarketEventError> {
+        use crate::hosted::{HostedRetentionReport, WorkerStage};
+        let registry: TenantRegistry = match Store::open(&self.root).and_then(|store| store.read())
+        {
+            Ok(registry) => {
+                service.clear_worker_failure("all", WorkerStage::MarketDrain);
+                registry
+            }
+            Err(error) => {
+                service.record_worker_failure("all", None, WorkerStage::MarketDrain, &error);
+                return Err(error.into());
+            }
+        };
+        let mut report = HostedRetentionReport::default();
+        for (id, principal) in registry.principals {
+            match self
+                .tenant(&principal)
+                .and_then(|tenant| tenant.drain(service, now))
+            {
+                Ok(count) => {
+                    report.released += count;
+                    service.clear_worker_failure(&id, WorkerStage::MarketDrain);
+                }
+                Err(error) => {
+                    let error = match error {
+                        MarketEventError::Webhook(e) => e,
+                        _ => WebhookError::Unavailable,
+                    };
+                    service.record_worker_failure(
+                        &id,
+                        Some(principal.clone()),
+                        WorkerStage::MarketDrain,
+                        &error,
+                    );
+                    report.failure_count += 1;
+                    crate::hosted::push_failure(
+                        &mut report.failures,
+                        id,
+                        Some(principal),
+                        WorkerStage::MarketDrain,
+                        &error,
+                    );
+                }
+            }
+        }
+        Ok(report)
+    }
 }

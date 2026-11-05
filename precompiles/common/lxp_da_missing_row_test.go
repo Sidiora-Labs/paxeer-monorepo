@@ -13,6 +13,7 @@ func TestLXPDAMissingIsNotKernel(t *testing.T) {
 	require.Equal(t, "da missing", entry.message)
 	require.False(t, entry.kernel)
 	require.Zero(t, entry.value)
+	require.Nil(t, entry.goErr, "service delivery uses the named refusal without a kernel or module error")
 
 	for _, row := range lxpRevertTable {
 		require.NotEqual(t, int32(-804), row.value, "registry row %s retains removed kernel value", row.code)

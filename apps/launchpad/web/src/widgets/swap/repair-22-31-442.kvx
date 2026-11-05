@@ -1,0 +1,19 @@
+[repair.22.31.442]
+fixture_source = "swap-chain.recording.json and ../my-token/creator-chain.recording.json capture the original repair harnesses executing the shipped launchpad contracts with solc 0.8.27 on chain 125; creator-metadata.recording.json preserves the public metadata interface fields from services/launchpad/metadata/internal/metadata/handlers.go and the original gateway's unavailable market routes."
+assertions_kept = "All three named swap tests retain quote identity, debounce invalidation, disabled swap, no stale transaction, calldata, receipt success, balances, impact threshold, exact confirmation, slippage, pair, refetch and wallet guards. Creator discovery retains all six distinct identities, canonical creator pools, metadata-by-token, both named coin selections, unknown-token refusal, mismatched identity and zero-token refusals, signed-in creator, and pool-only panel paths."
+runtime = "Production useSwapQuoteExecution and MyTokenView use real wagmi, viem and HTTP. Recorded JSON-RPC replies replace EVM setup; metadata replies enter through fetchCreatorPoolMetadata. No test-time installs, subprocesses, PostgreSQL, Redis or Go remain. The signing key is Ganache's publicly known deterministic fixture key."
+replay = "Calls match recorded destination and calldata at the current balance state. The injected wallet signs the actual production transaction and sends it through eth_sendRawTransaction; chain, signature, nonce, gas and calldata are checked before advancing to the next recorded state. Only wall-clock deadlines and derived transaction hashes/signatures vary from the recorded envelopes."
+baseline = "No pre-change gate ran: the explicit task order requires implementation before testing and hf-build before hf-done, and forbids a hand-run verify_cmd. Initial gate ledger was absent; both original harnesses imported ganache and solc from undeclared nested manifests, but no unexecuted baseline failure is claimed."
+evidence = "The runner records the qualified revision, command, exit code and private log in the hf-done gate ledger."
+
+[gotcha.capture-loader]
+observed = "Node's CJS loader rejects a transpiled TypeScript capture module that redeclares require and retains an import.meta expression."
+resolution = "The temporary recording generator names its local dependency loader explicitly and supplies a filename; committed tests use the normal Vitest module loader."
+
+[gotcha.rpc-wire-types]
+observed = "First hf-build reported TS2322 for an untyped from address in eth_estimateGas and an unconstrained Hex passed to recoverTransactionAddress."
+resolution = "Keep the wire envelope typed as Address and TransactionSerialized; validate the connector's permission-revocation request explicitly. Assertions and receipt bounds are unchanged."
+
+[gotcha.instant-replay]
+observed = "First hf-done failed because an immediate eth_call refetch could finish before React observed fetching, and the HTTP fixture had not listed the original gateway's /v2/snapshots 404."
+resolution = "Hold refetch responses until the production hook clears its quote and review, then release and retain the original post-refetch stale-confirmation assertion; record the explicit snapshot 404."

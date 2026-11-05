@@ -45,8 +45,8 @@ test("every retired anchor target is refused", () => {
 
 test("the identified targets carry their identifier into the explorer's own route", () => {
   assert.equal(
-    explorerLinkPath({ kind: "receipt", receiptId: RECEIPT.toUpperCase() }),
-    `/paxeer-x/receipts/${RECEIPT}`,
+    explorerLinkPath({ kind: "receipt", receiptId: RECEIPT.toUpperCase(), transactionHash: `0x${"b".repeat(64)}` }),
+    `/tx/${TRANSACTION}`,
   );
   assert.equal(
     explorerLinkPath({ kind: "transaction", transactionHash: `0x${"B".repeat(64)}` }),
@@ -58,13 +58,14 @@ test("the identified targets carry their identifier into the explorer's own rout
 test("the link surface covers every explorer link kind and refuses identifiers it cannot address", () => {
   assert.deepEqual([...EXPLORER_LINK_KINDS], [
     "receipt",
+    "historical-receipt",
     "transaction",
     "address",
   ]);
   const refused: readonly ExplorerLinkTarget[] = [
-    { kind: "receipt", receiptId: "" },
-    { kind: "receipt", receiptId: RECEIPT.slice(1) },
-    { kind: "receipt", receiptId: `${RECEIPT}f` },
+    { kind: "receipt", receiptId: "", transactionHash: `0x${"b".repeat(64)}` },
+    { kind: "receipt", receiptId: RECEIPT.slice(1), transactionHash: `0x${"b".repeat(64)}` },
+    { kind: "receipt", receiptId: `${RECEIPT}f`, transactionHash: TRANSACTION },
     { kind: "transaction", transactionHash: RECEIPT },
     { kind: "transaction", transactionHash: `0x${"b".repeat(63)}` },
     { kind: "address", address: `0x${"1".repeat(39)}` },
@@ -77,7 +78,7 @@ test("the link surface covers every explorer link kind and refuses identifiers i
 
 test("a link path never carries a host of its own", () => {
   const targets: readonly ExplorerLinkTarget[] = [
-    { kind: "receipt", receiptId: RECEIPT },
+    { kind: "receipt", receiptId: RECEIPT, transactionHash: `0x${"b".repeat(64)}` },
     { kind: "transaction", transactionHash: TRANSACTION },
     { kind: "address", address: ADDRESS },
   ];
@@ -118,7 +119,7 @@ test("an absolute link joins the configured origin to the path of its target", (
     throw new Error("the explorer base URL fixture must parse");
   }
   for (const target of [
-    { kind: "receipt", receiptId: RECEIPT },
+    { kind: "receipt", receiptId: RECEIPT, transactionHash: `0x${"b".repeat(64)}` },
     { kind: "transaction", transactionHash: TRANSACTION },
     { kind: "address", address: ADDRESS },
   ] as const) {
@@ -207,7 +208,7 @@ function explorer_links_refuse_path_injection() {
     `${RECEIPT}?next=/paxeer-x/anchors`,
     `${RECEIPT}#anchors`,
   ]) {
-    assert.throws(() => explorerLinkPath({ kind: "receipt", receiptId: identifier }), TypeError);
+    assert.throws(() => explorerLinkPath({ kind: "receipt", receiptId: identifier, transactionHash: `0x${"b".repeat(64)}` }), TypeError);
   }
 }
 

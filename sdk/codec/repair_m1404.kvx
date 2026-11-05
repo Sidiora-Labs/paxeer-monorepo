@@ -1,0 +1,9 @@
+[repair.22.33.1404]
+audit = "22.30.79"
+finding = "001"
+change = "LegacyAmino.MarshalJSONIndent returns nil and the Any preparation error instead of panicking."
+fixture = "A protobuf round trip produces an uncached, unprepared Any; packing that real Any as a nested payload triggers the Amino JSON compatibility error instead of the null encoding of a nil cached value."
+proving_tests = ["TestRepairM_1404_UnpreparedAnyReturnsError", "TestRepairM_1404_UnpreparedAnyHelperBoundaries", "TestRepairM_1404_PreparedAnyRoundTrip"]
+baseline = "Not run: the ordered implementation-first and hf-done-only gate rules prohibit an unchanged-tree verify run; no pre-change test failure is claimed."
+evidence = "The runner's private hf-build and hf-done ledger records the exact candidate revision, command, exit code and log location."
+wiring_requests = []

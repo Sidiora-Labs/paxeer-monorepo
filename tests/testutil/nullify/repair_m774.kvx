@@ -1,0 +1,6 @@
+[repair.22.33.774]
+finding = "nullify-slice-loss"
+tests = ["TestRepairM_774_ResponseRoundTrip", "TestRepairM_774_DifferentPayloadsRemainDistinct", "TestRepairM_774_NestedSlicesAndPointers"]
+baseline = "Not run: the task's explicit gate order requires implementation before hf-build and hf-done, and prohibits running verify_cmd manually; no pre-change test failure is claimed."
+evidence = "The runner's hf-done ledger records the verified candidate revision, command, exit code and private log location."
+wiring_request = "spec/layerx-merge/spec.kvx, owning domain fm-tools-ops: reference this finding-to-test record; spec edits are outside this task's scope."

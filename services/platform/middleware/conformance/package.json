@@ -6,6 +6,7 @@
   "private": true,
   "license": "Apache-2.0",
   "scripts": {
+    "prebuild": "npm --prefix ../../../.. run build:dependencies -- @sidiora/layerx-middleware-conformance",
     "build": "tsc -p tsconfig.json",
     "conformance": "node run.mjs",
     "conformance:connected": "node connected.mjs",
@@ -13,12 +14,12 @@
     "test:payments": "node --test pay6/*.test.mjs"
   },
   "dependencies": {
-    "@sidiora/layerx-agent-integrations": "0.1.0",
-    "@sidiora/layerx-agent-middleware": "0.1.0",
-    "@sidiora/layerx-buyer-middleware": "0.1.0",
-    "@sidiora/layerx-merchant-middleware": "0.1.0",
-    "@sidiora/layerx-sdk": "0.1.0",
-    "@sidiora/layerx-seller-middleware": "0.1.0"
+    "@sidiora/layerx-agent-integrations": "file:../../../../sdk/integrations/agents",
+    "@sidiora/layerx-agent-middleware": "file:../agent",
+    "@sidiora/layerx-buyer-middleware": "file:../buyer",
+    "@sidiora/layerx-merchant-middleware": "file:../merchant",
+    "@sidiora/layerx-sdk": "file:../../../agent/sdk/typescript",
+    "@sidiora/layerx-seller-middleware": "file:../seller"
   },
   "devDependencies": {
     "typescript": "5.9.2"

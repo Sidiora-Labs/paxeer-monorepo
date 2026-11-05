@@ -1,6 +1,7 @@
 package segment
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
 	"testing"
@@ -51,7 +52,7 @@ func TestReadWriteKeys(t *testing.T) {
 	require.NoError(t, err)
 	err = segmentPath.MakeDirectories(false)
 	require.NoError(t, err)
-	file, err := createKeyFile(logger, index, segmentPath, false)
+	file, err := createKeyFile(logger, index, segmentPath, false, false)
 	require.NoError(t, err)
 
 	for _, key := range keys {
@@ -122,14 +123,14 @@ func TestReadingTruncatedKeyFile(t *testing.T) {
 			uint8(rand.Uint32Range(0, 256)),
 			rand.Uint32(),
 		)
-		keys[i] = &types.ScopedKey{Key: key, Address: address}
+		keys[i] = &types.ScopedKey{Key: key, Address: address, Kind: types.KeyKind(i % 4)}
 	}
 
 	segmentPath, err := NewSegmentPath(directory, "", "table")
 	require.NoError(t, err)
 	err = segmentPath.MakeDirectories(false)
 	require.NoError(t, err)
-	file, err := createKeyFile(logger, index, segmentPath, false)
+	file, err := createKeyFile(logger, index, segmentPath, false, false)
 	require.NoError(t, err)
 
 	for _, key := range keys {
@@ -140,43 +141,24 @@ func TestReadingTruncatedKeyFile(t *testing.T) {
 	err = file.seal()
 	require.NoError(t, err)
 
-	// Truncate the file. Chop off some bytes from the last key, but do not corrupt the length prefix.
-	lastKeyLength := len(keys[keyCount-1].Key)
-
 	filePath := file.path()
-
 	originalBytes, err := os.ReadFile(filePath)
 	require.NoError(t, err)
+	lastRecordSize := KeyRecordHeaderSize + len(keys[keyCount-1].Key) + types.AddressSerializedSize
+	lastRecordStart := len(originalBytes) - lastRecordSize
 
-	bytesToRemove := rand.Int32Range(1, int32(lastKeyLength)+1)
-	bytes := originalBytes[:len(originalBytes)-int(bytesToRemove)]
-
-	err = os.WriteFile(filePath, bytes, 0644)
-	require.NoError(t, err)
-
-	// We should be able to read the keys up to the point where the file was truncated.
-	readKeys, err := file.readKeys()
-	require.NoError(t, err)
-
-	require.Equal(t, int(keyCount-1), len(readKeys))
-	for i, key := range keys[:keyCount-1] {
-		assert.Equal(t, key, readKeys[i])
-	}
-
-	// Truncate the file. This time, chop off some of the last entry.
-	prefixBytesToRemove := rand.Int32Range(1, 8)
-	bytes = originalBytes[:len(originalBytes)-int(prefixBytesToRemove)]
-
-	err = os.WriteFile(filePath, bytes, 0644)
-	require.NoError(t, err)
-
-	// We should not be able to read the keys if the length prefix is truncated.
-	keys, err = file.readKeys()
-	require.NoError(t, err)
-
-	require.Equal(t, int(keyCount-1), len(keys))
-	for i, key := range keys[:keyCount-1] {
-		assert.Equal(t, key, keys[i])
+	for kept := 0; kept < lastRecordSize; kept++ {
+		t.Run(fmt.Sprintf("last_record_bytes_%d", kept), func(t *testing.T) {
+			require.NoError(t, os.WriteFile(filePath, originalBytes[:lastRecordStart+kept], 0644))
+			readKeys, err := file.readKeys()
+			require.NoError(t, err)
+			require.Len(t, readKeys, int(keyCount-1))
+			for i, key := range keys[:keyCount-1] {
+				assert.Equal(t, key.Key, readKeys[i].Key)
+				assert.Equal(t, key.Kind, readKeys[i].Kind)
+				assert.Equal(t, key.Address, readKeys[i].Address)
+			}
+		})
 	}
 
 	// delete the file
@@ -215,7 +197,7 @@ func TestSwappingKeyFile(t *testing.T) {
 	require.NoError(t, err)
 	err = segmentPath.MakeDirectories(false)
 	require.NoError(t, err)
-	file, err := createKeyFile(logger, index, segmentPath, false)
+	file, err := createKeyFile(logger, index, segmentPath, false, false)
 	require.NoError(t, err)
 
 	for _, key := range keys {
@@ -258,7 +240,7 @@ func TestSwappingKeyFile(t *testing.T) {
 
 	// Create a new version of the key file that only contains the keys at even indices. The intention is to replace
 	// the on-disk file with this new version.
-	swapFile, err := createKeyFile(logger, index, segmentPath, true)
+	swapFile, err := createKeyFile(logger, index, segmentPath, true, false)
 	require.NoError(t, err)
 	for i := 0; i < int(keyCount); i += 2 {
 		err := swapFile.write(keys[i])

@@ -1,28 +1,22 @@
 [sweep.rust-build-tools-platform]
-revision = "03e2d849d7f3e9ca51cada79f6d3cfe90938a0fb"
+revision = "ace3608260f2ec826292dab08cd058031efe2f46"
 command = "cargo build --locked --manifest-path tools/platform/Cargo.toml -p TARGET --all-targets"
 targets_total = 3
-targets_passed = 0
-targets_failed = 3
+targets_passed = 3
+targets_failed = 0
 targets_not_run = 0
 
 [target.rust-build-tools-platform.1]
 target = "layerx-platform-cli"
-result = "failed"
-exit_code = 101
-observed = "Cargo rejected tools/platform/Cargo.lock before compilation because it needs updating while --locked forbids changes; no file:line diagnostic was emitted."
-assumption = "The workspace lockfile is out of sync with the current dependency graph."
+result = "passed"
+exit_code = 0
 
 [target.rust-build-tools-platform.2]
 target = "layerx-platform-emulator"
-result = "failed"
-exit_code = 101
-observed = "Cargo rejected tools/platform/Cargo.lock before compilation because it needs updating while --locked forbids changes; no file:line diagnostic was emitted."
-assumption = "The workspace lockfile is out of sync with the current dependency graph."
+result = "passed"
+exit_code = 0
 
 [target.rust-build-tools-platform.3]
 target = "layerx-platform-release"
-result = "failed"
-exit_code = 101
-observed = "Cargo rejected tools/platform/Cargo.lock before compilation because it needs updating while --locked forbids changes; no file:line diagnostic was emitted."
-assumption = "The workspace lockfile is out of sync with the current dependency graph."
+result = "passed"
+exit_code = 0

@@ -1,5 +1,17 @@
 import { Pool, type PoolClient, type QueryResult, type QueryResultRow } from 'pg';
 import { env } from '../env.js';
+import { AsyncLocalStorage } from 'node:async_hooks';
+
+const signingSessions = new AsyncLocalStorage<PoolClient>();
+
+export function signingSessionClient(): PoolClient | undefined {
+  return signingSessions.getStore();
+}
+
+/** Share a checked-out session across the signing callback's short transactions. */
+export function withSigningSession<T>(client: PoolClient, work: () => Promise<T>): Promise<T> {
+  return signingSessions.run(client, work);
+}
 
 /**
  * Process-wide Postgres connection pool.
@@ -41,17 +53,21 @@ export function getPool(): Pool {
  */
 export async function query<T extends QueryResultRow = QueryResultRow>(
   text: string,
-  params?: unknown[],
+  params?: unknown[]
 ): Promise<QueryResult<T>> {
-  return getPool().query<T>(text, params);
+  return (signingSessionClient() ?? getPool()).query<T>(text, params);
 }
 
 /**
  * Run `fn` inside a transaction. Commits on success, rolls back on any throw.
  * Keeps callers from having to juggle BEGIN/COMMIT/ROLLBACK themselves.
  */
-export async function withTransaction<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {
-  const client = await getPool().connect();
+export async function withTransaction<T>(
+  fn: (client: PoolClient) => Promise<T>,
+  connection?: PoolClient
+): Promise<T> {
+  const borrowed = connection ?? signingSessionClient();
+  const client = borrowed ?? (await getPool().connect());
   try {
     await client.query('BEGIN');
     const result = await fn(client);
@@ -61,7 +77,7 @@ export async function withTransaction<T>(fn: (client: PoolClient) => Promise<T>)
     await client.query('ROLLBACK').catch(() => undefined);
     throw err;
   } finally {
-    client.release();
+    if (!borrowed) client.release();
   }
 }
 

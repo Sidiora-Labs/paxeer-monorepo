@@ -1,0 +1,18 @@
+[repair.22.33.1264]
+finding = "historical-associate-static"
+historical_proof = "TestRepairM_1264_HistoricalStaticCallStateDiff"
+current_proof = "TestRepairM_1264_CurrentAssociationRejectsStaticCall"
+version_proof = "TestRepairM_1264_HistoricalConstructorVersionIsolation"
+implementation = "Preserve addr.go and ABI unchanged; signed calldata traverses the production ABI wrappers, executors, association helpers and real EVM, bank, account and upgrade keepers on isolated in-memory stores."
+fixture = "Fixed secp256k1 key and signed message; historical STATICCALL sets both mappings and migrates 100 uhpx, 23 replaytoken and 19 wei, removes the cast account and sets the recovered public key; full store and event results equal historical CALL. Current STATICCALL refuses without rollback or any store/event change; the identical CALL succeeds."
+baseline = "No repair_m1264_test.go or prior gate ledger existed on inspection. Baseline verification was not run: the explicit allowed-gate order requires full implementation before hf-build then hf-done and forbids invoking verify_cmd by hand. No pre-change test failures are claimed."
+wiring = "None: precompiles/addr/setup.go (chain precompile domain 6) already selects v575 only for v5.7.5 and the current constructor for the latest version; the version-isolation test guards this ownership boundary."
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit code and private log; no passing result is claimed before those gates run."
+
+[qualification.initial_harness_dependency]
+revision = "b21fb43402b4b8789c328ce31903de8db59f4eec"
+command = "cg spec done 22.33.1264 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Full-node test utility imports expose pre-existing NewFactoryCLI return-arity compile errors in sdk/x/auth/client/cli, sdk/x/staking/client/cli and modules/tokenfactory/client/cli; no repair tests ran."
+assumption = "Record without changing those paths; the repaired harness constructs real keepers directly and exercises the same production wrappers and state transitions."

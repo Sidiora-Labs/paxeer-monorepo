@@ -1,0 +1,18 @@
+[repair.22.33.617]
+audit = "22.30.163"
+acceptance = "22998.1"
+base_revision = "264615cba89456c37eeb19535cb16b81846f6a68"
+verified_revision = "Exact candidate revision, command, exit and private evidence location are recorded by hf-build/hf-done in the runner ledger and final evidence JSON."
+baseline = "No baseline gate ran: the explicit implementation-first order and prohibition on running verify_cmd by hand take precedence over the conflicting baseline instruction in step 5; no pre-change test failure is claimed."
+wiring = "No out-of-path implementation is needed: a ContextVar carries the verified receipt-derived key through the existing zero-argument callback into the example handler's release_once(key) method. Effectful replacement handlers must atomically deduplicate that key at the resource owner."
+
+[finding.018]
+tests = ["test_018_concurrent_workers_and_reopen", "test_018_crash_reopen_each_persistence_boundary", "test_018_admission_and_completion_refuse_receipt_reuse", "test_018_existing_complete_record_is_reused"]
+repair = "A per-receipt operating-system lock serializes independent workers and releases on process death; an atomic, fsynced admission binds the request and receipt before keyed release, and an atomic, fsynced completion preserves the original JSON format. Recovery ignores uncommitted temporary files, validates admitted identity before retry, and reuses completed results."
+proof = "The committed Go sequencer vector is verified by the real Python SDK and emitted through the production portable-evidence and payment-header codecs; an httpx client sends the header through FastAPI's actual ASGI payment gate. Concurrent independent event loops share the store. Forked workers terminate without cleanup before/after write, flush, file fsync, rename, directory fsync, admission/completion commit, directory creation and the resource owner's SQLite effect commit; fresh applications reopen both stores and assert one effect and identical resource/settlement replay."
+
+[gotcha.baseline_order]
+observed = "The task's baseline-test step conflicts with its explicit ordered gate restrictions; only the implementation's bounded hf-build and hf-done gates are run."
+
+[gotcha.bytecode]
+observed = "Python bytecode inside directory scope can change the candidate between gates; both gates use the same external PYTHONPYCACHEPREFIX."

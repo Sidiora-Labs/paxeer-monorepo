@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import time
 import urllib.error
@@ -22,6 +23,7 @@ MIN_SCORE_LEVELS = 2
 RETRY_STATUSES = frozenset((429, 529))
 BACKOFF_SECONDS = 0.5
 EXCERPT_LIMIT = 512
+PROBABILITY_SUM_TOLERANCE = 1e-6
 
 T = TypeVar("T")
 
@@ -43,6 +45,8 @@ class JevRequestError(JevError):
         super().__init__(f"jev request failed (status {status}): {body_excerpt}")
         self.status = status
         self.body_excerpt = body_excerpt
+        self.request_sha256 = ""
+        self.response_sha256 = ""
 
 
 def noul(instructions: str, criteria: Mapping[str, str] | None = None) -> dict[str, object]:
@@ -105,20 +109,50 @@ def canonical_request(
 def _number(name: str, value: object) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise JevRequestError(0, f"answer {name} has a non-numeric value {value!r}")
-    return float(value)
+    try:
+        number = float(value)
+    except OverflowError as error:
+        raise JevRequestError(0, f"answer {name} has a nonfinite value") from error
+    if not math.isfinite(number):
+        raise JevRequestError(0, f"answer {name} has a nonfinite value {value!r}")
+    return number
 
 
-def _probabilities(name: str, payload: Mapping[str, object]) -> dict[str, float]:
+def _bounded_number(name: str, value: object, maximum: float = 1.0) -> float:
+    number = _number(name, value)
+    if not 0.0 <= number <= maximum:
+        raise JevRequestError(0, f"answer {name} must be within [0, {maximum}]")
+    return number
+
+
+def _probabilities(
+    name: str,
+    payload: Mapping[str, object],
+    expected_keys: set[str] | None = None,
+) -> dict[str, float]:
     raw = payload.get("probabilities")
-    if not isinstance(raw, dict):
-        return {}
-    return {str(key): _number(name, value) for key, value in raw.items()}
+    if not isinstance(raw, dict) or not raw:
+        raise JevRequestError(0, f"answer {name} has no probability distribution")
+    if expected_keys is not None and set(raw) != expected_keys:
+        raise JevRequestError(0, f"answer {name} probabilities do not match the declared keys")
+    probabilities = {str(key): _bounded_number(name, value) for key, value in raw.items()}
+    if not math.isclose(
+        math.fsum(probabilities.values()), 1.0, rel_tol=0.0, abs_tol=PROBABILITY_SUM_TOLERANCE
+    ):
+        raise JevRequestError(0, f"answer {name} probabilities must sum to one")
+    return probabilities
 
 
-def parse_answer(name: str, payload: Mapping[str, object]) -> Answer:
+def parse_answer(
+    name: str,
+    payload: Mapping[str, object],
+    question: Mapping[str, object] | None = None,
+) -> Answer:
     kind = payload.get("type")
+    if question is not None and kind != question.get("type"):
+        raise JevRequestError(0, f"answer {name} does not match the requested type")
     if kind == "noul":
-        probability = _number(name, payload.get("noul"))
+        probability = _bounded_number(name, payload.get("noul"))
         return Answer(
             kind="noul",
             value=probability,
@@ -130,11 +164,17 @@ def parse_answer(name: str, payload: Mapping[str, object]) -> Answer:
         selected = payload.get("choice")
         if not isinstance(selected, str):
             raise JevRequestError(0, f"answer {name} has no choice value")
+        expected_keys = set(question["criteria"]) if question is not None else None
+        if expected_keys is not None and selected not in expected_keys:
+            raise JevRequestError(0, f"answer {name} has an undeclared choice {selected!r}")
+        probabilities = _probabilities(name, payload, expected_keys)
+        if selected not in probabilities:
+            raise JevRequestError(0, f"answer {name} choice is absent from its distribution")
         return Answer(
             kind="choice",
             value=selected,
-            probabilities=_probabilities(name, payload),
-            confidence=_number(name, payload.get("confidence")),
+            probabilities=probabilities,
+            confidence=_bounded_number(name, payload.get("confidence")),
             legend={},
         )
     if kind == "score":
@@ -144,11 +184,18 @@ def parse_answer(name: str, payload: Mapping[str, object]) -> Answer:
             if isinstance(raw_legend, dict)
             else {}
         )
+        expected_keys = (
+            {str(index) for index in range(len(question["criteria"]))}
+            if question is not None
+            else None
+        )
+        probabilities = _probabilities(name, payload, expected_keys)
+        maximum = len(question["criteria"]) - 1 if question is not None else len(legend) - 1
         return Answer(
             kind="score",
-            value=_number(name, payload.get("score")),
-            probabilities=_probabilities(name, payload),
-            confidence=_number(name, payload.get("confidence")),
+            value=_bounded_number(name, payload.get("score"), float(maximum)),
+            probabilities=probabilities,
+            confidence=_bounded_number(name, payload.get("confidence")),
             legend=legend,
         )
     raise JevRequestError(0, f"answer {name} has unsupported type {kind!r}")
@@ -159,15 +206,21 @@ def parse_evaluation(
     requested_model: str,
     request_sha256: str,
     response_sha256: str,
+    questions: Mapping[str, Mapping[str, object]] | None = None,
 ) -> Evaluation:
     raw_answers = body.get("answers")
     if not isinstance(raw_answers, dict):
         raise JevRequestError(0, "response carries no answers object")
+    if questions is not None and set(raw_answers) != set(questions):
+        missing = sorted(set(questions) - set(raw_answers))
+        unknown = sorted(set(raw_answers) - set(questions))
+        raise JevRequestError(0, f"response answers mismatch: missing={missing}, unknown={unknown}")
     answers: dict[str, Answer] = {}
     for name, payload in raw_answers.items():
         if not isinstance(payload, dict):
             raise JevRequestError(0, f"answer {name} is not an object")
-        answers[str(name)] = parse_answer(str(name), payload)
+        question = questions[name] if questions is not None else None
+        answers[str(name)] = parse_answer(str(name), payload, question)
     usage: dict[str, float] = {}
     raw_usage = body.get("usage")
     if isinstance(raw_usage, dict):
@@ -221,12 +274,23 @@ class JevClient:
         raw = self._send(payload, key)
         response_sha256 = hashlib.sha256(raw).hexdigest()
         try:
-            document = json.loads(raw.decode("utf-8"))
-        except (UnicodeDecodeError, json.JSONDecodeError) as error:
-            raise JevRequestError(0, f"response is not JSON: {error}") from error
-        if not isinstance(document, dict):
-            raise JevRequestError(0, "response is not a JSON object")
-        evaluation = parse_evaluation(document, self.model, request_sha256, response_sha256)
+            try:
+                document = json.loads(raw.decode("utf-8"))
+            except (UnicodeDecodeError, json.JSONDecodeError) as error:
+                raise JevRequestError(0, f"response is not JSON: {error}") from error
+            if not isinstance(document, dict):
+                raise JevRequestError(0, "response is not a JSON object")
+            evaluation = parse_evaluation(
+                document,
+                self.model,
+                request_sha256,
+                response_sha256,
+                questions=json.loads(payload)["questions"],
+            )
+        except JevRequestError as error:
+            error.request_sha256 = request_sha256
+            error.response_sha256 = response_sha256
+            raise
         self._log(evaluation)
         return evaluation
 

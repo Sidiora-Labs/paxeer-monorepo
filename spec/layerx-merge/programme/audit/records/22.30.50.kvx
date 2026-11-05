@@ -1,0 +1,1228 @@
+# Pre-upgrade node audit at the source revision. Findings are repair proposals; no source repair is included.
+
+[audit.22.30.50]
+task = "22.30.50"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 122
+findings = 44
+docs_reviewed = 3
+upgrade_ready = false
+blocking = ["gas-wanted-zero", "giga-errors-become-empty-results", "committed-parent-lost-on-restart", "merge-plan-info-lost-on-resume", "giga-tenant-replay-uses-root-domain", "verify-retirement-surface-hidden", "merge-fallback-bound-to-unrelated-height", "giga-disables-result-proof-validation"]
+
+[file.001]
+path = "node/abci.go"
+lines = 345
+verdict = "clean"
+note = "Read full ABCI hooks, CheckTx, DeliverTx and batch delivery; real downstream fee/message consumers re-resolve tenant semantics. Merge resume and Giga integration findings are owned at their app/upgrades definitions."
+
+[file.002]
+path = "node/ante.go"
+lines = 164
+verdict = "clean"
+note = "Read full ante/router assembly, revocation, domain decorators and fee-reader binding; compared ordinary legacy delivery downstream resolution rather than assuming the configured handler is its only gate."
+
+[file.003]
+path = "node/ante_revocation_test.go"
+lines = 227
+verdict = "clean"
+note = "Reviewed real revoked-grant ante and authorization rejection cases, including wrapped messages and authority identity."
+
+[file.004]
+path = "node/ante_test.go"
+lines = 472
+verdict = "clean"
+note = "Reviewed ante setup, signature/fee/context and transaction-shape cases against the real decorators and router."
+
+[file.005]
+path = "node/app.go"
+lines = 4388
+verdict = "issues"
+note = "Reviewed the entire application, construction, module/store wiring, proposal/finalize paths, Giga executors, snapshot/RPC seams and restart lifecycle; findings identify concrete validation, execution and recovery disagreements."
+
+[file.006]
+path = "node/app_feetoken_test.go"
+lines = 242
+verdict = "clean"
+note = "Reviewed live fee-token registration, keeper wiring and EVM fee behavior against the real fee-token producer."
+
+[file.007]
+path = "node/app_merge_modules_test.go"
+lines = 129
+verdict = "clean"
+note = "Reviewed merged module-manager, store and lifecycle membership assertions against the actual application assembly."
+
+[file.008]
+path = "node/app_merge_wiring_test.go"
+lines = 110
+verdict = "clean"
+note = "Reviewed current native-interface constructor/activation and keeper wiring using the real application."
+
+[file.009]
+path = "node/app_pay_agent_modules_test.go"
+lines = 69
+verdict = "clean"
+note = "Reviewed pay/agent module store, keeper and registration assertions against mounted live modules."
+
+[file.010]
+path = "node/app_test.go"
+lines = 1100
+verdict = "issues"
+note = "Reviewed all application tests; exact-hash determinism and production panic-path proof gaps are recorded separately."
+
+[file.011]
+path = "node/benchmark.go"
+lines = 99
+verdict = "clean"
+note = "Reviewed full benchmark startup/telemetry helpers and live-chain refusal; benchmark mode remains a deliberate nonproduction operation."
+
+[file.012]
+path = "node/benchmark_buildtag.go"
+lines = 6
+verdict = "clean"
+note = "Reviewed explicit benchmark-tag constant; its complementary default selector has matching package and symbol."
+
+[file.013]
+path = "node/benchmark_buildtag_default.go"
+lines = 6
+verdict = "clean"
+note = "Reviewed default-disabled benchmark constant and complementary build constraints."
+
+[file.014]
+path = "node/benchmark_test.go"
+lines = 124
+verdict = "issues"
+note = "Reviewed helper, live-chain refusal and generator tests; the success case can pass without a proposal."
+
+[file.015]
+path = "node/check_total_block_gas_test.go"
+lines = 196
+verdict = "clean"
+note = "Reviewed gas-estimate, overflow, gasless and bound fixtures; tests do not supply the zero-bound end-to-end producer case identified in app.go."
+
+[file.016]
+path = "node/checktx_sequence_batch_test.go"
+lines = 66
+verdict = "clean"
+note = "Reviewed real CheckTx refusal of block-only sequence-batch encoding and typed codes."
+
+[file.017]
+path = "node/commit_listener_test.go"
+lines = 117
+verdict = "clean"
+note = "Reviewed successful/error-returning commit callbacks and committed-height/hash arguments against the actual callback type."
+
+[file.018]
+path = "node/consensus_params_test.go"
+lines = 73
+verdict = "clean"
+note = "Reviewed consensus-parameter context propagation and the committed/clean contexts used by validation."
+
+[file.019]
+path = "node/const.go"
+lines = 10
+verdict = "clean"
+note = "Reviewed both block-fee constants and their use; no retired endpoint or runtime dependency."
+
+[file.020]
+path = "node/cosmos_checktx_test.go"
+lines = 194
+verdict = "clean"
+note = "Reviewed real Cosmos CheckTx fee, signature and state-effect fixtures against legacy CheckTx behavior."
+
+[file.021]
+path = "node/custom_precompiles_e_test.go"
+lines = 30
+verdict = "clean"
+note = "Reviewed error-returning precompile construction against the actual constructor registry."
+
+[file.022]
+path = "node/encoding.go"
+lines = 26
+verdict = "clean"
+note = "Reviewed real interface registration and encoding-config construction across SDK, wasm and chain modules."
+
+[file.023]
+path = "node/eth_replay.go"
+lines = 266
+verdict = "issues"
+note = "Reviewed replay/block-test entry points, transaction encoding, cursor/commit ordering and remote dependencies; bounded RPC lifecycle risk is recorded."
+
+[file.024]
+path = "node/export.go"
+lines = 220
+verdict = "clean"
+note = "Reviewed full export, validator and zero-height preparation paths against actual stores and retained module lifecycle."
+
+[file.025]
+path = "node/genesis.go"
+lines = 69
+verdict = "clean"
+note = "Reviewed default genesis and strict stream import configuration; application/template agree on genesis.genesis-stream-file and stale registry/prose are recorded as documentation findings."
+
+[file.026]
+path = "node/genesis_config_test.go"
+lines = 58
+verdict = "clean"
+note = "Reviewed real stream-import option names, nil/default values and invalid option cases."
+
+[file.027]
+path = "node/genesis_sequenced_test.go"
+lines = 109
+verdict = "clean"
+note = "Reviewed native merged genesis module state, activation and sequencer initialization through real application paths."
+
+[file.028]
+path = "node/giga_merge_fallback_test.go"
+lines = 176
+verdict = "clean"
+note = "Reviewed real ordinary/Giga 0x101A execution and receipt parity at height 26300000; low-height served-interface selection remains the separate app.go finding."
+
+[file.029]
+path = "node/giga_precompiles_test.go"
+lines = 75
+verdict = "issues"
+note = "Reviewed exact map/height assertions and complete full-height merge address set; the tests intentionally exercise the hardcoded selection whose low-height product risk is recorded in app.go."
+
+[file.030]
+path = "node/giga_v6120.go"
+lines = 33
+verdict = "clean"
+note = "Reviewed full merge fail-fast union plus pricefeed/spot addresses; old registry missing-address claims are obsolete. Selection below the hardcoded height is owned in app.go."
+
+[file.031]
+path = "node/gov_bridge_test.go"
+lines = 182
+verdict = "clean"
+note = "Reviewed governance bridge updates, permissions and module state through actual proposal execution."
+
+[file.032]
+path = "node/gov_custody_test.go"
+lines = 297
+verdict = "clean"
+note = "Reviewed retained historical custody governance/migration behavior; historical fixtures do not constitute a live retired service dependency."
+
+[file.033]
+path = "node/gov_layerx_test.go"
+lines = 136
+verdict = "clean"
+note = "Reviewed real LayerX governance routing and authority validation for registered merged modules."
+
+[file.034]
+path = "node/invariance.go"
+lines = 208
+verdict = "issues"
+note = "Reviewed complete changed-balance, wei and supply conservation calculation; unreadable-state success paths are recorded."
+
+[file.035]
+path = "node/invariance_test.go"
+lines = 193
+verdict = "clean"
+note = "Reviewed real commitment-store supply/wei conservation cases and expected panic invariants."
+
+[file.036]
+path = "node/last_block_id_test.go"
+lines = 63
+verdict = "clean"
+note = "Reviewed live precommit/commit ID publication and defensive copies; no reopen occurs, so the production restart loss is recorded in app.go."
+
+[file.037]
+path = "node/launchpad_airdrop_test.go"
+lines = 194
+verdict = "clean"
+note = "Reviewed airdrop registration, permissions, claim and balance paths through actual launchpad state."
+
+[file.038]
+path = "node/launchpad_governance_test.go"
+lines = 382
+verdict = "clean"
+note = "Reviewed real launchpad governance, parameter and authorization behavior across live keeper/precompile paths."
+
+[file.039]
+path = "node/layerxchains_block_test.go"
+lines = 313
+verdict = "issues"
+note = "Reviewed full tenant integration harness and block effects; proposer fixture truncates the leader key and bypasses real proposal validation."
+
+[file.040]
+path = "node/layerxchains_wiring_test.go"
+lines = 129
+verdict = "clean"
+note = "Reviewed LayerXChains store, module, precompile and EVM binding construction against current application wiring."
+
+[file.041]
+path = "node/leader_schedule_gov_test.go"
+lines = 113
+verdict = "clean"
+note = "Reviewed governed leader schedule updates and subsequent committed schedule reads."
+
+[file.042]
+path = "node/leader_source.go"
+lines = 15
+verdict = "clean"
+note = "Reviewed complete committed-context leader-list adapter and keeper error propagation."
+
+[file.043]
+path = "node/leader_source_test.go"
+lines = 111
+verdict = "issues"
+note = "Reviewed all leader-source scenarios; empty-block helper conflicts with active tx0 requirements."
+
+[file.044]
+path = "node/merge_rehearsal_test.go"
+lines = 209
+verdict = "clean"
+note = "Reviewed merge rehearsal, real kernel/native state transitions and retained retirement behavior."
+
+[file.045]
+path = "node/metrics.go"
+lines = 226
+verdict = "clean"
+note = "Reviewed metric declarations, units and instruments against recording call sites; no unreachable mandatory runtime loop introduced here."
+
+[file.046]
+path = "node/mock_balances_buildtag.go"
+lines = 6
+verdict = "clean"
+note = "Reviewed explicit mock_balances compile-time flag; this test/development opt-in is paired with the production default-disabled selector."
+
+[file.047]
+path = "node/mock_balances_buildtag_default.go"
+lines = 6
+verdict = "clean"
+note = "Reviewed default-disabled mock balance flag and mutually exclusive build constraint."
+
+[file.048]
+path = "node/newheads_test.go"
+lines = 64
+verdict = "clean"
+note = "Reviewed real new-head delivery and latest-head channel behavior against notifier capacity/lifecycle."
+
+[file.049]
+path = "node/optimistic_processing_test.go"
+lines = 489
+verdict = "clean"
+note = "Reviewed full optimistic execution, abort, finalize and commit result/state cases against live application branches."
+
+[file.050]
+path = "node/paxdb.go"
+lines = 179
+verdict = "issues"
+note = "Reviewed full SC/SS/FlatKV configuration and store construction; invalid explicit migration batch size silently uses the default."
+
+[file.051]
+path = "node/paxdb_flatkv_test.go"
+lines = 96
+verdict = "clean"
+note = "Reviewed real FlatKV option parsing and invalid configuration rejection."
+
+[file.052]
+path = "node/paxdb_template_test.go"
+lines = 69
+verdict = "clean"
+note = "Reviewed actual storage template option declarations including the now-present snapshot-writer limit."
+
+[file.053]
+path = "node/paxdb_test.go"
+lines = 197
+verdict = "clean"
+note = "Reviewed SC/SS option mapping, snapshot prerequisites and existing default-preservation cases."
+
+[file.054]
+path = "node/precompiles.go"
+lines = 221
+verdict = "clean"
+note = "Reviewed every keeper adapter and import registration, including programs host/ABI and agent constructor wiring."
+
+[file.055]
+path = "node/precompiles_agent_imports_test.go"
+lines = 33
+verdict = "clean"
+note = "Reviewed node binary agent constructor linking assertions against actual init registration."
+
+[file.056]
+path = "node/precompiles_agent_merge_imports_test.go"
+lines = 36
+verdict = "clean"
+note = "Reviewed complete merged agent imports and served constructor registrations."
+
+[file.057]
+path = "node/precompiles_anchor_retired_test.go"
+lines = 23
+verdict = "clean"
+note = "Reviewed real anchor-retirement constructor availability; retaining a typed refusal surface is intentional."
+
+[file.058]
+path = "node/precompiles_keepers_v6120_test.go"
+lines = 35
+verdict = "clean"
+note = "Reviewed concrete perps/spot/pricefeed keeper identity and host interface bindings."
+
+[file.059]
+path = "node/precompiles_merge_imports_test.go"
+lines = 65
+verdict = "clean"
+note = "Reviewed registered merged ledger/auth/pay/programs/agent interfaces through real node imports."
+
+[file.060]
+path = "node/precompiles_v6120.go"
+lines = 125
+verdict = "clean"
+note = "Reviewed historical contract switching, host/keeper construction and activation-refresh paths against live constructors."
+
+[file.061]
+path = "node/precompiles_v6120_test.go"
+lines = 346
+verdict = "clean"
+note = "Reviewed full version, constructor identity and activation cases; identity-only stand-ins do not establish a current runtime mismatch."
+
+[file.062]
+path = "node/pricefeed_live_test.go"
+lines = 747
+verdict = "clean"
+note = "Reviewed live pricefeed updates, permissions, event/error translation and integration state through actual keepers."
+
+[file.063]
+path = "node/prioritizer.go"
+lines = 202
+verdict = "clean"
+note = "Reviewed full EVM nonce/fee and non-EVM prioritization, relation stores and failure behavior against actual context fields."
+
+[file.064]
+path = "node/prioritizer_test.go"
+lines = 140
+verdict = "clean"
+note = "Reviewed ordering, duplicate and nonce/balance priority cases against the real prioritizer."
+
+[file.065]
+path = "node/process_proposal_order.go"
+lines = 18
+verdict = "clean"
+note = "Reviewed full keeper CheckSequenceBatch adapter and error propagation; current order/signature checks supersede stale registry absence claims."
+
+[file.066]
+path = "node/process_proposal_order_test.go"
+lines = 116
+verdict = "clean"
+note = "Reviewed real valid/invalid batch continuity, root, key and signature proposal checks."
+
+[file.067]
+path = "node/process_proposal_proposer.go"
+lines = 26
+verdict = "clean"
+note = "Reviewed full pinned-leader consensus AddressHash comparison and typed refusal."
+
+[file.068]
+path = "node/process_proposal_proposer_test.go"
+lines = 71
+verdict = "clean"
+note = "Reviewed real consensus-address derivation and refusal of unpinned or incorrectly shaped proposers."
+
+[file.069]
+path = "node/proof_node_abci_test.go"
+lines = 424
+verdict = "issues"
+note = "Reviewed complete real ABCI/receipt proof paths; unknown chain fixture expects the wrong typed admission error."
+
+[file.070]
+path = "node/proof_node_genesis_test.go"
+lines = 239
+verdict = "clean"
+note = "Reviewed real native genesis import/export and proof-backed state shape across initialization."
+
+[file.071]
+path = "node/proof_node_go_api_test.go"
+lines = 353
+verdict = "clean"
+note = "Reviewed real Go API adapters, snapshot/context isolation and proof-node integration shapes."
+
+[file.072]
+path = "node/receipt.go"
+lines = 646
+verdict = "clean"
+note = "Reviewed all event/receipt translations and error handling. CW721 prior-owner event is emitted with exactly the three attributes this consumer requires; no field-count mismatch."
+
+[file.073]
+path = "node/receipt_store_config.go"
+lines = 28
+verdict = "clean"
+note = "Reviewed real receipt config reader, home-relative default path and retain-height binding against storage config."
+
+[file.074]
+path = "node/receipt_test.go"
+lines = 1029
+verdict = "clean"
+note = "Reviewed all receipt event cases including delegated CW721 transfer, real prior owner and multi-message paths."
+
+[file.075]
+path = "node/receipt_translation_test.go"
+lines = 29
+verdict = "clean"
+note = "Reviewed actual producer event-to-receipt translation for the focused native event shapes."
+
+[file.076]
+path = "node/rpc_pending_snapshot_test.go"
+lines = 90
+verdict = "clean"
+note = "Reviewed read-only pending snapshot isolation and real RPC option behavior against App state."
+
+[file.077]
+path = "node/sequenced_block_test.go"
+lines = 586
+verdict = "issues"
+note = "Reviewed all sequential/OCC, rotation and genesis cases; hand-built success batches carry arbitrary sequence hashes rejected by production."
+
+[file.078]
+path = "node/sequenced_empty_block_test.go"
+lines = 47
+verdict = "clean"
+note = "Reviewed real empty signed-batch block shape and sequence continuity semantics."
+
+[file.079]
+path = "node/sequenced_finalize_test.go"
+lines = 283
+verdict = "clean"
+note = "Reviewed actual finalized batch/state/results and missing/invalid tx0 refusal cases."
+
+[file.080]
+path = "node/sequenced_halt.go"
+lines = 30
+verdict = "clean"
+note = "Reviewed typed halt sentinel wrapping, height context and recoverable error identity."
+
+[file.081]
+path = "node/sequenced_halt_rehearsal_test.go"
+lines = 135
+verdict = "clean"
+note = "Reviewed real invalid batch halt/rehearsal behavior and refusal of partial commit."
+
+[file.082]
+path = "node/sequenced_halt_test.go"
+lines = 39
+verdict = "clean"
+note = "Reviewed typed halt construction and errors.Is identity with concrete causes."
+
+[file.083]
+path = "node/sequenced_metrics.go"
+lines = 46
+verdict = "clean"
+note = "Reviewed bounded rejection reasons, halt instrument declarations and context recording."
+
+[file.084]
+path = "node/sequenced_metrics_test.go"
+lines = 99
+verdict = "clean"
+note = "Reviewed rejection/halt measurements against actual recorder instruments and declared reason values."
+
+[file.085]
+path = "node/sequenced_optimistic_test.go"
+lines = 142
+verdict = "clean"
+note = "Reviewed real optimistic/synchronous sealed execution result and committed-state equivalence."
+
+[file.086]
+path = "node/sequenced_proposal_test.go"
+lines = 186
+verdict = "clean"
+note = "Reviewed full batch/order/signature and proposer validation through the actual proposal handler."
+
+[file.087]
+path = "node/sequencer_context_test.go"
+lines = 234
+verdict = "clean"
+note = "Reviewed live pending/clean/committed contexts, isolation and receipt-visible execution state."
+
+[file.088]
+path = "node/sequencer_rpc_option_test.go"
+lines = 296
+verdict = "clean"
+note = "Reviewed actual HTTP/WS send and receipt option wiring, pending reads and error propagation."
+
+[file.089]
+path = "node/sequencer_seams_test.go"
+lines = 123
+verdict = "clean"
+note = "Reviewed real App executor/source seams, keeper identities and ownership boundaries."
+
+[file.090]
+path = "node/standby_recorder_replication_test.go"
+lines = 282
+verdict = "clean"
+note = "Reviewed full real TCP recorder/WAL replication, ledger operation, receipt, disconnect and reconnect paths."
+
+[file.091]
+path = "node/store_delete_test.go"
+lines = 138
+verdict = "clean"
+note = "Reviewed real bond-return/store deletion and typed retired precompile refusal lifecycle."
+
+[file.092]
+path = "node/store_keys_test.go"
+lines = 20
+verdict = "clean"
+note = "Reviewed required mounted store-key set against current application/store declarations."
+
+[file.093]
+path = "node/tags_merge_upgrade_test.go"
+lines = 30
+verdict = "clean"
+note = "Reviewed exact merge tag inclusion and latest-tag behavior against embedded tags."
+
+[file.094]
+path = "node/tags_test.go"
+lines = 13
+verdict = "clean"
+note = "Reviewed tag parsing/order with current semantic-version inputs."
+
+[file.095]
+path = "node/test_helpers.go"
+lines = 1123
+verdict = "issues"
+note = "Reviewed entire helper implementation, ABCI initialization and Giga setup; swallowed errors and process-global validation leakage are recorded."
+
+[file.096]
+path = "node/test_wrapper_stores_test.go"
+lines = 53
+verdict = "clean"
+note = "Reviewed actual wrapper mounted stores and concrete state initialization."
+
+[file.097]
+path = "node/upgrade_export_test.go"
+lines = 130
+verdict = "clean"
+note = "Reviewed committed sequencer genesis/state export into a fresh real App, comparing leaders, receipt pins, hash and activation."
+
+[file.098]
+path = "node/upgrade_test.go"
+lines = 261
+verdict = "clean"
+note = "Reviewed all real historical upgrade registration and migration paths against supported handler behavior."
+
+[file.099]
+path = "node/upgrades.go"
+lines = 768
+verdict = "issues"
+note = "Reviewed complete tag/handler registry, all store plans, merge validation, retirement gates and disk resume. Info-loss and missing verify retirement surface are recorded with stale-test/documentation counterparts."
+
+[file.100]
+path = "node/upgrades_activation_test.go"
+lines = 539
+verdict = "issues"
+note = "Reviewed all activation tests; obsolete current tags, address/store sets and retired-module assumptions are individually recorded."
+
+[file.101]
+path = "node/upgrades_merge_activation_test.go"
+lines = 120
+verdict = "clean"
+note = "Reviewed real merge activation with governed pins, committed state and correct activation height."
+
+[file.102]
+path = "node/upgrades_merge_bonds_test.go"
+lines = 106
+verdict = "clean"
+note = "Reviewed real bond-return migration, bank balances and atomic refusal/preservation behavior."
+
+[file.103]
+path = "node/upgrades_merge_gate_test.go"
+lines = 186
+verdict = "issues"
+note = "Reviewed full precompile gate/refusal test; production-complete constructor registry contradicts its registered-case premise."
+
+[file.104]
+path = "node/upgrades_merge_name_test.go"
+lines = 16
+verdict = "issues"
+note = "Reviewed entire plan-name assertion; merge is no longer the final known plan."
+
+[file.105]
+path = "node/upgrades_merge_stores_test.go"
+lines = 71
+verdict = "issues"
+note = "Reviewed full migration/genesis checks; expected store list omits LayerXChains."
+
+[file.106]
+path = "node/upgrades_sequencer_test.go"
+lines = 422
+verdict = "issues"
+note = "Reviewed entire sequencer upgrade and rejection cases; initial sequencer-only merge premise is stale."
+
+[file.107]
+path = "node/upgrades_test.go"
+lines = 388
+verdict = "issues"
+note = "Reviewed full historical upgrade assertions; fee-token test assumes an obsolete tag tail."
+
+[file.108]
+path = "node/upgrades_unmounted_test.go"
+lines = 39
+verdict = "clean"
+note = "Reviewed actual unmounted-store refusal before an upgrade writes state."
+
+[file.109]
+path = "node/upgrades_v610_test.go"
+lines = 204
+verdict = "issues"
+note = "Reviewed all operating-value, attestor and lifecycle cases; latest tag/plan metadata expectations are obsolete."
+
+[file.110]
+path = "node/upgrades_v611.go"
+lines = 165
+verdict = "clean"
+note = "Reviewed complete exchange-balance repair, authority and migration preconditions, integer accounting and error propagation."
+
+[file.111]
+path = "node/upgrades_v611_test.go"
+lines = 198
+verdict = "clean"
+note = "Reviewed actual historical exchange repair, refusal and preserved-state cases."
+
+[file.112]
+path = "node/upgrades_v6120.go"
+lines = 167
+verdict = "clean"
+note = "Reviewed all real v6.12.0 hook bindings, store migration, exchange/spot/pricefeed initialization and error propagation."
+
+[file.113]
+path = "node/upgrades_v6120_pointers.go"
+lines = 106
+verdict = "clean"
+note = "Reviewed complete pointer migration, code/store decoding and current keeper/precompile bindings."
+
+[file.114]
+path = "node/upgrades_v6120_pointers_test.go"
+lines = 171
+verdict = "clean"
+note = "Reviewed real pointer migrations and refusal/state-preservation assertions."
+
+[file.115]
+path = "node/upgrades_v6120_store_test.go"
+lines = 104
+verdict = "clean"
+note = "Reviewed actual v6.12.0 mounted store list and migration loader behavior."
+
+[file.116]
+path = "node/upgrades_v6120_test.go"
+lines = 670
+verdict = "issues"
+note = "Reviewed full historical migration/hook/refusal coverage; the expected known-plan list omits the later deletion plan."
+
+[file.117]
+path = "node/upgrades_xweb_test.go"
+lines = 296
+verdict = "issues"
+note = "Reviewed all real xweb initialization and migration cases; latest-tag premise remains pre-merge."
+
+[file.118]
+path = "node/utils.go"
+lines = 25
+verdict = "clean"
+note = "Reviewed full account-permission and configuration helpers with their real callers and returned types."
+
+[file.119]
+path = "node/v6120_seed_helpers_test.go"
+lines = 140
+verdict = "clean"
+note = "Reviewed concrete v6.12.0 seed construction and real keeper state used by migration tests."
+
+[file.120]
+path = "node/vote_feed_test.go"
+lines = 149
+verdict = "clean"
+note = "Reviewed actual committed vote storage/feed and next-block consumption lifecycle."
+
+[file.121]
+path = "node/wasm_abi.json"
+lines = 1
+verdict = "clean"
+note = "Reviewed the complete one-line embedded ABI and its concrete binding use; no generated/vendor marker and no retired network endpoint."
+
+[file.122]
+path = "node/xweb_attestors.go"
+lines = 105
+verdict = "clean"
+note = "Reviewed every public attestor record, compressed-key/signer validation, ordering and majority threshold; these are public identities, not private signing material."
+
+[finding.gas-wanted-zero]
+file = "node/app.go"
+line = 3796
+class = "interface-mismatch"
+severity = "high"
+observed = "checkTotalBlockGas casts Block.MaxGasWanted to uint64 and unconditionally compares totalGasWanted against it. With MaxGasWanted=0, every nonzero-gas transaction causes ProcessProposalHandler to reject a block that node/sequencer/limits.go:62 admitted and the receipt source sealed."
+expected = "Requirements 22025.1 and 5020.3 make zero or negative MaxGasWanted an unset bound and require a block filled to Accept limits to pass validator proposal checks."
+proposal = "In node/app.go apply the gas-wanted bound only when MaxGasWanted is positive, preserving overflow and MaxGas checks. Prove a real accepted, receipted and sealed block passes ProcessProposal with zero and negative bounds and is rejected above an explicit positive bound."
+owner_domain = 5
+interface = "5.go-node-app-process-proposal-handler"
+
+[finding.giga-errors-become-empty-results]
+file = "node/app.go"
+line = 2354
+class = "runtime-risk"
+severity = "high"
+observed = "ProcessTXsWithOCCGiga returns nil results with no error channel on block-cache failure or EVM/V2 scheduler failure (2354,2368,2406). ProcessTxsSynchronousGiga similarly returns nil at 2070. After an EVM-cache write, a V2 scheduler failure can retain the EVM half. ExecuteTxsConcurrently and ProcessBlock still call CompleteBlock and return success with an incomplete result vector."
+expected = "A block must either execute every transaction with one ordered result per input or refuse atomically; infrastructure failures must never become a successfully finalized block containing unexecuted or partially applied receipted transactions."
+proposal = "Propagate execution errors through node/app.go execution helpers into ProcessBlock, discard all block branches on failure and enforce complete non-nil result cardinality before CompleteBlock. Add real cache/scheduler failure-path coverage that proves no partial state or shortened result vector reaches commit."
+owner_domain = 5
+interface = "5.go-node-app-process-block"
+
+[finding.committed-parent-lost-on-restart]
+file = "node/app.go"
+line = 3417
+class = "restart-recovery"
+severity = "high"
+observed = "LastBlockID reads only committedBlockID/committingBlockID, populated by HandlePreCommit at 1452-1457. New and loadVersionHandler restore no block identity. After reopening committed height H, LastBlockHeight is H but LastBlockID is zero; node/sequencer/executor.go:263 copies that zero parent into Open(H+1)."
+expected = "Requirement 5033.2 and the sequencer Host contract require Open to carry the actual last committed block ID, including after process restart; a live in-memory predecessor must not differ from a recovered predecessor."
+proposal = "Persist or recover the canonical committed block identity in node/app.go before the sequencer opens the next layer. Cover real commit, process close, loadLatest and Executor.Open, checking identical parent identity and replayed header continuity."
+owner_domain = 5
+interface = "5.go-node-sequencer-host"
+
+[finding.merge-plan-info-lost-on-resume]
+file = "node/upgrades.go"
+line = 707
+class = "interface-mismatch"
+severity = "high"
+observed = "BeginBlock calls applyNamedUpgrade before module BeginBlock. ReadUpgradeInfoFromDisk returns sdk/store/types.UpgradeInfo with only Name/Height, and line 707 constructs a Plan with empty Info although the old binary writes Info to upgrade-info.json. continueMergeUpgradePlan rejects a scheduled nonempty Info at 479, or migrateMergeState fails json.Unmarshal(empty Info) at 506. ApplyUpgrade panics before the scheduled merge can run."
+expected = "The merge upgrade must preserve its governed leaders, receipt-key pins and activation genesis across the normal old-binary halt and new-binary restart. A valid scheduled Plan.Info must reach the same merge handler unchanged."
+proposal = "In node/upgrades.go resolve and validate the canonical scheduled plan by disk name/height and retain its Info before ApplyUpgrade. Define an explicit info-bearing format for any supported operator-only merge plan. Exercise the real disk writer, restart/store loader and BeginBlock to prove successful merge and unchanged pins."
+owner_domain = 5
+interface = "5.go-node-app-register-upgrade-handlers"
+
+[finding.giga-tenant-replay-uses-root-domain]
+file = "node/app.go"
+line = 2601
+class = "interface-mismatch"
+severity = "high"
+observed = "newGigaBlockCache caches the root ChainID and executeEVMTxWithGigaExecutor passes it to RecoverSenderFromEthTx. Giga stateless checks allow mapped tenant IDs without resolving a keeper. A valid tenant legacy EIP-155 transaction accepted through ordinary DeliverTx becomes Code1 during Giga replay because recovery subtracts the root chain ID; no fallback runs. Giga also bypasses the ordinary message consumer that selects tenant CHAINID/base fee and records domain activity."
+expected = "The real sequencer Accept/Seal producer and validator ProcessBlock consumer must execute the same protected tenant transaction identically. Ordinary fee processing and modules/evm/keeper/msg_server.go resolve the active tenant and its VM context; Giga must preserve these semantics with its default enabled configuration."
+proposal = "Resolve chain registration/liveness, signature domain, tenant VM context, fees and domain accounting before Giga execution in node/app.go, or dispatch tenant transactions through the existing complete domain-aware execution path. Prove real tenant Accept, receipt, Seal and validator ProcessBlock parity for legacy and typed transactions, including reload."
+owner_domain = 5
+interface = "5.go-node-app-process-block"
+
+[finding.verify-retirement-surface-hidden]
+file = "node/upgrades.go"
+line = 582
+class = "interface-mismatch"
+severity = "high"
+observed = "activationPrecompileGate requires layerxanchor for 0x1012. The live module manager omits anchor and InitChainer seeds only its version map. Fresh full genesis has no v6.9 done marker, so the EVM activation predicate removes 0x1012 even after v7.0 completes. A production zero-value call reaches an empty account rather than the retained retirement executor."
+expected = "Requirements 6841.1 and 6841.3 require every post-merge 0x1012 method to charge RequiredGas and revert with LXP_MODULE_DISABLED; registry row 6.cfg-activation-gate-0x1012 explicitly retains the address behind its gate. Historical behavior must also remain available below merge."
+proposal = "Change the node/upgrades.go gate to a durable live dependency, as the 0x1014 retirement gate already uses the upgrade module, while preserving historical activation heights. Coordinate with domain 6 and prove default genesis, merge completion and real EVM calls return the charged typed retirement error without a synthetic v6.9 marker."
+owner_domain = 5
+interface = "6.cfg-activation-gate-0x1012"
+
+[finding.merge-fallback-bound-to-unrelated-height]
+file = "node/app.go"
+line = 2890
+class = "interface-mismatch"
+severity = "high"
+observed = "gigaCustomPrecompiles returns only AllCustomPrecompilesFailFast below the hardcoded height 26300000. That original set omits all merge addresses, while the full gigaV6120FailFast set is selected only at or above that height. A valid merged genesis or governed merge below this height serves native interfaces on ordinary execution but Giga treats calls as empty-code accounts instead of falling back."
+expected = "The merge activation and native precompile behavior must agree between the sequencer producer and every validator regardless of the selected activation height. The complete merge fallback set in node/giga_v6120.go must be reachable whenever those addresses are served."
+proposal = "Make node/app.go select merge fallback coverage from the real activation state, preserving any required historical late-precompile replay behavior. Add real ordinary-versus-Giga calls to 0x101A-0x101E and agent addresses on a low-height merged genesis and around the actual merge height."
+owner_domain = 5
+interface = "6.cfg-giga-failfast"
+
+[finding.giga-disables-result-proof-validation]
+file = "node/app.go"
+line = 1016
+class = "security"
+severity = "high"
+observed = "New stores gigaExecutorConfig.Enabled into the process-wide SkipLastResultsHashValidation flag; the default config enables Giga. consensus/internal/state/validation.go:69 then skips comparing LastResultsHash with executed state, and consensus/light/rpc/client.go:466 skips comparing fetched results with the trusted header. Executor selection therefore disables a consensus and proof-integrity check."
+expected = "The merged network commits one deterministic result vector, and consumers must verify result commitments independently of the executor used. Brief security check 8 prohibits skippable verification; Giga result differences must not be hidden by accepting inconsistent header/result commitments."
+proposal = "Remove the production bypass in node/app.go and make Giga emit the same consensus result encoding and gas values as ordinary execution. Keep strict validation in consensus and light clients, and prove tampered LastResultsHash/results are refused with Giga enabled as well as disabled."
+owner_domain = 5
+interface = "5.cfg-app-giga-executor-enabled"
+
+[finding.empty-block-test-compares-only-length]
+file = "node/app_test.go"
+line = 63
+class = "test-gap"
+severity = "medium"
+observed = "TestEmptyBlockIdempotency discards FinalizeBlock/Commit errors and compares only lengths of ten AppHash values. Different state hashes of equal length satisfy the assertion, so this does not establish empty-block determinism."
+expected = "A determinism test must require successful execution and compare the exact committed hash bytes for identical genesis, validator and block inputs."
+proposal = "In node/app_test.go require successful FinalizeBlock and Commit, nonempty expected hashes and exact byte equality across independently initialized applications; retain the real application path."
+owner_domain = 5
+
+[finding.upgrade-panic-test-exercises-copy]
+file = "node/app_test.go"
+line = 754
+class = "test-gap"
+severity = "medium"
+observed = "TestProcessBlockUpgradePanicLogic compiles a local copy of the upgrade regex and exercises an anonymous local decision function. It does not invoke ProcessBlock or its recovery layers, so a regression in production panic propagation leaves this test unchanged."
+expected = "Upgrade halt and malformed-panic checks must assert the observable behavior of the actual ProcessBlock recovery boundary and its interaction with the SDK upgrade panic."
+proposal = "Replace the copied-logic exercise in node/app_test.go with real ProcessBlock paths that raise the supported upgrade and ordinary panic cases, asserting propagation or returned error without weakening the cases."
+owner_domain = 5
+interface = "5.go-node-app-process-block"
+
+[finding.benchmark-success-tolerates-no-output]
+file = "node/benchmark_test.go"
+line = 112
+class = "test-gap"
+severity = "medium"
+observed = "TestInitBenchmark_Success treats both a closed proposal channel and a five-second timeout as success: the closed-channel branch makes no assertion and the timeout branch only logs. A generator that emits no proposal can pass."
+expected = "The declared successful benchmark startup must produce a valid nonempty proposal and remain observable through its real channel within the test deadline."
+proposal = "In node/benchmark_test.go fail on a closed channel or deadline and validate the emitted proposal transaction contents; preserve cancellation and assert generator shutdown without replacing the producer."
+owner_domain = 5
+
+[finding.tenant-block-test-bypasses-proposer-contract]
+file = "node/layerxchains_block_test.go"
+line = 122
+class = "test-gap"
+severity = "medium"
+observed = "The harness configures Executor and FinalizeBlock proposer as sequencerLeader[:20] at 122 and 197, while checkSequencerProposer derives crypto.AddressHash(leader[:]). It seals and finalizes directly without ProcessProposal, so a fixture rejected by the real proposer check can still prove its tenant happy path."
+expected = "Requirement 5004.1 requires the proposer address to be the pinned consensus public key address, and tenant integration coverage must traverse the same proposal validation used by validators."
+proposal = "Derive the proposer with consensus crypto.AddressHash in node/layerxchains_block_test.go and run the real sealed proposal through ProcessProposal before finalization, checking tenant state, receipts and continuity after reload."
+owner_domain = 5
+interface = "5.go-node-app-process-proposal-handler"
+
+[finding.leader-source-helper-omits-required-batch]
+file = "node/leader_source_test.go"
+line = 21
+class = "test-gap"
+severity = "medium"
+observed = "commitLeaderSourceBlock always finalizes an empty Txs list. TestAppLeaderScheduleReadsKeeperList installs activation 2 at height 1 and invokes that helper at height 2, where the real FinalizeBlock path requires a signed tx0 sequence batch and fails before its leader update assertion."
+expected = "Leader-schedule integration tests must use valid real block shapes after activation and preserve the same order/signature checks that protect production blocks."
+proposal = "Use the real signed-empty-batch commit pattern already present in commitProofNodeAbciSchedule for node/leader_source_test.go, retaining the keeper read, update and corruption-refusal assertions through committed state."
+owner_domain = 5
+interface = "5.go-node-app-leader-schedule-j31"
+
+[finding.sequenced-success-fixture-has-wrong-hash]
+file = "node/sequenced_block_test.go"
+line = 208
+class = "test-gap"
+severity = "medium"
+observed = "TestSequencedBlockDeliversBatchAtTxZero and related OCC, rotation and genesis cases sign an arbitrary LastSeqHash such as repeated0x77 instead of the SeqHash fold over the actual ActivityIDs. The real VerifyBatchTxs in ProcessBlock rejects that batch before the asserted transfers execute."
+expected = "A successful sequenced-block fixture must be the shape produced by the actual sequencer, with continuity hashes, transaction root and signature all corresponding to its transaction bytes."
+proposal = "Build success batches through the real Executor and ConsensusSource in node/sequenced_block_test.go, then assert delivery results, receipt indexes, key rotation and exported state. Keep malformed-hash cases as explicit refusals."
+owner_domain = 5
+interface = "5.go-node-app-process-block"
+
+[finding.proof-node-expects-wrong-domain-error]
+file = "node/proof_node_abci_test.go"
+line = 356
+class = "test-gap"
+severity = "medium"
+observed = "The test maps pax-test to root chain 125 at65, then signs seqCtxTransfer with the helper default 713714 and expects ErrDomainNotActive. DomainAllowance reports that chain unknown and sequencer/limits.go returns ErrInvalidChainID, so the expectation disagrees with the real admission producer."
+expected = "Unknown chain IDs and known inactive tenant domains have distinct typed errors, and the integration test must preserve that distinction before testing receipt delivery on chain 125."
+proposal = "In node/proof_node_abci_test.go assert the actual invalid-chain-ID refusal for the unknown helper transaction, or register and pause a real tenant for an inactive-domain case; retain the successful real chain 125 receipt path."
+owner_domain = 5
+
+[finding.test-helpers-swallow-initialization-failures]
+file = "node/test_helpers.go"
+line = 414
+class = "test-gap"
+severity = "medium"
+observed = "Setup helpers use blanket deferred recover at 414,542,599 around InitChain. SetupWithGenesisValSet and SetupWithGenesisAccounts also discard InitChain, Commit and FinalizeBlock errors at 776-787 and 819-829. Callers can receive a partially initialized application instead of the original failure."
+expected = "Application test helpers must propagate initialization and commit failures so subsequent assertions represent a successfully initialized real chain, including SC-backed runs."
+proposal = "Remove blanket panic swallowing in node/test_helpers.go and fail via the supplied testing object or return explicit errors; require every ABCI initialization/commit result before exposing the App to callers. Fix actual setup incompatibilities in their owning paths rather than suppressing them."
+owner_domain = 5
+
+[finding.test-helper-leaks-consensus-bypass]
+file = "node/test_helpers.go"
+line = 160
+class = "test-gap"
+severity = "medium"
+observed = "NewGigaTestWrapperWithRegularStore writes true to process-wide SkipLastResultsHashValidation and registers no cleanup restoring its prior value. A later ordinary application or proof test in the process may run with result validation disabled."
+expected = "A test helper must not change the security checks observed by unrelated test cases, and ordinary execution/proof checks must continue to validate result commitments."
+proposal = "Remove the bypass from node/test_helpers.go when production Giga parity is repaired; restore the prior process-global value with cleanup on every helper exit, and assert strict validation remains active for ordinary tests and proof paths."
+owner_domain = 5
+
+[finding.activation-test-stale-tag-and-plan-list]
+file = "node/upgrades_activation_test.go"
+line = 105
+class = "test-gap"
+severity = "medium"
+observed = "TestActivationUpgradeIsRegisteredBesideTheTagList and TestMergePlanIsRegisteredBesideTheTagList assert LatestUpgrade is xweb v6.8, v7.0 is absent from tags and knownUpgradePlans contains four plans. The embedded tags now include v7.0 and the producer returns five plans including v7.0-anchor-store-delete."
+expected = "Upgrade registration assertions must reflect the actual embedded tag/version contract while still proving historical handler availability and the separate store-delete lifecycle."
+proposal = "Update the exact tag and five-plan expectations in node/upgrades_activation_test.go to the current product lifecycle, preserving all handler checks and explicit ordered plan assertions."
+owner_domain = 5
+interface = "6.cfg-known-upgrade-plans"
+
+[finding.activation-test-omits-chains-address]
+file = "node/upgrades_activation_test.go"
+line = 129
+class = "test-gap"
+severity = "medium"
+observed = "The expected mergePrecompileGate address list contains twelve addresses and omits 0x101E, while the production gate includes the LayerXChains precompile and thirteen addresses."
+expected = "Merge activation tests must account for every served native address, including tenant-domain management0x101E and its LayerXChains module dependency."
+proposal = "Add 0x101E and its required module to the exact expected merge address set in node/upgrades_activation_test.go and assert its real activation behavior without dropping existing addresses."
+owner_domain = 5
+interface = "6.cfg-merge-gate"
+
+[finding.activation-test-assumes-sequencer-only-stores]
+file = "node/upgrades_activation_test.go"
+line = 177
+class = "test-gap"
+severity = "medium"
+observed = "TestActivationStoreUpgradesMountEveryForkStore expects merge.Added to equal only SequencerStoreKey, while mergeStoreUpgrades now adds sequencer, ledger, auth, pay, programs, agent, host and chains stores."
+expected = "The merge rehearsal must verify every mounted merged-module store against the real eight-store migration declaration, including existing-state preservation."
+proposal = "Replace the obsolete one-store expectation in node/upgrades_activation_test.go with the exact complete store list and retain mounting, no-unexpected-delete/rename and preexisting-state assertions."
+owner_domain = 5
+
+[finding.activation-test-requires-retired-anchor-module]
+file = "node/upgrades_activation_test.go"
+line = 193
+class = "test-gap"
+severity = "medium"
+observed = "The forkModules loop requires layerxanchor to exist in a.mm.Modules and expose a ConsensusVersion. The live module manager intentionally excludes the retired anchor module while retaining its store/keeper only for migration and historical reads."
+expected = "Retired anchor store migration must be proved without requiring a live module lifecycle that the merged network explicitly removed."
+proposal = "Separate historical retained-store assertions from active module-manager assertions in node/upgrades_activation_test.go, and prove bond return, retirement and subsequent store deletion through their real upgrade paths."
+owner_domain = 5
+
+[finding.activation-test-rejects-live-retirement-dependency]
+file = "node/upgrades_activation_test.go"
+line = 262
+class = "test-gap"
+severity = "medium"
+observed = "TestActivationServesTheForkPrecompilesOnlyFromItsHeight requires every gate dependency to be a subset of activationModules. The retained0x1014 retirement entry now depends on the live upgrade module, which is intentionally outside that historical initialization list."
+expected = "The retirement surface must remain callable after anchor lifecycle removal, with its live dependency explicitly checked independently of modules initialized by v6.9."
+proposal = "Update node/upgrades_activation_test.go to assert the exact per-address dependencies, including upgrade for 0x1014, and preserve real below/at-height visibility plus typed retirement checks."
+owner_domain = 5
+interface = "6.cfg-activation-gate-0x1014"
+
+[finding.merge-gate-test-expects-missing-production-constructors]
+file = "node/upgrades_merge_gate_test.go"
+line = 130
+class = "test-gap"
+severity = "medium"
+observed = "The registered-constructors subtest requires MissingMergeConstructors to be nonempty and expects a merge refusal. The node now imports all thirteen registering constructors, so this successful production configuration contradicts the test before its refusal assertions."
+expected = "A complete registered production precompile set must permit the valid merge; constructor/activation refusal coverage must deliberately omit an address instead of depending on production incompleteness."
+proposal = "In node/upgrades_merge_gate_test.go make the fully registered case prove merge success and retain the later real omitted-address cases to prove atomic refusal and unchanged state."
+owner_domain = 5
+interface = "6.cfg-merge-gate"
+
+[finding.merge-name-test-assumes-last-plan]
+file = "node/upgrades_merge_name_test.go"
+line = 15
+class = "test-gap"
+severity = "medium"
+observed = "The merge-name test expects MergeUpgrade to be the last knownUpgradePlans entry, but the declared lifecycle now ends with AnchorStoreDeleteUpgrade after the merge bond return."
+expected = "The merge plan identity remains v7.0 and must precede the separate anchor-store deletion step rather than occupy the final plan slot."
+proposal = "In node/upgrades_merge_name_test.go assert exact merge identity and its ordered relationship to AnchorStoreDeleteUpgrade, keeping the explicit complete known-plan order."
+owner_domain = 5
+interface = "6.cfg-known-upgrade-plans"
+
+[finding.merge-stores-test-omits-layerxchains]
+file = "node/upgrades_merge_stores_test.go"
+line = 19
+class = "test-gap"
+severity = "medium"
+observed = "TestMergeStoreUpgradesAddsLayerXStores constructs a seven-store expected list without LayerXChainsStoreKey. The production mergeStoreUpgrades adds eight stores, so the exact list assertion fails before the migration/genesis checks."
+expected = "Tenant-domain management is part of the merged network and its store must be mounted and initialized alongside the other merge stores."
+proposal = "Include LayerXChainsStoreKey and its real module genesis/version assertions in node/upgrades_merge_stores_test.go while preserving the exact store set and all unrelated-store preservation checks."
+owner_domain = 5
+
+[finding.sequencer-upgrade-test-obsolete-store-contract]
+file = "node/upgrades_sequencer_test.go"
+line = 131
+class = "test-gap"
+severity = "medium"
+observed = "TestUpgradesSequencerAddsStoreOnly asserts a sequencer-only merge Added list, although mergeStoreUpgrades initializes the full eight-store merged module set. The test name and initial assertion describe an obsolete product contract."
+expected = "The merge upgrade initializes all merged modules with the pinned sequencer genesis and preserves existing chain state; it is not a sequencer-only migration."
+proposal = "Rewrite node/upgrades_sequencer_test.go around the complete exact store/module set, retaining balance, nonce, code, pin and replay assertions through the real upgrade path."
+owner_domain = 5
+
+[finding.fee-upgrade-test-stale-tag-tail]
+file = "node/upgrades_test.go"
+line = 216
+class = "test-gap"
+severity = "medium"
+observed = "TestSidioraFeeTokenUpgradeIsRegisteredAndRunsTheFeeTokenMigration expects the final two tags to be v6.7 and v6.8 and LatestUpgrade=v6.8. The embedded list now ends at v7.0, so this fails before testing the actual historical fee-token migration."
+expected = "Historical fee-token migration coverage must remain valid as later upgrade tags are added and still prove the v6.7 handler and parameter migration exactly."
+proposal = "In node/upgrades_test.go assert the actual current tag tail separately from historical v6.7/v6.8 presence/order and retain every real fee-token parameter and metadata migration assertion."
+owner_domain = 5
+interface = "6.cfg-latest-upgrade"
+
+[finding.v610-test-stale-current-upgrade-metadata]
+file = "node/upgrades_v610_test.go"
+line = 35
+class = "test-gap"
+severity = "medium"
+observed = "TestV610IsRegisteredBesideThePlansThatPrecedeIt expects LatestUpgrade=xweb v6.8 and at 56 expects only four known plans; the producer now reports v7.0 and includes the anchor-store delete plan."
+expected = "A historical v6.10 operating-values rehearsal must coexist with the current upgrade list and explicitly preserve the merge-then-delete plan sequence."
+proposal = "Update the exact current metadata expectations in node/upgrades_v610_test.go, retaining v6.10 handler, no-store-change, attestor, voting and historical plan assertions."
+owner_domain = 5
+interface = "6.cfg-known-upgrade-plans"
+
+[finding.v6120-test-stale-known-plan-list]
+file = "node/upgrades_v6120_test.go"
+line = 70
+class = "test-gap"
+severity = "medium"
+observed = "TestV6120IsAKnownPlanWithAHandler expects four known plans and omits AnchorStoreDeleteUpgrade, while knownUpgradePlans returns five. It therefore fails before checking the v6.12.0 handler."
+expected = "The v6.12.0 historical migration test must accept the real exact lifecycle that includes the post-merge anchor-store deletion step."
+proposal = "Add the explicit final AnchorStoreDeleteUpgrade expectation in node/upgrades_v6120_test.go and preserve all v6.12.0 handler, refusal, migration and state assertions."
+owner_domain = 5
+interface = "6.cfg-known-upgrade-plans"
+
+[finding.xweb-test-stale-latest-tag]
+file = "node/upgrades_xweb_test.go"
+line = 48
+class = "test-gap"
+severity = "medium"
+observed = "The xweb upgrade registration test asserts the embedded latest tag and LatestUpgrade are xweb v6.8, while the current embedded list contains v7.0. This obsolete premise prevents the historical web upgrade path from being exercised."
+expected = "The xweb v6.8 handler must remain covered as a historical upgrade while current tag metadata advances to the merged-network version."
+proposal = "In node/upgrades_xweb_test.go separate exact current latest-tag assertions from historical xweb tag/handler checks and retain the real paused-genesis, attestor and migration behavior assertions."
+owner_domain = 5
+interface = "6.cfg-latest-upgrade"
+
+[finding.migration-batch-config-silently-substitutes-default]
+file = "node/paxdb.go"
+line = 140
+class = "config-drift"
+severity = "medium"
+observed = "parseSCConfigs uses cast.ToInt without its error result for state-commit.sc-keys-to-migrate-per-block and assigns only when n>0. An explicit malformed, zero or negative value is silently ignored and the operator receives the default 1024 rather than a startup configuration error."
+expected = "An absent option may preserve the documented default, but an explicitly configured invalid migration batch size must fail validation; silently changing the batch controls unexpected production migration workload."
+proposal = "Use an error-returning conversion and require a strictly positive explicit value in node/paxdb.go; preserve nil as the default case. Add focused configuration cases for malformed, zero, negative and positive values without altering the storage validator."
+owner_domain = 5
+
+[finding.invariance-check-swallowing-corruption]
+file = "node/invariance.go"
+line = 173
+class = "runtime-risk"
+severity = "medium"
+observed = "LightInvarianceTotalSupply logs and returns if the pre-block supply cannot unmarshal, logs and skips unreadable balances, and returns on an unexpected bank-store type. The caller receives no failure indication, so enabled supply protection can silently run no valid conservation check on corrupt state."
+expected = "An enabled supply-integrity check must distinguish verified conservation from an unreadable state or unsupported store; malformed committed balances/supply must not be reported as a normally checked block."
+proposal = "Make node/invariance.go surface deterministic failure for unreadable state and unsupported store types, and have the caller stop qualification/commit or expose an explicit unhealthy state. Cover corrupt supply and balance encodings through the real commitment-store path."
+owner_domain = 5
+
+[finding.replay-network-calls-unbounded]
+file = "node/eth_replay.go"
+line = 51
+class = "runtime-risk"
+severity = "medium"
+observed = "Replay performs BlockNumber and BlockByNumber calls with context.Background inside its endless loop and panics on returned transient errors. There is no per-request deadline, shutdown context or bounded retry policy at this entry point, so a stalled external RPC can prevent replay progress and orderly shutdown."
+expected = "The supported replay operation must stop on cancellation, bound remote waits and resume from the last committed replay height after recoverable external RPC failures."
+proposal = "Thread a cancellable operation context and explicit request deadlines through node/eth_replay.go, classify retriable RPC errors and retain the committed replay cursor. Prove a real delayed/cancelled HTTP peer cannot leave replay stuck or advance its cursor."
+owner_domain = 5
+
+[finding.sequencer-doc-stale-activation-and-startup]
+file = "spec/layerx-merge/contracts/sequencer.md"
+line = 216
+class = "doc-drift"
+severity = "medium"
+observed = "The current-behavior section says Sequenced is merge-done at a lower height and that ProcessProposal only checks decoding/TxRoot. Lines561 and759 also say configuration does not start runtime and no production executor/WAL/receipter construction exists; the current node uses keeper activation and daemon startup wires that runtime."
+expected = "The sequencer contract must distinguish its historical source snapshot from the current served node lifecycle and describe governed activation, full batch/proposer validation and the in-process runtime startup."
+proposal = "Rewrite the operational sections of contracts/sequencer.md from node/app.go and daemon startup, keeping explicitly dated historical material separately and reconciling served/planned entries with the registry."
+owner_domain = 5
+interface = "5.go-node-app-process-proposal-handler"
+
+[finding.sequencer-doc-stale-wal-and-ack-wire]
+file = "spec/layerx-merge/contracts/sequencer.md"
+line = 263
+class = "doc-drift"
+severity = "medium"
+observed = "The WAL section refuses every SEAL FromSeq>ToSeq, although current appendPayload/DecodeEntry support empty blocks with FromSeq=ToSeq+1. The ACK description at272/281 calls the prefix 25 bytes and omits the fencing Epoch; current standby codecs use 33 bytes and optional refusal-reason exchange."
+expected = "Operators and standby implementers need the exact current empty-block encoding, field widths, epoch fencing and refusal lifecycle that both live codec endpoints exchange."
+proposal = "Update contracts/sequencer.md with the actual WAL empty-block rule and 33-byte ACK field order plus refusal exchange from node/sequencer/wal and standby.go. Preserve the historical layout only when clearly versioned."
+owner_domain = 5
+
+[finding.sequencer-doc-callback-drops-errors]
+file = "spec/layerx-merge/contracts/sequencer.md"
+line = 2493
+class = "doc-drift"
+severity = "medium"
+observed = "The node Go API table declares SetCommitListener(fn func(height int64, appHash []byte)) without an error result. node/app.go3413 and the daemon caller instead use a callback returning error to propagate commit/WAL lifecycle failure."
+expected = "The declared callback must preserve its failure result so a caller cannot mistake an unsuccessful post-commit transition for successful opening of the next height."
+proposal = "Update contracts/sequencer.md and registry5.go-node-app-set-commit-listener-j31 to the actual error-returning callback, documenting how failure reaches the commit/runtime owner."
+owner_domain = 5
+interface = "5.go-node-app-set-commit-listener-j31"
+
+[finding.sequencer-doc-wrong-genesis-key]
+file = "spec/layerx-merge/contracts/sequencer.md"
+line = 3133
+class = "doc-drift"
+severity = "medium"
+observed = "The node-config table names genesis.import-file, but node/genesis.go reads genesis.genesis-stream-file and the storage configuration template uses that real key. An operator following the table configures a value the application never reads."
+expected = "The genesis stream import option must have one matching name across application, template, interface registry and operator documentation."
+proposal = "Replace the obsolete key in contracts/sequencer.md and registry5.cfg-app-genesis-import-file with genesis.genesis-stream-file, preserving the strict real-file checks in node/app.go."
+owner_domain = 5
+interface = "5.cfg-app-genesis-import-file"
+
+[finding.registry-genesis-key-drift]
+file = "spec/layerx-merge/interfaces.kvx"
+line = 223283
+class = "doc-drift"
+severity = "medium"
+observed = "Registry5.cfg-app-genesis-import-file declares flagGenesisImportFile=\"genesis.import-file\" although the actual ReadGenesisImportConfig and template agree on genesis.genesis-stream-file."
+expected = "A configuration registry row used to generate operator/API documentation must name the same key that the running node consumes."
+proposal = "Correct the row in spec/layerx-merge/interfaces.kvx and regenerate its node-config documentation from the real genesis key; retain the working producer/consumer code."
+owner_domain = 5
+interface = "5.cfg-app-genesis-import-file"
+
+[finding.registry-commit-callback-shape-drift]
+file = "spec/layerx-merge/interfaces.kvx"
+line = 235981
+class = "doc-drift"
+severity = "medium"
+observed = "Registry5.go-node-app-set-commit-listener-j31 omits the callback error return, while the current App method and daemon consumer agree on func(height int64, appHash []byte) error."
+expected = "The registry must retain the lifecycle error channel actually used by producer and consumer so generated clients and docs preserve commit-transition failures."
+proposal = "Update the exact callback signature and current caller/lifecycle notes in spec/layerx-merge/interfaces.kvx, then regenerate the corresponding sequencer contract row."
+owner_domain = 5
+interface = "5.go-node-app-set-commit-listener-j31"
+
+[finding.registry-obsolete-runtime-absence-claims]
+file = "spec/layerx-merge/interfaces.kvx"
+line = 235840
+class = "doc-drift"
+severity = "medium"
+observed = "Rows5.go-node-app-process-proposal-handler,5.go-node-app-finalize-blocker,5.go-node-open-block and5.go-node-app-set-open-block still claim missing order/proposer validation, sealed adoption or production callers. Current app and daemon implement these paths. Row5.cfg-app-state-commit-sc-snapshot-writer-limit also claims a missing template entry that storage/config/toml.go44 now supplies."
+expected = "Registry implementation-status notes must describe the audited revision, distinguish historical gaps and avoid scheduling repairs for behavior already present in the running product."
+proposal = "Reconcile these named rows in spec/layerx-merge/interfaces.kvx against live validation, sealed adoption, daemon wiring and the storage template, preserving historical evidence under an explicit source revision."
+owner_domain = 5
+interface = "5.go-node-app-process-proposal-handler"
+
+[finding.registry-upgrade-lifecycle-drift]
+file = "spec/layerx-merge/interfaces.kvx"
+line = 252900
+class = "doc-drift"
+severity = "medium"
+observed = "Row6.cfg-known-upgrade-plans lists four plans and6.cfg-latest-upgrade says latest is v6.8. The actual embedded latest is v7.0 and knownUpgradePlans has a fifth anchor-store deletion plan. Row6.cfg-anchor-store-delete-step retains a no-handler claim despite its served reconciliation and real implementation."
+expected = "The current upgrade registry must state exact tag identity and merge-then-delete ordering, preserving the distinction between historical tags, activation plans and the implemented retirement step."
+proposal = "Update the three lifecycle rows in spec/layerx-merge/interfaces.kvx to the real tag list and five plans, remove contradictory current absence claims and regenerate the activation documentation."
+owner_domain = 6
+interface = "6.cfg-known-upgrade-plans"
+
+[finding.registry-activation-and-constructor-drift]
+file = "spec/layerx-merge/interfaces.kvx"
+line = 252631
+class = "doc-drift"
+severity = "medium"
+observed = "Row6.cfg-activation-gate-0x1014 still names the retired anchor module where node/upgrades.go uses the upgrade module. Row6.cfg-get-custom-precompiles-call names GetCustomPrecompiles where app.go1080 uses error-returning GetCustomPrecompilesE. Row6.cfg-giga-failfast describes missing merge addresses that node/giga_v6120.go now includes in its full set."
+expected = "Registry signatures and coverage notes must match live gating, constructor error propagation and the complete full-height fallback set; the separate low-height selection defect remains a distinct finding."
+proposal = "Reconcile these rows in spec/layerx-merge/interfaces.kvx with the actual live dependency, error-returning constructor and full merge set, retaining historical source notes separately and documenting low-height selection accurately."
+owner_domain = 6
+interface = "6.cfg-activation-gate-0x1014"
+
+[finding.address-doc-operational-activation-drift]
+file = "spec/layerx-merge/contracts/address-inventory.md"
+line = 70
+class = "doc-drift"
+severity = "medium"
+observed = "The operational Activation matrix still gates0x1014 on anchor, omits 0x101E from merge addresses and lists only four operator plans at76. Its node-call row89 omits the error-returning constructor. Current code uses upgrade for 0x1014, serves0x101E, applies the fifth store-delete plan and propagates GetCustomPrecompilesE errors. Source-revision2a1033aa2 no-constructor statements are historical, not current missing-code evidence."
+expected = "The operator-facing activation/address matrix must identify the complete currently served addresses and precise lifecycle while clearly retaining any historical source-revision snapshot as historical."
+proposal = "Add a dated current activation matrix to contracts/address-inventory.md with 0x101E, live retirement dependencies, five-plan order and constructor failures; update generated node rows and label historical HEAD headings with their exact source revision."
+owner_domain = 6
+interface = "6.cfg-known-upgrade-plans"
+
+[finding.giga-map-test-freezes-unrelated-height]
+file = "node/giga_precompiles_test.go"
+line = 14
+class = "test-gap"
+severity = "medium"
+observed = "TestGigaCustomPrecompilesSwitchAtHeight requires the pre-26300000 set to contain only the original fail-fast addresses. It does not vary merge activation and therefore freezes an address omission when a supported merged genesis serves native interfaces below that unrelated height."
+expected = "Fallback coverage must track which native interfaces are served at the block height, including fresh merged genesis and the governed merge boundary, while preserving historical execution."
+proposal = "Replace the activation-independent low-height expectation in node/giga_precompiles_test.go with exact sets for real pre-merge and merged state, and add real ordinary/Giga calls below 26300000 as well as at the historical late-address transition."
+owner_domain = 5
+interface = "6.cfg-giga-failfast"
+
+[doc.1]
+path = "spec/layerx-merge/contracts/sequencer.md"
+status = "stale"
+notes = "Reviewed all narrative and the complete generated table index/metadata, with node signatures inspected against the live registry. Operational activation/startup, empty-block/ACK codec, commit callback and genesis key drift are recorded; historical source snapshots must be labeled."
+
+[doc.2]
+path = "spec/layerx-merge/contracts/address-inventory.md"
+status = "stale"
+notes = "Reviewed all narrative and parsed the full generated table, inspecting node-defined rows. Current activation guidance omits 0x101E and store deletion and has stale retirement/constructor signatures; explicitly source-revision-scoped missing constructors are historical."
+
+[doc.3]
+path = "spec/layerx-merge/interfaces.kvx"
+status = "stale"
+notes = "Read all375 package-produced and400 package-consumed rows, including caller/contract metadata. Current concrete paths resolve; named callback/config/lifecycle/status discrepancies and resolved historical absence claims are recorded for registry reconciliation."

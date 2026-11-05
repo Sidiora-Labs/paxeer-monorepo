@@ -1,0 +1,441 @@
+{
+  "renderer_sha256": "467cbc3be472530972b4a50b14bd9bb5c4ab43cdd30f8cb12fcb2a8a122499f9",
+  "sources": {
+    "render-config-check.sh": {
+      "sha256": "e96bf91e1a8885af8129f300133aaab46644325344f1f04833ca9a896d1677c3",
+      "endpoint_arguments": {
+        "paxeer": [
+          "https://paxeer-a.invalid:9443/,paxeer-a,/run/secrets/rpc.der,/run/secrets/paxeer-a.token",
+          "https://paxeer-b.invalid:9443/,paxeer-b,/run/secrets/rpc.der,/run/secrets/paxeer-b.token"
+        ],
+        "ethereum": [
+          "https://ethereum-a.invalid:9443/rpc,ethereum-a,/run/secrets/rpc.der,/run/secrets/ethereum-a.token",
+          "https://ethereum-b.invalid:9443/rpc,ethereum-b,/run/secrets/rpc.der,/run/secrets/ethereum-b.token"
+        ],
+        "solana": [
+          "https://solana-a.invalid:443/rpc,solana-a,/run/secrets/rpc.der,/run/secrets/solana-a.token",
+          "https://solana-b.invalid:443/rpc,solana-b,/run/secrets/rpc.der,/run/secrets/solana-b.token"
+        ]
+      },
+      "renderings": [
+        {
+          "state_directory": "/run/mirror/state",
+          "first_height": 1,
+          "poll_interval_ms": 5000,
+          "freshness_budget_blocks": 64,
+          "status_listen": "127.0.0.1:9091",
+          "paxeer": {
+            "rpc": {
+              "endpoints": [
+                {
+                  "url": "https://paxeer-a.invalid:9443/",
+                  "ca_certificate_der": "/run/secrets/rpc.der",
+                  "bearer_token_file": "/run/secrets/paxeer-a.token",
+                  "independent_backend": "paxeer-a"
+                },
+                {
+                  "url": "https://paxeer-b.invalid:9443/",
+                  "ca_certificate_der": "/run/secrets/rpc.der",
+                  "bearer_token_file": "/run/secrets/paxeer-b.token",
+                  "independent_backend": "paxeer-b"
+                }
+              ],
+              "quorum": 2,
+              "connect_timeout_ms": 3000,
+              "request_timeout_ms": 15000,
+              "maximum_response_bytes": 16777216
+            },
+            "chain_id": 125,
+            "genesis_hash_hex": "e598a1583b2ac8b3eea46aaa51d3bb9bf9118d9a019e27231bf21a84208fe3e2",
+            "receipt_keys": [
+              {
+                "sequencer_id_hex": "8b81c862681b712b3541770fcae748a931d6ef3c3b817fe6f71b8dad20e96d07",
+                "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+                "first_height": 1,
+                "last_height": 18446744073709551615
+              }
+            ]
+          },
+          "ethereum": {
+            "rpc": {
+              "endpoints": [
+                {
+                  "url": "https://ethereum-a.invalid:9443/rpc",
+                  "ca_certificate_der": "/run/secrets/rpc.der",
+                  "bearer_token_file": "/run/secrets/ethereum-a.token",
+                  "independent_backend": "ethereum-a"
+                },
+                {
+                  "url": "https://ethereum-b.invalid:9443/rpc",
+                  "ca_certificate_der": "/run/secrets/rpc.der",
+                  "bearer_token_file": "/run/secrets/ethereum-b.token",
+                  "independent_backend": "ethereum-b"
+                }
+              ],
+              "quorum": 2,
+              "connect_timeout_ms": 3000,
+              "request_timeout_ms": 15000,
+              "maximum_response_bytes": 16777216
+            },
+            "chain_id": 11155111,
+            "genesis_hash_hex": "1111111111111111111111111111111111111111111111111111111111111111",
+            "archive_contract_hex": "2222222222222222222222222222222222222222",
+            "archive_code_hash_hex": "3333333333333333333333333333333333333333333333333333333333333333",
+            "required_confirmations": 12,
+            "maximum_reorg_depth": 256,
+            "chunk_bytes": 24576,
+            "transaction_gas_limit": 30000000,
+            "maximum_fee_per_gas": 100000000000,
+            "maximum_priority_fee_per_gas": 5000000000,
+            "signer": {
+              "key_handle": "mirror/ethereum/beta",
+              "public_key": "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+              "timeout_ms": 5000,
+              "transport": {
+                "kind": "uds",
+                "socket": "/run/mirror-signer/signer.sock"
+              }
+            }
+          }
+        },
+        {
+          "state_directory": "/run/mirror/state",
+          "first_height": 1,
+          "poll_interval_ms": 5000,
+          "freshness_budget_blocks": 64,
+          "status_listen": "127.0.0.1:9091",
+          "paxeer": {
+            "rpc": {
+              "endpoints": [
+                {
+                  "url": "https://paxeer-a.invalid:9443/",
+                  "ca_certificate_der": "/run/secrets/rpc.der",
+                  "bearer_token_file": "/run/secrets/paxeer-a.token",
+                  "independent_backend": "paxeer-a"
+                },
+                {
+                  "url": "https://paxeer-b.invalid:9443/",
+                  "ca_certificate_der": "/run/secrets/rpc.der",
+                  "bearer_token_file": "/run/secrets/paxeer-b.token",
+                  "independent_backend": "paxeer-b"
+                }
+              ],
+              "quorum": 2,
+              "connect_timeout_ms": 3000,
+              "request_timeout_ms": 15000,
+              "maximum_response_bytes": 16777216
+            },
+            "chain_id": 125,
+            "genesis_hash_hex": "e598a1583b2ac8b3eea46aaa51d3bb9bf9118d9a019e27231bf21a84208fe3e2",
+            "receipt_keys": [
+              {
+                "sequencer_id_hex": "8b81c862681b712b3541770fcae748a931d6ef3c3b817fe6f71b8dad20e96d07",
+                "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+                "first_height": 1,
+                "last_height": 18446744073709551615
+              }
+            ]
+          },
+          "ethereum": {
+            "rpc": {
+              "endpoints": [
+                {
+                  "url": "https://ethereum-a.invalid:9443/rpc",
+                  "ca_certificate_der": "/run/secrets/rpc.der",
+                  "bearer_token_file": "/run/secrets/ethereum-a.token",
+                  "independent_backend": "ethereum-a"
+                },
+                {
+                  "url": "https://ethereum-b.invalid:9443/rpc",
+                  "ca_certificate_der": "/run/secrets/rpc.der",
+                  "bearer_token_file": "/run/secrets/ethereum-b.token",
+                  "independent_backend": "ethereum-b"
+                }
+              ],
+              "quorum": 2,
+              "connect_timeout_ms": 3000,
+              "request_timeout_ms": 15000,
+              "maximum_response_bytes": 16777216
+            },
+            "chain_id": 11155111,
+            "genesis_hash_hex": "1111111111111111111111111111111111111111111111111111111111111111",
+            "archive_contract_hex": "2222222222222222222222222222222222222222",
+            "archive_code_hash_hex": "3333333333333333333333333333333333333333333333333333333333333333",
+            "required_confirmations": 12,
+            "maximum_reorg_depth": 256,
+            "chunk_bytes": 24576,
+            "transaction_gas_limit": 30000000,
+            "maximum_fee_per_gas": 100000000000,
+            "maximum_priority_fee_per_gas": 5000000000,
+            "signer": {
+              "key_handle": "mirror/ethereum/beta",
+              "public_key": "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+              "timeout_ms": 5000,
+              "transport": {
+                "kind": "uds",
+                "socket": "/run/mirror-signer/signer.sock"
+              }
+            }
+          },
+          "solana": {
+            "rpc": {
+              "endpoints": [
+                {
+                  "url": "https://solana-a.invalid:443/rpc",
+                  "ca_certificate_der": "/run/secrets/rpc.der",
+                  "bearer_token_file": "/run/secrets/solana-a.token",
+                  "independent_backend": "solana-a"
+                },
+                {
+                  "url": "https://solana-b.invalid:443/rpc",
+                  "ca_certificate_der": "/run/secrets/rpc.der",
+                  "bearer_token_file": "/run/secrets/solana-b.token",
+                  "independent_backend": "solana-b"
+                }
+              ],
+              "quorum": 2,
+              "connect_timeout_ms": 3000,
+              "request_timeout_ms": 15000,
+              "maximum_response_bytes": 16777216
+            },
+            "genesis_hash_base58": "11111111111111111111111111111112",
+            "archive_program_base58": "11111111111111111111111111111112",
+            "upgradeable_loader_base58": "11111111111111111111111111111112",
+            "program_data_account_base58": "11111111111111111111111111111112",
+            "program_code_hash_hex": "4444444444444444444444444444444444444444444444444444444444444444",
+            "required_rooted_slots": 32,
+            "maximum_ancestry": 4096,
+            "chunk_bytes": 640,
+            "signer": {
+              "key_handle": "mirror/solana/beta",
+              "public_key": "11111111111111111111111111111112",
+              "timeout_ms": 5000,
+              "transport": {
+                "kind": "uds",
+                "socket": "/run/mirror-signer/signer.sock"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "test_render_check_arguments.py": {
+      "sha256": "1448b79d6a50e90f1c4fe7530825ccc7354cc824f57af3a24aefbaa1ab08412c",
+      "endpoint_arguments": {
+        "paxeer": [
+          "https://paxeer-a.example/,paxeer-a,/run/secrets/ca.der,/run/secrets/token",
+          "https://paxeer-b.example/,paxeer-b,/run/secrets/ca.der,/run/secrets/token"
+        ],
+        "ethereum": [
+          "https://ethereum-a.example/rpc,ethereum-a,/run/secrets/ca.der,/run/secrets/token",
+          "https://ethereum-b.example/rpc,ethereum-b,/run/secrets/ca.der,/run/secrets/token"
+        ],
+        "solana": [
+          "https://solana-a.example/rpc,solana-a,/run/secrets/ca.der,/run/secrets/token",
+          "https://solana-b.example/rpc,solana-b,/run/secrets/ca.der,/run/secrets/token"
+        ]
+      },
+      "renderings": [
+        {
+          "state_directory": "/run/mirror/state",
+          "first_height": 1,
+          "poll_interval_ms": 5000,
+          "freshness_budget_blocks": 64,
+          "status_listen": "127.0.0.1:9091",
+          "paxeer": {
+            "rpc": {
+              "endpoints": [
+                {
+                  "url": "https://paxeer-a.example/",
+                  "ca_certificate_der": "/run/secrets/ca.der",
+                  "bearer_token_file": "/run/secrets/token",
+                  "independent_backend": "paxeer-a"
+                },
+                {
+                  "url": "https://paxeer-b.example/",
+                  "ca_certificate_der": "/run/secrets/ca.der",
+                  "bearer_token_file": "/run/secrets/token",
+                  "independent_backend": "paxeer-b"
+                }
+              ],
+              "quorum": 2,
+              "connect_timeout_ms": 3000,
+              "request_timeout_ms": 15000,
+              "maximum_response_bytes": 16777216
+            },
+            "chain_id": 125,
+            "genesis_hash_hex": "e598a1583b2ac8b3eea46aaa51d3bb9bf9118d9a019e27231bf21a84208fe3e2",
+            "receipt_keys": [
+              {
+                "sequencer_id_hex": "8b81c862681b712b3541770fcae748a931d6ef3c3b817fe6f71b8dad20e96d07",
+                "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+                "first_height": 1,
+                "last_height": 18446744073709551615
+              }
+            ]
+          },
+          "ethereum": {
+            "rpc": {
+              "endpoints": [
+                {
+                  "url": "https://ethereum-a.example/rpc",
+                  "ca_certificate_der": "/run/secrets/ca.der",
+                  "bearer_token_file": "/run/secrets/token",
+                  "independent_backend": "ethereum-a"
+                },
+                {
+                  "url": "https://ethereum-b.example/rpc",
+                  "ca_certificate_der": "/run/secrets/ca.der",
+                  "bearer_token_file": "/run/secrets/token",
+                  "independent_backend": "ethereum-b"
+                }
+              ],
+              "quorum": 2,
+              "connect_timeout_ms": 3000,
+              "request_timeout_ms": 15000,
+              "maximum_response_bytes": 16777216
+            },
+            "chain_id": 11155111,
+            "genesis_hash_hex": "1111111111111111111111111111111111111111111111111111111111111111",
+            "archive_contract_hex": "2222222222222222222222222222222222222222",
+            "archive_code_hash_hex": "3333333333333333333333333333333333333333333333333333333333333333",
+            "required_confirmations": 12,
+            "maximum_reorg_depth": 256,
+            "chunk_bytes": 24576,
+            "transaction_gas_limit": 30000000,
+            "maximum_fee_per_gas": 100000000000,
+            "maximum_priority_fee_per_gas": 5000000000,
+            "signer": {
+              "key_handle": "mirror/ethereum/beta",
+              "public_key": "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+              "timeout_ms": 5000,
+              "transport": {
+                "kind": "uds",
+                "socket": "/run/mirror-signer/signer.sock"
+              }
+            }
+          }
+        },
+        {
+          "state_directory": "/run/mirror/state",
+          "first_height": 1,
+          "poll_interval_ms": 5000,
+          "freshness_budget_blocks": 64,
+          "status_listen": "127.0.0.1:9091",
+          "paxeer": {
+            "rpc": {
+              "endpoints": [
+                {
+                  "url": "https://paxeer-a.example/",
+                  "ca_certificate_der": "/run/secrets/ca.der",
+                  "bearer_token_file": "/run/secrets/token",
+                  "independent_backend": "paxeer-a"
+                },
+                {
+                  "url": "https://paxeer-b.example/",
+                  "ca_certificate_der": "/run/secrets/ca.der",
+                  "bearer_token_file": "/run/secrets/token",
+                  "independent_backend": "paxeer-b"
+                }
+              ],
+              "quorum": 2,
+              "connect_timeout_ms": 3000,
+              "request_timeout_ms": 15000,
+              "maximum_response_bytes": 16777216
+            },
+            "chain_id": 125,
+            "genesis_hash_hex": "e598a1583b2ac8b3eea46aaa51d3bb9bf9118d9a019e27231bf21a84208fe3e2",
+            "receipt_keys": [
+              {
+                "sequencer_id_hex": "8b81c862681b712b3541770fcae748a931d6ef3c3b817fe6f71b8dad20e96d07",
+                "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+                "first_height": 1,
+                "last_height": 18446744073709551615
+              }
+            ]
+          },
+          "ethereum": {
+            "rpc": {
+              "endpoints": [
+                {
+                  "url": "https://ethereum-a.example/rpc",
+                  "ca_certificate_der": "/run/secrets/ca.der",
+                  "bearer_token_file": "/run/secrets/token",
+                  "independent_backend": "ethereum-a"
+                },
+                {
+                  "url": "https://ethereum-b.example/rpc",
+                  "ca_certificate_der": "/run/secrets/ca.der",
+                  "bearer_token_file": "/run/secrets/token",
+                  "independent_backend": "ethereum-b"
+                }
+              ],
+              "quorum": 2,
+              "connect_timeout_ms": 3000,
+              "request_timeout_ms": 15000,
+              "maximum_response_bytes": 16777216
+            },
+            "chain_id": 11155111,
+            "genesis_hash_hex": "1111111111111111111111111111111111111111111111111111111111111111",
+            "archive_contract_hex": "2222222222222222222222222222222222222222",
+            "archive_code_hash_hex": "3333333333333333333333333333333333333333333333333333333333333333",
+            "required_confirmations": 12,
+            "maximum_reorg_depth": 256,
+            "chunk_bytes": 24576,
+            "transaction_gas_limit": 30000000,
+            "maximum_fee_per_gas": 100000000000,
+            "maximum_priority_fee_per_gas": 5000000000,
+            "signer": {
+              "key_handle": "mirror/ethereum/beta",
+              "public_key": "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+              "timeout_ms": 5000,
+              "transport": {
+                "kind": "uds",
+                "socket": "/run/mirror-signer/signer.sock"
+              }
+            }
+          },
+          "solana": {
+            "rpc": {
+              "endpoints": [
+                {
+                  "url": "https://solana-a.example/rpc",
+                  "ca_certificate_der": "/run/secrets/ca.der",
+                  "bearer_token_file": "/run/secrets/token",
+                  "independent_backend": "solana-a"
+                },
+                {
+                  "url": "https://solana-b.example/rpc",
+                  "ca_certificate_der": "/run/secrets/ca.der",
+                  "bearer_token_file": "/run/secrets/token",
+                  "independent_backend": "solana-b"
+                }
+              ],
+              "quorum": 2,
+              "connect_timeout_ms": 3000,
+              "request_timeout_ms": 15000,
+              "maximum_response_bytes": 16777216
+            },
+            "genesis_hash_base58": "11111111111111111111111111111112",
+            "archive_program_base58": "11111111111111111111111111111112",
+            "upgradeable_loader_base58": "11111111111111111111111111111112",
+            "program_data_account_base58": "11111111111111111111111111111112",
+            "program_code_hash_hex": "4444444444444444444444444444444444444444444444444444444444444444",
+            "required_rooted_slots": 32,
+            "maximum_ancestry": 4096,
+            "chunk_bytes": 640,
+            "signer": {
+              "key_handle": "mirror/solana/beta",
+              "public_key": "11111111111111111111111111111112",
+              "timeout_ms": 5000,
+              "transport": {
+                "kind": "uds",
+                "socket": "/run/mirror-signer/signer.sock"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

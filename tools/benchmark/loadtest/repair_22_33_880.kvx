@@ -1,0 +1,34 @@
+[repair.22.33.880]
+audit = "22.30.183"
+requirement = "22998.1"
+baseline = "Not run: the explicit implementation-first order and hf-done-only verification prohibit step 7's unchanged-tree verify. No pre-change failure is claimed."
+qualification = "The runner's final hf-done gates.jsonl row names the verified candidate revision, exact command, exit code and private evidence log; the final response copies that row."
+wiring_requests = []
+continuation = "Task 22.31.463 resolved the prior out-of-scope CLI interface failures on the current base. Keep the landed EVM generation error handling and success-based sent counters; adapt the focused tests to the two-result generation interface and assert that consumption does not change production counts."
+
+[qualification.blocked]
+revision = "39e38c156fe62810bce761436dcf6159ff077f0d"
+command = "go build ./tools/benchmark/loadtest/..."
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "The build fails on unchanged auth, staking and tokenfactory CLI callers expecting one NewFactoryCLI result; the function returns (Factory, error)."
+assumption = "These out-of-scope interface mismatches require their owning domains; no repair rerun or hf-done was attempted, and the focused tests remain unexecuted."
+
+[finding.f042]
+proving_tests = ["TestRepairM_880_F042ConcurrentProducersAndReceiptQueries", "TestRepairM_880_F042BoundedIndependentSnapshot"]
+repair = "BuildTxs writes hashes into a synchronized ring retaining the most recent 10000 generated EVM transactions. Receipt queries use an independent ordered snapshot and explicitly report an empty source."
+proof = "Concurrent real BuildTxs workers sign EVM transactions into the production queue; all hashes survive below capacity and reach the real ethclient receipt-query transport over loopback JSON-RPC. Wraparound retains exactly the newest hashes, bounds backing memory and cannot mutate existing snapshots."
+
+[finding.f026]
+proving_tests = ["TestRepairM_880_F026ClosedQueueShutdown"]
+repair = "SendTxs checks the receive ok flag before accessing SignedTx, counters or metrics."
+proof = "The production consumer exits on an empty closed queue with no counters or real OpenTelemetry metrics emitted. A buffered closed queue sends every real signed EVM transaction through loopback RPC exactly once, records only those transactions and releases its semaphore."
+
+[finding.f027]
+proving_tests = ["TestRepairM_880_F027ConfigurationAdmission", "TestRepairM_880_F027ValidDistributionSampling"]
+repair = "Config.Validate rejects nonpositive distinct counts, missing decimal bounds and reversed ranges, naming the distribution and field. Both ReadConfig and run validate before startup. Active distributions are the price and quantity used by wasm_mint_nft; workloads that do not sample them may omit them. Equal bounds remain valid constant distributions."
+proof = "Actual JSON config admission and programmatic startup reject each invalid price/quantity field. Admitted distributions preserve the existing Sample and InvalidSample lattices, and the real message generator converts constant sampled price and quantity into the expected funds."
+
+[gotcha.continuation]
+observed = "The seed conflicts with landed EVM reconciliation: generation returns (transaction, error), and EVM sent counters increment only on acceptance. Restoring the seed call or its unconditional sent increment would break those contracts."
+resolution = "Preserve current error handling and acceptance counters; integrate only synchronized hash retention and the receive-ok check before metrics, with tests exercising the current interface."

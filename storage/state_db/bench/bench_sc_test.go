@@ -194,32 +194,7 @@ func BenchmarkMemIAVLWriteWithDifferentKeyDistributions(b *testing.B) {
 		numBlocks int64 = 10_000
 	)
 
-	scenarios := []TestScenario{
-		{
-			Name:      "even_distribution",
-			TotalKeys: totalKeys,
-			NumBlocks: numBlocks,
-			Backend:   wrappers.MemIAVL,
-		},
-		{
-			Name:      "bursty_distribution",
-			TotalKeys: totalKeys,
-			NumBlocks: numBlocks,
-			Backend:   wrappers.MemIAVL,
-		},
-		{
-			Name:      "normal_distribution",
-			TotalKeys: totalKeys,
-			NumBlocks: numBlocks,
-			Backend:   wrappers.MemIAVL,
-		},
-		{
-			Name:      "ramp_distribution",
-			TotalKeys: totalKeys,
-			NumBlocks: numBlocks,
-			Backend:   wrappers.MemIAVL,
-		},
-	}
+	scenarios := keyDistributionScenarios(wrappers.MemIAVL, totalKeys, numBlocks)
 
 	for _, scenario := range scenarios {
 		b.Run(scenario.Name, func(b *testing.B) {
@@ -237,32 +212,7 @@ func BenchmarkFlatKVWriteWithDifferentKeyDistributions(b *testing.B) {
 		numBlocks int64 = 1_000
 	)
 
-	scenarios := []TestScenario{
-		{
-			Name:      "even_distribution",
-			TotalKeys: totalKeys,
-			NumBlocks: numBlocks,
-			Backend:   wrappers.FlatKV,
-		},
-		{
-			Name:      "bursty_distribution",
-			TotalKeys: totalKeys,
-			NumBlocks: numBlocks,
-			Backend:   wrappers.FlatKV,
-		},
-		{
-			Name:      "normal_distribution",
-			TotalKeys: totalKeys,
-			NumBlocks: numBlocks,
-			Backend:   wrappers.FlatKV,
-		},
-		{
-			Name:      "ramp_distribution",
-			TotalKeys: totalKeys,
-			NumBlocks: numBlocks,
-			Backend:   wrappers.FlatKV,
-		},
-	}
+	scenarios := keyDistributionScenarios(wrappers.FlatKV, totalKeys, numBlocks)
 
 	for _, scenario := range scenarios {
 		b.Run(scenario.Name, func(b *testing.B) {
@@ -372,5 +322,15 @@ func BenchmarkCompositeWriteWithDifferentKeyDistributions(b *testing.B) {
 		b.Run(scenario.Name, func(b *testing.B) {
 			runBenchmark(b, scenario, false)
 		})
+	}
+}
+
+// Keep the advertised scenarios shared with the workload regression tests.
+func keyDistributionScenarios(backend wrappers.DBType, totalKeys, numBlocks int64) []TestScenario {
+	return []TestScenario{
+		{Name: "even_distribution", Backend: backend, TotalKeys: totalKeys, NumBlocks: numBlocks, Distribution: EvenDistribution},
+		{Name: "bursty_distribution", Backend: backend, TotalKeys: totalKeys, NumBlocks: numBlocks, Distribution: BurstyDistribution(1, 10, 5, 3)},
+		{Name: "normal_distribution", Backend: backend, TotalKeys: totalKeys, NumBlocks: numBlocks, Distribution: NormalDistribution(1, 0.2)},
+		{Name: "ramp_distribution", Backend: backend, TotalKeys: totalKeys, NumBlocks: numBlocks, Distribution: RampDistribution(0.5, 1.5)},
 	}
 }

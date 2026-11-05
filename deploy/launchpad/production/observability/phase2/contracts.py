@@ -93,7 +93,7 @@ def endpoint(value, environment, websocket=False):
 
 def validate_binding(binding, config):
     inventory.validate(config)
-    inventory.exact(binding, ('version', 'candidate_sha256', 'input_interface_sha256', 'deployment_digest', 'configuration_revision', 'environment', 'chain_id', 'contract_addresses', 'services', 'prometheus_url', 'responders', 'probes'))
+    inventory.exact(binding, ('version', 'candidate_sha256', 'input_interface_sha256', 'deployment_digest', 'configuration_revision', 'environment', 'chain_id', 'contract_addresses', 'services', 'prometheus_url', 'responders', 'probes', 'synthetic', 'alertmanager'))
     require(binding['version'] == '2.0', 'runtime binding version')
     for key in ('candidate_sha256', 'input_interface_sha256', 'deployment_digest'):
         digest(binding[key])
@@ -143,7 +143,61 @@ def validate_binding(binding, config):
             require(isinstance(probe['token_file'], str) and Path(probe['token_file']).is_absolute(), 'nonprivileged session mount missing')
         else:
             require(probe['frame'] is None and probe['token_file'] is None, 'unexpected session or socket data')
+    validate_transport(binding, config)
     return binding
+
+
+def mount_path(value):
+    require(isinstance(value, str) and value.startswith('/') and value != '/' and
+            '..' not in Path(value).parts and str(Path(value)) == value,
+            'transport requires an absolute normalized mount path')
+    return value
+
+
+def authenticated_destination(value, environment):
+    inventory.exact(value, ('url', 'token_file', 'ca_file'))
+    endpoint(value['url'], environment)
+    mount_path(value['token_file'])
+    if urlsplit(value['url']).scheme == 'https':
+        mount_path(value['ca_file'])
+    else:
+        require(value['ca_file'] is None, 'loopback destination has unexpected TLS mount')
+
+
+def validate_transport(binding, config):
+    synthetic = binding['synthetic']
+    inventory.exact(synthetic, ('url', 'textfile_directory', 'token_file', 'ca_file',
+                                'cert_file', 'key_file', 'zone'))
+    authenticated_destination({k: synthetic[k] for k in ('url', 'token_file', 'ca_file')},
+                              binding['environment'])
+    target = urlsplit(synthetic['url'])
+    require(target.path == '/metrics' and target.port is not None,
+            'synthetic exporter requires an explicit port and metrics path')
+    require(synthetic['zone'] in config['zones'], 'synthetic zone is unconfigured')
+    mount_path(synthetic['textfile_directory'])
+    if target.scheme == 'https':
+        mount_path(synthetic['cert_file'])
+        mount_path(synthetic['key_file'])
+    else:
+        require(synthetic['cert_file'] is None and synthetic['key_file'] is None,
+                'loopback exporter has unexpected TLS mounts')
+    manager = binding['alertmanager']
+    inventory.exact(manager, ('url', 'token_file', 'ca_file', 'receivers'))
+    authenticated_destination({k: manager[k] for k in ('url', 'token_file', 'ca_file')},
+                              binding['environment'])
+    owners = {alert['owner'] for alert in config['alerts']}
+    require(isinstance(manager['receivers'], dict) and set(manager['receivers']) == owners,
+            'Alertmanager destinations must cover every alert owner')
+    for destination in manager['receivers'].values():
+        authenticated_destination(destination, binding['environment'])
+    credentials = [synthetic['token_file'], manager['token_file']]
+    credentials.extend(d['token_file'] for d in manager['receivers'].values())
+    credentials.extend(d['ca_file'] for d in [manager, *manager['receivers'].values()]
+                       if d['ca_file'] is not None)
+    for path in credentials + [synthetic[k] for k in ('ca_file', 'cert_file', 'key_file')
+                               if synthetic[k] is not None]:
+        require(not Path(path).is_relative_to(synthetic['textfile_directory']),
+                'credentials cannot share the writable synthetic directory')
 
 
 def safe_diagnostics(binding):

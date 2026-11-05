@@ -17,6 +17,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/secp256k1"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 )
 
 const (
@@ -298,8 +299,15 @@ func TestKeyringKeybaseExportImportPrivKey(t *testing.T) {
 	require.NoError(t, err)
 
 	// try import the key - wrong password
+	before, err := kb.List()
+	require.NoError(t, err)
 	err = kb.ImportPrivKey("john2", keystr, "bad pass")
-	require.Equal(t, "failed to decrypt private key: ciphertext decryption failed", err.Error())
+	require.ErrorIs(t, err, sdkerrors.ErrWrongPassword)
+	after, err := kb.List()
+	require.NoError(t, err)
+	require.Equal(t, before, after)
+	_, err = kb.Key("john2")
+	require.ErrorIs(t, err, sdkerrors.ErrKeyNotFound)
 
 	// try import the key with the correct password
 	require.NoError(t, kb.ImportPrivKey("john2", keystr, "somepassword"))
@@ -738,26 +746,50 @@ func TestAltKeyring_DeleteByAddress(t *testing.T) {
 }
 
 func TestAltKeyring_SavePubKey(t *testing.T) {
-	keyring, err := New(t.Name(), BackendTest, t.TempDir(), nil)
-	require.NoError(t, err)
+	for _, pub := range []types.PubKey{ed25519.GenPrivKey().PubKey(), secp256k1.GenPrivKey().PubKey()} {
+		t.Run(pub.Type(), func(t *testing.T) {
+			dir := t.TempDir()
+			kr, err := New(t.Name(), BackendTest, dir, nil)
+			require.NoError(t, err)
+			before, err := kr.List()
+			require.NoError(t, err)
+			require.Empty(t, before)
+			wrong := hd.Secp256k1Type
+			if pub.Type() == string(wrong) {
+				wrong = hd.Ed25519Type
+			}
+			_, err = kr.SavePubKey("mismatched", pub, wrong)
+			require.ErrorIs(t, err, ErrUnsupportedSigningAlgo)
+			after, err := kr.List()
+			require.NoError(t, err)
+			require.Equal(t, before, after)
 
-	list, err := keyring.List()
-	require.NoError(t, err)
-	require.Empty(t, list)
-
-	key := someKey
-	priv := ed25519.GenPrivKey()
-	pub := priv.PubKey()
-
-	info, err := keyring.SavePubKey(key, pub, hd.Secp256k1.Name())
-	require.Nil(t, err)
-	require.Equal(t, pub, info.GetPubKey())
-	require.Equal(t, key, info.GetName())
-	require.Equal(t, hd.Secp256k1.Name(), info.GetAlgo())
-
-	list, err = keyring.List()
-	require.NoError(t, err)
-	require.Equal(t, 1, len(list))
+			info, err := kr.SavePubKey(someKey, pub, hd.PubKeyType(pub.Type()))
+			require.NoError(t, err)
+			require.True(t, pub.Equals(info.GetPubKey()))
+			require.Equal(t, someKey, info.GetName())
+			require.Equal(t, hd.PubKeyType(pub.Type()), info.GetAlgo())
+			kr, err = New(t.Name(), BackendTest, dir, nil)
+			require.NoError(t, err)
+			reopened, err := kr.Key(someKey)
+			require.NoError(t, err)
+			require.True(t, pub.Equals(reopened.GetPubKey()))
+			require.Equal(t, info.GetAlgo(), reopened.GetAlgo())
+			list, err := kr.List()
+			require.NoError(t, err)
+			require.Len(t, list, 1)
+			out, err := MkAccKeysOutput(list)
+			require.NoError(t, err)
+			require.Len(t, out, 1)
+			expected, err := MkAccKeyOutput(info)
+			require.NoError(t, err)
+			expected, err = PopulateEvmAddrIfApplicable(info, expected)
+			require.NoError(t, err)
+			require.Equal(t, expected, out[0])
+			require.Equal(t, "offline", out[0].Type)
+			require.Contains(t, out[0].PubKey, pub.Type())
+		})
+	}
 }
 
 func TestAltKeyring_SaveMultisig(t *testing.T) {
@@ -835,8 +867,15 @@ func TestAltKeyring_ImportExportPrivKey(t *testing.T) {
 	require.NoError(t, err)
 	newUID := otherID
 	// Should fail importing with wrong password
+	before, err := keyring.List()
+	require.NoError(t, err)
 	err = keyring.ImportPrivKey(newUID, armor, "wrongPass")
-	require.EqualError(t, err, "failed to decrypt private key: ciphertext decryption failed")
+	require.ErrorIs(t, err, sdkerrors.ErrWrongPassword)
+	after, err := keyring.List()
+	require.NoError(t, err)
+	require.Equal(t, before, after)
+	_, err = keyring.Key(newUID)
+	require.ErrorIs(t, err, sdkerrors.ErrKeyNotFound)
 
 	err = keyring.ImportPrivKey(newUID, armor, passphrase)
 	require.NoError(t, err)
@@ -862,8 +901,15 @@ func TestAltKeyring_ImportExportPrivKey_ByAddress(t *testing.T) {
 
 	newUID := otherID
 	// Should fail importing with wrong password
+	before, err := keyring.List()
+	require.NoError(t, err)
 	err = keyring.ImportPrivKey(newUID, armor, "wrongPass")
-	require.EqualError(t, err, "failed to decrypt private key: ciphertext decryption failed")
+	require.ErrorIs(t, err, sdkerrors.ErrWrongPassword)
+	after, err := keyring.List()
+	require.NoError(t, err)
+	require.Equal(t, before, after)
+	_, err = keyring.Key(newUID)
+	require.ErrorIs(t, err, sdkerrors.ErrKeyNotFound)
 
 	err = keyring.ImportPrivKey(newUID, armor, passphrase)
 	require.NoError(t, err)

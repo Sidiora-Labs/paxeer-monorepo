@@ -25,6 +25,8 @@ const (
 	DefaultLimit   = 30             // should be consistent with tendermint/tendermint/rpc/core/pipe.go:19
 	TxMinHeightKey = "tx.minheight" // Inclusive minimum height filter
 	TxMaxHeightKey = "tx.maxheight" // Inclusive maximum height filter
+	// MaxRequestBodyBytes bounds legacy REST transaction payloads, matching the server's 1 MB default.
+	MaxRequestBodyBytes = 1_000_000
 )
 
 // ResponseWithHeight defines a response object type that wraps an original
@@ -95,16 +97,33 @@ func NewBaseReq(
 
 // Sanitize performs basic sanitization on a BaseReq object.
 func (br BaseReq) Sanitize() BaseReq {
-	return NewBaseReq(
+	sanitized := NewBaseReq(
 		br.From, br.Memo, br.ChainID, br.Gas, br.GasAdjustment,
 		br.AccountNumber, br.Sequence, br.Fees, br.GasPrices, br.Simulate,
 	)
+	sanitized.TimeoutHeight = br.TimeoutHeight
+	return sanitized
 }
 
 // ValidateBasic performs basic validation of a BaseReq. If custom validation
 // logic is needed, the implementing request handler should perform those
 // checks manually.
 func (br BaseReq) ValidateBasic(w http.ResponseWriter) bool {
+	if br.Fees.IsAnyNil() {
+		WriteErrorResponse(w, http.StatusPaymentRequired, "invalid fees or gas prices provided")
+		return false
+	}
+	for _, price := range br.GasPrices {
+		if price.Amount.IsNil() {
+			WriteErrorResponse(w, http.StatusPaymentRequired, "invalid fees or gas prices provided")
+			return false
+		}
+	}
+	if !br.Fees.IsValid() || !br.GasPrices.IsValid() {
+		WriteErrorResponse(w, http.StatusPaymentRequired, "invalid fees or gas prices provided")
+		return false
+	}
+
 	if !br.Simulate {
 		switch {
 		case len(br.ChainID) == 0:
@@ -114,11 +133,6 @@ func (br BaseReq) ValidateBasic(w http.ResponseWriter) bool {
 		case !br.Fees.IsZero() && !br.GasPrices.IsZero():
 			// both fees and gas prices were provided
 			WriteErrorResponse(w, http.StatusBadRequest, "cannot provide both fees and gas prices")
-			return false
-
-		case !br.Fees.IsValid() && !br.GasPrices.IsValid():
-			// neither fees or gas prices were provided
-			WriteErrorResponse(w, http.StatusPaymentRequired, "invalid fees or gas prices provided")
 			return false
 		}
 	}
@@ -134,7 +148,13 @@ func (br BaseReq) ValidateBasic(w http.ResponseWriter) bool {
 // ReadRESTReq reads and unmarshals a Request's body to the the BaseReq struct.
 // Writes an error response to ResponseWriter and returns false if errors occurred.
 func ReadRESTReq(w http.ResponseWriter, r *http.Request, cdc *codec.LegacyAmino, req interface{}) bool {
+	r.Body = http.MaxBytesReader(w, r.Body, MaxRequestBodyBytes)
 	body, err := io.ReadAll(r.Body)
+	var tooLarge *http.MaxBytesError
+	if errors.As(err, &tooLarge) {
+		WriteErrorResponse(w, http.StatusRequestEntityTooLarge, fmt.Sprintf("request body exceeds maximum size of %d bytes", MaxRequestBodyBytes))
+		return false
+	}
 	if CheckBadRequestError(w, err) {
 		return false
 	}

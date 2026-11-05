@@ -1,6 +1,7 @@
 //! Protocol-state models for bounded, ephemeral program sandboxes.
 
 #![deny(unsafe_code)]
+#![doc = include_str!("programs_contract.md")]
 
 pub mod activity;
 pub mod chain_keys;
@@ -10,6 +11,7 @@ pub mod expiry;
 #[cfg(feature = "host-ffi")]
 #[allow(unsafe_code)]
 mod host_ffi;
+pub mod invocation;
 pub mod lease;
 pub mod snapshot;
 pub mod usage;
@@ -43,7 +45,7 @@ pub use activity::{
     SandboxExecuteRefusal, SandboxProtocolContext, SandboxReceiptEvidence, SandboxSubmission,
     SandboxSubmissionReceipt, PROGRAMS_SANDBOX_ACTIVITY_TYPE,
 };
-pub use chain_keys::sandbox_state_key;
+pub use chain_keys::{sandbox_state_key, sandbox_terminal_key};
 
 pub use escrow::{settle, Escrow, EscrowOutcome, EscrowRefusal};
 pub use execute::{

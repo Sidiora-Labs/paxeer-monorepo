@@ -1,0 +1,48 @@
+[issue.1548]
+number = 1548
+title = "[P2] Port gateway record schemas to the Zod 4 TypeScript signature"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "task"
+evidence = "Commit 8dc0d37ce04f002d216ab533a297389e013f15d5 raised Zod to ^4.6.6 at services/wallet/gateway/package.json:30, resolved to 4.6.7 at services/wallet/pnpm-lock.yaml:126, but services/wallet/gateway/src/schemas/agent.ts:63 and services/wallet/gateway/src/routes/sign.ts:60 still begin three one-argument record calls each in the sources included by services/wallet/gateway/tsconfig.json:10, incompatible with the required keyType and valueType parameters at https://github.com/colinhacks/zod/blob/v4.6.7/packages/zod/src/v4/classic/schemas.ts#L1969-L1973 despite the runtime compatibility fallback at that source's lines 1974-1981."
+close_comment = "The gateway's typed-data schemas still use the Zod 3 record signature with the Zod 4 dependency. A wallet repair task will supply explicit string key schemas for all six records and preserve typed-data validation with focused acceptance and refusal coverage."
+
+[task.18.1548.1]
+title = "Issue #1548: Migrate gateway typed-data records to the Zod 4 signature"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181548.1"]
+capabilities = []
+interfaces = []
+do_1 = "Replace the three one-argument z.record calls at services/wallet/gateway/src/schemas/agent.ts:63 and the three at services/wallet/gateway/src/routes/sign.ts:60 with z.record(z.string(), valueSchema), retaining each existing value schema, optional agent domain, agent typed-data passthrough, wallet typedData and typed_data aliases, strict envelopes, field bounds and 256-field array limit; retain the Zod 4 dependency at services/wallet/gateway/package.json:30 and its resolution at services/wallet/pnpm-lock.yaml:126."
+do_2 = "Add services/wallet/gateway/test/typed-data-records.test.ts (planned) with one declared test function gatewayTypedDataRecordsZod4 exercising the exported AgentSignTypedDataBody and SignTypedDataBody directly without replacing either schema: assert parsed valid named records retain their values through all six records and both wallet aliases; accept an omitted agent domain and agent typed-data extra properties; reject null, array and scalar record containers, unknown outer keys, unknown wallet document keys, malformed wallet TypedDataField values and 257-field arrays, while accepting 256 fields and retaining existing string bounds at services/wallet/gateway/src/routes/sign.ts:56; follow the focused Vitest runner in services/wallet/gateway/vitest.config.ts:6 and the existing schema safeParse assertion pattern at services/wallet/gateway/test/schemas.injection.test.ts:154."
+symbols = ["AgentSignTypedDataBody", "TypedDataDocument", "gatewayTypedDataRecordsZod4"]
+touches = ["services/wallet/gateway/src/schemas/agent.ts", "services/wallet/gateway/src/routes/sign.ts", "services/wallet/gateway/test/typed-data-records.test.ts"]
+tests = ["services/wallet/gateway/test/typed-data-records.test.ts::gatewayTypedDataRecordsZod4"]
+planned_paths = ["services/wallet/gateway/test/typed-data-records.test.ts"]
+build_cmd = "pnpm --dir services/wallet/gateway exec tsc --noEmit"
+verify_cmd = "pnpm --dir services/wallet/gateway exec vitest run test/typed-data-records.test.ts -t '^gatewayTypedDataRecordsZod4$'"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181548]
+title = "Gateway typed-data records compile with Zod 4 and preserve request validation"
+ac_1 = "The six records at services/wallet/gateway/src/schemas/agent.ts:63 and services/wallet/gateway/src/routes/sign.ts:60 use explicit string key and existing value schemas compatible with Zod 4.6.7; the gateway typecheck succeeds and gatewayTypedDataRecordsZod4 asserts retained parsed values, both wallet aliases, optional agent domain, agent passthrough, invalid-container refusal, strict envelopes, wallet field validation and the existing 256-field boundary."
+
+[acceptance.18.1548.1]
+feature = "18"
+req = "181548.1"
+scenario = "Given the gateway's Zod 4 dependency and its agent and wallet typed-data request schemas, when the package is typechecked and gatewayTypedDataRecordsZod4 parses valid and malformed documents, then all six record constructors satisfy the TypeScript signature, valid records retain their values and existing validation limits and envelope rules still refuse invalid requests."
+contract = "contracts/services.md#embedded-wallet-gateway"
+test = "services/wallet/gateway/test/typed-data-records.test.ts::gatewayTypedDataRecordsZod4 (planned)"
+qualification = "UNRUN"

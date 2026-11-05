@@ -1,0 +1,171 @@
+[reconcile.r3-10]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 21
+
+[row.r3-10.1]
+interface = "interface.3.go-perps-types-tierclassf-j64"
+verdict = "served"
+path = "modules/perps/types/tiers.go"
+line = 19
+symbol = "TierClassF"
+evidence = "TierClassF remains the LINK constant in the TierClass uint8 iota group at line 19; tierSheets also has its class F margin tiers at line 55."
+
+[row.r3-10.2]
+interface = "interface.3.go-pricefeed-marksubmission-j25"
+verdict = "served"
+path = "modules/pricefeed/ante.go"
+line = 113
+symbol = "MarkSubmission"
+evidence = "func MarkSubmission(ctx sdk.Context, tx sdk.Tx, k keeper.Keeper) error keeps the registered signature. Its lock table is now markLocks [256]sync.Mutex at line 16, selected by markLockFor(operator) at line 125; it also refuses mixed submissions through CheckSubmissionAlone."
+
+[row.r3-10.3]
+interface = "interface.3.go-pricefeed-appmodulebasic-validategenesis-j25"
+verdict = "served"
+path = "modules/pricefeed/module.go"
+line = 51
+symbol = "ValidateGenesis"
+evidence = "func (AppModuleBasic) ValidateGenesis(_ codec.JSONCodec, _ client.TxEncodingConfig, bz json.RawMessage) error keeps the registered signature. The body now calls decodeGenesis and returns keeper.ValidateGenesis(genesis) at line 56, sharing keeper validation with genesis import."
+
+[row.r3-10.4]
+interface = "interface.3.go-pricefeed-appmodulebasic-getquerycmd-j25"
+verdict = "served"
+path = "modules/pricefeed/module.go"
+line = 88
+symbol = "GetQueryCmd"
+evidence = "func (AppModuleBasic) GetQueryCmd() *cobra.Command { return cli.GetQueryCmd() } replaces the registered return nil body; the receiver, parameters and return type are unchanged and the query CLI is now exposed."
+
+[row.r3-10.5]
+interface = "interface.3.go-pricefeed-appmodule-registerservices-j25"
+verdict = "served"
+path = "modules/pricefeed/module.go"
+line = 104
+symbol = "RegisterServices"
+evidence = "func (am AppModule) RegisterServices(cfg module.Configurator) keeps the registered signature. It now registers both RegisterMsgServer at line 105 and RegisterQueryServer at line 106, routing queries to keeper.NewQueryServerImpl(am.keeper)."
+
+[row.r3-10.6]
+interface = "interface.3.err-sdk-pricefeed-2-unauthorized"
+verdict = "served"
+path = "modules/pricefeed/types/errors.go"
+line = 14
+symbol = "ErrUnauthorized"
+evidence = "ErrUnauthorized = sdkerrors.Register(ModuleName, 2, \"unauthorized\") now spells the registration with sdkerrors and ModuleName rather than Register and the pricefeed literal; ModuleName remains pricefeed at line 9, so the wire code and description are unchanged. LXPCodes maps it to LXP_PRICEFEED_UNAUTHORIZED at line 39."
+
+[row.r3-10.7]
+interface = "interface.3.err-sdk-pricefeed-3-invalid-params"
+verdict = "served"
+path = "modules/pricefeed/types/errors.go"
+line = 15
+symbol = "ErrInvalidParams"
+evidence = "ErrInvalidParams = sdkerrors.Register(ModuleName, 3, \"invalid params\") now uses the qualified sdkerrors.Register and ModuleName constant, whose value is pricefeed. The registered wire code and description are unchanged; LXPCodes maps it to LXP_PRICEFEED_INVALID_PARAMS at line 40."
+
+[row.r3-10.8]
+interface = "interface.3.err-sdk-pricefeed-4-invalid-genesis"
+verdict = "served"
+path = "modules/pricefeed/types/errors.go"
+line = 16
+symbol = "ErrInvalidGenesis"
+evidence = "ErrInvalidGenesis = sdkerrors.Register(ModuleName, 4, \"invalid genesis\") now uses the qualified sdkerrors.Register and ModuleName constant, whose value is pricefeed. The registered wire code and description are unchanged; LXPCodes maps it to LXP_PRICEFEED_INVALID_GENESIS at line 41."
+
+[row.r3-10.9]
+interface = "interface.3.err-sdk-pricefeed-5-not-validator"
+verdict = "served"
+path = "modules/pricefeed/types/errors.go"
+line = 17
+symbol = "ErrNotValidator"
+evidence = "ErrNotValidator = sdkerrors.Register(ModuleName, 5, \"not a bonded validator\") now uses the qualified sdkerrors.Register and ModuleName constant, whose value is pricefeed. The registered wire code and description are unchanged; LXPCodes maps it to LXP_PRICEFEED_NOT_VALIDATOR at line 42."
+
+[row.r3-10.10]
+interface = "interface.3.err-sdk-pricefeed-6-invalid-key"
+verdict = "served"
+path = "modules/pricefeed/types/errors.go"
+line = 18
+symbol = "ErrInvalidKey"
+evidence = "ErrInvalidKey = sdkerrors.Register(ModuleName, 6, \"feed key must be a 33-byte compressed secp256k1 public key\") now uses the qualified sdkerrors.Register and ModuleName constant, whose value is pricefeed. The registered wire code and description are unchanged; LXPCodes maps it to LXP_PRICEFEED_INVALID_KEY at line 43."
+
+[row.r3-10.11]
+interface = "interface.3.err-sdk-pricefeed-7-key-in-use"
+verdict = "served"
+path = "modules/pricefeed/types/errors.go"
+line = 19
+symbol = "ErrKeyInUse"
+evidence = "ErrKeyInUse = sdkerrors.Register(ModuleName, 7, \"feed account is registered to another validator\") now uses the qualified sdkerrors.Register and ModuleName constant, whose value is pricefeed. The registered wire code and description are unchanged; LXPCodes maps it to LXP_PRICEFEED_KEY_IN_USE at line 44."
+
+[row.r3-10.12]
+interface = "interface.3.err-sdk-pricefeed-8-no-key"
+verdict = "served"
+path = "modules/pricefeed/types/errors.go"
+line = 20
+symbol = "ErrNoKey"
+evidence = "ErrNoKey = sdkerrors.Register(ModuleName, 8, \"validator has no feed key\") now uses the qualified sdkerrors.Register and ModuleName constant, whose value is pricefeed. The registered wire code and description are unchanged; LXPCodes maps it to LXP_PRICEFEED_NO_KEY at line 45."
+
+[row.r3-10.13]
+interface = "interface.3.err-sdk-pricefeed-9-unknown-market"
+verdict = "served"
+path = "modules/pricefeed/types/errors.go"
+line = 21
+symbol = "ErrUnknownMarket"
+evidence = "ErrUnknownMarket = sdkerrors.Register(ModuleName, 9, \"market is not listed\") now uses the qualified sdkerrors.Register and ModuleName constant, whose value is pricefeed. The registered wire code and description are unchanged; LXPCodes maps it to LXP_PRICEFEED_UNKNOWN_MARKET at line 46."
+
+[row.r3-10.14]
+interface = "interface.3.err-sdk-pricefeed-10-unregistered-feeder"
+verdict = "served"
+path = "modules/pricefeed/types/errors.go"
+line = 22
+symbol = "ErrUnregisteredFeeder"
+evidence = "ErrUnregisteredFeeder = sdkerrors.Register(ModuleName, 10, \"feeder is not a registered feed account\") now uses the qualified sdkerrors.Register and ModuleName constant, whose value is pricefeed. The registered wire code and description are unchanged; LXPCodes maps it to LXP_PRICEFEED_UNREGISTERED_FEEDER at line 47."
+
+[row.r3-10.15]
+interface = "interface.3.err-sdk-pricefeed-11-rate-limited"
+verdict = "served"
+path = "modules/pricefeed/types/errors.go"
+line = 23
+symbol = "ErrRateLimited"
+evidence = "ErrRateLimited = sdkerrors.Register(ModuleName, 11, \"the validator has already submitted prices at this height\") now uses the qualified sdkerrors.Register and ModuleName constant, whose value is pricefeed. The registered wire code and description are unchanged; LXPCodes maps it to LXP_PRICEFEED_RATE_LIMITED at line 48."
+
+[row.r3-10.16]
+interface = "interface.3.err-sdk-pricefeed-12-too-many-observations"
+verdict = "served"
+path = "modules/pricefeed/types/errors.go"
+line = 24
+symbol = "ErrTooManyObservations"
+evidence = "ErrTooManyObservations = sdkerrors.Register(ModuleName, 12, \"too many observations in one submission\") now uses the qualified sdkerrors.Register and ModuleName constant, whose value is pricefeed. The registered wire code and description are unchanged; LXPCodes maps it to LXP_PRICEFEED_TOO_MANY_OBSERVATIONS at line 49."
+
+[row.r3-10.17]
+interface = "interface.3.err-sdk-pricefeed-13-submission-too-large"
+verdict = "served"
+path = "modules/pricefeed/types/errors.go"
+line = 25
+symbol = "ErrSubmissionTooLarge"
+evidence = "ErrSubmissionTooLarge = sdkerrors.Register(ModuleName, 13, \"submission is over the byte bound\") now uses the qualified sdkerrors.Register and ModuleName constant, whose value is pricefeed. The registered wire code and description are unchanged; LXPCodes maps it to LXP_PRICEFEED_SUBMISSION_TOO_LARGE at line 50."
+
+[row.r3-10.18]
+interface = "interface.3.err-sdk-pricefeed-14-duplicate-market"
+verdict = "served"
+path = "modules/pricefeed/types/errors.go"
+line = 26
+symbol = "ErrDuplicateMarket"
+evidence = "ErrDuplicateMarket = sdkerrors.Register(ModuleName, 14, \"a submission carries one observation per market\") now uses the qualified sdkerrors.Register and ModuleName constant, whose value is pricefeed. The registered wire code and description are unchanged; LXPCodes maps it to LXP_PRICEFEED_DUPLICATE_MARKET at line 51."
+
+[row.r3-10.19]
+interface = "interface.3.err-sdk-pricefeed-15-submission-alone"
+verdict = "served"
+path = "modules/pricefeed/types/errors.go"
+line = 27
+symbol = "ErrSubmissionAlone"
+evidence = "ErrSubmissionAlone = sdkerrors.Register(ModuleName, 15, \"price submissions cannot be in the same tx as other messages\") now uses the qualified sdkerrors.Register and ModuleName constant, whose value is pricefeed. The registered wire code and description are unchanged; LXPCodes maps it to LXP_PRICEFEED_SUBMISSION_ALONE at line 52."
+
+[row.r3-10.20]
+interface = "interface.3.err-sdk-pricefeed-16-invalid-observation"
+verdict = "served"
+path = "modules/pricefeed/types/errors.go"
+line = 28
+symbol = "ErrInvalidObservation"
+evidence = "ErrInvalidObservation = sdkerrors.Register(ModuleName, 16, \"invalid observation\") now uses the qualified sdkerrors.Register and ModuleName constant, whose value is pricefeed. The registered wire code and description are unchanged; LXPCodes maps it to LXP_PRICEFEED_INVALID_OBSERVATION at line 53."
+
+[row.r3-10.21]
+interface = "interface.3.go-pricefeed-types-lxpname-j25"
+verdict = "served"
+path = "modules/pricefeed/types/errors.go"
+line = 58
+symbol = "LXPName"
+evidence = "func LXPName(err error) (string, bool) keeps the registered signature. The implementation now loops over LXPCodes() and matches errors.Is(err, code.Err) instead of a switch; the table at lines 39-53 preserves the fifteen LXP_PRICEFEED names for codes 2 through 16."

@@ -1,0 +1,7 @@
+[repair.go-services.21]
+target = "services/platform/perps-data/internal/feeds"
+command = "cd services/platform/perps-data && go vet ./internal/feeds/ && go test -count=1 ./internal/feeds/"
+revision = "cea04b0a20fed9621b2f2580398024b38b76ff2e"
+result = "already-passing"
+change = "none; the recorded failure requires PostgreSQL through PERPS_DATA_TEST_DATABASE_URL, and decision 2496 qualifies vet and the full test build separately from producer-input tests."
+producer_input_tests = ["TestFeeds: PERPS_DATA_TEST_DATABASE_URL pointing to a PostgreSQL database permitting schema recreation and migrations", "TestTopicsSpotSaleWakesBaseTape: PERPS_DATA_TEST_DATABASE_URL pointing to a PostgreSQL database permitting schema recreation and migrations", "TestTopicsReloadMarkets: PERPS_DATA_TEST_DATABASE_URL pointing to a PostgreSQL database permitting schema recreation and migrations", "TestProofWebsocketProducerTransportConsumer: PERPS_DATA_TEST_DATABASE_URL pointing to a PostgreSQL database permitting schema recreation and migrations; Node with native WebSocket, registerHooks and stripTypeScriptTypes support; installed apps/perps react and viem dependencies, optionally located by PERPS_WEBSOCKET_NODE_MODULES"]

@@ -25,8 +25,7 @@ use layerx_agentd::limits::{
 };
 use layerx_agentd::outbox::{Outbox, OutboxError, SubmissionState};
 use layerx_agentd::prepare::{
-    prepare_bound, restore_canonical, EvmPreparationDefaults, EvmPreparationState,
-    EvmPrepareRequest, PrecompileCall,
+    prepare_bound, EvmPreparationDefaults, EvmPreparationState, EvmPrepareRequest, PrecompileCall,
 };
 use layerx_agentd::protocol_evidence::{
     EvidenceAuthority, RawReceiptEvidence, VerifiedReceiptEvidence,
@@ -1021,16 +1020,6 @@ fn send_payload() -> Result<(SigningPreparation, ModuleRegistry, LocalSigner), S
         "disclose transfer authorization",
         &[],
     )?;
-    let authorization = step(
-        restore_canonical(
-            &disclosed.canonical,
-            88,
-            &disclosed.registry,
-            Some(disclosed.envelope.authority()),
-        ),
-        "bind transfer authorization",
-        &[],
-    )?;
     let transaction = step(
         prepare_bound(
             EvmPreparationState {
@@ -1061,7 +1050,6 @@ fn send_payload() -> Result<(SigningPreparation, ModuleRegistry, LocalSigner), S
         SigningPreparation {
             transaction,
             actor_address: account.evm_address(),
-            authorization,
         },
         disclosed.registry,
         signer,

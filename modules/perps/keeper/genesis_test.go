@@ -189,12 +189,39 @@ func TestGenesisRoundTrip(t *testing.T) {
 	require.True(t, storeA.Has(types.AdlRankIndexKey(3, types.SideSell, genesisE18(4), genesisWord(4))))
 
 	exported := kA.ExportGenesis(ctxA)
-	require.Empty(t, exported.BookEntries)
-	require.Empty(t, exported.CloidEntries)
-	require.Empty(t, exported.TriggerEntries)
-	require.Empty(t, exported.ExpiryEntries)
-	require.Empty(t, exported.MarginRatioEntries)
-	require.Empty(t, exported.AdlRankEntries)
+	require.Equal(t, []types.BookEntry{
+		{MarketID: 0, Side: types.SideBuy, Price: genesisE18(59_000), Sequence: 1, OrderID: genesisWord(1)},
+		{MarketID: 0, Side: types.SideSell, Price: genesisE18(61_000), Sequence: 2, OrderID: genesisWord(2)},
+		{MarketID: 3, Side: types.SideBuy, Price: genesisE18(2_990), Sequence: 3, OrderID: genesisWord(3)},
+		{MarketID: 7, Side: types.SideSell, Price: genesisE18(150), Sequence: 8, OrderID: genesisWord(8)},
+	}, exported.BookEntries)
+	require.Equal(t, []types.CloidEntry{
+		{Account: genesisA, MarketID: 0, Cloid: [16]byte{0xc1}, OrderID: genesisWord(1)},
+		{Account: genesisC, MarketID: 3, Cloid: [16]byte{0xc2}, OrderID: genesisWord(3)},
+	}, exported.CloidEntries)
+	require.Equal(t, []types.TriggerEntry{
+		{MarketID: 0, Direction: types.TriggerRising, TriggerPrice: genesisE18(62_000), Sequence: 4, OrderID: genesisWord(4)},
+		{MarketID: 0, Direction: types.TriggerFalling, TriggerPrice: genesisE18(58_000), Sequence: 5, OrderID: genesisWord(5)},
+		{MarketID: 0, Direction: types.TriggerRising, TriggerPrice: genesisE18(66_000), Sequence: 6, OrderID: genesisWord(6)},
+		{MarketID: 0, Direction: types.TriggerFalling, TriggerPrice: genesisE18(57_000), Sequence: 7, OrderID: genesisWord(7)},
+	}, exported.TriggerEntries)
+	require.Equal(t, []types.ExpiryEntry{
+		{Deadline: 1_800_000_100, OrderID: genesisWord(1)},
+		{Deadline: 1_800_000_300, OrderID: genesisWord(5)},
+		{Deadline: 1_800_000_200, OrderID: genesisWord(8)},
+	}, exported.ExpiryEntries)
+	require.Equal(t, []types.MarginRatioEntry{
+		{Bucket: 140, Account: genesisA},
+		{Bucket: 65_535, Account: genesisB},
+		{Bucket: 0, Account: genesisC},
+	}, exported.MarginRatioEntries)
+	require.Equal(t, []types.AdlRankEntry{
+		{MarketID: 0, Side: types.SideBuy, RankScore: genesisE18(7), PositionID: genesisWord(1)},
+		{MarketID: 0, Side: types.SideSell, RankScore: genesisE18(2), PositionID: genesisWord(2)},
+		{MarketID: 3, Side: types.SideBuy, RankScore: genesisE18(4), PositionID: genesisWord(3)},
+		{MarketID: 3, Side: types.SideSell, RankScore: genesisE18(4), PositionID: genesisWord(4)},
+	}, exported.AdlRankEntries)
+	require.NoError(t, types.ValidateGenesis(*exported))
 	require.Len(t, exported.Markets, 3)
 	require.Len(t, exported.MarketStates, 3)
 	require.Len(t, exported.Orders, 10)
@@ -209,7 +236,7 @@ func TestGenesisRoundTrip(t *testing.T) {
 	kB, ctxB, storeB := importGenesis(t, imported)
 
 	contentsA := storeContents(t, storeA)
-	require.Len(t, contentsA, 67)
+	require.Len(t, contentsA, 72)
 	require.Equal(t, contentsA, storeContents(t, storeB))
 	require.Equal(t, exported, kB.ExportGenesis(ctxB))
 

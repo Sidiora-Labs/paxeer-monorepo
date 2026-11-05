@@ -1,0 +1,2316 @@
+[audit.22.30.145]
+task = "22.30.145"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 322
+findings = 25
+docs_reviewed = 24
+upgrade_ready = true
+blocking = []
+note = "Static pre-upgrade review of the declared slice. Vendored verdicts identify byte-identical pinned imports rather than asserting independent qualification of upstream behavior. Local findings are proposals only; no application build, database mutation, browser run, external submission or inventory sweep qualification is claimed."
+
+[file.001]
+path = "apps/explorer/CLAUDE.md"
+lines = 102
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/CLAUDE.md in repository import f72f4cee4 (Git blob 519b2869327448c08057ed24340554d88207738b). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.002]
+path = "apps/explorer/CODE_OF_CONDUCT.md"
+lines = 73
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/CODE_OF_CONDUCT.md in repository import f72f4cee4 (Git blob 5726fbc353a2ba490d93fd879f449047c9663be5). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.003]
+path = "apps/explorer/README.md"
+lines = 69
+verdict = "clean"
+note = "Frontend basePath, runtime presets and image paths agree with apps/explorer/next.config.js and docker/explorer-frontend/Dockerfile; imported revision is identified separately from local additions."
+
+[file.004]
+path = "apps/explorer/instrumentation.node.spec.ts"
+lines = 164
+verdict = "clean"
+note = "The full telemetry regression uses installed SDK/core propagation, Jaeger injection/extraction and the actual frontend instrumentation source. It preserves span IDs and security floors; the startup flag defect is recorded separately on the runtime module."
+
+[file.005]
+path = "apps/explorer/instrumentation.node.ts"
+lines = 70
+verdict = "issues"
+note = "Reviewed exporter setup, resource attributes, HTTP ignore hook and shutdown lifecycle; the false-valued runtime flag is recorded below."
+
+[file.006]
+path = "apps/explorer/next.config.js"
+lines = 58
+verdict = "clean"
+note = "The fixed /explorer basePath, standalone output, Next rewrites and webpack configuration were reviewed; the local compose health probe disagrees with this producer and is recorded on the deployment file."
+
+[file.007]
+path = "apps/explorer/package.json"
+lines = 287
+verdict = "clean"
+note = "Reviewed all scripts, dependency declarations and resolutions against the direct Phoenix 1.6.17, js-cookie 3.0.7 and compatible telemetry pins required by 181527.1 and 181526.1. No dependency install, typecheck or frontend gate is claimed by this static audit."
+
+[file.008]
+path = "apps/explorer/playwright-ct.config.ts"
+lines = 161
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/playwright-ct.config.ts in repository import f72f4cee4 (Git blob f156a931aeec1b9a7c3351dafeeee1b7421f5f11). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.009]
+path = "apps/explorer/ui/addressesLabelSearch/AddressesLabelSearchListItem.tsx"
+lines = 50
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/addressesLabelSearch/AddressesLabelSearchListItem.tsx in repository import f72f4cee4 (Git blob 6ef8d111bbfc23d7b907589a829c7ebb2acdbd86). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.010]
+path = "apps/explorer/ui/addressesLabelSearch/AddressesLabelSearchTable.tsx"
+lines = 39
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/addressesLabelSearch/AddressesLabelSearchTable.tsx in repository import f72f4cee4 (Git blob 656edbd0efd51296a2eea9728df50a215e636359). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.011]
+path = "apps/explorer/ui/addressesLabelSearch/AddressesLabelSearchTableItem.tsx"
+lines = 47
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/addressesLabelSearch/AddressesLabelSearchTableItem.tsx in repository import f72f4cee4 (Git blob b1e7d23dcae4e0fa17e534e6f48877151ac3696c). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.012]
+path = "apps/explorer/ui/apiKey/ApiKeyModal/ApiKeyForm.tsx"
+lines = 128
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/apiKey/ApiKeyModal/ApiKeyForm.tsx in repository import f72f4cee4 (Git blob f1dfda18fd0b8c4c1c36fcc5e426eb066b5f2390). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.013]
+path = "apps/explorer/ui/apiKey/ApiKeyModal/ApiKeyModal.tsx"
+lines = 37
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/apiKey/ApiKeyModal/ApiKeyModal.tsx in repository import f72f4cee4 (Git blob 2e596e85b928626416fa932229760d248fdbe217). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.014]
+path = "apps/explorer/ui/apiKey/ApiKeyTable/ApiKeyListItem.tsx"
+lines = 34
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/apiKey/ApiKeyTable/ApiKeyListItem.tsx in repository import f72f4cee4 (Git blob 9d3ef5e37346b8e541883237537b4ba26505b7dd). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.015]
+path = "apps/explorer/ui/apiKey/ApiKeyTable/ApiKeyTable.tsx"
+lines = 41
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/apiKey/ApiKeyTable/ApiKeyTable.tsx in repository import f72f4cee4 (Git blob f4f2d06ba3f942c341f54d895646eb9908da0b07). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.016]
+path = "apps/explorer/ui/apiKey/ApiKeyTable/ApiKeyTableItem.tsx"
+lines = 38
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/apiKey/ApiKeyTable/ApiKeyTableItem.tsx in repository import f72f4cee4 (Git blob 39d574633866a2c0f58d5d8e866697addd7a4d97). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.017]
+path = "apps/explorer/ui/apiKey/DeleteApiKeyModal.tsx"
+lines = 52
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/apiKey/DeleteApiKeyModal.tsx in repository import f72f4cee4 (Git blob e09d85dcc712d4a01ba775dfc101609003aa13d5). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.018]
+path = "apps/explorer/ui/blockCountdown/BlockCountdownTimer.tsx"
+lines = 53
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/blockCountdown/BlockCountdownTimer.tsx in repository import f72f4cee4 (Git blob 9bead9f672e7173b0d24e200793740b65a711511). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.019]
+path = "apps/explorer/ui/blockCountdown/BlockCountdownTimerItem.tsx"
+lines = 32
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/blockCountdown/BlockCountdownTimerItem.tsx in repository import f72f4cee4 (Git blob 91bbb892d4ab8d57808ce84a4353cf3a2405dfc0). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.020]
+path = "apps/explorer/ui/blockCountdown/createGoogleCalendarLink.ts"
+lines = 35
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/blockCountdown/createGoogleCalendarLink.ts in repository import f72f4cee4 (Git blob 0d91bb81021f4ea6d1049861eb1847f53cf6716a). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.021]
+path = "apps/explorer/ui/blockCountdown/createIcsFileBlob.ts"
+lines = 39
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/blockCountdown/createIcsFileBlob.ts in repository import f72f4cee4 (Git blob 46b95a157343d9c9aae1b1b4a567036825de1a2b). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.022]
+path = "apps/explorer/ui/blockCountdown/splitSecondsInPeriods.ts"
+lines = 15
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/blockCountdown/splitSecondsInPeriods.ts in repository import f72f4cee4 (Git blob 9c915a82d62462abfcc798e6764ebd4292cb1856). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.023]
+path = "apps/explorer/ui/cluster/ClusterDetails.tsx"
+lines = 105
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/cluster/ClusterDetails.tsx in repository import f72f4cee4 (Git blob b331133b53e4d5069e8423b2fa407511c76ae6b6). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.024]
+path = "apps/explorer/ui/disputeGames/optimisticL2/OptimisticL2DisputeGamesListItem.tsx"
+lines = 83
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/disputeGames/optimisticL2/OptimisticL2DisputeGamesListItem.tsx in repository import f72f4cee4 (Git blob 6c05190a00a100469de5cd278b58997b51b5dfaf). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.025]
+path = "apps/explorer/ui/disputeGames/optimisticL2/OptimisticL2DisputeGamesTable.tsx"
+lines = 50
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/disputeGames/optimisticL2/OptimisticL2DisputeGamesTable.tsx in repository import f72f4cee4 (Git blob 4bc8a8f0d4061dbc75482edaae6c3cedb4e6006c). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.026]
+path = "apps/explorer/ui/disputeGames/optimisticL2/OptimisticL2DisputeGamesTableItem.tsx"
+lines = 68
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/disputeGames/optimisticL2/OptimisticL2DisputeGamesTableItem.tsx in repository import f72f4cee4 (Git blob f0c953f8afe5021be431b18a11b7eac76c30e395). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.027]
+path = "apps/explorer/ui/gasTracker/GasTrackerChart.tsx"
+lines = 72
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/gasTracker/GasTrackerChart.tsx in repository import f72f4cee4 (Git blob 05d132eba883ef66b965cf7bed165ad8224cad38). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.028]
+path = "apps/explorer/ui/gasTracker/GasTrackerFaq.tsx"
+lines = 45
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/gasTracker/GasTrackerFaq.tsx in repository import f72f4cee4 (Git blob cd7843db2b83232efd2753967e01743fd9d72a13). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.029]
+path = "apps/explorer/ui/gasTracker/GasTrackerFaqItem.tsx"
+lines = 23
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/gasTracker/GasTrackerFaqItem.tsx in repository import f72f4cee4 (Git blob 78a252c932a79c84d5184b12f23872b3a70adc4d). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.030]
+path = "apps/explorer/ui/gasTracker/GasTrackerNetworkUtilization.tsx"
+lines = 24
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/gasTracker/GasTrackerNetworkUtilization.tsx in repository import f72f4cee4 (Git blob a077019c714636a9b52ea4d7af2bb50b6031fc18). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.031]
+path = "apps/explorer/ui/gasTracker/GasTrackerPriceSnippet.pw.tsx"
+lines = 88
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/gasTracker/GasTrackerPriceSnippet.pw.tsx in repository import f72f4cee4 (Git blob ac81323c70ae9798408d54022f4740042413f7b2). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.032]
+path = "apps/explorer/ui/gasTracker/GasTrackerPriceSnippet.tsx"
+lines = 73
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/gasTracker/GasTrackerPriceSnippet.tsx in repository import f72f4cee4 (Git blob 2d33310987b5514c7ca3eeb0dc0f9cdd67f77b3c). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.033]
+path = "apps/explorer/ui/gasTracker/GasTrackerPrices.tsx"
+lines = 30
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/gasTracker/GasTrackerPrices.tsx in repository import f72f4cee4 (Git blob 3c6485654b09ff47d57632872427394213d59137). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.034]
+path = "apps/explorer/ui/hotContracts/HotContractsIntervalSelect.tsx"
+lines = 64
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/hotContracts/HotContractsIntervalSelect.tsx in repository import f72f4cee4 (Git blob 03df177090f4b1ce3828654c3130fdac1656557d). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.035]
+path = "apps/explorer/ui/hotContracts/HotContractsListItem.tsx"
+lines = 64
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/hotContracts/HotContractsListItem.tsx in repository import f72f4cee4 (Git blob d832acca0a3f5d347e920be827a515a4e31bf6a8). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.036]
+path = "apps/explorer/ui/hotContracts/HotContractsTable.tsx"
+lines = 65
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/hotContracts/HotContractsTable.tsx in repository import f72f4cee4 (Git blob 9450720fe33861c0d7dda9904695684425d1f705). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.037]
+path = "apps/explorer/ui/hotContracts/HotContractsTableItem.tsx"
+lines = 65
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/hotContracts/HotContractsTableItem.tsx in repository import f72f4cee4 (Git blob f8ccda38efb00ce539ba85374e2d885bdf95870f). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.038]
+path = "apps/explorer/ui/hotContracts/utils.ts"
+lines = 38
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/hotContracts/utils.ts in repository import f72f4cee4 (Git blob 4d244642a89158c7c6bf794ba0790f5fee337c19). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.039]
+path = "apps/explorer/ui/internalTxs/InternalTxsList.tsx"
+lines = 37
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/internalTxs/InternalTxsList.tsx in repository import f72f4cee4 (Git blob e367a428b9da818fea85f705ada88db9e7679cea). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.040]
+path = "apps/explorer/ui/internalTxs/InternalTxsListItem.tsx"
+lines = 96
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/internalTxs/InternalTxsListItem.tsx in repository import f72f4cee4 (Git blob d1fda5ff57d0cd7b14b0ab06b00260e892f0ccab). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.041]
+path = "apps/explorer/ui/internalTxs/InternalTxsTable.tsx"
+lines = 61
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/internalTxs/InternalTxsTable.tsx in repository import f72f4cee4 (Git blob 7f17603c77e8b03c9ab32c758744e88010ce0c92). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.042]
+path = "apps/explorer/ui/internalTxs/InternalTxsTableItem.tsx"
+lines = 109
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/internalTxs/InternalTxsTableItem.tsx in repository import f72f4cee4 (Git blob b5ed3afa52b7af0e6a37f11590583fe1aaa67c73). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.043]
+path = "apps/explorer/ui/internalTxs/useInternalTxsQuery.tsx"
+lines = 51
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/internalTxs/useInternalTxsQuery.tsx in repository import f72f4cee4 (Git blob 56f2161247e30f11dfd39687a88d91465bacf349). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.044]
+path = "apps/explorer/ui/interopMessages/InteropMessageAdditionalInfo.tsx"
+lines = 39
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/interopMessages/InteropMessageAdditionalInfo.tsx in repository import f72f4cee4 (Git blob a93097e2c48b6744521bb7caf6468717b5708243). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.045]
+path = "apps/explorer/ui/interopMessages/InteropMessageDestinationTx.tsx"
+lines = 44
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/interopMessages/InteropMessageDestinationTx.tsx in repository import f72f4cee4 (Git blob ec7a42c83d8971b31338a4194895b36ebfc8efe4). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.046]
+path = "apps/explorer/ui/interopMessages/InteropMessageSourceTx.tsx"
+lines = 43
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/interopMessages/InteropMessageSourceTx.tsx in repository import f72f4cee4 (Git blob 0928fd459fe579204faa1f1b165fb580f44203fe). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.047]
+path = "apps/explorer/ui/interopMessages/InteropMessagesListItem.tsx"
+lines = 71
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/interopMessages/InteropMessagesListItem.tsx in repository import f72f4cee4 (Git blob 2578f7107a074b380feff2f0efa429f7576f1784). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.048]
+path = "apps/explorer/ui/interopMessages/InteropMessagesTable.tsx"
+lines = 48
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/interopMessages/InteropMessagesTable.tsx in repository import f72f4cee4 (Git blob 400858fae423fea3e3a158e7d4091c3a6f998f8a). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.049]
+path = "apps/explorer/ui/interopMessages/InteropMessagesTableItem.tsx"
+lines = 80
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/interopMessages/InteropMessagesTableItem.tsx in repository import f72f4cee4 (Git blob dd1ddaa2c0e3862492d7c0028d904fb4c23fe2a0). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.050]
+path = "apps/explorer/ui/mudWorlds/MudWorldsListItem.tsx"
+lines = 50
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/mudWorlds/MudWorldsListItem.tsx in repository import f72f4cee4 (Git blob 55ceafdb7570a03426ceb04599561039dbdd7f9e). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.051]
+path = "apps/explorer/ui/mudWorlds/MudWorldsTable.tsx"
+lines = 39
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/mudWorlds/MudWorldsTable.tsx in repository import f72f4cee4 (Git blob 4b4d0367d40f5feab27be856ae6d2949ab1559ab). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.052]
+path = "apps/explorer/ui/mudWorlds/MudWorldsTableItem.tsx"
+lines = 35
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/mudWorlds/MudWorldsTableItem.tsx in repository import f72f4cee4 (Git blob 5a64a9c72cb4a1926de8a4c5c86cac7dc9ac775d). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.053]
+path = "apps/explorer/ui/myProfile/MyProfileEmail.tsx"
+lines = 121
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/myProfile/MyProfileEmail.tsx in repository import f72f4cee4 (Git blob b71370059adb98e057c12590d7abd7c2f10f0034). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.054]
+path = "apps/explorer/ui/myProfile/MyProfileWallet.tsx"
+lines = 47
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/myProfile/MyProfileWallet.tsx in repository import f72f4cee4 (Git blob 25815e3f520dc114b691b1ea368f9516453bb600). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.055]
+path = "apps/explorer/ui/myProfile/fields/MyProfileFieldsEmail.tsx"
+lines = 32
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/myProfile/fields/MyProfileFieldsEmail.tsx in repository import f72f4cee4 (Git blob 1376688d8a680a2d68bc1856e6622dff5ddebf78). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.056]
+path = "apps/explorer/ui/myProfile/types.tsx"
+lines = 4
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/myProfile/types.tsx in repository import f72f4cee4 (Git blob 49eac6c32f2aa6a1834b1ddcdc2db8b058190dc7). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.057]
+path = "apps/explorer/ui/operation/tac/TacOperationDetails.tsx"
+lines = 85
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/operation/tac/TacOperationDetails.tsx in repository import f72f4cee4 (Git blob e33953894e154b72df27d788a8e2b1a543a936b0). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.058]
+path = "apps/explorer/ui/operation/tac/TacOperationLifecycleAccordion.tsx"
+lines = 55
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/operation/tac/TacOperationLifecycleAccordion.tsx in repository import f72f4cee4 (Git blob 9e23ff8ead682f84b951a13ec8835edb43cf844e). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.059]
+path = "apps/explorer/ui/operation/tac/TacOperationLifecycleAccordionItemContent.tsx"
+lines = 72
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/operation/tac/TacOperationLifecycleAccordionItemContent.tsx in repository import f72f4cee4 (Git blob 4369cea2395222aefff46a3aa999141a9c262b60). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.060]
+path = "apps/explorer/ui/operations/tac/TacOperationsListItem.tsx"
+lines = 56
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/operations/tac/TacOperationsListItem.tsx in repository import f72f4cee4 (Git blob 2ec3a38dec6330cbab608f2b58c23ab4ceb684be). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.061]
+path = "apps/explorer/ui/operations/tac/TacOperationsTable.tsx"
+lines = 41
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/operations/tac/TacOperationsTable.tsx in repository import f72f4cee4 (Git blob 896a961a5defbed58c24c959269d46d69192f2a9). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.062]
+path = "apps/explorer/ui/operations/tac/TacOperationsTableItem.tsx"
+lines = 51
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/operations/tac/TacOperationsTableItem.tsx in repository import f72f4cee4 (Git blob c9f7b76ca1985b3b0519da83b55927d1414d08db). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.063]
+path = "apps/explorer/ui/outputRoots/optimisticL2/OptimisticL2OutputRootsListItem.tsx"
+lines = 75
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/outputRoots/optimisticL2/OptimisticL2OutputRootsListItem.tsx in repository import f72f4cee4 (Git blob 0cebf427e8bdfb1886538d2d39c6f81ae6ca7c7d). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.064]
+path = "apps/explorer/ui/outputRoots/optimisticL2/OptimisticL2OutputRootsTable.tsx"
+lines = 45
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/outputRoots/optimisticL2/OptimisticL2OutputRootsTable.tsx in repository import f72f4cee4 (Git blob 023eebda86a3d993dceabc03236258b504f6f335). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.065]
+path = "apps/explorer/ui/outputRoots/optimisticL2/OptimisticL2OutputRootsTableItem.tsx"
+lines = 66
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/outputRoots/optimisticL2/OptimisticL2OutputRootsTableItem.tsx in repository import f72f4cee4 (Git blob 136cf24285ad023770ee5c29269cdd783fcbc9fb). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.066]
+path = "apps/explorer/ui/pool/PoolInfo.tsx"
+lines = 147
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/pool/PoolInfo.tsx in repository import f72f4cee4 (Git blob 897b58e40b2c527be372008196cf2ed1b5b828b7). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.067]
+path = "apps/explorer/ui/pools/PoolsListItem.tsx"
+lines = 71
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/pools/PoolsListItem.tsx in repository import f72f4cee4 (Git blob c96c3b6d0a17c87b4d6c26819e9c7bf161f1e071). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.068]
+path = "apps/explorer/ui/pools/PoolsTable.tsx"
+lines = 37
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/pools/PoolsTable.tsx in repository import f72f4cee4 (Git blob d71c95345708b5cf76728cf30f8389c924f6154b). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.069]
+path = "apps/explorer/ui/pools/PoolsTableItem.tsx"
+lines = 84
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/pools/PoolsTableItem.tsx in repository import f72f4cee4 (Git blob fcf8a6be8984970a62a384c9a3f7eace55e870cc). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.070]
+path = "apps/explorer/ui/sol2uml/Sol2UmlDiagram.tsx"
+lines = 91
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/sol2uml/Sol2UmlDiagram.tsx in repository import f72f4cee4 (Git blob 6314e264e3d5cfa878b6100f67c4b77da484cf7e). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.071]
+path = "apps/explorer/ui/userOps/UserOpsContent.tsx"
+lines = 67
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/userOps/UserOpsContent.tsx in repository import f72f4cee4 (Git blob ea67f391636e8b9e09e80d1661b6b16459b010ec). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.072]
+path = "apps/explorer/ui/userOps/UserOpsListItem.tsx"
+lines = 105
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/userOps/UserOpsListItem.tsx in repository import f72f4cee4 (Git blob b520ba40492c804d5032bd4efecadfbfbe31a5ab). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.073]
+path = "apps/explorer/ui/userOps/UserOpsTable.tsx"
+lines = 64
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/userOps/UserOpsTable.tsx in repository import f72f4cee4 (Git blob e198599659ac991cb2adeea8bda596e6c41f89ea). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.074]
+path = "apps/explorer/ui/userOps/UserOpsTableItem.tsx"
+lines = 83
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/userOps/UserOpsTableItem.tsx in repository import f72f4cee4 (Git blob 1569d2ee045cb98e0901c208b136ce482c26e4bd). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.075]
+path = "apps/explorer/ui/verifiedAddresses/VerifiedAddressesEmailAlert.tsx"
+lines = 42
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/verifiedAddresses/VerifiedAddressesEmailAlert.tsx in repository import f72f4cee4 (Git blob b3cd4266d6169b9e8a24762393d6d63fffb522f9). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.076]
+path = "apps/explorer/ui/verifiedAddresses/VerifiedAddressesListItem.tsx"
+lines = 130
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/verifiedAddresses/VerifiedAddressesListItem.tsx in repository import f72f4cee4 (Git blob fc6ac99e73811843eac0c4743556eeb741c3a6d2). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.077]
+path = "apps/explorer/ui/verifiedAddresses/VerifiedAddressesStatus.tsx"
+lines = 30
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/verifiedAddresses/VerifiedAddressesStatus.tsx in repository import f72f4cee4 (Git blob 957eb57f10b2dcedb6fdafa3eba07f4b26511882). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.078]
+path = "apps/explorer/ui/verifiedAddresses/VerifiedAddressesTable.tsx"
+lines = 45
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/verifiedAddresses/VerifiedAddressesTable.tsx in repository import f72f4cee4 (Git blob 0f01ee09614fa1be60032ae1728d7206d349e14b). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.079]
+path = "apps/explorer/ui/verifiedAddresses/VerifiedAddressesTableItem.tsx"
+lines = 114
+verdict = "vendored"
+note = "Vendored blockscout/frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef); byte-identical to explorer/frontend/ui/verifiedAddresses/VerifiedAddressesTableItem.tsx in repository import f72f4cee4 (Git blob a72b02faadd8cf64ce65158b8d076aa96b523d70). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.080]
+path = "apps/web/package.json"
+lines = 61
+verdict = "clean"
+note = "Reviewed all script targets, retained explorer suites and runtime dependencies. Retired verifier/custody journeys are absent from script lists as required by 14044.2 and 14049.2; dependency approval disagreement is recorded on the policy files."
+
+[file.081]
+path = "apps/web/playwright.config.ts"
+lines = 63
+verdict = "clean"
+note = "All browser selection, shell profiles, CI retry behavior, evidence directories and local production server configuration were read against the shared e2e harness. This audit does not claim a browser run."
+
+[file.082]
+path = "apps/web/policy/check.mjs"
+lines = 93
+verdict = "issues"
+note = "Reviewed exact manifest/lock equality, local-link identity, license checks and authenticated-plane CSP/source assertions; local package policy disagreement is recorded below."
+
+[file.083]
+path = "apps/web/policy/runtime-dependencies.json"
+lines = 10
+verdict = "issues"
+note = "Reviewed the entire finite dependency budget against the actual manifest; the stale inventory is recorded below."
+
+[file.084]
+path = "services/bridge/deploy/overlay.sh"
+lines = 50
+verdict = "clean"
+note = "Reviewed overlay application and run_all end to end: private temporary directory, jq overlay, per-chain record forwarding, deterministic EVM chain order and stop-on-first-failure agree with deploy consumers. It does not submit a transaction by itself."
+
+[file.085]
+path = "services/bridge/deploy/relayer-solana.example.json"
+lines = 131
+verdict = "issues"
+note = "Reviewed every top-level, Paxeer, EVM, signer and Solana field against RelayerConfig in services/interop/crates/layerx-bridge-relayer/src/config.rs, including receipt-key height bounds and UDS signer references. Fixture identities are intentional; the Paxeer endpoint path is recorded below."
+
+[file.086]
+path = "services/bridge/deploy/verify-evm-chain.sh"
+lines = 157
+verdict = "issues"
+note = "Reviewed validation, overlay lifecycle, record-derived constructor arguments, environment-only explorer key, forge response handling and preflight path. The bare --all argument dispatch issue is recorded below."
+
+[file.087]
+path = "services/explorer/UPSTREAM.md"
+lines = 38
+verdict = "issues"
+note = "Pinned import revisions and licenses were reviewed; current-layout documentation drift is recorded below."
+
+[file.088]
+path = "services/explorer/backend/.credo.exs"
+lines = 152
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/.credo.exs in repository import f72f4cee4 (Git blob 7b19b35e9690dbfbf823472c42cba10795077877). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.089]
+path = "services/explorer/backend/CODE_OF_CONDUCT.md"
+lines = 73
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/CODE_OF_CONDUCT.md in repository import f72f4cee4 (Git blob 7507d62246736e27f00a62aafa2919e4084ff280). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.090]
+path = "services/explorer/backend/CONTRIBUTING.md"
+lines = 260
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/CONTRIBUTING.md in repository import f72f4cee4 (Git blob b73c86239bec18f6bf369cba5e9a09e0c92c1a83). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.091]
+path = "services/explorer/backend/PULL_REQUEST_TEMPLATE.md"
+lines = 36
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/PULL_REQUEST_TEMPLATE.md in repository import f72f4cee4 (Git blob 91ea9121b82fe136f10565d8b132242a8835f343). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.092]
+path = "services/explorer/backend/README.md"
+lines = 65
+verdict = "issues"
+note = "The backend application split and runtime settings were reviewed; advertised archive paths are stale and recorded below."
+
+[file.093]
+path = "services/explorer/backend/apps/block_scout_web/README.md"
+lines = 42
+verdict = "clean"
+note = "Read the full Phoenix application guide; umbrella paths, pinned runtimes, assets, API responsibilities and development commands agree with the backend layout."
+
+[file.094]
+path = "services/explorer/backend/apps/block_scout_web/benchmarks/block_scout_web/controllers/api/v2/block_controller_benchmark.exs"
+lines = 68
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/benchmarks/block_scout_web/controllers/api/v2/block_controller_benchmark.exs in repository import f72f4cee4 (Git blob 91a189ae1fc50ea12ab2402499d86e34f24e3106). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.095]
+path = "services/explorer/backend/apps/block_scout_web/benchmarks/support/benchmark_case.ex"
+lines = 64
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/benchmarks/support/benchmark_case.ex in repository import f72f4cee4 (Git blob 4539220b907d12ca8aa5ccbe0c7ad0002d047c5a). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.096]
+path = "services/explorer/backend/apps/block_scout_web/config/config.exs"
+lines = 99
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/config/config.exs in repository import f72f4cee4 (Git blob 83b4b2468f060d92c74ba4c9fe236289d5ed02ac). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.097]
+path = "services/explorer/backend/apps/block_scout_web/config/dev.exs"
+lines = 65
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/config/dev.exs in repository import f72f4cee4 (Git blob 5c1e216afaa1f2b02b31245c0da06619a2b1bf07). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.098]
+path = "services/explorer/backend/apps/block_scout_web/config/prod.exs"
+lines = 34
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/config/prod.exs in repository import f72f4cee4 (Git blob 916e45932d7994dd3c0c36edd53499e775e947fe). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.099]
+path = "services/explorer/backend/apps/block_scout_web/config/runtime/test.exs"
+lines = 18
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/config/runtime/test.exs in repository import f72f4cee4 (Git blob 9a9309ffdac329ef1d07fe024babf7ae1c9a49df). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.100]
+path = "services/explorer/backend/apps/block_scout_web/config/test.exs"
+lines = 35
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/config/test.exs in repository import f72f4cee4 (Git blob 4ee026c86e3c04e476e93a2561c362e2d4410512). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.101]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web.ex"
+lines = 106
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/lib/block_scout_web.ex in repository import f72f4cee4 (Git blob 379ff8b5eacca436a64b650537f3e687b39d4e04). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.102]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/application.ex"
+lines = 128
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/lib/block_scout_web/application.ex in repository import f72f4cee4 (Git blob 2b8d566460902956221f1428ab2b50473bb6e130). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.103]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/captcha_helper.ex"
+lines = 166
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/lib/block_scout_web/captcha_helper.ex in repository import f72f4cee4 (Git blob 54c9169734a6ac5548c4a6b30ac4518a307c3479). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.104]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/counters/blocks_indexed_counter.ex"
+lines = 56
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/lib/block_scout_web/counters/blocks_indexed_counter.ex in repository import f72f4cee4 (Git blob 19be491d1ed45669190504de1fd41b7c22932d40). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.105]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/counters/internal_transactions_indexed_counter.ex"
+lines = 55
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/lib/block_scout_web/counters/internal_transactions_indexed_counter.ex in repository import f72f4cee4 (Git blob 54aaa5c029b9f0a5e18618b51b3219a8e3dae3f2). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.106]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/csv_export/address/internal_transactions.ex"
+lines = 100
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/lib/block_scout_web/csv_export/address/internal_transactions.ex in repository import f72f4cee4 (Git blob a6253f1a785df0dfcb9eaf355d3e6de2f9ea8364). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.107]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/endpoint.ex"
+lines = 139
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/lib/block_scout_web/endpoint.ex in repository import f72f4cee4 (Git blob 570349c2d05e15a31070814519d2a43f5ffdd101). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.108]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/notifiers/arbitrum.ex"
+lines = 31
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/lib/block_scout_web/notifiers/arbitrum.ex in repository import f72f4cee4 (Git blob 2b7589dc0f3b8c4f5f9b47611ffe29c172d428fa). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.109]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/notifiers/optimism.ex"
+lines = 34
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/lib/block_scout_web/notifiers/optimism.ex in repository import f72f4cee4 (Git blob 0d7576640b20c2ebf128628f9386ddd6b883352f). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.110]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/realtime_event_handlers/main.ex"
+lines = 82
+verdict = "clean"
+note = "Publisher and Subscriber both allow paxeer_x_price_updates; Main subscribes to :realtime and passes the four-element event unchanged to Notifier. Notifier queries persisted updates and broadcasts feed, market, transaction and block topics. Rescue/catch logs a failed event and preserves process state; reconnecting clients reconcile through persisted REST reads."
+
+[file.111]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/realtime_event_handlers/main_page.ex"
+lines = 29
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/lib/block_scout_web/realtime_event_handlers/main_page.ex in repository import f72f4cee4 (Git blob 5f7ac059829738ead1526b52b112acebda3c8703). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.112]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/realtime_event_handlers/smart_contract.ex"
+lines = 29
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/lib/block_scout_web/realtime_event_handlers/smart_contract.ex in repository import f72f4cee4 (Git blob 8e9acde0e207b2a76a7e2fd50c254013e4261d17). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.113]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/realtime_event_handlers/token_transfer.ex"
+lines = 26
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/lib/block_scout_web/realtime_event_handlers/token_transfer.ex in repository import f72f4cee4 (Git blob f1937d9a73f0ddc9aba5eac4c62a6d5d311f558c). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.114]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/router.ex"
+lines = 118
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/lib/block_scout_web/router.ex in repository import f72f4cee4 (Git blob 2882274689aba60834fd008207906fcc90bdcbee). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.115]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/utility/event_handlers_metrics.ex"
+lines = 59
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/lib/block_scout_web/utility/event_handlers_metrics.ex in repository import f72f4cee4 (Git blob 12742727766c50abdb15089f4de44c20fd1b2ad5). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.116]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/utility/rate_limit_config_helper.ex"
+lines = 166
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/lib/block_scout_web/utility/rate_limit_config_helper.ex in repository import f72f4cee4 (Git blob 32a77553ec3dfcfc51db94ca18718f16b898cedb). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.117]
+path = "services/explorer/backend/apps/block_scout_web/priv/rate_limit_config.json"
+lines = 137
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/priv/rate_limit_config.json in repository import f72f4cee4 (Git blob 1b1b72180b75d6085b491b0e73a281e24cf1696d). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.118]
+path = "services/explorer/backend/apps/block_scout_web/rate_limits.md"
+lines = 99
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/rate_limits.md in repository import f72f4cee4 (Git blob 6eaa1eaf6f5c9f3f7a4f35a19828657ec02d85bd). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.119]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/chain_test.exs"
+lines = 140
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/test/block_scout_web/chain_test.exs in repository import f72f4cee4 (Git blob 12dd4de7cbe1a50ccb4a64e363365bc68156bcc7). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.120]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/address_contract_controller_test.exs"
+lines = 69
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/address_contract_controller_test.exs in repository import f72f4cee4 (Git blob 7b420c32e24ef3941175228c9b3b7af26c1535c4). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.121]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/address_read_contract_controller_test.exs"
+lines = 79
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/address_read_contract_controller_test.exs in repository import f72f4cee4 (Git blob e3f060aab597dba438d11b7c9905d6413e43e7ca). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.122]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/address_read_proxy_controller_test.exs"
+lines = 77
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/address_read_proxy_controller_test.exs in repository import f72f4cee4 (Git blob 6992df38134bff29a53dca3947fb94283631225c). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.123]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/address_token_controller_test.exs"
+lines = 223
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/address_token_controller_test.exs in repository import f72f4cee4 (Git blob bfbc172befea50338a0db41e361750f10940f250). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.124]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/address_token_transfer_controller_test.exs"
+lines = 272
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/address_token_transfer_controller_test.exs in repository import f72f4cee4 (Git blob 5048056e613fa40e3fd4b329ab1531bf18b34887). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.125]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/address_withdrawal_controller_test.exs"
+lines = 116
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/address_withdrawal_controller_test.exs in repository import f72f4cee4 (Git blob c4cb8310ffd90edeef61eee0b12a6d543f10ccee). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.126]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/address_write_contract_controller_test.exs"
+lines = 81
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/address_write_contract_controller_test.exs in repository import f72f4cee4 (Git blob fdd456c01906a002a0371931eae360f46ad47773). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.127]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/address_write_proxy_controller_test.exs"
+lines = 79
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/address_write_proxy_controller_test.exs in repository import f72f4cee4 (Git blob 5f5b764c0b18e789b84a4c24dd73ede590ce2652). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.128]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/admin/dashboard_controller_test.exs"
+lines = 26
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/admin/dashboard_controller_test.exs in repository import f72f4cee4 (Git blob 03cc0a388bda69105b2617af527e698fc8995c05). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.129]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/admin/session_controller_test.exs"
+lines = 83
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/admin/session_controller_test.exs in repository import f72f4cee4 (Git blob ce6e4e5a821e9a0d882d1583338ac011a40ca2bd). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.130]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/admin/setup_controller_test.exs"
+lines = 109
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/admin/setup_controller_test.exs in repository import f72f4cee4 (Git blob 55c4753983b635120198507f799484d0dbf30908). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.131]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/block_controller_test.exs"
+lines = 188
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/block_controller_test.exs in repository import f72f4cee4 (Git blob 210c006870269fc9f08ab6c50c65231bec6ac570). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.132]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/block_transaction_controller_test.exs"
+lines = 198
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/block_transaction_controller_test.exs in repository import f72f4cee4 (Git blob 0ffce8c69189b4e8eff20a2379c5b7bf114983a1). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.133]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/block_withdrawal_controller_test.exs"
+lines = 133
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/block_withdrawal_controller_test.exs in repository import f72f4cee4 (Git blob 28677283031fd3d8759a8f1c859d5868e671f66d). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.134]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/chain/market_history_chart_controller_test.exs"
+lines = 24
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/chain/market_history_chart_controller_test.exs in repository import f72f4cee4 (Git blob e2958800fe0cb5b8dfbc6badb2299b943de51aa0). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.135]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/chain/transaction_history_chart_controller_test.exs"
+lines = 57
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/chain/transaction_history_chart_controller_test.exs in repository import f72f4cee4 (Git blob 7de397620ff7ba10607e0be6fd1ba450127a6dc1). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.136]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/chain_controller_test.exs"
+lines = 242
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/chain_controller_test.exs in repository import f72f4cee4 (Git blob 5cf77df9f45ba58c8fc1607a58e49645864ade97). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.137]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/pending_transaction_controller_test.exs"
+lines = 84
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/pending_transaction_controller_test.exs in repository import f72f4cee4 (Git blob c8e57ddb64532e303396eb46297648fc161f93a7). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.138]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/smart_contract_controller_test.exs"
+lines = 245
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/smart_contract_controller_test.exs in repository import f72f4cee4 (Git blob c666292931ef7a3959a3c52222dc26ec1cd0fd86). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.139]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/tokens/holder_controller_test.exs"
+lines = 93
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/tokens/holder_controller_test.exs in repository import f72f4cee4 (Git blob 45c23d6f09c739b565d3c78b5ae99f9621b20d65). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.140]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/tokens/instance/transfer_controller_test.exs"
+lines = 28
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/tokens/instance/transfer_controller_test.exs in repository import f72f4cee4 (Git blob d2a3f0e29f949773a7ad16fe54baee5233a9b150). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.141]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/tokens/instance_controller_test.exs"
+lines = 26
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/tokens/instance_controller_test.exs in repository import f72f4cee4 (Git blob 65acc5bb9e2f69f9b359905bf938aab072b110e8). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.142]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/tokens/inventory_controller_test.exs"
+lines = 141
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/tokens/inventory_controller_test.exs in repository import f72f4cee4 (Git blob e15f855692143223c1af46467e49e406a4aee19f). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.143]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/tokens/read_contract_controller_test.exs"
+lines = 69
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/tokens/read_contract_controller_test.exs in repository import f72f4cee4 (Git blob b7af01531e219947f2ce34ac82c8daef561f8570). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.144]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/tokens/token_controller_test.exs"
+lines = 39
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/tokens/token_controller_test.exs in repository import f72f4cee4 (Git blob ab5d93fb63781a102b24642cba654d8a08e42389). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.145]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/transaction_internal_transaction_controller_test.exs"
+lines = 217
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/transaction_internal_transaction_controller_test.exs in repository import f72f4cee4 (Git blob 529cf301e882d414ed2de00adc30b0746a7776a5). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.146]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/transaction_state_controller_test.exs"
+lines = 263
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/transaction_state_controller_test.exs in repository import f72f4cee4 (Git blob 484cb288a9284877d21de19f315f92ca84eb1276). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.147]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/transaction_token_transfer_controller_test.exs"
+lines = 174
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/transaction_token_transfer_controller_test.exs in repository import f72f4cee4 (Git blob 4d41f24a26adf3467701542787d04bd6e4c1fb2e). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.148]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/verified_contracts_controller_test.exs"
+lines = 179
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/verified_contracts_controller_test.exs in repository import f72f4cee4 (Git blob 3c9d077903ad24c3f58e09a955d259dc6bb10e9a). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.149]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/csv_export/address/internal_transactions_test.exs"
+lines = 307
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/test/block_scout_web/csv_export/address/internal_transactions_test.exs in repository import f72f4cee4 (Git blob ef3d9224037a0e10f6e237d70a42f458b0e16bb6). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.150]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/routers/chain_type_scope_test.exs"
+lines = 53
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/test/block_scout_web/routers/chain_type_scope_test.exs in repository import f72f4cee4 (Git blob 5c4574f00b7b85666396ffa795f5c273114a6d89). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.151]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/schemas/api/v2/paxeer_x/archive_schemas_test.exs"
+lines = 81
+verdict = "clean"
+note = "Compared all required fields, nullable values, closed provenance variants and frozen:true rejection cases with ArchiveAnchor, ArchiveReceipt and ArchiveController/views. Historical batch verification labels belong to the frozen archive, not active sequencer deployment."
+
+[file.152]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/schemas/api/v2/paxeer_x/transaction_signature_test.exs"
+lines = 51
+verdict = "clean"
+note = "Compared the full schema test with TransactionSignature schema, controller and view: receipt bytes are hex, key ID and Ed25519 key are 32 bytes, signature is 64 bytes, and the closed required fields match the rendered answer. The test rejects a 63-byte signature."
+
+[file.153]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/schemas/api/v2/paxeer_x/unified_account_shape_test.exs"
+lines = 58
+verdict = "clean"
+note = "The test calls the real unified-account route and casts its response: identities evm/pax/did, asset/total balances, committed transaction activity, counterparty and pagination agree with the controller and closed schema; no legacy side or kernel-account shape is invented."
+
+[file.154]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/schemas/api/v2/paxeer_x/unified_account_test.exs"
+lines = 26
+verdict = "clean"
+note = "Read all required-property assertions against UnifiedAccount.schema: the eight top-level fields and paging nullability match the actual one-account response."
+
+[file.155]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/utility/rate_limit_config_helper_test.exs"
+lines = 306
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/test/block_scout_web/utility/rate_limit_config_helper_test.exs in repository import f72f4cee4 (Git blob 58c39d5f458df76c9b4091e4200c2838e9bf61b5). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.156]
+path = "services/explorer/backend/apps/block_scout_web/test/test_helper.exs"
+lines = 48
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/block_scout_web/test/test_helper.exs in repository import f72f4cee4 (Git blob bba9010220aa77d1d48f0d32361d159417ae7767). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.157]
+path = "services/explorer/backend/apps/explorer/README.md"
+lines = 37
+verdict = "clean"
+note = "Read the entire Explorer application guide against umbrella source, repository and migration paths; it describes the shared Ecto data-access and import responsibilities without a separate kernel service."
+
+[file.158]
+path = "services/explorer/backend/apps/explorer/benchmarks/explorer/chain/tokens.exs"
+lines = 64
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/benchmarks/explorer/chain/tokens.exs in repository import f72f4cee4 (Git blob 14244e17d7b4e9e8cf4ed19bd8fa1addbdab7082). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.159]
+path = "services/explorer/backend/apps/explorer/benchmarks/explorer/chain/transaction/recent_collated_transactions.exs"
+lines = 56
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/benchmarks/explorer/chain/transaction/recent_collated_transactions.exs in repository import f72f4cee4 (Git blob 573be65b224127b7d01e816b65fc6da8e5e9318a). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.160]
+path = "services/explorer/backend/apps/explorer/lib/explorer/access_helper.ex"
+lines = 57
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/access_helper.ex in repository import f72f4cee4 (Git blob 5a0ae37001ce0439c58be7cc188d6cf92f966dee). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.161]
+path = "services/explorer/backend/apps/explorer/lib/explorer/accounts/accounts.ex"
+lines = 93
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/accounts/accounts.ex in repository import f72f4cee4 (Git blob 079b8309cf3553495940ba97d6833e6916d14f30). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.162]
+path = "services/explorer/backend/apps/explorer/lib/explorer/accounts/user.ex"
+lines = 44
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/accounts/user.ex in repository import f72f4cee4 (Git blob 20291b95c6517902b4e98935e9b4036e6c7e092b). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.163]
+path = "services/explorer/backend/apps/explorer/lib/explorer/accounts/user/authenticate.ex"
+lines = 22
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/accounts/user/authenticate.ex in repository import f72f4cee4 (Git blob ea127d1a05ab802e7b5d12cc9852ace2d84979b4). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.164]
+path = "services/explorer/backend/apps/explorer/lib/explorer/accounts/user/registration.ex"
+lines = 29
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/accounts/user/registration.ex in repository import f72f4cee4 (Git blob b62dd1c25e40d862b67939af05e63931f6b85178). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.165]
+path = "services/explorer/backend/apps/explorer/lib/explorer/accounts/user_contact.ex"
+lines = 50
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/accounts/user_contact.ex in repository import f72f4cee4 (Git blob 5b53692f38e19bc1b4be0ca3a7e07021c4fcbd14). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.166]
+path = "services/explorer/backend/apps/explorer/lib/explorer/admin/administrator.ex"
+lines = 34
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/admin/administrator.ex in repository import f72f4cee4 (Git blob 2f3109c10bc48298890d652213f6cd4f94f3346d). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.167]
+path = "services/explorer/backend/apps/explorer/lib/explorer/admin/recovery.ex"
+lines = 67
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/admin/recovery.ex in repository import f72f4cee4 (Git blob 0e12681d1997dd7ae2c916b4a23a13e5200f012e). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.168]
+path = "services/explorer/backend/apps/explorer/lib/explorer/admin/role.ex"
+lines = 32
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/admin/role.ex in repository import f72f4cee4 (Git blob ef31ed957c3f9245ec9f57328b6d9ba985b2cec7). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.169]
+path = "services/explorer/backend/apps/explorer/lib/explorer/application/constants.ex"
+lines = 157
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/application/constants.ex in repository import f72f4cee4 (Git blob 9f0acb1b3bbe84e3da982f29f4f5ee6cc5dca51b). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.170]
+path = "services/explorer/backend/apps/explorer/lib/explorer/bloom_filter.ex"
+lines = 78
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/bloom_filter.ex in repository import f72f4cee4 (Git blob a5b636207a9a5cec607b4e4db007b85d98793c7c). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.171]
+path = "services/explorer/backend/apps/explorer/lib/explorer/bound_queue.ex"
+lines = 177
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/bound_queue.ex in repository import f72f4cee4 (Git blob daa44deb641d16060f72298d836fb612e208d5c0). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.172]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/blackfort/validator.ex"
+lines = 207
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/chain/blackfort/validator.ex in repository import f72f4cee4 (Git blob 0d9574d4aa22393931230189c4ec03349780efd2). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.173]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/block_number_helper.ex"
+lines = 124
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/chain/block_number_helper.ex in repository import f72f4cee4 (Git blob 5701118e612e8397ab31d6b19c0897da9cd6182a). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.174]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/contract_method.ex"
+lines = 162
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/chain/contract_method.ex in repository import f72f4cee4 (Git blob 993dcfc954cd4c657b52c08ee8b51e726739043c). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.175]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/denormalization_helper.ex"
+lines = 66
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/chain/denormalization_helper.ex in repository import f72f4cee4 (Git blob 2af7759d1c3bff76101bd457a4150803b63a1fe9). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.176]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/events/db_sender.ex"
+lines = 36
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/chain/events/db_sender.ex in repository import f72f4cee4 (Git blob 3a341f8b7feaf98de31c5965ec733374c7eac6e2). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.177]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/events/listener.ex"
+lines = 85
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/chain/events/listener.ex in repository import f72f4cee4 (Git blob a3a6244bd6d4178fd50bee2dd9182216004b4d56). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.178]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/events/publisher.ex"
+lines = 57
+verdict = "clean"
+note = "Reviewed the full event whitelist and broadcast dispatch: realtime price updates reach the configured DBSender or SimpleSender, while catchup events are deliberately not broadcast. Durable price updates remain in the database for reconciliation."
+
+[file.179]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/events/simple_sender.ex"
+lines = 21
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/chain/events/simple_sender.ex in repository import f72f4cee4 (Git blob f2a8da3e06a33caee669cdd989acc75991693da7). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.180]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/events/subscriber.ex"
+lines = 67
+verdict = "clean"
+note = "Reviewed Registry key registration, common and chain-specific whitelists and broadcast-type guards. The price-update event and :realtime type agree with Publisher, Main and the notifier consumer."
+
+[file.181]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/map_cache.ex"
+lines = 246
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/chain/map_cache.ex in repository import f72f4cee4 (Git blob fbe38db6bbcaada6b0f86be2cddc31d272836ade). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.182]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/mud/schema.ex"
+lines = 110
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/chain/mud/schema.ex in repository import f72f4cee4 (Git blob 42c22359f9ef294e361444619208a29846c5aa86). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.183]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/mud/table.ex"
+lines = 88
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/chain/mud/table.ex in repository import f72f4cee4 (Git blob 3adfc39a6593025c4012d4b280c7eef8e443f25a). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.184]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/null_round_height.ex"
+lines = 153
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/chain/null_round_height.ex in repository import f72f4cee4 (Git blob d89b763dcd11d8dd030d338249484bb641d9a01b). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.185]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/pending_block_operation.ex"
+lines = 99
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/chain/pending_block_operation.ex in repository import f72f4cee4 (Git blob c58094cb276774e3633c3fb97bd39a461c5ccb2b). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.186]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/pending_operations_helper.ex"
+lines = 202
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/chain/pending_operations_helper.ex in repository import f72f4cee4 (Git blob 1a6c49c55bf2a3fa289091dc060243493524bc93). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.187]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/pending_transaction_operation.ex"
+lines = 91
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/chain/pending_transaction_operation.ex in repository import f72f4cee4 (Git blob 0f7d085377c9923894403e4e88c402229ee5063e). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.188]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/rollup_reorg_monitor_queue.ex"
+lines = 91
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/chain/rollup_reorg_monitor_queue.ex in repository import f72f4cee4 (Git blob 7a7365984edadbad29bb8a1287b4f186b6460cab). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.189]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/shibarium/bridge.ex"
+lines = 67
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/chain/shibarium/bridge.ex in repository import f72f4cee4 (Git blob 374bf2ae8d3794bb7d16b863d661a41ddf5236bf). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.190]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/shibarium/reader.ex"
+lines = 121
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/chain/shibarium/reader.ex in repository import f72f4cee4 (Git blob 59700c7575493ffab3a113bdcba4e44f867440cf). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.191]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/signed_authorization.ex"
+lines = 155
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/chain/signed_authorization.ex in repository import f72f4cee4 (Git blob ad40466b0792ef4884f2811d59112e087f57d574). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.192]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/signed_authorization/reader.ex"
+lines = 73
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/chain/signed_authorization/reader.ex in repository import f72f4cee4 (Git blob dd2be17ffb0be53ff86239ed3bbfacbd3915acd1). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.193]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/smart_contract_additional_source.ex"
+lines = 60
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/chain/smart_contract_additional_source.ex in repository import f72f4cee4 (Git blob 38c716442946fc4d014f10624077f1c00e3591d9). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.194]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/stability/validator.ex"
+lines = 284
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/chain/stability/validator.ex in repository import f72f4cee4 (Git blob 4814d3eabac4e27f12953dea347a108ec6fa2f8b). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.195]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/supply/exchange_rate.ex"
+lines = 21
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/chain/supply/exchange_rate.ex in repository import f72f4cee4 (Git blob 1ef83b1a90c2ca1043d142a2720d14f271022dc2). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.196]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/supply/proof_of_authority.ex"
+lines = 57
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/chain/supply/proof_of_authority.ex in repository import f72f4cee4 (Git blob bb8e625740ff40deded852c61b0fd50ad85e937d). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.197]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/supply/rsk.ex"
+lines = 153
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/chain/supply/rsk.ex in repository import f72f4cee4 (Git blob 726d7144fc27947b7f0cdaedbc6c93020dd0acaf). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.198]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/transaction_action.ex"
+lines = 82
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/chain/transaction_action.ex in repository import f72f4cee4 (Git blob c1514615e76b9936c5e4f87d5325b6d1301a1f97). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.199]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/wei.ex"
+lines = 340
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/chain/wei.ex in repository import f72f4cee4 (Git blob a611ad42a404e33ac3d2655bb16fcc8a27527fcd). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.200]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/withdrawal.ex"
+lines = 138
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/chain/withdrawal.ex in repository import f72f4cee4 (Git blob ac857e73efceee4d8760159fef4b03f4ef71550d). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.201]
+path = "services/explorer/backend/apps/explorer/lib/explorer/encrypted/address_hash.ex"
+lines = 7
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/encrypted/address_hash.ex in repository import f72f4cee4 (Git blob fb90251f1e607c6c842ed62186f7bf1fb152306d). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.202]
+path = "services/explorer/backend/apps/explorer/lib/explorer/encrypted/binary.ex"
+lines = 7
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/encrypted/binary.ex in repository import f72f4cee4 (Git blob 7a5e62bd39af5495dbb14d5a2653d199db9c374e). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.203]
+path = "services/explorer/backend/apps/explorer/lib/explorer/encrypted/transaction_hash.ex"
+lines = 7
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/encrypted/transaction_hash.ex in repository import f72f4cee4 (Git blob fa240c27e3b1cec6faf2c4bea803e37306f54f9e). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.204]
+path = "services/explorer/backend/apps/explorer/lib/explorer/encrypted/types/address_hash.ex"
+lines = 27
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/encrypted/types/address_hash.ex in repository import f72f4cee4 (Git blob f9ca332c538f6b6b4e86a8148cda7709e6b31128). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.205]
+path = "services/explorer/backend/apps/explorer/lib/explorer/encrypted/types/transaction_hash.ex"
+lines = 27
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/encrypted/types/transaction_hash.ex in repository import f72f4cee4 (Git blob 7c39a9aeca57e10c0f89c6495c7feb1eacef0479). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.206]
+path = "services/explorer/backend/apps/explorer/lib/explorer/graphql.ex"
+lines = 127
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/graphql.ex in repository import f72f4cee4 (Git blob 93ba3b1d841641cebad901509a459a9dcf2903ce). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.207]
+path = "services/explorer/backend/apps/explorer/lib/explorer/graphql/celo.ex"
+lines = 160
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/graphql/celo.ex in repository import f72f4cee4 (Git blob 6f82167619dcdfe01342ee6a16a248c93d3f00d0). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.208]
+path = "services/explorer/backend/apps/explorer/lib/explorer/history/historian.ex"
+lines = 45
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/history/historian.ex in repository import f72f4cee4 (Git blob f0dcedeae27c46ab8c9a2bcf30ce47d6e78001ab). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.209]
+path = "services/explorer/backend/apps/explorer/lib/explorer/history/process.ex"
+lines = 133
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/history/process.ex in repository import f72f4cee4 (Git blob f9fe75579149032488b6f6b57b7db29dc310940a). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.210]
+path = "services/explorer/backend/apps/explorer/lib/explorer/http_client/httpoison.ex"
+lines = 46
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/http_client/httpoison.ex in repository import f72f4cee4 (Git blob 4ef9c66aa667ab32c2efae47c686c72d260f60ba). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.211]
+path = "services/explorer/backend/apps/explorer/lib/explorer/http_client/tesla.ex"
+lines = 50
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/http_client/tesla.ex in repository import f72f4cee4 (Git blob 9988dd313d07bc695aa327809a30000a0baa3e88). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.212]
+path = "services/explorer/backend/apps/explorer/lib/explorer/metadata_uri_validator.ex"
+lines = 129
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/metadata_uri_validator.ex in repository import f72f4cee4 (Git blob 44d59135fc8bd0c2810324e4d7950385526dc1e4). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.213]
+path = "services/explorer/backend/apps/explorer/lib/explorer/prometheus/collector/active_db_connections.ex"
+lines = 50
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/prometheus/collector/active_db_connections.ex in repository import f72f4cee4 (Git blob 24ea428651f04836fe4a3a6dd45456859d041420). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.214]
+path = "services/explorer/backend/apps/explorer/lib/explorer/prometheus/instrumenter.ex"
+lines = 299
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/prometheus/instrumenter.ex in repository import f72f4cee4 (Git blob 6bc350bd4eed70e5c6e4111258ec2d79571464c3). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.215]
+path = "services/explorer/backend/apps/explorer/lib/explorer/query_helper.ex"
+lines = 100
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/query_helper.ex in repository import f72f4cee4 (Git blob 1a320b8d62ff1b616af37078308d1b1addba4e6b). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.216]
+path = "services/explorer/backend/apps/explorer/lib/explorer/repo.ex"
+lines = 168
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/repo.ex in repository import f72f4cee4 (Git blob 17c445d7bca9f64c1a00ee9c40a2b5c1033a8275). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.217]
+path = "services/explorer/backend/apps/explorer/lib/explorer/repo/config_helper.ex"
+lines = 147
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/repo/config_helper.ex in repository import f72f4cee4 (Git blob 39f11eefdd745c211cd584e4af4c4ecacbea2d76). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.218]
+path = "services/explorer/backend/apps/explorer/lib/explorer/repo/prometheus_logger.ex"
+lines = 9
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/repo/prometheus_logger.ex in repository import f72f4cee4 (Git blob 93f377809179dc27d94bc59f3bb377fcd9fb654d). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.219]
+path = "services/explorer/backend/apps/explorer/lib/explorer/sorting_helper.ex"
+lines = 172
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/sorting_helper.ex in repository import f72f4cee4 (Git blob 8ee6bcca82c9ad3b41c5e7d343277558d203592f). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.220]
+path = "services/explorer/backend/apps/explorer/lib/explorer/stats/hot_smart_contracts.ex"
+lines = 199
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/stats/hot_smart_contracts.ex in repository import f72f4cee4 (Git blob f11d52ae52ab4923578a36bb62407b280145561b). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.221]
+path = "services/explorer/backend/apps/explorer/lib/explorer/tags/address_tag.ex"
+lines = 99
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/tags/address_tag.ex in repository import f72f4cee4 (Git blob d6c20c2d269495452fafc23f86116977b3fec267). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.222]
+path = "services/explorer/backend/apps/explorer/lib/explorer/tags/address_tag_cataloger.ex"
+lines = 161
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/tags/address_tag_cataloger.ex in repository import f72f4cee4 (Git blob 5295a29d30f6e0249e28f356c1d70d027625cbaf). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.223]
+path = "services/explorer/backend/apps/explorer/lib/explorer/tags/address_to_tag.ex"
+lines = 143
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/tags/address_to_tag.ex in repository import f72f4cee4 (Git blob b78facceb5bc9e8eaab498a86d566e7c0ed74902). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.224]
+path = "services/explorer/backend/apps/explorer/lib/explorer/token_instance_owner_address_migration/helper.ex"
+lines = 93
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/token_instance_owner_address_migration/helper.ex in repository import f72f4cee4 (Git blob 0a556e6dd2823bf7763591bc704e74337e79dc00). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.225]
+path = "services/explorer/backend/apps/explorer/lib/explorer/token_instance_owner_address_migration/supervisor.ex"
+lines = 28
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/token_instance_owner_address_migration/supervisor.ex in repository import f72f4cee4 (Git blob 01ca324f5f2d859b43d2273370e5fb75ce89fcaa). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.226]
+path = "services/explorer/backend/apps/explorer/lib/explorer/token_instance_owner_address_migration/worker.ex"
+lines = 51
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/token_instance_owner_address_migration/worker.ex in repository import f72f4cee4 (Git blob c9cfabc9d2ca00bfe763fe7cf5c88d921771ba05). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.227]
+path = "services/explorer/backend/apps/explorer/lib/explorer/validator/metadata_importer.ex"
+lines = 44
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/validator/metadata_importer.ex in repository import f72f4cee4 (Git blob 8cc3792a77c3a182193712e432266783f96c2382). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.228]
+path = "services/explorer/backend/apps/explorer/lib/explorer/validator/metadata_processor.ex"
+lines = 31
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/validator/metadata_processor.ex in repository import f72f4cee4 (Git blob ebc9db9d46f0f02d65a5c551294e5f8ccf0c4dce). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.229]
+path = "services/explorer/backend/apps/explorer/lib/explorer/validator/metadata_retriever.ex"
+lines = 100
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/validator/metadata_retriever.ex in repository import f72f4cee4 (Git blob 756e5fea01fc8198b0aec301b6b7e683bd925674). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.230]
+path = "services/explorer/backend/apps/explorer/lib/explorer/visualize/sol2uml.ex"
+lines = 68
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/explorer/visualize/sol2uml.ex in repository import f72f4cee4 (Git blob c26f5d1b894ed939be560f37e4935045d57f6c85). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.231]
+path = "services/explorer/backend/apps/explorer/lib/fetch_celo_core_contracts.ex"
+lines = 236
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/fetch_celo_core_contracts.ex in repository import f72f4cee4 (Git blob 6d720350aa9c64eb111a404803aff54e873aafcb). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.232]
+path = "services/explorer/backend/apps/explorer/lib/release_tasks.ex"
+lines = 118
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/lib/release_tasks.ex in repository import f72f4cee4 (Git blob a55174738421e0096c84a0ddfce468f28d23c5ee). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.233]
+path = "services/explorer/backend/apps/explorer/mix.exs"
+lines = 169
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/mix.exs in repository import f72f4cee4 (Git blob ef997dd782db37150079b94743905e4527efd988). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.234]
+path = "services/explorer/backend/apps/explorer/test/explorer/accounts/accounts_test.exs"
+lines = 126
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/test/explorer/accounts/accounts_test.exs in repository import f72f4cee4 (Git blob 37c61d414b47d271b028d7c15a7687230601496d). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.235]
+path = "services/explorer/backend/apps/explorer/test/explorer/accounts/user_contact_test.exs"
+lines = 21
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/test/explorer/accounts/user_contact_test.exs in repository import f72f4cee4 (Git blob a93a97911cc30c767790906c2d49f3644457fccd). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.236]
+path = "services/explorer/backend/apps/explorer/test/explorer/accounts/user_test.exs"
+lines = 30
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/test/explorer/accounts/user_test.exs in repository import f72f4cee4 (Git blob adf1475a0597f0c316d53d5be987587006290303). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.237]
+path = "services/explorer/backend/apps/explorer/test/explorer/admin/administrator/role_test.exs"
+lines = 43
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/test/explorer/admin/administrator/role_test.exs in repository import f72f4cee4 (Git blob c65b05904bf200ddbef8623274df42edd477cc17). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.238]
+path = "services/explorer/backend/apps/explorer/test/explorer/admin/recovery_test.exs"
+lines = 74
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/test/explorer/admin/recovery_test.exs in repository import f72f4cee4 (Git blob 755a812df53ec834c45b239b56a149c536d228c1). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.239]
+path = "services/explorer/backend/apps/explorer/test/explorer/admin_test.exs"
+lines = 57
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/test/explorer/admin_test.exs in repository import f72f4cee4 (Git blob 9afb7b9887155e525bdc9bc4c2902f53af69513d). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.240]
+path = "services/explorer/backend/apps/explorer/test/explorer/bloom_filter_test.exs"
+lines = 63
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/test/explorer/bloom_filter_test.exs in repository import f72f4cee4 (Git blob e9ec4a2c51061a351c1fa4baef4e1293ab42becb). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.241]
+path = "services/explorer/backend/apps/explorer/test/explorer/config_helper_test.exs"
+lines = 199
+verdict = "clean"
+note = "Reviewed all environment restoration and assertions against Explorer.ConfigHelper and price-feed runtime configuration, including positive integer parsing, timeout units, retention handling and defaults; no additional test gate was executed."
+
+[file.242]
+path = "services/explorer/backend/apps/explorer/test/explorer/graphql_test.exs"
+lines = 355
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/test/explorer/graphql_test.exs in repository import f72f4cee4 (Git blob 7496dcb71e11a27422f9fd8b20aaf527105e2b7b). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.243]
+path = "services/explorer/backend/apps/explorer/test/explorer/history/process_test.exs"
+lines = 106
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/test/explorer/history/process_test.exs in repository import f72f4cee4 (Git blob f2fbf7983e1bcf7135ab7083449138de96de6050). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.244]
+path = "services/explorer/backend/apps/explorer/test/explorer/paxeer_x/cosmos_rest_test.exs"
+lines = 282
+verdict = "clean"
+note = "Compared recorded Cosmos tx/block-results decoding, refused-event attributes in raw/base64 forms, gas/status mapping, aligned transaction indices, failover and typed height errors with CosmosRest and modules/pricefeed/keeper/observation.go. The test fixtures use the producer event names and decimal market IDs."
+
+[file.245]
+path = "services/explorer/backend/apps/explorer/test/explorer/repo/config_helper_test.exs"
+lines = 131
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/test/explorer/repo/config_helper_test.exs in repository import f72f4cee4 (Git blob 71bb85077e31852ab0d06cd1ed338f04b04727aa). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.246]
+path = "services/explorer/backend/apps/explorer/test/explorer/repo/tune_paxeer_x_price_feed_tables_test.exs"
+lines = 100
+verdict = "clean"
+note = "Read the entire partial-migration recovery test and migration: invalid concurrent index replacement, old index removal, existing NOT VALID constraint validation and session lock_timeout agree with 18875.1. It exercises the real migrator and database catalog rather than a simulated migration result."
+
+[file.247]
+path = "services/explorer/backend/apps/explorer/test/explorer/token_instance_owner_address_migration/helper_test.exs"
+lines = 121
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/test/explorer/token_instance_owner_address_migration/helper_test.exs in repository import f72f4cee4 (Git blob 355d161259bb33a6d3e96833dd6227eaf7be30e6). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.248]
+path = "services/explorer/backend/apps/explorer/test/explorer/validator/metadata_importer_test.exs"
+lines = 52
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/test/explorer/validator/metadata_importer_test.exs in repository import f72f4cee4 (Git blob c30e719856c4de687e2a01e92ba587aa544b7a87). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.249]
+path = "services/explorer/backend/apps/explorer/test/explorer/validator/metadata_retriever_test.exs"
+lines = 151
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/test/explorer/validator/metadata_retriever_test.exs in repository import f72f4cee4 (Git blob 7bcc9040d4624806584d64042242947da9bde679). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.250]
+path = "services/explorer/backend/apps/explorer/test/support/chain/import/runner_case.ex"
+lines = 78
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/test/support/chain/import/runner_case.ex in repository import f72f4cee4 (Git blob a73e395e4ded2663d6f0c2d7419a5e12ef228ba0). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.251]
+path = "services/explorer/backend/apps/explorer/test/support/data_case.ex"
+lines = 77
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/test/support/data_case.ex in repository import f72f4cee4 (Git blob bf94e66cf49ab9bb92d13d5fb0403af0182dbfb2). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.252]
+path = "services/explorer/backend/apps/explorer/test/support/fakes/one_coin_source.ex"
+lines = 80
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/test/support/fakes/one_coin_source.ex in repository import f72f4cee4 (Git blob 8152a12326fd8c4f0ddc11fd09a28364f96bef1b). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.253]
+path = "services/explorer/backend/apps/explorer/test/test_helper.exs"
+lines = 36
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/explorer/test/test_helper.exs in repository import f72f4cee4 (Git blob 55deb8e9949cf5d9546016b36820602875ae1e10). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.254]
+path = "services/explorer/backend/apps/indexer/README.md"
+lines = 168
+verdict = "clean"
+note = "Read the full fetcher, database import, restart/requeue and memory-limit guide against the indexer application and memory monitor. Legacy precompile log decoding is retained for indexed historical data; the retired kernel-receipts fetcher and settings are absent."
+
+[file.255]
+path = "services/explorer/backend/apps/indexer/lib/indexer/application.ex"
+lines = 104
+verdict = "clean"
+note = "Reviewed complete supervisor construction, child ordering and enabled-mode conditions: Memory.Monitor and on-demand workers are started, rest_for_one requires re-registration after monitor restart, and no retired kernel-receipts child is installed."
+
+[file.256]
+path = "services/explorer/backend/apps/indexer/lib/indexer/bound_interval.ex"
+lines = 32
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/indexer/lib/indexer/bound_interval.ex in repository import f72f4cee4 (Git blob 3ccfdfd2969c0d7725476634c2690688ea38c828). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.257]
+path = "services/explorer/backend/apps/indexer/lib/indexer/bridged_tokens/calc_lp_tokens_total_liquidity.ex"
+lines = 52
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/indexer/lib/indexer/bridged_tokens/calc_lp_tokens_total_liquidity.ex in repository import f72f4cee4 (Git blob fabf22e75dcf2308f7ddc53124d701d1e9461760). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.258]
+path = "services/explorer/backend/apps/indexer/lib/indexer/bridged_tokens/set_amb_bridged_metadata_for_tokens.ex"
+lines = 44
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/indexer/lib/indexer/bridged_tokens/set_amb_bridged_metadata_for_tokens.ex in repository import f72f4cee4 (Git blob 02fcaa970502208108db3a711fa39dcaef635218). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.259]
+path = "services/explorer/backend/apps/indexer/lib/indexer/bridged_tokens/set_omni_bridged_metadata_for_tokens.ex"
+lines = 54
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/indexer/lib/indexer/bridged_tokens/set_omni_bridged_metadata_for_tokens.ex in repository import f72f4cee4 (Git blob e6ba7afc3cb2900ec32ada00ab1965a6be1a80da). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.260]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher.ex"
+lines = 78
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/indexer/lib/indexer/fetcher.ex in repository import f72f4cee4 (Git blob fc9851da862ef9c2a0a5090f1f7d0e9eec93fb41). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.261]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/address_nonce_updater.ex"
+lines = 89
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/indexer/lib/indexer/fetcher/address_nonce_updater.ex in repository import f72f4cee4 (Git blob 64db707459de6a4794bcb78ff3f59fc26a246ce2). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.262]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/block_reward.ex"
+lines = 340
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/indexer/lib/indexer/fetcher/block_reward.ex in repository import f72f4cee4 (Git blob 75b1b65351c27ea25aa752f383f8aa4b2431cd27). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.263]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/contract_code.ex"
+lines = 283
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/indexer/lib/indexer/fetcher/contract_code.ex in repository import f72f4cee4 (Git blob a673fd54b023cb5d48758f3a1b720253c542112d). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.264]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/internal_transaction/delete_queue.ex"
+lines = 125
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/indexer/lib/indexer/fetcher/internal_transaction/delete_queue.ex in repository import f72f4cee4 (Git blob b708f9c963564788daf58b8838014193c74ddadb). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.265]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/pending_block_operations_sanitizer.ex"
+lines = 69
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/indexer/lib/indexer/fetcher/pending_block_operations_sanitizer.ex in repository import f72f4cee4 (Git blob d7a4c046594c1e825fe2732b7101553dfc3a4e3a). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.266]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/pending_transaction.ex"
+lines = 193
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/indexer/lib/indexer/fetcher/pending_transaction.ex in repository import f72f4cee4 (Git blob 7ac5628efbec2917deb6588372d057a78ca78b3b). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.267]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/replaced_transaction.ex"
+lines = 140
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/indexer/lib/indexer/fetcher/replaced_transaction.ex in repository import f72f4cee4 (Git blob 47af51e90697d42dacd0e362099ac10a9f6579b1). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.268]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/rollup_l1_reorg_monitor.ex"
+lines = 203
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/indexer/lib/indexer/fetcher/rollup_l1_reorg_monitor.ex in repository import f72f4cee4 (Git blob 426fb6a9a9110287474c55eec9e0499c5e12890d). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.269]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/rootstock_data.ex"
+lines = 170
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/indexer/lib/indexer/fetcher/rootstock_data.ex in repository import f72f4cee4 (Git blob 552804dd0039362dc0bd96f2d2466814ef3b3429). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.270]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/stability/validator.ex"
+lines = 104
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/indexer/lib/indexer/fetcher/stability/validator.ex in repository import f72f4cee4 (Git blob c8fe6a1d8fb401dad5f09a3c9b0d7db7d352e58a). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.271]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/stats/hot_smart_contracts.ex"
+lines = 154
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/indexer/lib/indexer/fetcher/stats/hot_smart_contracts.ex in repository import f72f4cee4 (Git blob 47f1b556d5b58fd2d1f1a9e2f04111e460dcabca). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.272]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/token.ex"
+lines = 96
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/indexer/lib/indexer/fetcher/token.ex in repository import f72f4cee4 (Git blob b8c083d4a202a612a4e1db643b37198d3c7ac7e4). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.273]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/token_counters_updater.ex"
+lines = 74
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/indexer/lib/indexer/fetcher/token_counters_updater.ex in repository import f72f4cee4 (Git blob 3bae7f6bf19465b5691c6771aa8e0dab41de0dca). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.274]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/token_total_supply_updater.ex"
+lines = 79
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/indexer/lib/indexer/fetcher/token_total_supply_updater.ex in repository import f72f4cee4 (Git blob a3a66ba1fd88012ac950cafc4cdfe294a967f20e). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.275]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/token_updater.ex"
+lines = 108
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/indexer/lib/indexer/fetcher/token_updater.ex in repository import f72f4cee4 (Git blob 91502c8d897e5fec2d53abea50b5b232c584482a). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.276]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/transaction_action.ex"
+lines = 297
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/indexer/lib/indexer/fetcher/transaction_action.ex in repository import f72f4cee4 (Git blob a979b3a38a4f1b50400a241e2a8f190839e4223e). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.277]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/uncle_block.ex"
+lines = 287
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/indexer/lib/indexer/fetcher/uncle_block.ex in repository import f72f4cee4 (Git blob 649abae3fedde5e457fead8954fe8cab05a92397). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.278]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/withdrawal.ex"
+lines = 163
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/indexer/lib/indexer/fetcher/withdrawal.ex in repository import f72f4cee4 (Git blob 6cd99ad9c060d31408bed2f61198e9d848440470). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.279]
+path = "services/explorer/backend/apps/indexer/lib/indexer/memory/monitor.ex"
+lines = 321
+verdict = "issues"
+note = "Read all limit selection, monitoring, shrinking/expansion and logging paths, including worker lifecycle and queue-count calls; the worker-death race is recorded below."
+
+[file.280]
+path = "services/explorer/backend/apps/indexer/lib/indexer/memory/shrinkable.ex"
+lines = 46
+verdict = "clean"
+note = "Compared all four GenServer call names with Indexer.BufferedTask handlers for shrink, shrunk?, expand and queue_size. Queue counts represent the buffered queue; handling disappearing workers belongs to the monitor repair recorded separately."
+
+[file.281]
+path = "services/explorer/backend/apps/indexer/lib/indexer/migrator/recovery_weth_token_transfers.ex"
+lines = 199
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/indexer/lib/indexer/migrator/recovery_weth_token_transfers.ex in repository import f72f4cee4 (Git blob 964e6fbedd2f9de9cb55a9a52116cdf1ace0f94e). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.282]
+path = "services/explorer/backend/apps/indexer/lib/indexer/pending_transactions_sanitizer.ex"
+lines = 200
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/indexer/lib/indexer/pending_transactions_sanitizer.ex in repository import f72f4cee4 (Git blob 5e197fedc9dd4b70e946b711c6a3a1c15aacffe9). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.283]
+path = "services/explorer/backend/apps/indexer/lib/indexer/temporary/uncataloged_token_transfers.ex"
+lines = 104
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/indexer/lib/indexer/temporary/uncataloged_token_transfers.ex in repository import f72f4cee4 (Git blob bcd5b3839dd95ee471ba656c57372231f80dd477). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.284]
+path = "services/explorer/backend/apps/indexer/lib/indexer/temporary/uncles_without_index.ex"
+lines = 168
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/indexer/lib/indexer/temporary/uncles_without_index.ex in repository import f72f4cee4 (Git blob 3b759306e66aa040f73220e49487109adc8628cd). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.285]
+path = "services/explorer/backend/apps/indexer/lib/indexer/token_balances.ex"
+lines = 186
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/indexer/lib/indexer/token_balances.ex in repository import f72f4cee4 (Git blob 9cfba6eac721f9d50993c7179761b8195f3ba0e5). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.286]
+path = "services/explorer/backend/apps/indexer/mix.exs"
+lines = 83
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/apps/indexer/mix.exs in repository import f72f4cee4 (Git blob 07645a2d8ded7758a65bdf34dc1b4355d517146f). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.287]
+path = "services/explorer/backend/bin/install_chrome_headless.sh"
+lines = 13
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/bin/install_chrome_headless.sh in repository import f72f4cee4 (Git blob fab11cd9b32e1063601ea28b985d7ae6e642ad62). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.288]
+path = "services/explorer/backend/bin/version_bump.sh"
+lines = 83
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/bin/version_bump.sh in repository import f72f4cee4 (Git blob 1452ec47ce3694b01ec36599b53b957bcf5cc490). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.289]
+path = "services/explorer/backend/cliff.toml"
+lines = 84
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/cliff.toml in repository import f72f4cee4 (Git blob dd8e87fbd0f145e7534d366da825213bc52784a1). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.290]
+path = "services/explorer/backend/docker/Makefile"
+lines = 150
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/docker/Makefile in repository import f72f4cee4 (Git blob 87da82592e6ac6a0165f9861a82425ee6590ba83). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.291]
+path = "services/explorer/backend/docker/README.md"
+lines = 3
+verdict = "clean"
+note = "Read the complete Docker pointer; Makefile and docker-compose service layout match its description of the upstream wrapper."
+
+[file.292]
+path = "services/explorer/backend/mix.exs"
+lines = 115
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/mix.exs in repository import f72f4cee4 (Git blob 3b45c8949cac59ba7c303d4ae0f2c40a6b89f9f3). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.293]
+path = "services/explorer/backend/rel/commands/migrate.sh"
+lines = 3
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/rel/commands/migrate.sh in repository import f72f4cee4 (Git blob 9a3261ce75dc88ecc7577f8037941ba9138cee77). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.294]
+path = "services/explorer/backend/rel/commands/seed.sh"
+lines = 3
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/rel/commands/seed.sh in repository import f72f4cee4 (Git blob 69bfb8815d0f5e13a7b997c2a36f53e77cc85de4). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.295]
+path = "services/explorer/backend/rel/config.exs"
+lines = 86
+verdict = "vendored"
+note = "Vendored blockscout/blockscout v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820); byte-identical to explorer/backend/rel/config.exs in repository import f72f4cee4 (Git blob c492e206b112b5e1bc23ee217047cbab042b6e1d). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.296]
+path = "services/explorer/deploy/docker-compose.local.yml"
+lines = 218
+verdict = "issues"
+note = "Reviewed every service, volume, environment input, healthcheck and dependency edge. Root-path node fixture configuration is distinct from the public deployment; frontend health and database exposure issues are recorded below."
+
+[file.297]
+path = "services/explorer/deploy/tests/config-check.sh"
+lines = 79
+verdict = "clean"
+note = "Read all static configuration assertions against frontend/backend templates, the local compose file and price-feed retention declaration. The 30-day explicit default and clearing-value behavior agree with 18876.1; this audit does not claim config-check.sh was run."
+
+[file.298]
+path = "services/explorer/services/libs/blockscout-chains/Cargo.toml"
+lines = 15
+verdict = "vendored"
+note = "Vendored blockscout/blockscout-rs 934a80f42976bac8e13dc45770104a0ede8bd7d7; byte-identical to explorer/services/libs/blockscout-chains/Cargo.toml in repository import f72f4cee4 (Git blob a76dfb2ba264e3bb053c91af9d41c6899cf2aea1). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.299]
+path = "services/explorer/services/libs/blockscout-chains/src/lib.rs"
+lines = 134
+verdict = "vendored"
+note = "Vendored blockscout/blockscout-rs 934a80f42976bac8e13dc45770104a0ede8bd7d7; byte-identical to explorer/services/libs/blockscout-chains/src/lib.rs in repository import f72f4cee4 (Git blob 1f50d4f5b8ffde9c4459dc94d75138da2bfcc043). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.300]
+path = "services/explorer/services/libs/blockscout-client/convert_mustache2handlebars.sh"
+lines = 60
+verdict = "vendored"
+note = "Vendored blockscout/blockscout-rs 934a80f42976bac8e13dc45770104a0ede8bd7d7; byte-identical to explorer/services/libs/blockscout-client/convert_mustache2handlebars.sh in repository import f72f4cee4 (Git blob b5cfecc9f06dd9a6d36b1f6db625e13cc6b04d1f). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.301]
+path = "services/explorer/services/libs/blockscout-client/package.json"
+lines = 51
+verdict = "clean"
+note = "Reviewed the client package manifest and generator/typecheck scripts, pinned dependency overrides and local package identity. Dependency metadata changes preserve the generated Blockscout client interface."
+
+[file.302]
+path = "services/explorer/services/libs/blockscout-client/ts-src/get-api-v2.ts"
+lines = 80
+verdict = "vendored"
+note = "Vendored blockscout/blockscout-rs 934a80f42976bac8e13dc45770104a0ede8bd7d7; byte-identical to explorer/services/libs/blockscout-client/ts-src/get-api-v2.ts in repository import f72f4cee4 (Git blob d92488abb607e075fd11b5239619d5ac48cb3b97). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.303]
+path = "services/explorer/services/libs/blockscout-client/ts-src/merge-overrides.ts"
+lines = 66
+verdict = "vendored"
+note = "Vendored blockscout/blockscout-rs 934a80f42976bac8e13dc45770104a0ede8bd7d7; byte-identical to explorer/services/libs/blockscout-client/ts-src/merge-overrides.ts in repository import f72f4cee4 (Git blob eb9dec8527d915cf942c67622262b849e65be14c). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.304]
+path = "services/explorer/services/libs/blockscout-client/ts-src/record-stubs.ts"
+lines = 103
+verdict = "vendored"
+note = "Vendored blockscout/blockscout-rs 934a80f42976bac8e13dc45770104a0ede8bd7d7; byte-identical to explorer/services/libs/blockscout-client/ts-src/record-stubs.ts in repository import f72f4cee4 (Git blob 217c13a19e688dbddd597e5437d784325359e3a1). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.305]
+path = "services/explorer/services/libs/display-bytes/Cargo.toml"
+lines = 20
+verdict = "vendored"
+note = "Vendored blockscout/blockscout-rs 934a80f42976bac8e13dc45770104a0ede8bd7d7; byte-identical to explorer/services/libs/display-bytes/Cargo.toml in repository import f72f4cee4 (Git blob bfaea9fe00b8b3a21440cfbb9090906b195cd2e0). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.306]
+path = "services/explorer/services/libs/display-bytes/src/bytes.rs"
+lines = 205
+verdict = "vendored"
+note = "Vendored blockscout/blockscout-rs 934a80f42976bac8e13dc45770104a0ede8bd7d7; byte-identical to explorer/services/libs/display-bytes/src/bytes.rs in repository import f72f4cee4 (Git blob 28155d27d6eccb739644761672712e45380a588b). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.307]
+path = "services/explorer/services/libs/display-bytes/src/lib.rs"
+lines = 37
+verdict = "vendored"
+note = "Vendored blockscout/blockscout-rs 934a80f42976bac8e13dc45770104a0ede8bd7d7; byte-identical to explorer/services/libs/display-bytes/src/lib.rs in repository import f72f4cee4 (Git blob d370fa13d803c88d354e16379002a9948b7fb8cb). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.308]
+path = "services/explorer/services/libs/display-bytes/src/serde_as.rs"
+lines = 144
+verdict = "vendored"
+note = "Vendored blockscout/blockscout-rs 934a80f42976bac8e13dc45770104a0ede8bd7d7; byte-identical to explorer/services/libs/display-bytes/src/serde_as.rs in repository import f72f4cee4 (Git blob 8f62155000c559b05d3acd2def5b9a05a9969d2a). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.309]
+path = "services/explorer/services/libs/metrics-tools/Cargo.toml"
+lines = 11
+verdict = "vendored"
+note = "Vendored blockscout/blockscout-rs 934a80f42976bac8e13dc45770104a0ede8bd7d7; byte-identical to explorer/services/libs/metrics-tools/Cargo.toml in repository import f72f4cee4 (Git blob 2588fb867305c5fd5b15f694f8aa10937bc9a959). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.310]
+path = "services/explorer/services/libs/metrics-tools/src/lib.rs"
+lines = 103
+verdict = "vendored"
+note = "Vendored blockscout/blockscout-rs 934a80f42976bac8e13dc45770104a0ede8bd7d7; byte-identical to explorer/services/libs/metrics-tools/src/lib.rs in repository import f72f4cee4 (Git blob e143752493846a1a38293549051a057e13f9b0f5). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.311]
+path = "services/explorer/services/libs/mismatch/Cargo.toml"
+lines = 17
+verdict = "vendored"
+note = "Vendored blockscout/blockscout-rs 934a80f42976bac8e13dc45770104a0ede8bd7d7; byte-identical to explorer/services/libs/mismatch/Cargo.toml in repository import f72f4cee4 (Git blob 30e34053848c5dda885ca24ec35bbf3fe5901669). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.312]
+path = "services/explorer/services/libs/mismatch/src/lib.rs"
+lines = 74
+verdict = "vendored"
+note = "Vendored blockscout/blockscout-rs 934a80f42976bac8e13dc45770104a0ede8bd7d7; byte-identical to explorer/services/libs/mismatch/src/lib.rs in repository import f72f4cee4 (Git blob a21ea793a57f38ba91de8dbc8a7a6e6d82484e9e). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.313]
+path = "services/explorer/services/libs/reqwest-rate-limiter/Cargo.toml"
+lines = 13
+verdict = "vendored"
+note = "Vendored blockscout/blockscout-rs 934a80f42976bac8e13dc45770104a0ede8bd7d7; byte-identical to explorer/services/libs/reqwest-rate-limiter/Cargo.toml in repository import f72f4cee4 (Git blob 82721a7263eb56fa8c9989003563d481f2f0a5e2). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.314]
+path = "services/explorer/services/libs/reqwest-rate-limiter/src/lib.rs"
+lines = 79
+verdict = "vendored"
+note = "Vendored blockscout/blockscout-rs 934a80f42976bac8e13dc45770104a0ede8bd7d7; byte-identical to explorer/services/libs/reqwest-rate-limiter/src/lib.rs in repository import f72f4cee4 (Git blob af93603652f538e8ba6fe7cdcff6e7b43a70fbc0). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.315]
+path = "services/explorer/services/smart-contract-verifier/Cargo.toml"
+lines = 71
+verdict = "vendored"
+note = "Vendored blockscout/blockscout-rs 934a80f42976bac8e13dc45770104a0ede8bd7d7; byte-identical to explorer/services/smart-contract-verifier/Cargo.toml in repository import f72f4cee4 (Git blob fa4b07b8477f28fb4e073d880f3dbc2b055112e5). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.316]
+path = "services/explorer/services/smart-contract-verifier/README.md"
+lines = 46
+verdict = "clean"
+note = "Read all verifier environment names, source-compilation responsibilities, microservice integration and image references against the local verifier configuration and Docker image path."
+
+[file.317]
+path = "services/explorer/services/smart-contract-verifier/vyper-cbor-auxdata/Cargo.toml"
+lines = 12
+verdict = "vendored"
+note = "Vendored blockscout/blockscout-rs 934a80f42976bac8e13dc45770104a0ede8bd7d7; byte-identical to explorer/services/smart-contract-verifier/vyper-cbor-auxdata/Cargo.toml in repository import f72f4cee4 (Git blob 483525a2dde5254114dc477070ab8c20998a5a67). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.318]
+path = "services/explorer/services/smart-contract-verifier/vyper-cbor-auxdata/src/lib.rs"
+lines = 323
+verdict = "vendored"
+note = "Vendored blockscout/blockscout-rs 934a80f42976bac8e13dc45770104a0ede8bd7d7; byte-identical to explorer/services/smart-contract-verifier/vyper-cbor-auxdata/src/lib.rs in repository import f72f4cee4 (Git blob 34307c120636e9456a2335c4f92f4b395059a843). Retained upstream content takes the brief vendored exception; this verdict does not claim a fresh behavioral review or runtime qualification."
+
+[file.319]
+path = "services/explorer/tests/test_frontend_env_example.py"
+lines = 21
+verdict = "clean"
+note = "Read the complete frontend-template test and the actual contiguous flag comment: kernel archive wording and custody retirement assertions match 14299.1. It does not establish runtime frontend behavior."
+
+[file.320]
+path = "services/explorer/tests/test_openapi_block_response.py"
+lines = 34
+verdict = "clean"
+note = "Read the whole OpenAPI consistency test and compared the BlockResponse producer declarations with both shipped YAML surfaces: price_update_count is a non-null integer, priority_fee remains IntegerStringNullable, and the test checks closed-schema required properties."
+
+[file.321]
+path = "services/explorer/tests/test_paxeer_x_readme_retirements.py"
+lines = 13
+verdict = "clean"
+note = "Read the whole README retirement test and both target READMEs; it checks the retired fetcher/module/environment identifiers, while the separate stale archive route documentation finding is retained."
+
+[file.322]
+path = "src/sequencer/lxp_batch_header.c"
+lines = 171
+verdict = "issues"
+note = "Read every codec function and helper against lxp_batch.h and codec primitives: fifteen ordered tagged fields, matching envelope/protocol version, fixed 354-byte output, bounded 32-byte roots, canonical completion, domain hashing and 64-byte Ed25519 signatures constrained by sequencer ID and authorization range. This is intentionally retained archive code under 1261.1/1287.1/1289.1; its missing format-contract link is recorded below."
+
+[finding.web-dependency-budget]
+file = "apps/web/policy/runtime-dependencies.json"
+line = 2
+class = "config-drift"
+severity = "medium"
+observed = "The approved map has five dependencies and next 16.3.5, while apps/web/package.json declares eleven dependencies and next 16.4.1. policy/check.mjs:14-21 requires map equality and the five-dependency maximum, so the shipped inputs necessarily fail that policy."
+expected = "The authenticated web application must ship a reviewed dependency inventory that agrees with its actual runtime imports, manifest and frozen lock, while retaining the dependency and security checks."
+proposal = "In apps/web/policy/runtime-dependencies.json and apps/web/package.json, reconcile each of the six added runtime dependencies with the owning feature, remove any unnecessary dependency and explicitly approve the necessary inventory and current patched Next version; preserve exact manifest/lock equality and a reviewed finite budget."
+owner_domain = 14
+
+[finding.web-local-link-policy]
+file = "apps/web/policy/check.mjs"
+line = 51
+class = "config-drift"
+severity = "medium"
+observed = "The link branch accepts only node_modules/@layerx/ui resolving to packages/layerx-ui. apps/web/package-lock.json also declares linked @paxeer/wallet and @sidiora/layerx-sdk, and the wallet package is UNLICENSED, outside allowedLicenses. Correcting the budget alone still leaves the shipped policy inputs incompatible."
+expected = "Every intentionally shipped local dependency must have an explicitly reviewed package identity, path, version and license disposition, with all other local links and unapproved licenses rejected."
+proposal = "In apps/web/policy/check.mjs, add explicit identity/path/version checks for each approved SDK and wallet link after reconciling apps/web/package.json, and obtain a package-specific license disposition for sdk/wallet/package.json; keep rejection of unknown links and licenses and retain lockfile consistency checks."
+owner_domain = 14
+
+[finding.bridge-all-option]
+file = "services/bridge/deploy/verify-evm-chain.sh"
+line = 53
+class = "runtime-risk"
+severity = "medium"
+observed = "The initial case sends every leading option other than --preflight to usage. Consequently the documented bare --all exits 2 before the branch at line 58, whereas --preflight --all can reach run_all. Registry 14.cli-bridge-verify-evm-chain-j55 declares both forms."
+expected = "The declared all-chain verification command must visit the eight EVM chains in deployment order and stop on the first failed verification, for both submission and preflight modes."
+proposal = "In services/bridge/deploy/verify-evm-chain.sh, recognize --all before rejecting unknown options and preserve the one-argument validation, deployment-record checks, preflight behavior and run_all ordering; add argument-parsing coverage that cannot publish to an explorer."
+owner_domain = 14
+interface = "14.cli-bridge-verify-evm-chain-j55"
+
+[finding.relayer-paxeer-path]
+file = "services/bridge/deploy/relayer-solana.example.json"
+line = 21
+class = "retired-reference"
+severity = "medium"
+observed = "The Paxeer endpoint example is https://paxeer.example.invalid/rpc. RelayerConfig.paxeer_endpoints passes the URL unchanged to PaxeerEndpoint, and services/interop/crates/layerx-bridge-relayer/src/transport.rs sends POST to that literal path. Registry 14.fmt-bridge-relayer-solana-example-j55 identifies this configuration example."
+expected = "A Paxeer node JSON-RPC endpoint uses the root path on the declared node hosts; there is no merged-network unified /rpc endpoint. Deliberately invalid example hosts and public fixture identities should remain unmistakably non-production."
+proposal = "Change only the Paxeer URL path in services/bridge/deploy/relayer-solana.example.json to a root-path example and describe replacement with an approved node origin in contracts/bridge/README.md; retain .invalid, fixture keys, trust-anchor requirements and foreign-chain endpoint paths. Domain 11 retains ownership of the relayer loader and transport."
+owner_domain = 14
+interface = "14.fmt-bridge-relayer-solana-example-j55"
+
+[finding.frontend-health-base-path]
+file = "services/explorer/deploy/docker-compose.local.yml"
+line = 209
+class = "wiring-gap"
+severity = "medium"
+observed = "The frontend healthcheck requests http://localhost:3000/api/healthz. The shipped image builds apps/explorer, whose next.config.js fixes basePath to /explorer; pages/api/healthz.tsx is therefore served under /explorer/api/healthz. The node-api rewrite is also base-path scoped and does not create a root alias."
+expected = "The local stack health probe must address a route mounted by the frontend image so a functioning explorer becomes healthy and an unavailable frontend fails the probe."
+proposal = "In services/explorer/deploy/docker-compose.local.yml, probe /explorer/api/healthz, or the documented /explorer/node-api/healthz alias, and add a deployment check against the built frontend image that verifies a successful response at the selected path and failure when the service is unavailable."
+owner_domain = 14
+
+[finding.local-database-exposure]
+file = "services/explorer/deploy/docker-compose.local.yml"
+line = 57
+class = "security"
+severity = "medium"
+observed = "The local compose stack publishes ${POSTGRES_PUBLISHED_PORT:-7432}:5432 without a host bind address and defaults POSTGRES_USER and POSTGRES_PASSWORD to blockscout. On a host with a reachable published port this exposes the explorer database using a known credential pair."
+expected = "A local development database with example credentials must be reachable only through the local host or the internal compose network; remote access must require an explicit deployment choice and protected credentials."
+proposal = "In services/explorer/deploy/docker-compose.local.yml, bind the default PostgreSQL publication to 127.0.0.1 or remove host publication and use compose networking; document explicit remote-access configuration with required operator-provided credentials and cover the default bind in deploy/tests/config-check.sh."
+owner_domain = 14
+
+[finding.memory-monitor-worker-race]
+file = "services/explorer/backend/apps/indexer/lib/indexer/memory/monitor.ex"
+line = 195
+class = "runtime-risk"
+severity = "medium"
+observed = "shrinkable_memory_pairs snapshots monitored worker PIDs, but shrink then makes unprotected GenServer.call operations through queued_entry_count and shrink. A worker that exits before or between those calls causes an exit in the monitor before it can consume DOWN. memory(pid) can also return zero for a dead worker before the later percentage division. Indexer.Application uses rest_for_one to restart dependent workers when this monitor dies."
+expected = "Ordinary fetcher shutdown or restart during memory-pressure handling must not crash the memory monitor or trigger additional indexing restarts; actual memory pressure and worker faults must remain visible."
+proposal = "In services/explorer/backend/apps/indexer/lib/indexer/memory/monitor.ex and memory/shrinkable.ex, handle the known dead-worker race around queue inspection and shrink, remove the stale PID and continue with remaining workers, and guard zero memory before division; add a real GenServer lifecycle test that exits a monitored worker during shrinking and verifies surviving workers are still serviced."
+owner_domain = 14
+
+[finding.telemetry-false-flag]
+file = "apps/explorer/instrumentation.node.ts"
+line = 60
+class = "config-drift"
+severity = "medium"
+observed = "The startup guard tests process.env.OTEL_SDK_ENABLED for JavaScript truthiness. The string false is truthy and starts NodeSDK and registers its SIGTERM handler, although apps/explorer/docs/ENVS.md:912 declares a boolean runtime flag with default false."
+expected = "Setting OTEL_SDK_ENABLED=false must leave optional telemetry disabled, while the documented true value enables the configured exporters and shutdown lifecycle."
+proposal = "In apps/explorer/instrumentation.node.ts, parse OTEL_SDK_ENABLED using the existing boolean environment convention and start the SDK only for the enabled value; extend instrumentation.node.spec.ts to exercise the actual module startup with true, false and an unset variable while retaining the real span propagation assertions."
+owner_domain = 14
+
+[finding.upstream-current-layout]
+file = "services/explorer/UPSTREAM.md"
+line = 3
+class = "doc-drift"
+severity = "low"
+observed = "The provenance page still locates the imported trees under explorer/ and frontend/, including frontend/configs paths at lines 25-31. The current backend is services/explorer/backend and the frontend is apps/explorer. The pinned upstream revisions remain useful provenance."
+expected = "Provenance must distinguish the original import layout from current paths so maintainers can locate the pinned frontend and backend and compare later local changes correctly."
+proposal = "Update services/explorer/UPSTREAM.md to show current repository paths alongside the original import paths and pinned revisions, including apps/explorer/configs/envs/.env.vitest; retain the import-time byte-identity statement as historical provenance rather than a claim about all current files."
+owner_domain = 14
+
+[finding.backend-archive-route-docs]
+file = "services/explorer/backend/README.md"
+line = 35
+class = "doc-drift"
+severity = "medium"
+observed = "The backend README advertises /api/v2/paxeer-x/anchors, /receipts and /receipts/:id. The actual api_router.ex mounts the corresponding archive controller under /paxeer-x/archive, and its views and schemas require frozen: true on archived items."
+expected = "Requirements 14250.1 and 14254.1 distinguish frozen archive data from live committed-network receipts and expose the archive paths rather than the former kernel list endpoints."
+proposal = "In services/explorer/backend/README.md, replace the three list/detail paths with /api/v2/paxeer-x/archive/anchors, /archive/receipts and /archive/receipts/:id, explain frozen: true and direct live transaction consumers to the committed-node receipt interface; keep the capabilities and unified-account routes accurately described."
+owner_domain = 14
+
+[finding.route-catalogue-retired-system]
+file = "docs/system/routes.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The generated page is titled Router routes and describes a separate sequencer/batch kernel at line 31, replica checkpoint authority at line 41, the retired explorer verification page at lines 780-782 and /rpc/evm/ws at line 908. It presents those catalogue entries as the current public service surface at the node canonical origin."
+expected = "The finished network has one integrated paxd kernel, root-path node RPC and a separately declared hosted px contract. Retired routing, verifier and checkpoint services must not be offered as active deployment or discovery instructions."
+proposal = "Reconcile tools/paxeer-x/route-catalogue.json with the merged route owners and retirement decisions, explicitly separate historical entries from active hosted routes, and regenerate docs/system/routes.md through tools/docs/gen-system-docs.sh with root-path node endpoints and the retired explorer verifier removed from live discovery."
+owner_domain = 8
+
+[finding.hosted-site]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "The page calls api-mainnet-beta.paxeer.network a router and advertises POST /rpc, GET /rpc/schema and GET /rpc/ws at lines 50-51 and 198-200, with a 15-method contract. Its later deployment discussion still applies a separate daemon custody profile. The two published copies disagree on the method count."
+expected = "Node JSON-RPC lives at the root of the declared Paxeer node origins and uses the node namespaces; hosted px methods follow services/platform/hosted/gateway/openrpc.json. The merged network has no separate sequencer daemon or live custody journey."
+proposal = "Rewrite docs/site/docs/platform/hosted-gateway.md and synchronize its companion page around the integrated node, root-path EVM receipts and the current hosted OpenRPC contract; remove /rpc routing and separate-daemon custody bring-up instructions, and label retained archive and private historical behavior explicitly."
+owner_domain = 8
+
+[finding.hosted-wiki]
+file = "docs/wiki/HostedGateway.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "The page calls api-mainnet-beta.paxeer.network a router and advertises POST /rpc, GET /rpc/schema and GET /rpc/ws at lines 50-51 and 198-200, with a 18-method contract. Its later deployment discussion still applies a separate daemon custody profile. The two published copies disagree on the method count."
+expected = "Node JSON-RPC lives at the root of the declared Paxeer node origins and uses the node namespaces; hosted px methods follow services/platform/hosted/gateway/openrpc.json. The merged network has no separate sequencer daemon or live custody journey."
+proposal = "Rewrite docs/wiki/HostedGateway.md and synchronize its companion page around the integrated node, root-path EVM receipts and the current hosted OpenRPC contract; remove /rpc routing and separate-daemon custody bring-up instructions, and label retained archive and private historical behavior explicitly."
+owner_domain = 8
+
+[finding.cli-site]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The global --rpc instruction requires a URL ending in /rpc, and lines 278-298 describe sending public EVM transactions to that path. The same page describes batch-root and sequencer-public-key receipt workflows as the general verification path."
+expected = "CLI endpoint instructions for the merged network must use root-path node JSON-RPC and committed EVM receipts, while hosted px functionality must be identified by its own current gateway contract and archive tools labeled historical."
+proposal = "Update docs/site/docs/platform/cli.md and its companion copy to use the approved root-path node origins, current wallet/receipt commands and hosted px routing; retain archive verification only in an explicitly historical section and verify the examples against tools/platform/cli/src before publication."
+owner_domain = 8
+
+[finding.cli-site-implementation-table]
+file = "docs/site/docs/platform/cli.md"
+line = 106
+class = "doc-drift"
+severity = "medium"
+observed = "The page first lists shipped wallet and token commands at lines 38-55, then says these command groups are not implemented and have no counterpart in tools/platform/cli/src, followed by another table repeating those wallet and token commands."
+expected = "A CLI reference must give one consistent implementation and refusal status for each command so users can select supported operations without contradictory availability claims."
+proposal = "Consolidate the duplicated command tables in docs/site/docs/platform/cli.md against the actual tools/platform/cli/src registrations and synchronize the companion page; describe the supported command and each deliberate refusal on its own row instead of marking the whole group unimplemented."
+owner_domain = 8
+
+[finding.cli-wiki]
+file = "docs/wiki/Cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The global --rpc instruction requires a URL ending in /rpc, and lines 278-298 describe sending public EVM transactions to that path. The same page describes batch-root and sequencer-public-key receipt workflows as the general verification path."
+expected = "CLI endpoint instructions for the merged network must use root-path node JSON-RPC and committed EVM receipts, while hosted px functionality must be identified by its own current gateway contract and archive tools labeled historical."
+proposal = "Update docs/wiki/Cli.md and its companion copy to use the approved root-path node origins, current wallet/receipt commands and hosted px routing; retain archive verification only in an explicitly historical section and verify the examples against tools/platform/cli/src before publication."
+owner_domain = 8
+
+[finding.cli-wiki-implementation-table]
+file = "docs/wiki/Cli.md"
+line = 106
+class = "doc-drift"
+severity = "medium"
+observed = "The page first lists shipped wallet and token commands at lines 38-55, then says these command groups are not implemented and have no counterpart in tools/platform/cli/src, followed by another table repeating those wallet and token commands."
+expected = "A CLI reference must give one consistent implementation and refusal status for each command so users can select supported operations without contradictory availability claims."
+proposal = "Consolidate the duplicated command tables in docs/wiki/Cli.md against the actual tools/platform/cli/src registrations and synchronize the companion page; describe the supported command and each deliberate refusal on its own row instead of marking the whole group unimplemented."
+owner_domain = 8
+
+[finding.beta-cluster-retired-custody]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 40
+class = "doc-drift"
+severity = "medium"
+observed = "The beta-cluster runbook instructs operators to initialize app_state.layerxcustody at 0x1013, install sequencer receipt identities and mount a profile for layerxd --custody-profile. The startup sequence and later funding checks depend on that separate daemon and custody path."
+expected = "The merged BFT chain embeds the kernel in paxd; retired custody and checkpoint operations refuse after the upgrade and must not be prerequisites for bringing up the finished network."
+proposal = "Rewrite docs/site/docs/operators/beta-cluster.md around the merged paxd genesis and active services, remove separate-daemon/profile and custody-funding steps, and replace readiness checks with committed node RPC, current precompile registration and the explicitly supported hosted services."
+owner_domain = 8
+
+[finding.quickstart-retired-network]
+file = "docs/site/docs/overview/quickstart.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "The quickstart directs public traffic to /rpc and /rpc/ws at lines 167-168 and 214-215 and teaches a custody deposit at precompile 0x1013 around lines 298-302. Later examples continue to send eth_sendRawTransaction to /rpc. These are presented as normal setup and funding actions."
+expected = "New integrations must use the merged chain root-path RPC, chain id 125 and final committed receipts, and must not be instructed to fund a retired separate-kernel custody route."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md with the current wallet and SDK entrypoints, root-path approved node origins and committed receipt examples; replace the live custody walkthrough with supported funding instructions and move historical receipt or archive examples into a clearly labeled archive guide."
+owner_domain = 8
+
+[finding.root-readme-separate-kernel]
+file = "README.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+observed = "The repository overview describes two execution domains and says layerxd is a separate C17 daemon whose checkpoints settle through layerxAnchor. Its build instructions still include make layerxd as a normal product component."
+expected = "The finished product is one BFT paxd network with the kernel integrated into node block execution and finality at committed blocks; separate daemon/checkpoint settlement is historical."
+proposal = "Update README.md architecture and build/run instructions to describe the integrated paxd kernel and current node origins, remove layerxd from active component instructions and mark retained archive tooling and retired precompile addresses with their actual post-upgrade behavior."
+owner_domain = 17
+
+[finding.launchpad-governance-summary]
+file = "contracts/launchpad/README.md"
+line = 244
+class = "doc-drift"
+severity = "medium"
+observed = "Deployment Details unconditionally names SID as the governance token and says the initial multisig transitions to SID-holder governance. The same README at line 116 and the deployment entrypoint default to administrator-only governance without SID_ADDRESS; token governance is an opt-in mode."
+expected = "The deployment summary must reflect GOVERNANCE_MODE=admin by default, the designated administrator and Timelock delay, and distinguish the deliberately selected token-governance deployment mode."
+proposal = "In contracts/launchpad/README.md, align Deployment Details with scripts/deploy.js and operations/README.md: describe admin governance as the default, state the administrator fallback and Timelock authority, and describe SID voting only for explicit GOVERNANCE_MODE=token deployments."
+owner_domain = 4
+interface = "4.env-lp-contracts-governance-mode"
+
+[finding.launchpad-runbook-working-directory]
+file = "contracts/launchpad/operations/README.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "The runbook says to execute launchpad deploy and verify commands from contracts/, but that directory has the separate pax-chain Hardhat project with only the paxlocal network. contracts/scripts/deploy.js deploys a CW20 fixture and pointer. The intended scripts and paxeer-x-network configuration are in contracts/launchpad/."
+expected = "Mainnet deployment and verification instructions must select the launchpad project, its installed toolchain, network configuration and deployment journal, without accidentally invoking the unrelated parent project."
+proposal = "Change the working-directory instructions in contracts/launchpad/operations/README.md to contracts/launchpad/ before every deploy, verify, inspection and qualification example; make script and journal paths unambiguous and confirm the referenced commands resolve to that project without broadcasting during documentation qualification."
+owner_domain = 4
+interface = "4.cli-lp-contracts-script-deploy"
+
+[finding.precompile-retirement-docs]
+file = "docs/system/precompiles.md"
+line = 1176
+class = "doc-drift"
+severity = "medium"
+observed = "The generated ABI catalogue lists layerxAnchor checkpoint submissions at 0x1014, custody deposits and withdrawals at 0x1013 and layerxVerify proof operations at 0x1012 without marking their upgrade retirement/refusal semantics. An ABI entry alone does not mean that operation remains callable after the merge."
+expected = "The public precompile reference must distinguish active interfaces, retained historical ABI decoding and operations that revert LXP_MODULE_DISABLED after the relevant upgrade, including the final retirement of archive reads."
+proposal = "Extend tools/docs/gen-system-docs.sh and its catalogue inputs to obtain activation and retirement metadata from precompiles/setup.go and the relevant retirement wrappers, then regenerate docs/system/precompiles.md with explicit versioned active/refused/archive labels for 0x1012-0x1014."
+owner_domain = 6
+
+[finding.programs-address-omitted]
+file = "docs/system/precompiles.md"
+line = 40
+class = "doc-drift"
+severity = "medium"
+observed = "The layerxprograms summary row shows no address, and the detailed section around line 1496 also omits one. precompiles/layerxprograms/events.go declares Address as 0x000000000000000000000000000000000000101D and the merged node registers that fixed endpoint."
+expected = "Program deploy, call, read and event consumers need the same fixed 0x101D endpoint used by the producer and node registration; a missing address must not imply the endpoint is dynamic or absent."
+proposal = "Teach tools/docs/gen-system-docs.sh to resolve the exported programs Address and merged registration table, then regenerate docs/system/precompiles.md with 0x000000000000000000000000000000000000101D in the summary and detailed programs section; preserve the genuine dynamic-address exceptions."
+owner_domain = 6
+
+[finding.archive-codec-contract-link]
+file = "src/sequencer/lxp_batch_header.c"
+line = 19
+class = "doc-drift"
+severity = "low"
+observed = "Registry row 1.fmt-batch-header points to contracts/kernel.md#format-batch-header, but contracts/kernel.md is absent. The retained codec still emits a canonical 354-byte, fifteen-field 0x1701 header, and requirements 1261.1, 1287.1 and 1289.1 explicitly retain archive decoding and signature verification."
+expected = "Archive codec integrators must be able to locate an existing format contract describing canonical field order, encodings, fixed size, signature authorization and historical purpose without inferring that the retired sequencer service remains active."
+proposal = "Restore the archive header format contract in the current kernel documentation location and update interface 1.fmt-batch-header in spec/layerx-merge/interfaces.kvx to that existing page; document the fifteen fields, 354-byte encoding, error behavior and Ed25519 authorization range while retaining the codec required by the retirement acceptance criteria."
+owner_domain = 1
+interface = "1.fmt-batch-header"
+
+[doc.01]
+path = "docs/system/routes.md"
+status = "stale"
+notes = "Generated catalogue tables were read across services, routes, authentication, transport, timeout/retry fields and denied surfaces. Findings route-catalogue-retired-system covers the live router/sequencer description, retired verifier page and /rpc/evm/ws entry; retained archive endpoints already use /archive."
+
+[doc.02]
+path = "docs/site/docs/platform/hosted-gateway.md"
+status = "stale"
+notes = "Read the gateway architecture, endpoint/auth tables, startup and recovery instructions, and compared the site/wiki copies. Lines 39-51, 198-200 and 609-621 retain /rpc routing and daemon custody assumptions; hosted-site/hosted-wiki record the rewrite and differing method counts."
+
+[doc.03]
+path = "docs/wiki/HostedGateway.md"
+status = "stale"
+notes = "Read the gateway architecture, endpoint/auth tables, startup and recovery instructions, and compared the site/wiki copies. Lines 39-51, 198-200 and 609-621 retain /rpc routing and daemon custody assumptions; hosted-site/hosted-wiki record the rewrite and differing method counts."
+
+[doc.04]
+path = "docs/site/docs/platform/cli.md"
+status = "misleading"
+notes = "Read the full command reference, installation, transport, error and receipt examples and compared site/wiki copies. Lines 8 and 278-298 require retired /rpc routing; line 106 contradicts the shipped command table above it. Separate findings record endpoint and implementation-status drift."
+
+[doc.05]
+path = "docs/wiki/Cli.md"
+status = "misleading"
+notes = "Read the full command reference, installation, transport, error and receipt examples and compared site/wiki copies. Lines 8 and 278-298 require retired /rpc routing; line 106 contradicts the shipped command table above it. Separate findings record endpoint and implementation-status drift."
+
+[doc.06]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "stale"
+notes = "Read the complete bring-up, custody, origin identity, readiness and teardown instructions. Lines 40-50 and later checks depend on the retired separate-daemon custody system; see beta-cluster-retired-custody."
+
+[doc.07]
+path = "docs/system/precompiles.md"
+status = "stale"
+notes = "Read the generated ABI/address catalogue and Solidity interface sections. Findings precompile-retirement-docs and programs-address-omitted cover missing upgrade behavior and fixed 0x101D discovery; ABI retention itself is not evidence that retired operations remain active."
+
+[doc.08]
+path = "contracts/launchpad/README.md"
+status = "misleading"
+notes = "Read the full launchpad overview and current admin governance description. Lines 244-245 contradict the default GOVERNANCE_MODE=admin path at line 116; see launchpad-governance-summary."
+
+[doc.09]
+path = "contracts/launchpad/operations/README.md"
+status = "misleading"
+notes = "Read deployment, verification, incident inspection, recovery and release-qualification guidance in full. The contracts/ working directory at lines 11 and 28 selects the unrelated parent project; see launchpad-runbook-working-directory."
+
+[doc.10]
+path = "contracts/bridge/README.md"
+status = "accurate"
+notes = "Read the complete bridge guide, including attestation/cap ordering, recipient encoding, relayer schema, signer fixtures, journal recovery and once-only submission checks. It explicitly identifies the example keys and .invalid origins as non-production fixtures; the example Paxeer URL path defect is recorded on the JSON member."
+
+[doc.11]
+path = "README.md"
+status = "stale"
+notes = "Read the full repository overview, component map, upgrades and build instructions. Lines 44-47 and the make layerxd instruction describe historical separate-kernel settlement; see root-readme-separate-kernel."
+
+[doc.12]
+path = "docs/site/docs/overview/quickstart.md"
+status = "stale"
+notes = "Read the complete quickstart and its SDK, funding, CLI, receipt and install examples. Lines 167-168, 214-215 and 298-302 teach retired public routing and custody; see quickstart-retired-network."
+
+[doc.13]
+path = "apps/explorer/CLAUDE.md"
+status = "accurate"
+notes = "Read the full imported frontend development guide; component/test conventions describe the Blockscout frontend tree and are not a declaration of a separate LayerX service."
+
+[doc.14]
+path = "apps/explorer/CODE_OF_CONDUCT.md"
+status = "accurate"
+notes = "Read the full upstream community conduct and reporting policy; it makes no network endpoint or post-upgrade runtime claim."
+
+[doc.15]
+path = "apps/explorer/README.md"
+status = "accurate"
+notes = "Frontend basePath, runtime presets and image paths agree with apps/explorer/next.config.js and docker/explorer-frontend/Dockerfile; imported revision is identified separately from local additions."
+
+[doc.16]
+path = "services/explorer/UPSTREAM.md"
+status = "stale"
+notes = "Pinned import revisions and licenses were reviewed; current-layout documentation drift is recorded below."
+
+[doc.17]
+path = "services/explorer/backend/README.md"
+status = "stale"
+notes = "The backend application split and runtime settings were reviewed; advertised archive paths are stale and recorded below."
+
+[doc.18]
+path = "services/explorer/backend/apps/block_scout_web/README.md"
+status = "accurate"
+notes = "Read the full Phoenix application guide; umbrella paths, pinned runtimes, assets, API responsibilities and development commands agree with the backend layout."
+
+[doc.19]
+path = "services/explorer/backend/apps/explorer/README.md"
+status = "accurate"
+notes = "Read the entire Explorer application guide against umbrella source, repository and migration paths; it describes the shared Ecto data-access and import responsibilities without a separate kernel service."
+
+[doc.20]
+path = "services/explorer/backend/apps/indexer/README.md"
+status = "accurate"
+notes = "Read the full fetcher, database import, restart/requeue and memory-limit guide against the indexer application and memory monitor. Legacy precompile log decoding is retained for indexed historical data; the retired kernel-receipts fetcher and settings are absent."
+
+[doc.21]
+path = "services/explorer/backend/docker/README.md"
+status = "accurate"
+notes = "Read the complete Docker pointer; Makefile and docker-compose service layout match its description of the upstream wrapper."
+
+[doc.22]
+path = "services/explorer/services/smart-contract-verifier/README.md"
+status = "accurate"
+notes = "Read all verifier environment names, source-compilation responsibilities, microservice integration and image references against the local verifier configuration and Docker image path."
+
+[doc.23]
+path = "apps/explorer/docs/ENVS.md"
+status = "accurate"
+notes = "The telemetry section at lines 908-912 documents OTEL_SDK_ENABLED as a boolean with default false and enabled value true; this contract exposes the runtime truthiness bug recorded on instrumentation.node.ts. Other environment sections were not used to assert telemetry enablement."
+
+[doc.24]
+path = "contracts/kernel.md"
+status = "missing"
+notes = "Registry 1.fmt-batch-header points to this absent format-contract page. The retained header codec is reviewed against its real declarations; archive-codec-contract-link proposes restoring an existing documentation target and reconciling the registry link."

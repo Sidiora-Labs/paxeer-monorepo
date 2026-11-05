@@ -2,6 +2,7 @@ package client
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	tmjson "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/json"
@@ -32,6 +33,9 @@ func unmarshalResponseBytes(responseBytes []byte, expectedID string, result inte
 }
 
 func unmarshalResponseBytesArray(responseBytes []byte, expectedIDs []string, results []interface{}) error {
+	if len(expectedIDs) != len(results) {
+		return fmt.Errorf("got %d result destinations, wanted %d", len(results), len(expectedIDs))
+	}
 	var responses []rpctypes.RPCResponse
 	if err := json.Unmarshal(responseBytes, &responses); err != nil {
 		return fmt.Errorf("unmarshaling responses: %w", err)
@@ -39,33 +43,50 @@ func unmarshalResponseBytesArray(responseBytes []byte, expectedIDs []string, res
 		return fmt.Errorf("got %d results, wanted %d", len(responses), len(results))
 	}
 
-	// Intersect IDs from responses with expectedIDs.
+	// Validate the entire ID set before modifying any result destinations.
 	ids := make([]string, len(responses))
+	byID := make(map[string]rpctypes.RPCResponse, len(responses))
 	for i, resp := range responses {
 		ids[i] = resp.ID()
+		byID[resp.ID()] = resp
 	}
 	if err := validateResponseIDs(ids, expectedIDs); err != nil {
 		return fmt.Errorf("wrong IDs: %w", err)
 	}
 
-	for i, resp := range responses {
+	var errs []error
+	for i, id := range expectedIDs {
+		resp := byID[id]
+		if resp.Error != nil {
+			errs = append(errs, fmt.Errorf("response ID %q: %w", id, resp.Error))
+			continue
+		}
 		if err := json.Unmarshal(resp.Result, results[i]); err != nil {
-			return fmt.Errorf("unmarshaling result %d: %w", i, err)
+			errs = append(errs, fmt.Errorf("unmarshaling result %d (ID %q): %w", i, id, err))
 		}
 	}
-	return nil
+	return errors.Join(errs...)
 }
 
 func validateResponseIDs(ids, expectedIDs []string) error {
-	m := make(map[string]struct{}, len(expectedIDs))
+	if len(ids) != len(expectedIDs) {
+		return fmt.Errorf("got %d response IDs, wanted %d", len(ids), len(expectedIDs))
+	}
+	m := make(map[string]bool, len(expectedIDs))
 	for _, id := range expectedIDs {
-		m[id] = struct{}{}
+		if _, ok := m[id]; ok {
+			return fmt.Errorf("duplicate expected ID: %q", id)
+		}
+		m[id] = false
 	}
 
 	for i, id := range ids {
-		if _, ok := m[id]; !ok {
+		if seen, ok := m[id]; !ok {
 			return fmt.Errorf("unexpected response ID %d: %q", i, id)
+		} else if seen {
+			return fmt.Errorf("duplicate response ID %d: %q", i, id)
 		}
+		m[id] = true
 	}
 	return nil
 }

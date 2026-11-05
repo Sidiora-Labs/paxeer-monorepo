@@ -7,10 +7,9 @@ use std::env;
 use std::ffi::OsString;
 use std::fs::{self, DirBuilder};
 use std::io::{Read as _, Write as _};
-use std::net::{TcpListener, TcpStream};
+use std::net::TcpListener;
 use std::os::unix::fs::{DirBuilderExt as _, PermissionsExt as _};
-use std::os::unix::net::{UnixListener, UnixStream};
-use std::os::unix::process::CommandExt as _;
+use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -20,6 +19,7 @@ use std::time::Duration;
 
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use layerx_client::runtime_clock::RuntimeClock;
+use layerx_client::sequencer::SequencerEndpoint;
 use layerx_human_service::server::production_components::{
     validate_production_configuration, PRODUCTION_OPERATIONS,
 };
@@ -48,25 +48,10 @@ const RETIRED_OPERATIONS: [&str; 11] = [
     "exit.eligibility",
 ];
 
-fn retired_variable(name: &str) -> bool {
-    [
-        "LAYERX_HUMAN_PAXEER_",
-        "LAYERX_HUMAN_EXIT_",
-        "LAYERX_HUMAN_RECIPIENT_",
-    ]
-    .iter()
-    .any(|prefix| name.starts_with(prefix))
-        || matches!(
-            name,
-            "LAYERX_HUMAN_BINDING_STATEMENT_TTL_SECONDS" | "LAYERX_HUMAN_PROTOCOL_VERSION"
-        )
-}
-
 struct Environment {
     root: PathBuf,
     saved: Vec<(OsString, Option<OsString>)>,
     cluster: Option<cluster::Cluster>,
-    _movement_listener: UnixListener,
     _events_listener: TcpListener,
 }
 
@@ -79,40 +64,14 @@ impl Environment {
             u128::from_be_bytes(entropy)
         ));
         DirBuilder::new().mode(0o700).create(&root)?;
-        let movement_directory = root.join("movement-socket");
-        DirBuilder::new().mode(0o700).create(&movement_directory)?;
-        let movement_socket = movement_directory.join("movement.sock");
-        let movement_listener = UnixListener::bind(&movement_socket)?;
-        fs::set_permissions(&movement_socket, fs::Permissions::from_mode(0o600))?;
         let events_listener = TcpListener::bind("127.0.0.1:0")?;
-        let events_url = format!("https://127.0.0.1:{}", events_listener.local_addr()?.port());
+        let events_url = format!("https://localhost:{}", events_listener.local_addr()?.port());
         let mut environment = Self {
             root,
             saved: Vec::new(),
             cluster: None,
-            _movement_listener: movement_listener,
             _events_listener: events_listener,
         };
-        for (url, ca) in [
-            (
-                "LAYERX_EVENTS_JOURNEY_UPSTREAM_URL",
-                "LAYERX_EVENTS_JOURNEY_UPSTREAM_CA_DER",
-            ),
-            (
-                "LAYERX_EVENTS_APPROVAL_UPSTREAM_URL",
-                "LAYERX_EVENTS_APPROVAL_UPSTREAM_CA_DER",
-            ),
-            (
-                "LAYERX_EVENTS_WEBHOOKS_UPSTREAM_URL",
-                "LAYERX_EVENTS_WEBHOOKS_UPSTREAM_CA_DER",
-            ),
-        ] {
-            environment.set(url, events_url.clone());
-            environment.set(
-                ca,
-                environment.root.join("authority-ca.der").into_os_string(),
-            );
-        }
         for (name, value) in env::vars_os() {
             if name.to_string_lossy().starts_with("LAYERX_HUMAN_") {
                 environment.saved.push((name.clone(), Some(value)));
@@ -140,15 +99,61 @@ impl Environment {
             }}),
         )?;
         for (name, value) in loader_environment(&environment.root, &cluster, digest.bytes())? {
-            assert!(!retired_variable(name));
             environment.set(name, value);
+        }
+        let mut events_secret = [0; 32];
+        getrandom::fill(&mut events_secret).map_err(|error| error.to_string())?;
+        write_private(
+            &environment.root.join("events-token"),
+            URL_SAFE_NO_PAD.encode(events_secret).as_bytes(),
+        )?;
+        getrandom::fill(&mut events_secret).map_err(|error| error.to_string())?;
+        write_private(
+            &environment.root.join("events-identity-password"),
+            URL_SAFE_NO_PAD.encode(events_secret).as_bytes(),
+        )?;
+        cluster::openssl(
+            &environment.root,
+            &[
+                "pkcs12",
+                "-export",
+                "-in",
+                &cluster.pki.path("gateway.pem").display().to_string(),
+                "-inkey",
+                &cluster.pki.path("gateway.key").display().to_string(),
+                "-passout",
+                "file:events-identity-password",
+                "-out",
+                "events-client.p12",
+            ],
+        )?;
+        fs::set_permissions(
+            environment.root.join("events-client.p12"),
+            fs::Permissions::from_mode(0o600),
+        )?;
+        for prefix in [
+            "LAYERX_EVENTS_JOURNEY",
+            "LAYERX_EVENTS_APPROVAL",
+            "LAYERX_EVENTS_WEBHOOKS",
+        ] {
+            environment.set(&format!("{prefix}_UPSTREAM_URL"), events_url.clone());
+            for (suffix, file) in [
+                ("CA_DER", "attestor-ca.der"),
+                ("TOKEN_FILE", "events-token"),
+                ("CLIENT_IDENTITY_PKCS12", "events-client.p12"),
+                ("CLIENT_IDENTITY_PASSWORD_FILE", "events-identity-password"),
+            ] {
+                environment.set(
+                    &format!("{prefix}_UPSTREAM_{suffix}"),
+                    environment.root.join(file).into_os_string(),
+                );
+            }
         }
         environment.cluster = Some(cluster);
         write_private(
             &environment.root.join("purpose-catalog.json"),
             &serde_json::to_vec(&purpose_catalog())?,
         )?;
-        assert!(env::vars_os().all(|(name, _)| !retired_variable(&name.to_string_lossy())));
         Ok(environment)
     }
 
@@ -160,26 +165,20 @@ impl Environment {
         env::set_var(name, value.into());
     }
 
-    fn start_agent(&self) -> Result<Process, Box<dyn std::error::Error>> {
+    fn start_agent(&mut self) -> Result<Process, Box<dyn std::error::Error>> {
         let binary = env::var_os("LAYERX_TEST_AGENTD_BIN")
             .ok_or("LAYERX_TEST_AGENTD_BIN must name the built, real layerx-agentd")?;
-        let native = env::var_os("LAYERX_TEST_NATIVE_BIN_DIR").ok_or(
-            "do_16 precondition: LAYERX_TEST_NATIVE_BIN_DIR must provide the real node binaries",
-        )?;
-        if !rustix::process::getuid().is_root() {
-            return Err(
-                "do_16 precondition: the real node fixture requires root for a distinct daemon uid"
-                    .into(),
-            );
-        }
-        let rpc_port: u16 = env::var("LAYERX_TEST_PAXEER_RPC_PORT")
-            .map_err(|error| format!("LAYERX_TEST_PAXEER_RPC_PORT: {error}"))?
-            .parse()?;
-        let chain_id: u64 = env::var("LAYERX_TEST_PAXEER_CHAIN_ID")
-            .map_err(|error| format!("LAYERX_TEST_PAXEER_CHAIN_ID: {error}"))?
-            .parse()?;
-        let network = env::var("LAYERX_HUMAN_NETWORK_ID")?;
-        let node = start_node(&self.root, Path::new(&native), network.parse()?)?;
+        let rpc_url =
+            env::var("LOCAL_NODE_RPC").map_err(|error| format!("LOCAL_NODE_RPC: {error}"))?;
+        let network: u32 = env::var("LAYERX_HUMAN_NETWORK_ID")?.parse()?;
+        let chain_id = SequencerEndpoint::new(&rpc_url, &[])
+            .map_err(|error| format!("LOCAL_NODE_RPC endpoint: {error:?}"))?
+            .chain_id()
+            .map_err(|error| format!("LOCAL_NODE_RPC eth_chainId: {error:?}"))?;
+        assert_eq!(chain_id, u64::from(network), "local node network mismatch");
+        let node_rpc = NodeRpcAdapter::start(rpc_url, network)?;
+        self.set("LAYERX_AGENT_NODE_RPC_URL", node_rpc.endpoint.clone());
+        self.set("LAYERX_AGENT_NODE_CHAIN_ID", chain_id.to_string());
         let authority = Authority::start(&self.root)?;
         let uid = rustix::process::getuid().as_raw().to_string();
         let gid = rustix::process::getgid().as_raw().to_string();
@@ -195,7 +194,7 @@ impl Environment {
         let native_policy = serde_json::to_string(&json!({
             "schema": "layerx.native-program-policy.v1",
             "version": "production-unhooked-v1",
-            "network_id": network.parse::<u32>()?,
+            "network_id": network,
             "step_limit": 1,
             "rules": [{
                 "id": "no-program-writes", "effect": "Deny",
@@ -219,15 +218,8 @@ impl Environment {
         let mut process = Process::new(
             Command::new(binary)
                 .env("LAYERX_AGENT_MODE", "human-owner")
-                .env(
-                    "LAYERX_AGENT_NODE_RPC_URL",
-                    format!("http://127.0.0.1:{rpc_port}"),
-                )
+                .env("LAYERX_AGENT_NODE_RPC_URL", &node_rpc.endpoint)
                 .env("LAYERX_AGENT_NODE_CHAIN_ID", chain_id.to_string())
-                .env(
-                    "LAYERX_AGENT_HUMAN_NODE_LNI",
-                    self.root.join("node-run/layerxd.sock"),
-                )
                 .env("LAYERX_AGENT_HUMAN_AUTHORITY_ENDPOINT", &authority.endpoint)
                 .env("LAYERX_AGENT_HUMAN_AUTHORITY_BEARER", &authority.bearer)
                 .env(
@@ -254,10 +246,10 @@ impl Environment {
                     "LAYERX_AGENT_HUMAN_SESSION_OPERATOR_SECRET_FILE",
                     operator_secret,
                 )
-                .env("LAYERX_AGENT_HUMAN_NETWORK_ID", network)
+                .env("LAYERX_AGENT_HUMAN_NETWORK_ID", network.to_string())
                 .env(
                     "LAYERX_AGENT_HUMAN_PROTOCOL_VERSION",
-                    layerx_wire::limits::PROTOCOL_VERSION.to_string(),
+                    layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION.to_string(),
                 )
                 .env("LAYERX_AGENT_HUMAN_MAX_FRAME_BYTES", "1048576")
                 .env("LAYERX_AGENT_HUMAN_MAX_CONNECTIONS", "4")
@@ -282,8 +274,8 @@ impl Environment {
                 .stderr(fs::File::create(&stderr)?)
                 .spawn()?,
         );
-        process.1.push(node);
-        process.2 = Some(authority);
+        process.1 = Some(authority);
+        process.2 = Some(node_rpc);
         let clock = RuntimeClock::from_environment()?;
         let mut deadline = Deadline::start(clock.as_ref(), Duration::from_secs(15))?;
         loop {
@@ -307,6 +299,162 @@ impl Environment {
                 .into());
             }
             std::thread::sleep(Duration::from_millis(20));
+        }
+    }
+}
+
+struct NodeRpcAdapter {
+    endpoint: String,
+    stop: Arc<AtomicBool>,
+    worker: Option<JoinHandle<()>>,
+}
+
+impl NodeRpcAdapter {
+    fn start(upstream: String, network: u32) -> Result<Self, Box<dyn std::error::Error>> {
+        let comet = env::var("PERPS_DATA_TEST_COMET")
+            .map_err(|error| format!("PERPS_DATA_TEST_COMET: {error}"))?;
+        let listener = TcpListener::bind("127.0.0.1:0")?;
+        let endpoint = format!("http://{}", listener.local_addr()?);
+        listener.set_nonblocking(true)?;
+        let stop = Arc::new(AtomicBool::new(false));
+        let stopped = Arc::clone(&stop);
+        let worker = thread::spawn(move || {
+            let agent = ureq::Agent::config_builder()
+                .timeout_global(Some(Duration::from_secs(5)))
+                .http_status_as_error(false)
+                .build()
+                .new_agent();
+            while !stopped.load(Ordering::Acquire) {
+                let mut stream = match listener.accept() {
+                    Ok((stream, _)) => stream,
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        thread::sleep(Duration::from_millis(10));
+                        continue;
+                    }
+                    Err(error) => panic!("node RPC adapter accept: {error}"),
+                };
+                stream
+                    .set_read_timeout(Some(Duration::from_secs(5)))
+                    .expect("node RPC adapter read timeout");
+                stream
+                    .set_write_timeout(Some(Duration::from_secs(5)))
+                    .expect("node RPC adapter write timeout");
+                let mut headers = Vec::new();
+                while !headers.ends_with(b"\r\n\r\n") {
+                    assert!(headers.len() < 16_384, "node RPC request header bound");
+                    let mut byte = [0];
+                    stream.read_exact(&mut byte).expect("node RPC headers");
+                    headers.push(byte[0]);
+                }
+                let headers = String::from_utf8(headers).expect("node RPC HTTP UTF-8");
+                let length: usize = headers
+                    .lines()
+                    .filter_map(|line| line.split_once(':'))
+                    .find(|(name, _)| name.eq_ignore_ascii_case("content-length"))
+                    .expect("node RPC content length")
+                    .1
+                    .trim()
+                    .parse()
+                    .expect("node RPC content length integer");
+                assert!(length <= 1_048_576, "node RPC request body bound");
+                let mut body = vec![0; length];
+                stream.read_exact(&mut body).expect("node RPC body");
+                let request: Value = serde_json::from_slice(&body).expect("node RPC JSON");
+                let answer = if request["method"] == "px_getNetwork" {
+                    let mut response = agent
+                        .get(format!("{}/status", comet.trim_end_matches('/')))
+                        .call()
+                        .expect("real CometBFT status");
+                    assert!(response.status().is_success(), "CometBFT status HTTP");
+                    let status: Value = serde_json::from_slice(
+                        &response
+                            .body_mut()
+                            .read_to_vec()
+                            .expect("CometBFT status body"),
+                    )
+                    .expect("CometBFT status JSON");
+                    let sync = &status["sync_info"];
+                    let height = sync["latest_block_height"]
+                        .as_str()
+                        .expect("CometBFT latest height");
+                    height.parse::<u64>().expect("CometBFT decimal height");
+                    let block_hash = sync["latest_block_hash"]
+                        .as_str()
+                        .expect("CometBFT latest block hash");
+                    let app_hash = sync["latest_app_hash"]
+                        .as_str()
+                        .expect("CometBFT latest app hash");
+                    let catching_up = sync["catching_up"].as_bool().expect("CometBFT catching up");
+                    let quantity = |method: &str| {
+                        let body =
+                            json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": []})
+                                .to_string();
+                        let mut response = agent
+                            .post(&upstream)
+                            .header("Content-Type", "application/json")
+                            .send(body.as_bytes())
+                            .expect("real node network quantity");
+                        assert!(response.status().is_success(), "node quantity HTTP");
+                        let answer: Value = serde_json::from_slice(
+                            &response
+                                .body_mut()
+                                .read_to_vec()
+                                .expect("node quantity body"),
+                        )
+                        .expect("node quantity JSON");
+                        assert!(answer.get("error").is_none(), "node quantity RPC: {answer}");
+                        answer["result"]
+                            .as_str()
+                            .expect("node quantity text")
+                            .to_owned()
+                    };
+                    let chain_id = quantity("eth_chainId");
+                    let latest_block = quantity("eth_blockNumber");
+                    serde_json::to_vec(&json!({
+                        "jsonrpc": "2.0",
+                        "id": request["id"],
+                        "result": {
+                            "network_id": network.to_string(),
+                            "paxeer": {"chain_id": chain_id, "latest_block": latest_block},
+                            "consensus": {
+                                "latest_height": height,
+                                "latest_block_hash": block_hash,
+                                "latest_app_hash": app_hash,
+                                "catching_up": catching_up
+                            }
+                        }
+                    }))
+                    .expect("network response JSON")
+                } else {
+                    agent
+                        .post(&upstream)
+                        .header("Content-Type", "application/json")
+                        .send(&body)
+                        .expect("forward node RPC")
+                        .body_mut()
+                        .read_to_vec()
+                        .expect("forward node RPC response")
+                };
+                write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", answer.len())
+                    .expect("node RPC response headers");
+                stream.write_all(&answer).expect("node RPC response body");
+                stream.flush().expect("node RPC response flush");
+            }
+        });
+        Ok(Self {
+            endpoint,
+            stop,
+            worker: Some(worker),
+        })
+    }
+}
+
+impl Drop for NodeRpcAdapter {
+    fn drop(&mut self) {
+        self.stop.store(true, Ordering::Release);
+        let result = self.worker.take().expect("node RPC adapter worker").join();
+        if !thread::panicking() {
+            result.expect("node RPC adapter worker panicked");
         }
     }
 }
@@ -466,366 +614,6 @@ impl Drop for Authority {
     }
 }
 
-#[allow(dead_code)]
-#[path = "../../../../../tests/support/lxgb_metadata.rs"]
-mod lxgb_metadata;
-
-fn start_node(
-    root: &Path,
-    native: &Path,
-    network: u32,
-) -> Result<Process, Box<dyn std::error::Error>> {
-    let chain_id: u64 = env::var("LAYERX_TEST_PAXEER_CHAIN_ID")?.parse()?;
-    let rpc_port: u16 = env::var("LAYERX_TEST_PAXEER_RPC_PORT")?.parse()?;
-    assert!(chain_id != 0 && rpc_port != 0);
-    let genesis = root.join("genesis");
-    let node = root.join("node");
-    let run = root.join("node-run");
-    let replica = root.join("replica");
-    for directory in [&genesis, &node, &replica] {
-        DirBuilder::new().mode(0o700).create(directory)?;
-    }
-    DirBuilder::new().mode(0o750).create(&run)?;
-    DirBuilder::new()
-        .mode(0o700)
-        .create(node.join("checkpoints"))?;
-    DirBuilder::new().mode(0o700).create(node.join("logs"))?;
-    fs::set_permissions(root, fs::Permissions::from_mode(0o711))?;
-    cluster::openssl(
-        &genesis,
-        &[
-            "genpkey",
-            "-algorithm",
-            "EC",
-            "-pkeyopt",
-            "ec_paramgen_curve:secp256k1",
-            "-out",
-            "guarantor.key",
-        ],
-    )?;
-    cluster::openssl(
-        &genesis,
-        &[
-            "ec",
-            "-in",
-            "guarantor.key",
-            "-pubout",
-            "-conv_form",
-            "compressed",
-            "-outform",
-            "DER",
-            "-out",
-            "guarantor.der",
-        ],
-    )?;
-    let public = fs::read(genesis.join("guarantor.der"))?;
-    let guarantor = &public[public.len() - 33..];
-    let clock = RuntimeClock::from_environment()?;
-    let now = clock.sample(Duration::from_secs(1))?.unix_milliseconds;
-    let protocol = layerx_wire::limits::PROTOCOL_VERSION;
-    let asset = random32()?;
-    let seed = random32()?;
-    let key = ed25519_dalek::SigningKey::from_bytes(&seed)
-        .verifying_key()
-        .to_bytes();
-    let mut request = b"LXGB".to_vec();
-    request.push(2);
-    request.extend_from_slice(&protocol.to_be_bytes());
-    request.extend_from_slice(&network.to_be_bytes());
-    request.extend_from_slice(&now.to_be_bytes());
-    request.extend_from_slice(&1_u16.to_be_bytes());
-    request.extend_from_slice(&7_u16.to_be_bytes());
-    let mut parameter = [0; 32];
-    parameter[..17].copy_from_slice(b"parameter-version");
-    request.extend_from_slice(&parameter);
-    let mut version = [0; 32];
-    version[31] = 1;
-    request.extend_from_slice(&version);
-    request.extend_from_slice(&1_u16.to_be_bytes());
-    let mut guarantor_id = [0; 32];
-    guarantor_id[0] = 1;
-    request.extend_from_slice(&guarantor_id);
-    request.extend_from_slice(guarantor);
-    request.extend_from_slice(&[0; 16]);
-    request.extend_from_slice(&asset);
-    request.extend_from_slice(&1_u32.to_be_bytes());
-    for value in [1_u64, 1, 1, 1, 1, 8, 8, 64, 8] {
-        request.extend_from_slice(&value.to_be_bytes());
-    }
-    request.extend_from_slice(&1_u64.to_be_bytes());
-    request.push(1);
-    request.extend_from_slice(&1_u32.to_be_bytes());
-    for value in [1_u64, 1, 2, 4, 1, 1, 100, 100, 1, 1, 10, 1, 1000] {
-        request.extend_from_slice(&value.to_be_bytes());
-    }
-    lxgb_metadata::append(&mut request, &asset, &key, &random32()?);
-    write_private(&genesis.join("request.lxgb"), &request)?;
-    write_private(&genesis.join("signer.key"), &random32()?)?;
-    let artifacts = genesis.join("artifacts");
-    let output = Command::new(native.join("layerx-genesis-build"))
-        .arg(genesis.join("request.lxgb"))
-        .arg(genesis.join("signer.key"))
-        .arg(&artifacts)
-        .output()?;
-    if !output.status.success() {
-        return Err(format!(
-            "real genesis builder failed {}: {}",
-            output.status,
-            String::from_utf8_lossy(&output.stderr)
-        )
-        .into());
-    }
-    let registration_request = fs::read(artifacts.join("paxeer-registration-request.lxrr"))?;
-    assert_eq!(registration_request.len(), 73);
-    assert_eq!(&registration_request[..4], b"LXRR");
-    let mut registration = b"LXGR".to_vec();
-    registration.push(1);
-    registration.extend_from_slice(&network.to_be_bytes());
-    registration.extend_from_slice(&0_u64.to_be_bytes());
-    registration.extend_from_slice(&registration_request[41..73]);
-    registration.extend_from_slice(&registration_request[41..73]);
-    registration.push(1);
-    write_private(&node.join("registration.lxgr"), &registration)?;
-    let actor = env::var("LAYERX_HUMAN_AGENT_ACTOR")?;
-    write_private(
-        &node.join("identities.txt"),
-        format!(
-            "{}:{}:1\n",
-            cluster::hex(actor.as_bytes()),
-            cluster::hex(&key)
-        )
-        .as_bytes(),
-    )?;
-    for (directory, role) in [(&node, "sequencer"), (&replica, "replica")] {
-        write_private(&directory.join("config.txt"), format!("config_version=2\nrole={role}\nnetwork_id={network}\nstart_sequence=0\nverify_workers=0\nserial_execution=true\n").as_bytes())?;
-    }
-    for directory in [&genesis, &node, &run, &replica] {
-        chown_node(directory)?;
-    }
-    let ports = [
-        TcpListener::bind("127.0.0.1:0")?,
-        TcpListener::bind("127.0.0.1:0")?,
-    ];
-    let replica_port = ports[0].local_addr()?.port();
-    let program_port = ports[1].local_addr()?.port();
-    let sequencer_id = cluster::hex(&random32()?);
-    let replica_id = cluster::hex(&random32()?);
-    let replica_token = cluster::hex(&random32()?);
-    let layerxd = native.join("layerxd");
-    let mut replica_command = node_command(
-        &layerxd,
-        "--authority-replica",
-        &replica.join("config.txt"),
-        &root.join("replica.stderr"),
-    )?;
-    replica_command
-        .env("LAYERX_AUTHORITY_REPLICA_LOG", replica.join("replica.log"))
-        .env("LAYERX_AUTHORITY_REPLICA_ID", &replica_id)
-        .env("LAYERX_AUTHORITY_SEQUENCER_ID", &sequencer_id)
-        .env("LAYERX_AUTHORITY_SEQUENCER_PUBLIC_KEY", cluster::hex(&key))
-        .env("LAYERX_AUTHORITY_FIRST_BATCH", "1")
-        .env("LAYERX_AUTHORITY_LAST_BATCH", u64::MAX.to_string())
-        .env("LAYERX_AUTHORITY_BEARER_TOKEN", &replica_token)
-        .env("LAYERX_AUTHORITY_ADDRESS", "127.0.0.1")
-        .env("LAYERX_AUTHORITY_PORT", replica_port.to_string());
-    drop(ports);
-    let mut replica_process = Process::new(replica_command.spawn()?);
-    wait_for_process(
-        &mut replica_process,
-        &root.join("replica.stderr"),
-        "",
-        || TcpStream::connect(("127.0.0.1", replica_port)).is_ok(),
-    )?;
-    let mut command = node_command(
-        &layerxd,
-        "--serve",
-        &node.join("config.txt"),
-        &root.join("node.stderr"),
-    )?;
-    command
-        .env("LAYERX_NODE_PAXEER_CHAIN_ID", chain_id.to_string())
-        .env("LAYERX_NODE_PAXEER_RPC_ADDRESS", "127.0.0.1")
-        .env("LAYERX_NODE_PAXEER_RPC_PORT", rpc_port.to_string())
-        .env(
-            "LAYERX_NODE_SETTLEMENT_CONTRACT",
-            "0x0000000000000000000000000000000000001014",
-        )
-        .env(
-            "LAYERX_NODE_CHECKPOINT_REGISTRY",
-            "0x0000000000000000000000000000000000001014",
-        )
-        .env("LAYERX_NODE_CHECKPOINT_DIRECTORY", node.join("checkpoints"))
-        .env(
-            "LAYERX_NODE_SNAPSHOT",
-            artifacts.join("00000000000000000000.lxs"),
-        )
-        .env(
-            "LAYERX_NODE_GENESIS_MANIFEST",
-            artifacts.join("genesis.manifest"),
-        )
-        .env(
-            "LAYERX_NODE_GENESIS_REGISTRATION",
-            node.join("registration.lxgr"),
-        )
-        .env("LAYERX_NODE_IDENTITIES", node.join("identities.txt"))
-        .env("LAYERX_NODE_HISTORY_DATABASE", node.join("history.db"))
-        .env(
-            "LAYERX_NODE_HISTORY_MIGRATIONS",
-            Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("../../../../migrations/0007_history_index.sql"),
-        )
-        .env("LAYERX_NODE_SEQUENCER_ID", sequencer_id)
-        .env("LAYERX_NODE_SEQUENCER_PUBLIC_KEY", cluster::hex(&key))
-        .env("LAYERX_NODE_SEQUENCER_PRIVATE_KEY", cluster::hex(&seed))
-        .env("LAYERX_NODE_FIRST_BATCH", "1")
-        .env("LAYERX_NODE_LAST_BATCH", u64::MAX.to_string())
-        .env("LAYERX_NODE_AUTHORITY_REPLICA_ADDRESS", "127.0.0.1")
-        .env(
-            "LAYERX_NODE_AUTHORITY_REPLICA_PORT",
-            replica_port.to_string(),
-        )
-        .env("LAYERX_NODE_AUTHORITY_REPLICA_ID", replica_id)
-        .env("LAYERX_NODE_AUTHORITY_REPLICA_BEARER_TOKEN", replica_token)
-        .env(
-            "LAYERX_NODE_PROGRAM_BEARER_TOKEN",
-            cluster::hex(&random32()?),
-        )
-        .env("LAYERX_NODE_PROGRAM_ADDRESS", "127.0.0.1")
-        .env("LAYERX_NODE_PROGRAM_PORT", program_port.to_string())
-        .env("LAYERX_NODE_LNI_SOCKET", run.join("layerxd.sock"))
-        .env("LAYERX_NODE_LNI_ALLOWED_UID", "0")
-        .env("LAYERX_NODE_LNI_ALLOWED_GID", "0")
-        .env("LAYERX_NODE_LNI_FRAME_BYTES", "1212416")
-        .env("LAYERX_NODE_LNI_DEADLINE_MS", "10000");
-    for (variable, file) in [
-        ("LAYERX_NODE_PROGRAM_FEED_LOG", "feed.log"),
-        ("LAYERX_NODE_CANONICAL_LOG", "canonical.log"),
-        ("LAYERX_NODE_RECEIPT_AUTHORITY_LOG", "receipt-authority.log"),
-        ("LAYERX_NODE_BATCH_LOG", "batch.log"),
-        ("LAYERX_NODE_EVIDENCE_LOG", "evidence.log"),
-    ] {
-        command.env(variable, node.join("logs").join(file));
-    }
-    let finality_diagnostics = finality_rpc_diagnostics(rpc_port);
-    let mut process = Process::new(command.spawn()?);
-    process.1.push(replica_process);
-    wait_for_process(
-        &mut process,
-        &root.join("node.stderr"),
-        &finality_diagnostics,
-        || run.join("layerxd.sock").exists(),
-    )?;
-    Ok(process)
-}
-
-fn finality_rpc_diagnostics(port: u16) -> String {
-    use sha3::{Digest as _, Keccak256};
-
-    let mut diagnostics = String::new();
-    for signature in ["eth_chainId", "threshold()", "latestFinalized()"] {
-        let (method, params) = if signature == "eth_chainId" {
-            ("eth_chainId", json!([]))
-        } else {
-            let selector = Keccak256::digest(signature.as_bytes());
-            (
-                "eth_call",
-                json!([{
-                    "to": "0x0000000000000000000000000000000000001014",
-                    "data": format!("0x{}", cluster::hex(&selector[..4])),
-                }, "latest"]),
-            )
-        };
-        let body =
-            json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}).to_string();
-        let mut response = Vec::new();
-        let result = (|| -> std::io::Result<()> {
-            let mut stream = TcpStream::connect_timeout(
-                &std::net::SocketAddr::from(([127, 0, 0, 1], port)),
-                Duration::from_secs(5),
-            )?;
-            stream.set_read_timeout(Some(Duration::from_secs(5)))?;
-            stream.set_write_timeout(Some(Duration::from_secs(5)))?;
-            write!(stream, "POST / HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len())?;
-            stream.read_to_end(&mut response)?;
-            Ok(())
-        })();
-        diagnostics.push_str(&format!(
-            "\n{signature} raw HTTP response:\n{}",
-            String::from_utf8_lossy(&response)
-        ));
-        if let Err(error) = result {
-            diagnostics.push_str(&format!("\nRPC diagnostic transport error: {error}"));
-        }
-    }
-    diagnostics
-}
-
-fn random32() -> Result<[u8; 32], Box<dyn std::error::Error>> {
-    let mut bytes = [0; 32];
-    getrandom::fill(&mut bytes).map_err(|error| error.to_string())?;
-    Ok(bytes)
-}
-
-fn chown_node(path: &Path) -> std::io::Result<()> {
-    std::os::unix::fs::chown(path, Some(65_534), Some(0))?;
-    if path.is_dir() {
-        for entry in fs::read_dir(path)? {
-            chown_node(&entry?.path())?;
-        }
-    }
-    Ok(())
-}
-
-fn node_command(
-    binary: &Path,
-    mode: &str,
-    config: &Path,
-    stderr: &Path,
-) -> Result<Command, Box<dyn std::error::Error>> {
-    let mut command = Command::new(binary);
-    command
-        .arg(mode)
-        .arg(config)
-        .env_clear()
-        .env("PATH", "/usr/bin:/bin")
-        .uid(65_534)
-        .gid(0)
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(fs::File::create(stderr)?);
-    Ok(command)
-}
-
-fn wait_for_process(
-    process: &mut Process,
-    stderr: &Path,
-    diagnostics: &str,
-    ready: impl Fn() -> bool,
-) -> TestResult {
-    let clock = RuntimeClock::from_environment()?;
-    let mut deadline = Deadline::start(clock.as_ref(), Duration::from_secs(30))?;
-    loop {
-        if let Some(status) = process.0.try_wait()? {
-            return Err(format!(
-                "real node exited {status}: {}{diagnostics}",
-                fs::read_to_string(stderr)?
-            )
-            .into());
-        }
-        if ready() {
-            return Ok(());
-        }
-        if deadline.remaining(clock.as_ref())?.is_zero() {
-            return Err(format!(
-                "real node startup timed out: {}",
-                fs::read_to_string(stderr)?
-            )
-            .into());
-        }
-        thread::sleep(Duration::from_millis(20));
-    }
-}
-
 fn write_private(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     fs::write(path, bytes)?;
     fs::set_permissions(path, fs::Permissions::from_mode(0o600))
@@ -955,23 +743,6 @@ fn loader_environment(
             "LAYERX_HUMAN_IDENTITY_PEER_GID",
             rustix::process::getgid().as_raw().to_string(),
         ),
-        (
-            "LAYERX_HUMAN_MOVEMENT_SOCKET",
-            path("movement-socket/movement.sock"),
-        ),
-        (
-            "LAYERX_HUMAN_MOVEMENT_PEER_UID",
-            rustix::process::getuid().as_raw().to_string(),
-        ),
-        (
-            "LAYERX_HUMAN_MOVEMENT_PEER_GID",
-            rustix::process::getgid().as_raw().to_string(),
-        ),
-        (
-            "LAYERX_HUMAN_MOVEMENT_MAX_FRAME_BYTES",
-            "1048576".to_owned(),
-        ),
-        ("LAYERX_HUMAN_MOVEMENT_DEADLINE_SECONDS", "5".to_owned()),
         ("LAYERX_HUMAN_ATTESTOR_NODES", nodes),
         ("LAYERX_HUMAN_ATTESTOR_SIGNERS", cluster::SIGNERS.join(",")),
         (
@@ -1052,11 +823,11 @@ impl Drop for Environment {
     }
 }
 
-struct Process(Child, Vec<Process>, Option<Authority>);
+struct Process(Child, Option<Authority>, Option<NodeRpcAdapter>);
 
 impl Process {
     fn new(child: Child) -> Self {
-        Self(child, Vec::new(), None)
+        Self(child, None, None)
     }
 }
 
@@ -1072,8 +843,15 @@ fn production_components_open_without_paxeer_or_exit_environment() -> TestResult
     let _guard = ENVIRONMENT
         .lock()
         .map_err(|_| "environment mutex poisoned")?;
-    let environment = Environment::new()?;
+    let mut environment = Environment::new()?;
     let configuration = ProductionComponentsConfig::from_environment()?;
+    validate_production_configuration(&configuration)?;
+    for name in RETIRED_OPERATIONS {
+        assert!(
+            !PRODUCTION_OPERATIONS.contains(&name),
+            "retired dispatch {name}"
+        );
+    }
     let _agent = environment.start_agent()?;
     let clock = RuntimeClock::from_environment()?;
     let components = ProductionComponents::open(configuration, clock)?;

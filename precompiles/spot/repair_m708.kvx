@@ -1,0 +1,12 @@
+[repair.22.33.708]
+finding = "share-golden-served-claim"
+base_revision = "fedbeb3bb47c5bb972f66afc8189f92f5395f3eb"
+tests = ["TestRepairM_708_ShareGoldenSnapshot", "TestRepairM_708_ShareSupportedSelectors", "TestRepairM_708_ShareUnsupportedSelectors", "TestRepairM_708_ShareRevertBytes"]
+implementation = "Preserve all historical snapshot assertions against share-solidity.json; separately exercise every deployment selector through the activated native share pointer, bank balances and supply, five administration refusals for holder/vault/governance, and exact custom error bytes with rollback."
+baseline = "Not executed: the task's explicit gate order forbids verification before full implementation and permits verification only through hf-done; no baseline failure is claimed. Source inspection found the historical snapshot was incorrectly compared to the native ABI."
+wiring_requests = []
+evidence = "The runner records the exact candidate revision, command, exit and private log in /out/run/gates.jsonl; the final response copies the last gate evidence."
+qualification_repair = "Initial verification exposed a test compilation error: StaticCallEVM requires sdk.AccAddress; convert the EVM holder through GetPaxAddressOrDefault before the native pointer view call."
+previous_attempt_revision = "6c3953e94830de7d50a37ec518c2bc973ecde8f1"
+previous_attempt_failures = ["TestRepairM_708_ShareSupportedSelectors/allowance", "TestRepairM_708_ShareRevertBytes"]
+continuation_repair = "ABI decoding constructs zero big.Int values with a non-nil empty magnitude while big.NewInt(0) has a nil magnitude; assert exact numeric equality with Cmp and the decoded type, retain exact revert bytes, and additionally require exact encoded view bytes."

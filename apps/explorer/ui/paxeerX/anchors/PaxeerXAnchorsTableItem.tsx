@@ -29,6 +29,20 @@ const PaxeerXAnchorsTableItem = ({ item, isLoading }: Props) => {
           { item.batch_number }
         </Skeleton>
       </TableCell>
+      <TableCell verticalAlign="middle" data-label="checkpoint-id">
+        <Flex overflow="hidden" w="100%" alignItems="center">
+          <Skeleton loading={ isLoading }>
+            <HashStringShorten hash={ item.checkpoint_id } type="long"/>
+          </Skeleton>
+          { isLoading ? (
+            <Skeleton loading={ isLoading } asChild boxSize={ 5 } ml={ 2 } flexShrink={ 0 }>
+              <button type="button" aria-label="copy" data-loading-skeleton disabled style={{ pointerEvents: 'none' }}/>
+            </Skeleton>
+          ) : (
+            <CopyToClipboard text={ item.checkpoint_id } ml={ 2 }/>
+          ) }
+        </Flex>
+      </TableCell>
       <TableCell verticalAlign="middle">
         <Skeleton loading={ isLoading } display="inline-block" fontWeight={ 600 } data-label="checkpoint-height">
           { item.checkpoint_height ?? <Text as="span" color="text.secondary">—</Text> }

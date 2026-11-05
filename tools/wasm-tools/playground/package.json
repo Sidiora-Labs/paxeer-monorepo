@@ -13,5 +13,8 @@
     "@bytecodealliance/jco": "^1.2.4",
     "esbuild": "^0.25.0",
     "typescript": "^5.4.5"
+  },
+  "overrides": {
+    "minimatch": "11.0.1"
   }
 }

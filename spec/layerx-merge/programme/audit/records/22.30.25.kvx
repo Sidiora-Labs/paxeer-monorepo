@@ -1,0 +1,516 @@
+[audit.22.30.25]
+task = "22.30.25"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 64
+findings = 11
+docs_reviewed = 1
+upgrade_ready = false
+blocking = ["native-value-loss", "multicall-metering"]
+
+[file.1]
+path = "precompiles/launchpad/Launchpad.sol"
+lines = 250
+verdict = "clean"
+note = "Direct mirror includes 113 methods, twelve family events and 64 custom errors; tuple fields and overloads match abi.json."
+
+[file.2]
+path = "precompiles/launchpad/abi.go"
+lines = 30
+verdict = "clean"
+note = "All eleven embedded role ABIs load, with retained ERC20 selectors available for nested calls."
+
+[file.3]
+path = "precompiles/launchpad/abi.json"
+lines = 3567
+verdict = "generated"
+note = "Generated ABI snapshot from the corresponding Launchpad/Launch-x Solidity interface, retained as a contract artifact; inherited duplicate errors are deduplicated by the Go ABI map."
+
+[file.4]
+path = "precompiles/launchpad/abi/FeeAccumulator.json"
+lines = 1502
+verdict = "generated"
+note = "Generated ABI snapshot from the corresponding Launchpad/Launch-x Solidity interface, retained as a contract artifact; inherited duplicate errors are deduplicated by the Go ABI map."
+
+[file.5]
+path = "precompiles/launchpad/abi/FeesRouter.json"
+lines = 707
+verdict = "generated"
+note = "Generated ABI snapshot from the corresponding Launchpad/Launch-x Solidity interface, retained as a contract artifact; inherited duplicate errors are deduplicated by the Go ABI map."
+
+[file.6]
+path = "precompiles/launchpad/abi/PoolRegistry.json"
+lines = 703
+verdict = "generated"
+note = "Generated ABI snapshot from the corresponding Launchpad/Launch-x Solidity interface, retained as a contract artifact; inherited duplicate errors are deduplicated by the Go ABI map."
+
+[file.7]
+path = "precompiles/launchpad/abi/ProtocolConfig.json"
+lines = 627
+verdict = "generated"
+note = "Generated ABI snapshot from the corresponding Launchpad/Launch-x Solidity interface, retained as a contract artifact; inherited duplicate errors are deduplicated by the Go ABI map."
+
+[file.8]
+path = "precompiles/launchpad/abi/Quoter.json"
+lines = 681
+verdict = "generated"
+note = "Generated ABI snapshot from the corresponding Launchpad/Launch-x Solidity interface, retained as a contract artifact; inherited duplicate errors are deduplicated by the Go ABI map."
+
+[file.9]
+path = "precompiles/launchpad/abi/Router.json"
+lines = 1074
+verdict = "generated"
+note = "Generated ABI snapshot from the corresponding Launchpad/Launch-x Solidity interface, retained as a contract artifact; inherited duplicate errors are deduplicated by the Go ABI map."
+
+[file.10]
+path = "precompiles/launchpad/abi/SidioraERC20.json"
+lines = 479
+verdict = "generated"
+note = "Generated ABI snapshot from the corresponding Launchpad/Launch-x Solidity interface, retained as a contract artifact; inherited duplicate errors are deduplicated by the Go ABI map."
+
+[file.11]
+path = "precompiles/launchpad/abi/SidioraFactory.json"
+lines = 706
+verdict = "generated"
+note = "Generated ABI snapshot from the corresponding Launchpad/Launch-x Solidity interface, retained as a contract artifact; inherited duplicate errors are deduplicated by the Go ABI map."
+
+[file.12]
+path = "precompiles/launchpad/abi/SidioraNFT.json"
+lines = 1028
+verdict = "generated"
+note = "Generated ABI snapshot from the corresponding Launchpad/Launch-x Solidity interface, retained as a contract artifact; inherited duplicate errors are deduplicated by the Go ABI map."
+
+[file.13]
+path = "precompiles/launchpad/abi/SidioraPool.json"
+lines = 896
+verdict = "generated"
+note = "Generated ABI snapshot from the corresponding Launchpad/Launch-x Solidity interface, retained as a contract artifact; inherited duplicate errors are deduplicated by the Go ABI map."
+
+[file.14]
+path = "precompiles/launchpad/abi/Treasury.json"
+lines = 593
+verdict = "generated"
+note = "Generated ABI snapshot from the corresponding Launchpad/Launch-x Solidity interface, retained as a contract artifact; inherited duplicate errors are deduplicated by the Go ABI map."
+
+[file.15]
+path = "precompiles/launchpad/abi_core_test.go"
+lines = 55
+verdict = "clean"
+note = "Core role ABI counts and constructor/function/event/error categories match contract artifacts."
+
+[file.16]
+path = "precompiles/launchpad/abi_data_test.go"
+lines = 52
+verdict = "clean"
+note = "Data-role ABI inventory covers accumulator, fees router, registry and configuration."
+
+[file.17]
+path = "precompiles/launchpad/abi_direct_test.go"
+lines = 237
+verdict = "clean"
+note = "Direct union precedence, all initialize overloads and complete custom-error mirror have explicit assertions."
+
+[file.18]
+path = "precompiles/launchpad/abi_periphery_test.go"
+lines = 32
+verdict = "clean"
+note = "NFT, Router and Quoter parsing checks method, event and unique error counts."
+
+[file.19]
+path = "precompiles/launchpad/abi_test.go"
+lines = 187
+verdict = "clean"
+note = "Golden selectors include overloads and chain errors; direct precedence is explicit and collisions are rejected."
+
+[file.20]
+path = "precompiles/launchpad/errors.go"
+lines = 98
+verdict = "clean"
+note = "Custom reverts preserve argument bytes, SDK identity and nested payloads; keeper-only failures retain reasons."
+
+[file.21]
+path = "precompiles/launchpad/errors_test.go"
+lines = 292
+verdict = "clean"
+note = "All 64 error signatures and carriers are checked, including immutable bytes, invalid inputs and outer transfer-error precedence."
+
+[file.22]
+path = "precompiles/launchpad/events.go"
+lines = 113
+verdict = "issues"
+note = "Production emitFamily and emitABIEvent encode logs; the unused emitAt dispatcher has a separate finding."
+
+[file.23]
+path = "precompiles/launchpad/events_test.go"
+lines = 323
+verdict = "clean"
+note = "Independent vectors encode topics and dynamic strings; emitAt policy coverage applies to the unused helper identified separately."
+
+[file.24]
+path = "precompiles/launchpad/fees.go"
+lines = 748
+verdict = "issues"
+note = "Roles, custody, epochs, strategies and event outputs were traced to the keeper; optional probe abort handling has a finding."
+
+[file.25]
+path = "precompiles/launchpad/fees_test.go"
+lines = 788
+verdict = "clean"
+note = "Real keeper and EVM paths cover fee flows, liabilities, snapshot support, successful direct claims and authorization refusals."
+
+[file.26]
+path = "precompiles/launchpad/gas.go"
+lines = 50
+verdict = "clean"
+note = "Base, byte and fixed method write charges agree with tests; multicall bypass is recorded at router.go."
+
+[file.27]
+path = "precompiles/launchpad/gas_test.go"
+lines = 98
+verdict = "clean"
+note = "Every ABI method has its mutability/write charge checked; cumulative batch charges are not established."
+
+[file.28]
+path = "precompiles/launchpad/hooks.go"
+lines = 136
+verdict = "issues"
+note = "Private optical helpers are called only by tests; the separate production keeper implementation is recorded as dead code duplication."
+
+[file.29]
+path = "precompiles/launchpad/launchpad.go"
+lines = 102
+verdict = "clean"
+note = "Constructors require the keeper and bind real execution at the current precompile address."
+
+[file.30]
+path = "precompiles/launchpad/launchpad_test.go"
+lines = 581
+verdict = "clean"
+note = "Real EVM paths cover creation, 0x1017 allowances, trades, fees and refused-call state; surface value coverage has a separate finding."
+
+[file.31]
+path = "precompiles/launchpad/legacy/v610/Launchpad.sol"
+lines = 109
+verdict = "clean"
+note = "Historical 25-method, ten-event interface preserves its market and config tuple layouts for version-specific execution."
+
+[file.32]
+path = "precompiles/launchpad/legacy/v610/abi.json"
+lines = 1
+verdict = "generated"
+note = "Generated ABI snapshot from the corresponding Launchpad/Launch-x Solidity interface, retained as a contract artifact; inherited duplicate errors are deduplicated by the Go ABI map."
+
+[file.33]
+path = "precompiles/launchpad/legacy/v610/errors_test.go"
+lines = 72
+verdict = "clean"
+note = "Distinct legacy codespace keeps numerical/text codes stable and rejects duplicate registration."
+
+[file.34]
+path = "precompiles/launchpad/legacy/v610/launchpad.go"
+lines = 613
+verdict = "clean"
+note = "Historical executor matches its selected legacy keeper, tuple layouts, bank accounting, fees and epoch claims."
+
+[file.35]
+path = "precompiles/launchpad/legacy/v610/launchpad_test.go"
+lines = 513
+verdict = "clean"
+note = "Legacy real keeper tests cover trades, balances, epochs, solvency and call-kind refusals without making legacy the merged current API."
+
+[file.36]
+path = "precompiles/launchpad/lxp_registry_test.go"
+lines = 101
+verdict = "clean"
+note = "All 74 current SDK error codes resolve through the shared registry with their own stable prefixes."
+
+[file.37]
+path = "precompiles/launchpad/nested.go"
+lines = 195
+verdict = "clean"
+note = "Shared gas uses actual EVM CALL/STATICCALL and preserves typed aborts locally; outer consumers that lose aborts have separate findings."
+
+[file.38]
+path = "precompiles/launchpad/nft.go"
+lines = 516
+verdict = "clean"
+note = "Collection ownership, approval, roles, enumeration and receiver behavior match keeper and role ABI; NFT probes preserve aborts."
+
+[file.39]
+path = "precompiles/launchpad/nft_test.go"
+lines = 647
+verdict = "clean"
+note = "Every collection selector and receiver acceptance/refusal path uses the real EVM; embedded receiver bytes are a documented generated solc fixture."
+
+[file.40]
+path = "precompiles/launchpad/optical_test.go"
+lines = 299
+verdict = "clean"
+note = "Reference optical compilation defaults to in-tree contracts; flags, acknowledgments, adjustments and callers are checked through helpers duplicated in the keeper."
+
+[file.41]
+path = "precompiles/launchpad/parity_test.go"
+lines = 543
+verdict = "clean"
+note = "Real surfaces prove pay-first swaps, spender, custody solvency, deterministic addresses, optical callbacks and creation log order."
+
+[file.42]
+path = "precompiles/launchpad/pool.go"
+lines = 409
+verdict = "clean"
+note = "Compile-time PoolKeeper conformance is present; pause, guardians, synchronization and view tuple ordering match keeper types."
+
+[file.43]
+path = "precompiles/launchpad/pool_test.go"
+lines = 476
+verdict = "clean"
+note = "Every pool selector and principal refusal is exercised; embedded ERC20 creation bytes are a documented generated contract fixture."
+
+[file.44]
+path = "precompiles/launchpad/proof_precompile_go_test.go"
+lines = 244
+verdict = "clean"
+note = "Real exported installation and consumer calls cross LevelDB close/reopen, retaining paused state and registered surfaces."
+
+[file.45]
+path = "precompiles/launchpad/query_parity_test.go"
+lines = 86
+verdict = "clean"
+note = "Query/Market values agree with traded pool getPoolInfo reserves and paused state."
+
+[file.46]
+path = "precompiles/launchpad/query_price_parity_test.go"
+lines = 62
+verdict = "clean"
+note = "Price-history ordering agrees with the nonempty snapshot portion of the pool view."
+
+[file.47]
+path = "precompiles/launchpad/query_registry_parity_test.go"
+lines = 135
+verdict = "clean"
+note = "Query/Markets order and Query/PoolMetadata fields are compared with real registry views."
+
+[file.48]
+path = "precompiles/launchpad/reentrancy_test.go"
+lines = 252
+verdict = "clean"
+note = "Real nested callbacks exercise remaining gas, out-of-gas, revert bytes, receiver handling and branch state visibility."
+
+[file.49]
+path = "precompiles/launchpad/retained_test.go"
+lines = 587
+verdict = "clean"
+note = "Retained contract paths cover emitter authorization, OpticalFactory, beacon, pause budgets and adapter repointing; embedded bytecode constants are generated solc artifacts with provenance."
+
+[file.50]
+path = "precompiles/launchpad/retired.go"
+lines = 51
+verdict = "clean"
+note = "Retirement runtime always returns Retired(replacement), preserving native launchpad retirement identities."
+
+[file.51]
+path = "precompiles/launchpad/retired_test.go"
+lines = 123
+verdict = "clean"
+note = "Retired role addresses refuse selectors and malformed input with exact replacement bytes; persistent account properties are preserved."
+
+[file.52]
+path = "precompiles/launchpad/router.go"
+lines = 669
+verdict = "issues"
+note = "Creation, trades, permits and allowance spender were traced; multicall metering and abort preservation have findings."
+
+[file.53]
+path = "precompiles/launchpad/router_test.go"
+lines = 464
+verdict = "clean"
+note = "Selectors, role gates, permit handling, entry failure indices and basic batch output are covered; cumulative work metering is not."
+
+[file.54]
+path = "precompiles/launchpad/run.go"
+lines = 331
+verdict = "issues"
+note = "Registered-surface resolution and whole calldata validation protect dispatch; final conversion loses typed aborts."
+
+[file.55]
+path = "precompiles/launchpad/run_test.go"
+lines = 354
+verdict = "clean"
+note = "Role precedence, unknown selectors, malformed input and direct/surface dispatch are exercised."
+
+[file.56]
+path = "precompiles/launchpad/setup.go"
+lines = 26
+verdict = "clean"
+note = "Version map serves v6.10 and v6.12.0 and aliases the latest version to the current implementation."
+
+[file.57]
+path = "precompiles/launchpad/setup_test.go"
+lines = 73
+verdict = "clean"
+note = "Versions file matches served keys and separate keepers select historical and current implementations."
+
+[file.58]
+path = "precompiles/launchpad/surface.go"
+lines = 41
+verdict = "issues"
+note = "Installation uses keeper-owned bytes and exports a defensive copy; the runtime lacks attached-native-value refusal."
+
+[file.59]
+path = "precompiles/launchpad/surface_parity_test.go"
+lines = 1067
+verdict = "issues"
+note = "Halt migration/replay checks call results, state and explicit translations; event comparison drops data and ordering."
+
+[file.60]
+path = "precompiles/launchpad/surface_test.go"
+lines = 502
+verdict = "issues"
+note = "Actual forwarding proves caller trailers and role identity; attached-value assertions bypass the runtime."
+
+[file.61]
+path = "precompiles/launchpad/treasury.go"
+lines = 130
+verdict = "clean"
+note = "Depositor writes use keeper roles and custody ledgers; EVM admin writes refuse in favor of governed operations."
+
+[file.62]
+path = "precompiles/launchpad/treasury_test.go"
+lines = 492
+verdict = "clean"
+note = "Real ERC20 custody, surplus, deposits and governed withdrawal logs are checked; token bytecode is a documented generated solc fixture."
+
+[file.63]
+path = "precompiles/launchpad/views.go"
+lines = 634
+verdict = "issues"
+note = "Quoter tuple units, arithmetic and registry metadata match consumers; pagination and token lookup scan all markets."
+
+[file.64]
+path = "precompiles/launchpad/views_test.go"
+lines = 496
+verdict = "clean"
+note = "All view-role selectors, large page arguments, metadata, quotes and admin refusals use real keeper state."
+
+[finding.native-value-loss]
+file = "precompiles/launchpad/surface.go"
+line = 14
+class = "security"
+severity = "high"
+observed = "SurfaceRuntime appends CALLER and CALLs 0x1017 with zero value. Its canonical bytes in modules/launchpad/keeper/market.go contain no CALLVALUE check. Native currency attached to a successful surface call remains at the surface; the precompile sees zero and the surface exposes no native withdrawal."
+expected = "Nonpayable role methods must refuse attached native currency through deployed surfaces as well as directly at 0x1017, preserving user funds."
+proposal = "Reject nonzero CALLVALUE in modules/launchpad/keeper/market.go before forwarding; update installation and migration identities. Prove actual value-bearing evm.Call refusal at role and pool surfaces with unchanged sender/target native balances."
+owner_domain = 4
+interface = "4.go-lppc-surface-runtime"
+
+[finding.surface-value-test]
+file = "precompiles/launchpad/surface_test.go"
+line = 459
+class = "test-gap"
+severity = "medium"
+observed = "TestSurfaceCallKindRefusals claims value attached to any call reverts but invokes s.contract.Run directly for all value-bearing cases. It bypasses surface bytecode, which forwards zero value, and misses native currency stranded at that address."
+expected = "Nonpayable assertions must exercise the installed runtime and actual EVM native transfers along the producer-to-consumer path."
+proposal = "Extend precompiles/launchpad/surface_test.go with funded accounts calling real role and pool surfaces via evm.Call with nonzero value. Assert refusal and unchanged native balances, keeper state and logs."
+owner_domain = 4
+interface = "4.go-lppc-surface-runtime"
+
+[finding.multicall-metering]
+file = "precompiles/launchpad/router.go"
+line = 201
+class = "runtime-risk"
+severity = "high"
+observed = "multicall invokes routerHandler directly for each entry. run.go deducts only the outer Gas(sent, Writes(multicall)), while gas.go counts multicall as one write. Inner base/write costs are omitted. Recursive multicall has no depth bound and repeatedly decodes and repacks nested payloads outside EVM call-depth accounting, allowing disproportionate validator work within a transaction allowance."
+expected = "Every batched Router operation must pay for its execution/storage work from the same remaining gas budget, and nesting must respect bounded execution resources."
+proposal = "Meter inner dispatches from the shared budget in precompiles/launchpad/router.go and run.go and bound nested batching consistently with EVM limits. Add real EVM cumulative-gas and depth refusal cases proving full state/log rollback."
+owner_domain = 4
+interface = "4.pc-router-multicall"
+
+[finding.outer-abort-conversion]
+file = "precompiles/launchpad/run.go"
+line = 131
+class = "runtime-risk"
+severity = "medium"
+observed = "RunCaller.callNested preserves vm.AbortError, but run converts every non-out-of-gas error to vm.ErrExecutionReverted. A nested execution abort therefore becomes a catchable contract failure at the outer boundary."
+expected = "The vm.AbortError contract in core/deps/geth/core/vm/errors.go requires immediate propagation through the call stack, distinct from ABI contract refusals."
+proposal = "Preserve the underlying typed abort before revert encoding in precompiles/launchpad/run.go and through batch wrappers. Exercise actual nested EVM callbacks and prove outer contracts cannot catch and continue after an abort."
+owner_domain = 4
+interface = "4.go-lppc-precompile-run"
+
+[finding.router-abort-loss]
+file = "precompiles/launchpad/router.go"
+line = 457
+class = "runtime-risk"
+severity = "medium"
+observed = "applyPermit ignores every nested.Call error and has no error return, including execution aborts RunCaller preserves. pullInput also formats sell-transfer errors with %v at line 416, discarding their identity, and multicall encodes failures as ordinary contract reverts."
+expected = "Optional token permit refusal may use an existing allowance, but execution aborts must interrupt execution and remain distinct from TransferFromFailed or MulticallFailed."
+proposal = "Return and propagate typed aborts from applyPermit at every caller in precompiles/launchpad/router.go. Preserve aborts before sell-transfer and multicall error encoding; cover permit, sell transfer and batching through nested EVM paths."
+owner_domain = 4
+interface = "4.go-lppc-run-caller-call"
+
+[finding.airdrop-probe-abort]
+file = "precompiles/launchpad/fees.go"
+line = 686
+class = "runtime-risk"
+severity = "medium"
+observed = "feeSupportsAirdrop returns false without error whenever tokenAddress, getPastTotalSupply or getPastBalance fails, including a typed abort preserved by RunCaller.StaticCall. Unlike requireAirdropSupported in nft.go, these optional probes do not check nestedAborted."
+expected = "Unsupported snapshot methods can answer false, but an execution abort must stay an abort rather than becoming a successful false result or UnsupportedSnapshotToken."
+proposal = "Propagate nestedAborted before ordinary probe failures in precompiles/launchpad/fees.go using the NFT probe rule. Exercise aborts at all three real EVM probe positions and check no execution continues."
+owner_domain = 4
+interface = "4.pc-fee-accumulator-supports-airdrop"
+
+[finding.registry-unbounded-reads]
+file = "precompiles/launchpad/views.go"
+line = 489
+class = "runtime-risk"
+severity = "medium"
+observed = "getAllPools and getPoolsByCreatorPage decode and allocate all markets through registryPools before slicing. getPoolCount builds the full list too; poolByToken scans despite an available keeper PoolByToken index. Fixed view gas does not grow with accumulated markets, including for empty or one-item pages."
+expected = "Pagination, counts and point lookup should have work bounded by a requested window or persisted index so ordinary growth does not make small reads consume unbounded validator CPU and memory."
+proposal = "Persist pool-order and creator-order indexes/counts in modules/launchpad/keeper with migration/restart coverage. Read bounded windows and the token index from precompiles/launchpad/views.go and meter remaining iteration work."
+owner_domain = 4
+interface = "4.pc-pool-registry-get-all-pools"
+
+[finding.golden-event-payload-gap]
+file = "precompiles/launchpad/surface_parity_test.go"
+line = 754
+class = "test-gap"
+severity = "medium"
+observed = "goldenTranslation.events serializes only emitters and topics, drops goldenLog.Data and sorts the results. replayTrace compares these strings while claiming matching logs, allowing wrong nonindexed swap amounts, fees, timestamps or dependent event order to pass replay."
+expected = "Producer-to-consumer replay must compare complete event shapes and encodings, including nonindexed data and meaningful order, with only explicit upgrade translations."
+proposal = "Compare full decoded event payloads and ordered logs in precompiles/launchpad/surface_parity_test.go after ABI-aware address/time translations. Demonstrate rejection of changed nonindexed amounts and reordered dependent events."
+owner_domain = 4
+interface = "4.pc-event-buy"
+
+[finding.unused-optical-helpers]
+file = "precompiles/launchpad/hooks.go"
+line = 32
+class = "dead-code"
+severity = "low"
+observed = "callOptical, callFeeOptical and invokeOptical are called only by optical_test.go. Live swap/fee operations use separate implementations in modules/launchpad/keeper/swap.go and fees.go, so helper assertions can diverge from user behavior."
+expected = "Optical behavior should have one production owner, and conformance assertions should exercise the implementation reached by real launchpad operations."
+proposal = "Move isolated fixtures into test-only code or remove duplicated helpers from precompiles/launchpad/hooks.go. Consolidate validation under modules/launchpad/keeper and retain real operation callback assertions."
+owner_domain = 4
+
+[finding.unused-event-dispatcher]
+file = "precompiles/launchpad/events.go"
+line = 16
+class = "dead-code"
+severity = "low"
+observed = "PrecompileExecutor.emitAt has callers only in events_test.go. Live handlers use emitABIEvent, feeLog, NFT emitters and keeper paths, so its role/emitter policy is not the policy used in real operations."
+expected = "Emitter policies should be enforced in live event paths and verified there, without an unused parallel dispatcher implying production coverage."
+proposal = "Consolidate emitter selection in the actual handlers and precompiles/launchpad/events.go or move the unused dispatcher into test code; retain independent vectors and real-handler emitter assertions."
+owner_domain = 4
+
+[finding.stale-precompile-contract]
+file = "spec/layerx-merge/contracts/launchpad.md"
+line = 1453
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 1453-1454 say Launchpad.sol declares no errors and abi.json has zero. Lines 1499 and 1503-1504 describe runtime PoolKeeper assertion, stale v6.5 version metadata and a separately hardcoded surface runtime. Current code has 64 errors, compile-time conformance, v6.10/v6.12.0 and keeper-owned runtime bytes copied for export."
+expected = "Integrator-facing documentation and registry facts must describe current error decoding, activation and runtime ownership after requirements 4001, 4014, 4015 and 4045."
+proposal = "Update the domain-4 contract/registry source and regenerate spec/layerx-merge/contracts/launchpad.md with the current errors, compile-time check, versions and canonical runtime; explicitly date any historical statements."
+owner_domain = 4
+interface = "4.fmt-lppc-direct-abi-json-j28"
+
+[doc.1]
+path = "spec/layerx-merge/contracts/launchpad.md"
+status = "stale"
+notes = "Read the precompile sections, consumed module interfaces and retained Solidity interface descriptions. The frozen precompile-go table at lines 1453-1454 and 1499-1504 disagrees with current errors, conformance, versions and runtime ownership; see stale-precompile-contract."

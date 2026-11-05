@@ -1,5 +1,7 @@
 import { copyEntry, human_copy_catalog } from "../../../copy/runtime.ts";
 import { formatCopy } from "../../../copy/format.ts";
+import { keccak256, parseTransaction } from "viem";
+import { explorerLinkPath, parseExplorerBaseUrl } from "../../explorer/links.ts";
 import {
   HumanApiDecodeError,
   HumanApiError,
@@ -13,6 +15,7 @@ import {
   type ActivityGroup,
   type ActivityPage,
   type EvidenceClass,
+  type EvidenceMaterial,
   type EvidenceRef,
   type ExportArtefact,
   type HumanApiClient,
@@ -33,6 +36,8 @@ export const STATUS_KEY_BY_STATE: Readonly<Record<JourneyState, StatusKey>> = Ob
   "still-checking": "still_checking",
   refused: "refused",
   "waiting-for-you": "waiting_for_you",
+  "awaiting-approval": "waiting_for_you",
+  closed: "refused",
 });
 
 const KIND_TOKENS: Readonly<Record<ActivityEntryKind, string>> = Object.freeze({
@@ -180,14 +185,41 @@ export function formatEntryTimestamp(timestamp: string): string {
   return `${datePart(timestamp)}, ${hours}:${minutes} UTC`;
 }
 
-export function explorerPath(reference: EvidenceRef): string | undefined {
-  if (reference.class === "layerx-receipt") {
-    return `/explorer/receipts/${reference.evidence_id}`;
+export function explorerPath(
+  reference: EvidenceRef,
+  material?: EvidenceMaterial,
+  configuredOrigin?: string,
+): string | undefined {
+  if (material === undefined) return undefined;
+  if (material.evidence_id !== reference.evidence_id || material.class !== reference.class) {
+    throw new Error("Resolved evidence does not match its reference");
   }
-  if (reference.class === "checkpoint-proof") {
-    return `/explorer/checkpoints/${reference.evidence_id}`;
+  const base = parseExplorerBaseUrl(configuredOrigin);
+  if (base === undefined || material.class !== "layerx-receipt"
+    || material.verification === "unverified"
+    || material.content_type !== "application/vnd.layerx.receipt-proof-v2+json") return undefined;
+  if (material.bytes_base64.length > 2_000_000) throw new RangeError("Evidence material exceeds its byte bound");
+  const bytes = Uint8Array.from(atob(material.bytes_base64), (character) => character.charCodeAt(0));
+  const portable: unknown = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+  if (typeof portable !== "object" || portable === null) throw new Error("Invalid portable receipt material");
+  if (!("format" in portable) || portable.format !== "layerx-receipt-proof-v2") return undefined;
+  if (!("rawTransaction" in portable)) return undefined;
+  const raw = portable.rawTransaction;
+  if (typeof raw !== "string" || !/^0x(?:[0-9a-f]{2})+$/u.test(raw)) {
+    throw new Error("Invalid native transaction in evidence material");
   }
-  return undefined;
+  const transaction = raw as `0x${string}`;
+  if (parseTransaction(transaction).chainId !== 125) return undefined;
+  return new URL(explorerLinkPath({ kind: "transaction", transactionHash: keccak256(transaction) }), base).href;
+}
+
+export async function resolveEvidencePath(
+  client: HumanApiClient,
+  reference: EvidenceRef,
+  configuredOrigin?: string,
+): Promise<string | undefined> {
+  const material = await client.evidenceGet(reference.evidence_id);
+  return explorerPath(reference, material, configuredOrigin);
 }
 
 export function verificationLabel(level: VerificationLevel): string {

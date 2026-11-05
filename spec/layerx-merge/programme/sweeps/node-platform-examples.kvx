@@ -1,81 +1,71 @@
 [sweep.node-platform-examples]
-revision = "03e2d849d7f3e9ca51cada79f6d3cfe90938a0fb"
+revision = "ace3608260f2ec826292dab08cd058031efe2f46"
 command = "cd TARGET && npm ci && (if node -e 'process.exit(Object.hasOwn(require(\"./package.json\").scripts || {}, \"build\") ? 0 : 1)'; then npm run build; elif test -f tsconfig.json; then npx tsc --noEmit -p .; else while IFS= read -r -d '' file; do node --check \"$file\" || exit $?; done < <(find . -type d \\( -name node_modules -o -name .git \\) -prune -o -type f -name '*.js' -print0); fi)"
 targets_total = 9
-targets_passed = 8
-targets_failed = 1
+targets_passed = 9
+targets_failed = 0
 targets_not_run = 0
-evidence = "/out/logs/node-platform-examples/inventory.json"
+evidence = "/out/logs/node-platform-examples-22.91.123/inventory.json"
 
 [target.node-platform-examples.1]
 target = "services/platform/examples/agent-spend"
 result = "passed"
 exit_code = 0
-command = "cd services/platform/examples/agent-spend && npm ci && :"
-log = "/out/logs/node-platform-examples/01-agent-spend.log"
+log = "/out/logs/node-platform-examples-22.91.123/01-agent-spend.log"
 observed = "npm ci passed using the root npm workspace lockfile; this package has no build script, tsconfig.json or package-owned .js files, so no compilation or syntax check was applicable (sources use .mjs)."
 
 [target.node-platform-examples.2]
 target = "services/platform/examples/buyer-agent"
 result = "passed"
 exit_code = 0
-command = "cd services/platform/examples/buyer-agent && npm ci && :"
-log = "/out/logs/node-platform-examples/02-buyer-agent.log"
+log = "/out/logs/node-platform-examples-22.91.123/02-buyer-agent.log"
 observed = "npm ci passed using the root npm workspace lockfile; this package has no build script, tsconfig.json or package-owned .js files, so no compilation or syntax check was applicable (sources use .mjs)."
 
 [target.node-platform-examples.3]
 target = "services/platform/examples/marketplace"
 result = "passed"
 exit_code = 0
-command = "cd services/platform/examples/marketplace && npm ci && :"
-log = "/out/logs/node-platform-examples/03-marketplace.log"
+log = "/out/logs/node-platform-examples-22.91.123/03-marketplace.log"
 observed = "npm ci passed using the root npm workspace lockfile; this package has no build script, tsconfig.json or package-owned .js files, so no compilation or syntax check was applicable (sources use .mjs)."
 
 [target.node-platform-examples.4]
 target = "services/platform/examples/merchant-checkout"
 result = "passed"
 exit_code = 0
-command = "cd services/platform/examples/merchant-checkout && npm ci && :"
-log = "/out/logs/node-platform-examples/04-merchant-checkout.log"
+log = "/out/logs/node-platform-examples-22.91.123/04-merchant-checkout.log"
 observed = "npm ci passed using the root npm workspace lockfile; this package has no build script, tsconfig.json or package-owned .js files, so no compilation or syntax check was applicable (sources use .mjs)."
 
 [target.node-platform-examples.5]
 target = "services/platform/examples/merchant-shop"
 result = "passed"
 exit_code = 0
-command = "cd services/platform/examples/merchant-shop && npm ci && :"
-log = "/out/logs/node-platform-examples/05-merchant-shop.log"
+log = "/out/logs/node-platform-examples-22.91.123/05-merchant-shop.log"
 observed = "npm ci passed using the root npm workspace lockfile; this package has no build script, tsconfig.json or package-owned .js files, so no compilation or syntax check was applicable (sources use .mjs)."
 
 [target.node-platform-examples.6]
 target = "services/platform/examples/paid-api"
 result = "passed"
 exit_code = 0
-command = "cd services/platform/examples/paid-api && npm ci && :"
-log = "/out/logs/node-platform-examples/06-paid-api.log"
+log = "/out/logs/node-platform-examples-22.91.123/06-paid-api.log"
 observed = "npm ci passed using the root npm workspace lockfile; this package has no build script, tsconfig.json or package-owned .js files, so no compilation or syntax check was applicable (sources use .mjs)."
 
 [target.node-platform-examples.7]
 target = "services/platform/docs/samples/first-payment-typescript"
 result = "passed"
 exit_code = 0
-command = "cd services/platform/docs/samples/first-payment-typescript && npm ci && :"
-log = "/out/logs/node-platform-examples/07-first-payment-typescript.log"
+log = "/out/logs/node-platform-examples-22.91.123/07-first-payment-typescript.log"
 observed = "npm ci passed using the root npm workspace lockfile; this package has no build script, tsconfig.json or package-owned .js files, so no compilation or syntax check was applicable (sources use .mjs)."
 
 [target.node-platform-examples.8]
 target = "services/platform/docs/samples/paid-endpoint-express"
 result = "passed"
 exit_code = 0
-command = "cd services/platform/docs/samples/paid-endpoint-express && npm ci && :"
-log = "/out/logs/node-platform-examples/08-paid-endpoint-express.log"
+log = "/out/logs/node-platform-examples-22.91.123/08-paid-endpoint-express.log"
 observed = "npm ci passed using the root npm workspace lockfile; this package has no build script, tsconfig.json or package-owned .js files, so no compilation or syntax check was applicable (sources use .mjs)."
 
 [target.node-platform-examples.9]
 target = "services/platform/docs/samples/paid-route-next"
-result = "failed"
-exit_code = 1
-command = "cd services/platform/docs/samples/paid-route-next && npm ci && npm run build"
-log = "/out/logs/node-platform-examples/09-paid-route-next.log"
-observed = "services/platform/docs/samples/paid-route-next/lib/fulfillments.js:4:1: Next.js build failed with Module not found: Can't resolve '@sidiora/layerx-next', and npm run build exited 1."
-assumption = "The workspace integration dependency likely needs its exported build output provisioned before the sample can build; this is a dependency build prerequisite in the environment, not a missing service, port or credential."
+result = "passed"
+exit_code = 0
+log = "/out/logs/node-platform-examples-22.91.123/09-paid-route-next.log"
+observed = "npm ci and npm run build passed, including the declared dependency prebuild and Next.js production build."

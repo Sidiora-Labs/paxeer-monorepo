@@ -48,6 +48,9 @@ type Qualification interface {
 	StableMetadata(context.Context, common.Address, common.Hash) (StablePoolMetadata, error)
 	ExecutionPolicy(context.Context, Bundle, uint32) (accounting.ExecutionPolicy, error)
 }
+type signedDomainQualification interface {
+	ValidateSignedDomain(context.Context, Bundle) error
+}
 type provenanceQualification interface {
 	SourceProvenance(context.Context, Bundle, common.Address) (accounting.Provenance, error)
 }
@@ -139,10 +142,10 @@ func coordinates(b Bundle) (string, error) {
 	if r == nil || t == nil || h == nil || h.Number == nil || !h.Number.IsInt64() || h.Number.Sign() < 0 || h.Time == 0 || h.Time > math.MaxInt64/1000 || r.BlockNumber == nil || !r.BlockNumber.IsInt64() || r.Status != types.ReceiptStatusSuccessful || r.Type != t.Type() || r.TransactionIndex > math.MaxUint32 || len(r.Logs) > 4096 || len(b.PrepayReceipts) > 4096 {
 		return "", ErrQualification
 	}
-	if t.ChainId().Cmp(big.NewInt(125)) != 0 || r.TxHash != t.Hash() || r.BlockHash != bundleBlockHash(b) || r.BlockNumber.Cmp(h.Number) != 0 {
+	if !validSignedChainID(t.ChainId()) || r.TxHash != t.Hash() || r.BlockHash != bundleBlockHash(b) || r.BlockNumber.Cmp(h.Number) != 0 {
 		return "", ErrQualification
 	}
-	sender, err := types.Sender(types.LatestSignerForChainID(big.NewInt(125)), t)
+	sender, err := types.Sender(types.LatestSignerForChainID(t.ChainId()), t)
 	if err != nil || sender == (common.Address{}) {
 		return "", ErrQualification
 	}
@@ -199,6 +202,15 @@ func Qualify(ctx context.Context, r *decode.Registry, a Qualification, b Bundle)
 	if err = a.ValidateReceipt(ctx, authoritative); err != nil {
 		return nil, fmt.Errorf("%w: authority: %v", ErrQualification, err)
 	}
+	if owned.Transaction.ChainId().Cmp(big.NewInt(125)) != 0 {
+		domain, ok := a.(signedDomainQualification)
+		if !ok {
+			return nil, ErrQualification
+		}
+		if err = domain.ValidateSignedDomain(ctx, authoritative); err != nil {
+			return nil, fmt.Errorf("%w: signed domain: %v", ErrQualification, err)
+		}
+	}
 	after, err := digest(authoritative)
 	if err != nil || before != after {
 		return nil, ErrQualification
@@ -239,13 +251,20 @@ func Qualify(ctx context.Context, r *decode.Registry, a Qualification, b Bundle)
 		if env.Family == nil || !env.Family.EconomicFill {
 			continue
 		}
-		if env.EmitterRole != "EventEmitter" || env.EventName != "Swap" || env.Family.Authority != "primary" {
-			return nil, ErrQualification
+		if !qualifiedSwapFamily(env, owned.Receipt.Logs[i]) {
+			return nil, fmt.Errorf("%w: Swap family at log %d: status=%s reason=%s role=%s", ErrQualification, owned.Receipt.Logs[i].Index, env.Status, env.FailureReason, env.EmitterRole)
 		}
 		l := owned.Receipt.Logs[i]
 		f, err := makeFill(ctx, a, owned, env, l, sender, receiptDigest, headerDigest)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("%w: fill at log %d: %v", ErrQualification, l.Index, err)
+		}
+		if env.EmitterRole != "EventEmitter" {
+			proof, ok := q.provenance[strings.ToLower(l.Address.Hex())]
+			if !ok || proof.ABIRevision != env.ABIRevision || proof.EmitterCodeEpoch == "" {
+				return nil, ErrQualification
+			}
+			f.Provenance.EmitterCodeEpoch = proof.EmitterCodeEpoch
 		}
 		f.Attribution = attribute(owned, decoded, f, sender, receiptDigest)
 		if err = accounting.ValidateFillV1(f); err != nil {
@@ -266,7 +285,12 @@ func Qualify(ctx context.Context, r *decode.Registry, a Qualification, b Bundle)
 		byPool[market.Pool] = market
 		markets = append(markets, market)
 	}
-	actorEnvelopes, err := r.DecodeTransactionReceipt(owned.Transaction, owned.Receipt, markets)
+	var actorEnvelopes []*decode.DecodedEnvelope
+	if owned.Transaction.ChainId().Cmp(big.NewInt(125)) == 0 {
+		actorEnvelopes, err = r.DecodeTransactionReceipt(owned.Transaction, owned.Receipt, markets)
+	} else {
+		actorEnvelopes, err = tenantReceiptActors(ctx, a, owned, markets, decoded)
+	}
 	if err != nil || len(actorEnvelopes) != len(decoded) {
 		return nil, fmt.Errorf("%w: actor receipt evidence: %v", ErrQualification, err)
 	}
@@ -292,7 +316,7 @@ func Qualify(ctx context.Context, r *decode.Registry, a Qualification, b Bundle)
 func makeFill(ctx context.Context, a Qualification, b Bundle, env *decode.DecodedEnvelope, l *types.Log, sender string, receiptHash, headerHash [32]byte) (accounting.FillV1, error) {
 	var f accounting.FillV1
 	if env.Event.Args["timestamp"] != strconv.FormatUint(b.Header.Time, 10) || env.Event.Args["blockNumber"] != b.Header.Number.String() {
-		return f, ErrQualification
+		return f, fmt.Errorf("%w: Swap time/block differs from receipt header", ErrQualification)
 	}
 	poolID, ok := env.Event.Args["poolId"].(string)
 	if !ok || len(poolID) != 66 || !strings.HasPrefix(poolID, "0x") {
@@ -308,10 +332,10 @@ func makeFill(ctx context.Context, a Qualification, b Bundle, env *decode.Decode
 	}
 	meta, err := a.StableMetadata(ctx, pool, bundleBlockHash(b))
 	if err != nil {
-		return f, err
+		return f, fmt.Errorf("%w: pool %s metadata: %v", ErrQualification, pool, err)
 	}
 	if meta.Pool != pool || meta.BlockHash != bundleBlockHash(b) || meta.Token == (common.Address{}) || meta.Settlement == (common.Address{}) || meta.Token == meta.Settlement || meta.SettlementDecimals != 6 || meta.ABIRevision != env.ABIRevision {
-		return f, ErrQualification
+		return f, fmt.Errorf("%w: pool metadata binding: pool=%s block=%s token=%s settlement=%s decimals=%d ABI=%s, Swap ABI=%s", ErrQualification, meta.Pool, meta.BlockHash, meta.Token, meta.Settlement, meta.SettlementDecimals, meta.ABIRevision, env.ABIRevision)
 	}
 	isBuy, ok := env.Event.Args["isBuy"].(bool)
 	if !ok {
@@ -335,7 +359,7 @@ func makeFill(ctx context.Context, a Qualification, b Bundle, env *decode.Decode
 	}
 	execution, err := a.ExecutionPolicy(ctx, authorityBundle, uint32(l.Index))
 	if err != nil {
-		return f, err
+		return f, fmt.Errorf("%w: execution policy: %v", ErrQualification, err)
 	}
 	execution, err = clone(execution)
 	if err != nil || accounting.ValidateExecutionPolicy(execution) != nil {
@@ -579,4 +603,27 @@ func ValidateBindings(ctx context.Context, b store.CanonicalBatch, receipts []*Q
 		}
 	}
 	return nil
+}
+
+// SignedChainID returns the transaction's admitted signing domain. Source block
+// and accounting positions remain on the shared parent chain (125).
+func (q *QualifiedReceipt) SignedChainID(ctx context.Context) (*big.Int, error) {
+	if err := q.validate(ctx); err != nil {
+		return nil, err
+	}
+	return new(big.Int).Set(q.bundle.Transaction.ChainId()), nil
+}
+
+func qualifiedSwapFamily(env *decode.DecodedEnvelope, log *types.Log) bool {
+	if env == nil || log == nil || env.Status != "decoded" || env.Event == nil || env.Family == nil || !env.Family.EconomicFill || env.Family.Authority != "primary" || env.EventName != "Swap" {
+		return false
+	}
+	switch env.EmitterRole {
+	case "EventEmitter":
+		return true
+	case decode.LaunchpadPrecompileRole, "SidioraPool":
+		return log.Address == decode.LaunchpadPrecompileAddress
+	default:
+		return false
+	}
 }

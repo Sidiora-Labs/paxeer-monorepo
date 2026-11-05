@@ -3,7 +3,6 @@ package layerxledger_test
 import (
 	"crypto/ed25519"
 	"crypto/sha256"
-	"encoding/binary"
 	"math/big"
 	"testing"
 
@@ -12,6 +11,7 @@ import (
 	ledgerkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
+	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxledger"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	authkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/keeper"
@@ -46,10 +46,8 @@ func newTransferHarness(t *testing.T) (*harness, ledgerkeeper.Actor, [32]byte) {
 	salt := [32]byte{0x31}
 	material := append([]byte("LX:ASSET:v1"), actor.Authority.Actor[:]...)
 	asset := sha256.Sum256(append(material, salt[:]...))
-	_, err = h.keeper.RegisterAsset(h.ctx, actor, types.RegisterArgs{
-		AssetID: asset, Salt: salt, Symbol: "TST", Name: "Transfer test", Decimals: 6,
-		SupplyCap: sdk.NewInt(1000), IssuerKind: types.AssetIssuerNative,
-	}, [32]byte{0x32})
+	_, err = runTransferMethod(t, h, "register", asset, salt, "TST", "Transfer test", uint8(6),
+		big.NewInt(1000), uint8(types.AssetIssuerNative), []byte{})
 	require.NoError(t, err)
 	return h, actor, asset
 }
@@ -82,16 +80,16 @@ func TestPrecompileOpenAccount(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, actor.Authority.Actor, owner)
 	logs := h.stateDB.GetAllLogs()
-	require.Len(t, logs, 1)
-	require.Equal(t, common.HexToAddress(layerxledger.LedgerAddress), logs[0].Address)
-	require.Equal(t, []common.Hash{layerxledger.GetABI().Events["AccountOpened"].ID, common.Hash(want)}, logs[0].Topics)
-	require.Empty(t, logs[0].Data)
+	require.Len(t, logs, 2)
+	require.Equal(t, common.HexToAddress(layerxledger.LedgerAddress), logs[1].Address)
+	require.Equal(t, []common.Hash{layerxledger.GetABI().Events["AccountOpened"].ID, common.Hash(want)}, logs[1].Topics)
+	require.Empty(t, logs[1].Data)
 
 	t.Run("unknown asset reverts", func(t *testing.T) {
 		data, err := runTransferMethod(t, h, "openAccount", [32]byte{0xff})
 		require.ErrorIs(t, err, vm.ErrExecutionReverted)
 		assertLedgerRevert(t, data, "LXP_ASSET_MISMATCH")
-		require.Len(t, h.stateDB.GetAllLogs(), 1)
+		require.Len(t, h.stateDB.GetAllLogs(), 2)
 	})
 }
 
@@ -115,31 +113,22 @@ func transferRecipient(t *testing.T, h *harness) ledgerkeeper.Actor {
 	return actor
 }
 
-func transferMainAccount(t *testing.T, h *harness, actor ledgerkeeper.Actor, asset [32]byte) [32]byte {
+func openTransferAccount(t *testing.T, h *harness, caller common.Address, actor ledgerkeeper.Actor, asset [32]byte) [32]byte {
 	t.Helper()
-	name, id, err := lxphost.MainAccountID(actor.DIDKey)
+	data, err := assetCall(t, h, caller, "openAccount", asset)
 	require.NoError(t, err)
-	row := binary.BigEndian.AppendUint32(nil, 32)
-	row = append(row, id[:]...)
-	row = binary.BigEndian.AppendUint32(row, uint32(len(name)))
-	row = append(row, name...)
-	row = append(row, 1)
-	row = append(row, make([]byte, 16)...)
-	row = binary.BigEndian.AppendUint32(row, 32)
-	row = append(row, asset[:]...)
-	row = append(row, 1)
-	row = binary.BigEndian.AppendUint64(row, 0)
-	row = binary.BigEndian.AppendUint64(row, 0)
-	row = append(row, 0, 0)
-	row = binary.BigEndian.AppendUint32(row, 32)
-	row = append(row, actor.DIDKey[:]...)
-	row = append(row, 1)
-	h.ctx.KVStore(h.hostKey).Set(append([]byte{0x06}, id[:]...), row)
+	values, err := h.precompile.GetABI().Methods["openAccount"].Outputs.Unpack(data)
+	require.NoError(t, err)
+	id := values[0].([32]byte)
+	name, expected, err := lxphost.AssetAccountID(actor.DIDKey, asset)
+	require.NoError(t, err)
+	require.Equal(t, expected, id)
 	account, err := h.host.ReadAccount(h.ctx, name, id)
 	require.NoError(t, err)
 	require.Equal(t, id, account.ID)
+	require.Equal(t, asset, account.AssetID)
 	require.Equal(t, actor.DIDKey, account.AuthorityKey)
-	require.Equal(t, sdk.ZeroInt(), account.Balance)
+	require.True(t, account.Balance.IsZero())
 	return id
 }
 
@@ -175,31 +164,11 @@ func transferEnvelope(t *testing.T, h *harness, actor ledgerkeeper.Actor, from, 
 func TestPrecompileSend(t *testing.T) {
 	h, actor, asset := newTransferHarness(t)
 	recipient := transferRecipient(t, h)
-	_, err := h.keeper.OpenAccount(h.ctx, actor, asset, [32]byte{0x41})
+	from := openTransferAccount(t, h, h.caller, actor, asset)
+	to := openTransferAccount(t, h, common.Address{0x23, 2}, recipient, asset)
+	_, err := runTransferMethod(t, h, "mint", asset, from, big.NewInt(250))
 	require.NoError(t, err)
-	_, err = h.keeper.OpenAccount(h.ctx, recipient, asset, [32]byte{0x42})
-	require.NoError(t, err)
-	holding, err := ledgerkeeper.AccountID(actor.DIDKey, asset)
-	require.NoError(t, err)
-	to, err := ledgerkeeper.AccountID(recipient.DIDKey, asset)
-	require.NoError(t, err)
-	from := transferMainAccount(t, h, actor, asset)
-	_, err = h.keeper.Mint(h.ctx, actor, asset, holding, sdk.NewInt(250), [32]byte{0x43})
-	require.NoError(t, err)
-	key := [32]byte{0x44}
-	payload := transferEnvelope(t, h, actor, holding, from, asset, 250, 0, key)
-	ctx, err := ledgerkeeper.WithSequence(h.ctx)
-	require.NoError(t, err)
-	sequence, err := h.host.ReadIdentitySequence(ctx, actor.DID)
-	require.NoError(t, err)
-	now := uint64(ctx.BlockTime().UnixMilli())
-	receipt, err := h.host.Execute(ctx, lxphost.Activity{
-		ProtocolVersion: 3, Type: 0x00010005, ActorDID: actor.DID, AuthorityKey: actor.DIDKey,
-		AccountSequence: sequence, NotBefore: now, NotAfter: now, IdempotencyKey: key, Payload: payload,
-	}, actor.Authority)
-	require.NoError(t, err)
-	require.Equal(t, lxphost.Code(0), receipt.ResultCode)
-	require.NoError(t, h.keeper.Mirror(h.ctx, 0x00010005, receipt))
+	beforeLogs := len(h.stateDB.GetAllLogs())
 	assertBalance := func(account [32]byte, want int64) {
 		t.Helper()
 		balance, err := h.keeper.BalanceOf(h.ctx, account, asset)
@@ -210,18 +179,19 @@ func TestPrecompileSend(t *testing.T) {
 	}
 	assertBalance(from, 250)
 	assertBalance(to, 0)
-	payload = transferEnvelope(t, h, actor, from, to, asset, 40, 0, [32]byte{0x45})
+	payload := transferEnvelope(t, h, actor, from, to, asset, 40, 0, [32]byte{0x45})
 	data, err := runTransferMethod(t, h, "send", payload)
 	require.NoError(t, err)
 	require.Empty(t, data)
 	assertBalance(from, 210)
 	assertBalance(to, 40)
 	logs := h.stateDB.GetAllLogs()
-	require.Len(t, logs, 1)
+	require.Len(t, logs, beforeLogs+1)
+	log := logs[beforeLogs]
 	event := layerxledger.GetABI().Events["Transfer"]
-	require.Equal(t, common.HexToAddress(layerxledger.LedgerAddress), logs[0].Address)
-	require.Equal(t, []common.Hash{event.ID, common.Hash(from), common.Hash(to), common.Hash(asset)}, logs[0].Topics)
-	fields, err := event.Inputs.NonIndexed().Unpack(logs[0].Data)
+	require.Equal(t, common.HexToAddress(layerxledger.LedgerAddress), log.Address)
+	require.Equal(t, []common.Hash{event.ID, common.Hash(from), common.Hash(to), common.Hash(asset)}, log.Topics)
+	fields, err := event.Inputs.NonIndexed().Unpack(log.Data)
 	require.NoError(t, err)
 	require.Equal(t, []interface{}{big.NewInt(40), uint8(5)}, fields)
 
@@ -241,9 +211,60 @@ func TestPrecompileSend(t *testing.T) {
 			assertLedgerRevert(t, data, tc.reason)
 			require.Equal(t, hostBefore, storeSnapshot(t, h.ctx.KVStore(h.hostKey)))
 			require.Equal(t, ledgerBefore, storeSnapshot(t, h.ctx.KVStore(h.storeKey)))
-			require.Len(t, h.stateDB.GetAllLogs(), 1)
+			require.Len(t, h.stateDB.GetAllLogs(), beforeLogs+1)
 			assertBalance(from, 210)
 			assertBalance(to, 40)
 		})
 	}
+}
+
+func TestPrecompileSendReopen(t *testing.T) {
+	f := newRepair144Fixture(t)
+	f.p.success(t, f.sender, "mint", f.asset, f.from, big.NewInt(250))
+	payload := f.envelope(t, 0, 40, 0xa1)
+	branch, _ := f.p.ctx.CacheContext()
+	ctx, err := ledgerkeeper.WithSequence(branch)
+	require.NoError(t, err)
+	identitySequence, err := f.p.app.LayerXHost.ReadIdentitySequence(ctx, f.payer.DID)
+	require.NoError(t, err)
+	now := uint64(ctx.BlockTime().UnixMilli())
+	want, err := f.p.app.LayerXHost.Execute(ctx, lxphost.Activity{
+		ProtocolVersion: 3, Type: 0x00010005, ActorDID: f.payer.DID,
+		AuthorityKey: f.payer.DIDKey, AccountSequence: identitySequence,
+		NotBefore: now, NotAfter: now, IdempotencyKey: [32]byte{0xa1}, Payload: payload,
+	}, f.payer.Authority)
+	require.NoError(t, err)
+	require.Zero(t, want.ResultCode)
+	require.NotEmpty(t, want.Encoded)
+	f.balances(t, 250, 0)
+	f.refused(t, f.recipient, "LXP_UNAUTHORIZED_DEBIT", "send", payload)
+	_, logs := f.p.success(t, f.sender, "send", payload)
+	got := ledgerParityReceipt(t, f.p.app.LayerXHost, len(want.Encoded))
+	require.Equal(t, want.Encoded, got.CanonicalBytes())
+	require.Len(t, logs, 1)
+	proofLedgerLog(t, f.p.abi, logs[0], "Transfer", map[string]interface{}{
+		"from": f.from, "to": f.to, "assetId": f.asset, "amount": big.NewInt(40), "kind": uint8(5),
+	})
+	f.sequence(t, f.from, 1)
+	f.sequence(t, f.to, 0)
+	f.balances(t, 210, 40)
+	next, err := lxphost.NextSequence(f.p.ctx, f.p.app.GetKey(app.LayerXHostStoreKey))
+	require.NoError(t, err)
+	identity, err := f.p.app.LayerXHost.ReadIdentitySequence(f.p.ctx, f.payer.DID)
+	require.NoError(t, err)
+	f.reopen(t)
+	f.sequence(t, f.from, 1)
+	f.sequence(t, f.to, 0)
+	f.balances(t, 210, 40)
+	recovered, err := lxphost.NextSequence(f.p.ctx, f.p.app.GetKey(app.LayerXHostStoreKey))
+	require.NoError(t, err)
+	require.Equal(t, next, recovered)
+	recoveredIdentity, err := f.p.app.LayerXHost.ReadIdentitySequence(f.p.ctx, f.payer.DID)
+	require.NoError(t, err)
+	require.Equal(t, identity, recoveredIdentity)
+	f.refused(t, f.recipient, "LXP_UNAUTHORIZED_DEBIT", "send", f.envelope(t, 1, 10, 0xa2))
+	f.refused(t, f.sender, "LXP_SEQUENCE_MISMATCH", "send", f.envelope(t, 0, 10, 0xa3))
+	f.p.success(t, f.sender, "send", f.envelope(t, 1, 10, 0xa4))
+	f.sequence(t, f.from, 2)
+	f.balances(t, 200, 50)
 }

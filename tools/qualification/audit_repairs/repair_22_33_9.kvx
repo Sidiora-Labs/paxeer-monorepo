@@ -1,0 +1,40 @@
+[task.22.33.9]
+base_revision = "ccd003394e03ec2e54bf3c38d1e6242ca25bd572"
+repair = "Preserve the README's existing one-network, embedded-kernel, chain-125, root-node-RPC and paxd build corrections. Complete finding 39 with the current dual-consent account binding, per-asset native sub-account opening and funding, separate gas balance, nonpayable ABI signatures, signed ProtocolReceipt v2 verification and authenticated committed-block proofs. Explicitly label retained checkpoint codecs and settlement witnesses historical and their funding/finality procedures retired. No unrelated README content changes."
+source_proof = "The Python-only module proves README source facts against production files: parse the addr and layerxledger JSON ABIs and compare binding types, funding signatures and mutability; trace source dispatch through the real ledger keeper and bank-account mapping; check canonical binding bytes, sequencer receipt producer/key pinning, signature verifier, RPC rungs and committed chain-proof consumers. Parse the documented curl arguments and JSON payload without executing them, check Makefile native build dependencies, resolve cited source links, reject stale deployment instructions and require explicit historical retirement labels."
+review_only = "Native Go/C/Rust execution, EVM transactions, cryptographic signature verification, live RPC availability, actual funding and BFT block commitment are not executed by this gate. Producer, transport and consumer connections are source assertions for a documentation-drift finding, not runtime or deployment certification. No interface or restart-recovery behavior is changed, so no runtime interface/recovery proof is claimed. No shell script, unit file or manifest is modified; the gate invokes no external binary or subprocess toolchain and needs no environment variable, credentials, endpoint, native artifact or device."
+baseline = "No pre-change verification was run: the explicit order requires complete implementation before formatting/build/testing and hf-build before hf-done, and prohibits running verify_cmd manually. Therefore no baseline test failures are claimed. The initial gate configuration showed zero build and verify runs and no private gate ledger existed. The initial git diff contained only runner-prepared .cgignore and spec task-start bookkeeping; README already carried earlier network/build corrections, which are preserved."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_9.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private evidence ledger name the exact verified content-derived candidate revision, command, exit code and log location. hf-build and hf-done must pass on the same candidate revision. This task record is finalized before qualification; no source edit follows a passing hf-done. The runner records the candidate revision and commits the result; embedding that content-derived revision into its own source record would change it."
+wiring_requests = []
+
+[finding.39]
+audit = "22.30.1"
+file = "README.md"
+class = "doc-drift"
+tests = ["test_f39_one_bft_network_and_embedded_kernel", "test_f39_binding_preserves_domain_separated_dual_consent", "test_f39_native_funding_matches_abi_dispatch_and_keeper", "test_f39_signed_execution_and_committed_proofs_remain_distinct", "test_f39_operator_build_uses_native_paxd_prerequisites", "test_f39_rpc_example_targets_chain_125_at_node_root", "test_f39_historical_formats_and_source_links_are_explicit", "test_f39_record_maps_finding_to_executed_proofs_and_limits"]
+
+[gotcha.1]
+observed = "The baseline verification clause conflicts with the explicit implementation-first gate order."
+resolution = "Follow the explicit order and record no baseline execution or failure; do not run the verify command by hand."
+
+[gotcha.2]
+observed = "The README already contains the audit's requested one-network and paxd build corrections, while native funding and account-binding guidance are absent."
+resolution = "Preserve the inherited corrections, supply only the missing contracts and cover the whole finding with regression assertions."
+
+[gotcha.3]
+observed = "Combined repository reads exceeded output limits, and some guessed source filenames and gate-wrapper locations do not exist."
+resolution = "Use bounded reads and discovered file paths; the wrappers are in /out/run/bin and the ledger is private. Record task notes here because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.4]
+observed = "Codify's cached brief reports unrelated tasks and changes rather than the checked-out task's Git state."
+resolution = "Use the exact task block, git status/diff and runner gate ledger as authority, preserving all initial runner bookkeeping."
+
+[gotcha.5]
+observed = "The first verification passed seven tests but the Markdown section helper treated the curl fence's expected-result comment as a heading, so the RPC test found zero shell blocks."
+resolution = "Track Markdown code fences before recognizing section boundaries; retain the exact one-example assertion, URL, timeout and JSON checks and rerun both gates on the repaired candidate. The failed candidate revision, command, exit and private log are retained by the gate ledger."
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths; the Markdown hook is a linter rather than a formatter. Apply .editorconfig UTF-8, LF and final-newline conventions only to touched files after the complete implementation; preserve existing README layout."

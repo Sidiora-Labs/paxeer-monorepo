@@ -18,10 +18,37 @@ fn must<T, E: Debug>(result: Result<T, E>) -> T {
     result.unwrap_or_else(|error| panic!("{error:?}"))
 }
 
+fn shared_fixture() -> Value {
+    must(serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+    ))))
+}
+
 fn fixture() -> Value {
-    must(serde_json::from_str(include_str!(
+    let mut document: Value = must(serde_json::from_str(include_str!(
         "fixtures/sequencer_receipts.json"
-    )))
+    )));
+    let shared = shared_fixture();
+    let cases = shared["cases"]
+        .as_array()
+        .unwrap_or_else(|| panic!("cases"));
+    for (rung, provenance) in [("receipted", "receiptedCase"), ("reverted", "revertedCase")] {
+        let case = cases
+            .iter()
+            .find(|case| case["id"] == document["provenance"][provenance])
+            .unwrap_or_else(|| panic!("missing shared {rung} case"));
+        document[rung] = case["receiptJson"].clone();
+        if rung == "receipted" {
+            document["key"] = case["pinnedKey"].clone();
+            let mut committed = case["receiptJson"].clone();
+            for field in ["rung", "blockNumber", "blockHash"] {
+                committed[field] = document["committed"][field].clone();
+            }
+            document["committed"] = committed;
+        }
+    }
+    document
 }
 
 fn array<const N: usize>(value: &str) -> [u8; N] {
@@ -44,6 +71,33 @@ fn key(document: &Value) -> SequencerAuthorization {
         pin.first_height,
         pin.last_height,
     )
+}
+
+#[test]
+fn inbound_receipt_views_carry_the_producer_payment_denom() {
+    let document: Value = must(serde_json::from_str(include_str!(
+        "fixtures/inbound_sequencer_receipt.json"
+    )));
+    let pin = key(&json!({"key": document["receiptKey"]}));
+    for phase in ["receipted", "committed", "reverted", "consumed", "invalid"] {
+        let answer = must(SequencerReceipt::decode(
+            &document["endpoints"]["paxeer"][phase][0]["result"],
+        ));
+        assert_eq!(
+            answer
+                .view
+                .as_ref()
+                .expect("inbound receipt view")
+                .payment_denom,
+            "uhpx",
+            "payment denomination in {phase} view"
+        );
+        if phase == "invalid" {
+            assert!(answer.verify(&[pin]).is_err());
+        } else {
+            must(answer.verify(&[pin]));
+        }
+    }
 }
 
 #[test]
@@ -88,6 +142,7 @@ fn a_committed_answer_decodes_every_field() {
             gas_used: 46_220,
             cumulative_gas_used: 67_220,
             effective_gas_price: 2_000_000_000,
+            payment_denom: "uhpx".to_owned(),
             fee_denom: "uhpx".to_owned(),
             fee_amount: 92_440_000_000_000,
             sponsor: [0; 20],
@@ -151,6 +206,7 @@ fn a_committed_answer_decodes_every_field() {
         "gasUsed",
         "cumulativeGasUsed",
         "effectiveGasPrice",
+        "paymentDenom",
         "feeDenom",
         "feeAmount",
         "sponsor",
@@ -214,6 +270,7 @@ fn a_committed_answer_decodes_every_field() {
 #[test]
 fn a_submitted_answer_carries_no_receipt() {
     let document = fixture();
+    assert_eq!(document["receipted"]["paymentDenom"], json!("uhpx"));
     let answer = must(SequencerReceipt::decode(&document["submitted"]));
     assert_eq!(
         answer,
@@ -264,6 +321,46 @@ fn a_submitted_answer_carries_no_receipt() {
         assert_eq!(
             SequencerReceipt::decode(&invalid),
             Err(ReceiptError::Malformed)
+        );
+    }
+}
+
+#[test]
+fn a_changed_payment_denom_is_an_asset_mismatch() {
+    let document = fixture();
+    let pin = key(&document);
+    let recorded = &document["receipted"];
+    must(must(SequencerReceipt::decode(recorded)).verify(&[pin]));
+    let mut changed = recorded.clone();
+    changed["paymentDenom"] = json!("another-denomination");
+    let answer = must(SequencerReceipt::decode(&changed));
+    assert_eq!(
+        answer.verify(&[pin]),
+        Err(ReceiptError::Mismatch("paymentDenom"))
+    );
+
+    let mut changed = recorded.clone();
+    changed["feeDenom"] = json!("another-fee-denomination");
+    assert_eq!(
+        must(SequencerReceipt::decode(&changed)).verify(&[pin]),
+        Err(ReceiptError::Mismatch("feeDenom"))
+    );
+}
+
+#[test]
+fn a_view_without_payment_denom_is_malformed() {
+    let document = fixture();
+    for rung in ["receipted", "committed"] {
+        let mut changed = document[rung].clone();
+        assert!(changed
+            .as_object_mut()
+            .unwrap_or_else(|| panic!("object"))
+            .remove("paymentDenom")
+            .is_some());
+        assert_eq!(
+            SequencerReceipt::decode(&changed),
+            Err(ReceiptError::Malformed),
+            "missing paymentDenom in {rung} view"
         );
     }
 }
@@ -398,10 +495,7 @@ fn the_shared_sequencer_receipt_vector_decodes_and_verifies() {
         verifier: String,
     }
 
-    let vector: Vector = must(serde_json::from_str(include_str!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
-    ))));
+    let vector: Vector = must(serde_json::from_value(shared_fixture()));
     assert!(
         !vector.cases.is_empty(),
         "shared receipt vector has no cases"
@@ -413,6 +507,7 @@ fn the_shared_sequencer_receipt_vector_decodes_and_verifies() {
             | "V1-erc20-approve"
             | "V1-layerxledger-pay-exact"
             | "V1-layerxbridge-bridge-out"
+            | "V1-layerxprograms-call"
             | "V2-layerxledger-revert" => ("accepts", None),
             "V3-key-not-pinned" | "V3-height-outside-key-range" => {
                 ("SequencerSignature", Some("R3"))

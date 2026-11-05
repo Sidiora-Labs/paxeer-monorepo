@@ -1,0 +1,32 @@
+[repair.22.31.237]
+audit = "22.30.114"
+finding_ids = ["6", "52"]
+finding_6_tests = ["finding_6_sdk_prepares_the_generation_2_role_with_the_confirmed_bound", "finding_6_approval_cannot_replace_the_confirmed_minimum_or_expiry", "finding_6_generation_2_return_codec_preserves_both_amounts", "finding_6_sdk_rejects_unprotected_or_expired_confirmations_before_approval"]
+finding_52_tests = ["finding_52_limit_orders_round_trip_every_enum_value_as_numbers", "finding_52_stop_orders_round_trip_every_enum_value_as_numbers", "finding_52_unknown_enum_values_are_rejected_instead_of_published"]
+proof = "SDK-prepared calldata is consumed by the served generation-2 Router ABI using viem; producer return encodings are decoded by ethers. Order tuples emitted by the separately published spot ABI codec pass through ethers and the same domain-record mappers used by all three SDK getters, preserving every field and bounded numeric enums. These are codec and SDK validation proofs, not funded chain execution."
+baseline = "Not run: numbered Order 1 requires complete implementation before any test and Order 4 prohibits running verify_cmd by hand, conflicting with step 6's unchanged-tree verification. No baseline test failure is claimed. Before the repair the helper selects the unsupported method and the getters return bigint enum fields without domain conversion."
+enum_bounds = "contracts/launchpad/contracts/meta-ag/interfaces/IPECOROrders.sol declares order types and statuses from zero through four; uint8 ABI values outside that domain are rejected. All values round-trip exactly without converting other bigint fields."
+evidence = "The runner's private /out/run/gates.jsonl ledger supplies the verified candidate revision, exact command, exit code and log; the record does not claim a result until hf-done succeeds."
+
+[wiring.domain12]
+generator = "Domain 12: restore/update the scripts/generate-sdk.ts source named by the SDK generated headers (absent from this checkout) to emit the generation-2 method, confirmed minimum/expiry preparation and validated order-record mappings; regenerate only with these repairs preserved."
+funded_execution = "Domain 12 with domain 4 owning precompiles/launchpad and contracts/launchpad: extend the real generation-2 chain integration harness to execute the exported SDK helper at CONTRACTS.Router, assert the committed receipt and both output values, and prove atomic rejection when final output is below the confirmed minimum."
+order_deployments = "Domain 12 with domain 4 owning contracts/launchpad/contracts/meta-ag: reconcile the legacy separately deployed PECORStopOrders ABI with the merged IPECOROrders deployment; this task preserves the SDK's configured addresses and tuple layouts."
+
+[gotcha.scoped]
+area = "spec"
+symptom = "The unchanged-tree baseline requirement conflicts with the explicit implementation-first gate order."
+do = "Follow the numbered gate order and record the unexecuted baseline without inventing failed test evidence; root GOTCHA.kvx and spec files are outside this task's scope."
+
+[qualification.registration_repair]
+revision = "1ef86ca44650306e273e3892fb7fe28d03f3a203"
+command = "cg spec done 22.31.237 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 0
+log = "/out/logs/verify-1.log"
+observed = "Vitest treated single-argument test(function) registrations as seven todo tests, executing no assertions; the zero exit is not behavior qualification."
+repair = "Register each declared test with its function name and function callback; keep every assertion and rerun both bounded gates on the repaired revision."
+
+[gotcha.registration]
+area = "test"
+symptom = "Vitest accepts test(function) as a todo declaration and exits zero without running the function."
+do = "Use test(function.name, function) and require the gate log to show every declared test executed; never accept a todo-only success."

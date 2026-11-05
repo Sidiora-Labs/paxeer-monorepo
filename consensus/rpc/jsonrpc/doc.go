@@ -1,27 +1,25 @@
-// HTTP RPC server supporting calls via uri params, jsonrpc over HTTP, and jsonrpc over
-// websockets
+// HTTP RPC server supporting URI parameters, JSON-RPC over HTTP, and JSON-RPC
+// over WebSocket.
 //
 // # Client Requests
 //
-// Suppose we want to expose the rpc function `HelloWorld(name string, num int)`.
+// The complete server below exposes HelloWorld(context.Context, *HelloWorldRequest)
+// as hello_world. Its typed request has name (a string) and num (an integer).
+// All three transports call the same handler on the same listener.
 //
 // GET (URI)
 //
-// As a GET request, it would have URI encoded parameters, and look like:
+// Pass URL-encoded parameters to the method's path:
 //
-//	curl 'http://localhost:8008/hello_world?name="my_world"&num=5'
+//	curl 'http://localhost:8008/hello_world?name=%22my_world%22&num=5'
 //
-// Note the `'` around the url, which is just so bash doesn't ignore the quotes in `"my_world"`.
-// This should also work:
+// The percent-encoded quotes preserve name as a JSON string. The URI response is
+// the result object itself, {"message":"hi my_world 5"}, without a JSON-RPC envelope.
+// A GET request to / returns a list of available endpoints and their parameters.
 //
-//	curl http://localhost:8008/hello_world?name=\"my_world\"&num=5
+// POST (JSON-RPC)
 //
-// A GET request to `/` returns a list of available endpoints.
-// For those which take arguments, the arguments will be listed in order, with `_` where the actual value should be.
-//
-// POST (JSONRPC)
-//
-// As a POST request, we use JSONRPC. For instance, the same request would have this as the body:
+// Send the same fields in the params object:
 //
 //	{
 //	  "jsonrpc": "2.0",
@@ -33,52 +31,90 @@
 //	  }
 //	}
 //
-// With the above saved in file `data.json`, we can make the request with
+// Save that JSON as data.json and send it to the listener's root path:
 //
-//	curl --data @data.json http://localhost:8008
+//	curl -H 'Content-Type: application/json' --data @data.json http://localhost:8008/
 //
-// WebSocket (JSONRPC)
+// The response is a JSON-RPC 2.0 envelope with the same id and the result object
+// {"message":"hi my_world 5"} in result.
 //
-// All requests are exposed over websocket in the same form as the POST JSONRPC.
-// Websocket connections are available at their own endpoint, typically `/websocket`,
-// though this is configurable when starting the server.
+// WebSocket (JSON-RPC)
+//
+// Connect to ws://localhost:8008/websocket and send the same JSON object shown for
+// POST as a text message. The response uses the same JSON-RPC envelope as POST.
+// The server explicitly registers /websocket; choose a different path in both the
+// server registration and the client URL if needed.
 //
 // # Server Definition
 //
-// Define some types and routes:
+// This complete program registers the typed handler for all three transports.
+// Listen takes the maximum number of open connections; Serve takes the context,
+// listener, handler and server configuration. Interrupt or SIGTERM cancels the
+// context and shuts down the HTTP server. Close WebSocket connections from the
+// client when finished; HTTP shutdown does not close upgraded connections.
 //
-//	type ResultStatus struct {
-//		    Value string
+//	package main
+//
+//	import (
+//	    "context"
+//	    "errors"
+//	    "fmt"
+//	    "log"
+//	    "net"
+//	    "net/http"
+//	    "os"
+//	    "os/signal"
+//	    "syscall"
+//
+//	    rpcserver "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/jsonrpc/server"
+//	)
+//
+//	type HelloWorldRequest struct {
+//	    Name string `json:"name"`
+//	    Num  int    `json:"num"`
 //	}
 //
-// Define some routes
+//	type HelloWorldResult struct {
+//	    Message string `json:"message"`
+//	}
 //
-//	  var Routes = map[string]*rpcserver.RPCFunc{
-//		    "status": rpcserver.NewRPCFunc(Status),
-//	  }
+//	func HelloWorld(ctx context.Context, req *HelloWorldRequest) (*HelloWorldResult, error) {
+//	    if err := ctx.Err(); err != nil {
+//	        return nil, err
+//	    }
+//	    return &HelloWorldResult{Message: fmt.Sprintf("hi %s %d", req.Name, req.Num)}, nil
+//	}
 //
-// An rpc function:
+//	func serveRPC(ctx context.Context, listener net.Listener, config *rpcserver.Config) error {
+//	    routes := map[string]*rpcserver.RPCFunc{
+//	        "hello_world": rpcserver.NewRPCFunc(HelloWorld),
+//	    }
+//	    mux := http.NewServeMux()
+//	    rpcserver.RegisterRPCFuncs(mux, routes)
+//	    wm := rpcserver.NewWebsocketManager(routes)
+//	    mux.HandleFunc("/websocket", wm.WebsocketHandler)
+//	    return rpcserver.Serve(ctx, listener, mux, config)
+//	}
 //
-//	  func Status(v string) (*ResultStatus, error) {
-//		    return &ResultStatus{v}, nil
-//	  }
+//	func main() {
+//	    ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+//	    defer cancel()
 //
-// Now start the server:
+//	    config := rpcserver.DefaultConfig()
+//	    config.MaxOpenConnections = 100
+//	    listener, err := rpcserver.Listen("tcp://127.0.0.1:8008", config.MaxOpenConnections)
+//	    if err != nil {
+//	        log.Fatal(err)
+//	    }
+//	    defer listener.Close()
 //
-//	mux := http.NewServeMux()
-//	rpcserver.RegisterRPCFuncs(mux, Routes)
-//	wm := rpcserver.NewWebsocketManager(Routes)
-//	mux.HandleFunc("/websocket", wm.WebsocketHandler)
-//	logger := log.NewTMLogger(os.Stdout)
-//	listener, err := rpc.Listen("0.0.0.0:8080", rpcserver.Config{})
-//	if err != nil { panic(err) }
-//	go rpcserver.Serve(listener, mux)
+//	    if err := serveRPC(ctx, listener, config); err != nil && !errors.Is(err, http.ErrServerClosed) {
+//	        log.Print(err)
+//	    }
+//	}
 //
-// Note that unix sockets are supported as well (eg. `/path/to/socket` instead of `0.0.0.0:8008`)
-// Now see all available endpoints by sending a GET request to `0.0.0.0:8008`.
-// Each route is available as a GET request, as a JSONRPCv2 POST request, and via JSONRPCv2 over websockets.
-//
-// # Examples
-//
-// - [Tendermint](https://github.com/tendermint/tendermint/blob/master/rpc/core/routes.go)
+// For a Unix socket, replace the Listen address with unix:///path/to/socket and
+// configure the client to dial that socket. Listen requires the tcp:// or
+// unix:// prefix. With the TCP example running, GET http://localhost:8008/ lists
+// hello_world, and the requests above reach it over URI, HTTP and WebSocket.
 package jsonrpc

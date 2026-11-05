@@ -20,6 +20,7 @@ import { bridgeConfig } from './config';
 import { paxeer as paxeerChain, type BridgeChain } from './chains';
 import { attestationPollInterval, fetchDepositAttestation, fetchReleaseAttestation } from './attestation-api';
 import type { BridgeTransfer } from './transfers';
+import { readSolanaCustodyState } from './solana-custody';
 import { recipientRecordFromResponse, recipientRecordRequest, solanaRecipientHandle } from './solana';
 
 export const paxeerConfigured = bridgeConfig.paxeerRpcUrl !== undefined;
@@ -88,7 +89,7 @@ export function usePaxeerPairState(chain: BridgeChain, assetId: Address): Paxeer
     undefined;
 
   const loaded =
-    paxeerConfigured && !paused.isLoading && !chainInfo.isLoading && !cap.isLoading && !attestors.isLoading;
+    paxeerConfigured && paused.isSuccess && chainInfo.isSuccess && cap.isSuccess && attestors.isSuccess;
   const error = paxeerConfigured && (paused.isError || chainInfo.isError || cap.isError || attestors.isError);
 
   return {
@@ -109,6 +110,8 @@ export function usePaxeerPairState(chain: BridgeChain, assetId: Address): Paxeer
 }
 
 export type VaultState = {
+  enabled?: boolean;
+  vault?: Address;
   paused: boolean | undefined;
   perTx: bigint;
   total: bigint;
@@ -120,6 +123,16 @@ export type VaultState = {
 };
 
 export function useVaultState(chain: BridgeChain, assetAddress: Address): VaultState {
+  const solanaAsset = chain.assets.find((asset) => asset.assetId.toLowerCase() === assetAddress.toLowerCase());
+  const solana = useQuery({
+    queryKey: [ 'solana-custody', bridgeConfig.foreignRpcUrls.solana, bridgeConfig.solanaProgramId, assetAddress ],
+    enabled: chain.kind === 'solana' && solanaAsset !== undefined && bridgeConfig.solanaProgramId !== undefined && bridgeConfig.foreignRpcUrls.solana !== undefined,
+    queryFn: ({ signal }) => readSolanaCustodyState(solanaAsset!, {
+      programId: bridgeConfig.solanaProgramId,
+      rpcUrl: bridgeConfig.foreignRpcUrls.solana,
+    }, signal),
+    refetchInterval: REFRESH_MS,
+  });
   const vault = chain.vault;
   const chainId = chain.viemChain?.id;
   const enabled = vault !== undefined && chainId !== undefined;
@@ -165,6 +178,20 @@ export function useVaultState(chain: BridgeChain, assetAddress: Address): VaultS
 
   const capsData = caps.data as readonly [bigint, bigint] | undefined;
 
+  if (chain.kind === 'solana') {
+    return {
+      paused: solana.data?.paused,
+      enabled: solana.data?.enabled,
+      vault: solana.data?.vault,
+      perTx: solana.data?.perTx ?? 0n,
+      total: solana.data?.total ?? 0n,
+      outstanding: solana.data?.outstanding ?? 0n,
+      attestors: solana.data?.attestors ?? [],
+      threshold: solana.data?.threshold,
+      loaded: solana.isSuccess,
+      error: solana.isError,
+    };
+  }
   return {
     paused: paused.data,
     perTx: capsData?.[0] ?? 0n,
@@ -174,11 +201,11 @@ export function useVaultState(chain: BridgeChain, assetAddress: Address): VaultS
     threshold: threshold.data !== undefined ? Number(threshold.data) : undefined,
     loaded:
       enabled &&
-      !paused.isLoading &&
-      !caps.isLoading &&
-      !outstanding.isLoading &&
-      !attestors.isLoading &&
-      !threshold.isLoading,
+      paused.isSuccess &&
+      caps.isSuccess &&
+      outstanding.isSuccess &&
+      attestors.isSuccess &&
+      threshold.isSuccess,
     error:
       enabled &&
       (paused.isError || caps.isError || outstanding.isError || attestors.isError || threshold.isError),

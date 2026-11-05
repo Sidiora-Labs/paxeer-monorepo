@@ -1,0 +1,780 @@
+# Pre-upgrade launchpad PnL/referral audit. Product findings only; repairs belong to their owning domains.
+
+[audit.22.30.37]
+task = "22.30.37"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 81
+findings = 21
+docs_reviewed = 13
+upgrade_ready = false
+blocking = ["journey-indexer-grants","schema-sequence-grants","active-snapshot-update-grant","history-row-insert-grant","wallet-range-schema-not-migrated","reward-history-age-outage"]
+
+[file.f001]
+path = "apps/launchpad/web/sentry.edge.config.ts"
+lines = 15
+verdict = "clean"
+note = "Reviewed DSN opt-in, public release/environment configuration and edge-runtime initialization; no service credentials or retired network transport are introduced."
+
+[file.f002]
+path = "services/launchpad/pnl-tracker/internal/production/l16/baseline.go"
+lines = 820
+verdict = "clean"
+note = "Reviewed canonical creation, mint-to-factory and factory-to-pool provenance, committed balance replay, lease fencing, signed attestation issuance and persisted use verification."
+
+[file.f003]
+path = "services/launchpad/pnl-tracker/internal/production/l16/baseline_ahead.go"
+lines = 225
+verdict = "clean"
+note = "Reviewed typed-ahead/raw-ahead bounds, refusal throttling, lease authority and checkpoint binding; unavailable history is refused without fabricating a baseline."
+
+[file.f004]
+path = "services/launchpad/pnl-tracker/internal/production/l16/baseline_ahead_postgres_test.go"
+lines = 774
+verdict = "issues"
+note = "Reviewed every real-market stage, owner handoff, quarantine and restart assertion; the runtime-role helper suppresses missing production grant objects as recorded."
+
+[file.f005]
+path = "services/launchpad/pnl-tracker/internal/production/l16/baseline_test.go"
+lines = 146
+verdict = "clean"
+note = "Reviewed baseline provenance refusal, noncanonical/removed transfer decoding and actual factory creation replay coverage."
+
+[file.f006]
+path = "services/launchpad/pnl-tracker/internal/production/l16/checkpoint.go"
+lines = 247
+verdict = "clean"
+note = "Reviewed UTC day boundaries, complete-history state, deterministic ordering, checkpoint continuation and exact inventory carry-forward."
+
+[file.f007]
+path = "services/launchpad/pnl-tracker/internal/production/l16/consumer.go"
+lines = 379
+verdict = "clean"
+note = "Reviewed accounting publication decoding, partition leases, baseline use, duplicate identity checks and atomic inventory/portfolio delivery composition."
+
+[file.f008]
+path = "services/launchpad/pnl-tracker/internal/production/l16/consumer_test.go"
+lines = 224
+verdict = "clean"
+note = "Reviewed settlement attribution, required real baseline issuer, owned generation mappings, transaction rollback and computed frozen portfolio projection assertions."
+
+[file.f009]
+path = "services/launchpad/pnl-tracker/internal/production/l16/inventory.go"
+lines = 226
+verdict = "clean"
+note = "Reviewed uint256 input bounds, aggregate arithmetic, proportional floors, known/unknown basis conservation and nullable realized values."
+
+[file.f010]
+path = "services/launchpad/pnl-tracker/internal/production/l16/inventory_test.go"
+lines = 657
+verdict = "clean"
+note = "Reviewed all conservation, normalization, allocation, provenance, overflow, ordering, transfer and replay cases against the accounting primitives."
+
+[file.f011]
+path = "services/launchpad/pnl-tracker/internal/production/l16/ledger.go"
+lines = 885
+verdict = "clean"
+note = "Reviewed canonical leg identities, transaction locks, immutable inbox/outbox mapping, transfer conservation, effect fencing and frozen portfolio construction."
+
+[file.f012]
+path = "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go"
+lines = 1209
+verdict = "issues"
+note = "Reviewed all canonical movement pages, receipt reconciliation, dual-node parity, owner authentication, lease recovery and atomic wallet commits; active-pointer privileges disagree with the production manifest."
+
+[file.f013]
+path = "services/launchpad/pnl-tracker/internal/production/l16/live_transfers_production_test.go"
+lines = 193
+verdict = "clean"
+note = "Reviewed required real providers and ownership, gift basis, dense canonical transfer paging and mixed-basis sale assertions; execution remains a separate production gate."
+
+[file.f014]
+path = "services/launchpad/pnl-tracker/internal/production/l16/mark_price.go"
+lines = 182
+verdict = "clean"
+note = "Reviewed effective-reserve spot ratio, token decimal units, post-swap canonical settlement and stale/unavailable mark handling."
+
+[file.f015]
+path = "services/launchpad/pnl-tracker/internal/production/l16/mark_price_test.go"
+lines = 119
+verdict = "clean"
+note = "Reviewed whole-token USDL ratios and actual pool reserve comparison, preserving integer numerator/denominator precision."
+
+[file.f016]
+path = "services/launchpad/pnl-tracker/internal/production/l16/measurement.go"
+lines = 1152
+verdict = "clean"
+note = "Reviewed frozen SDK source binding, exact sampled quantities, private evidence inputs, source digests, provider identity and raw timing aggregation; requirement 4298.1 is implemented."
+
+[file.f017]
+path = "services/launchpad/pnl-tracker/internal/production/l16/measurement_binding_test.go"
+lines = 38
+verdict = "clean"
+note = "Reviewed TestInventoryMeasurementSourcesExistAtRepositoryRoot against requiredInventorySources and sdk/launchpad/packages/sdk/src/operations.gen.ts."
+
+[file.f018]
+path = "services/launchpad/pnl-tracker/internal/production/l16/measurement_production_test.go"
+lines = 187
+verdict = "clean"
+note = "Reviewed provider-backed measurement inputs, nearest-rank nanoseconds, changed/trailing input refusal and exact origin timing units."
+
+[file.f019]
+path = "services/launchpad/pnl-tracker/internal/production/l16/normalization.go"
+lines = 196
+verdict = "clean"
+note = "Reviewed fill/receipt transfer correlation, payer versus recipient attribution, gas and fee assets, acquisition basis and external-gift treatment."
+
+[file.f020]
+path = "services/launchpad/pnl-tracker/internal/production/l16/queries.go"
+lines = 32
+verdict = "clean"
+note = "Reviewed immutable range/interval and rebuild DDL, keys, foreign keys and trigger behavior; production registration of the range tables is missing at the service consumer, recorded separately."
+
+[file.f021]
+path = "services/launchpad/pnl-tracker/internal/production/l16/reader.go"
+lines = 19
+verdict = "clean"
+note = "Reviewed exact position projection and delegation to validated frozen accounting aggregation; no float or invented mark crosses the reader."
+
+[file.f022]
+path = "services/launchpad/pnl-tracker/internal/production/l16/reported_header.go"
+lines = 92
+verdict = "clean"
+note = "Reviewed node-reported hash preservation, header number matching, nil/malformed replies and block transaction decoding for Paxeer headers."
+
+[file.f023]
+path = "services/launchpad/pnl-tracker/internal/production/l16/reported_header_test.go"
+lines = 108
+verdict = "clean"
+note = "Reviewed captured Paxeer header hash regression and live node comparison without recomputing the node's consensus identifier."
+
+[file.f024]
+path = "services/launchpad/pnl-tracker/internal/production/l16/service.go"
+lines = 1233
+verdict = "issues"
+note = "Reviewed full rebuild/archive activation, dual-node balances, UTC checkpoint/interval history and atomic projection; persisted wallet range tables are absent from production migrations."
+
+[file.f025]
+path = "services/launchpad/pnl-tracker/internal/production/l16/service_test.go"
+lines = 457
+verdict = "clean"
+note = "Reviewed normalization, null/zero/stale projection, activation rollback, dense day pages, interval fee/gas accounting and archive identity cases; local DDL setup is not production migration qualification."
+
+[file.f026]
+path = "services/launchpad/pnl-tracker/internal/production/l17/admission.go"
+lines = 58
+verdict = "clean"
+note = "Reviewed global/per-wallet admission limits, cancellation, release accounting and invalid principal refusal."
+
+[file.f027]
+path = "services/launchpad/pnl-tracker/internal/production/l17/cache.go"
+lines = 29
+verdict = "clean"
+note = "Reviewed normalized wallet, verified-owner and revision dimensions in private/public cache keys."
+
+[file.f028]
+path = "services/launchpad/pnl-tracker/internal/production/l17/cache_adapter.go"
+lines = 75
+verdict = "clean"
+note = "Reviewed bounded Redis lifetime, embedded revision/expiry validation and cache-miss behavior for malformed or stale snapshots."
+
+[file.f029]
+path = "services/launchpad/pnl-tracker/internal/production/l17/card_worker.go"
+lines = 188
+verdict = "clean"
+note = "Reviewed durable render/purge leases, fence checks, bounded attempts, real font rendering and confirmed origin deletion before purge acknowledgement."
+
+[file.f030]
+path = "services/launchpad/pnl-tracker/internal/production/l17/cards.go"
+lines = 337
+verdict = "clean"
+note = "Reviewed owner-only snapshot selection, immutable public values, card state transitions, deletion outbox and expiry/privacy checks."
+
+[file.f031]
+path = "services/launchpad/pnl-tracker/internal/production/l17/display_provider.go"
+lines = 64
+verdict = "clean"
+note = "Reviewed display-only USD conversion, quote freshness and unavailable behavior; display values do not become financial accounting authority."
+
+[file.f032]
+path = "services/launchpad/pnl-tracker/internal/production/l17/domain.go"
+lines = 408
+verdict = "clean"
+note = "Reviewed frozen asset, watermark, position and summary shapes, arbitrary-precision totals, coverage enums and nullable financial values."
+
+[file.f033]
+path = "services/launchpad/pnl-tracker/internal/production/l17/export_jobs.go"
+lines = 241
+verdict = "clean"
+note = "Reviewed owner-bound immutable snapshot jobs, idempotent creation, cancellation, file digest/expiry binding and download validation."
+
+[file.f034]
+path = "services/launchpad/pnl-tracker/internal/production/l17/export_worker.go"
+lines = 177
+verdict = "clean"
+note = "Reviewed durable job reclamation, attempt/fence limits, atomic file completion, cancellation races and expired-object cleanup."
+
+[file.f035]
+path = "services/launchpad/pnl-tracker/internal/production/l17/history.go"
+lines = 452
+verdict = "issues"
+note = "Reviewed canonical history records, immutable paging and exact exports; production role lacks INSERT for the history rows written by CopyFrom."
+
+[file.f036]
+path = "services/launchpad/pnl-tracker/internal/production/l17/http_handlers.go"
+lines = 488
+verdict = "clean"
+note = "Reviewed every registered v2 route, identity/ownership checks, frozen error mapping, bounded body decoding, private downloads and public card response caching."
+
+[file.f037]
+path = "services/launchpad/pnl-tracker/internal/production/l17/l17_test.go"
+lines = 530
+verdict = "clean"
+note = "Reviewed exact summary/coverage tests and real PostgreSQL cache, export, history, card and privacy assertions; schema-owner fixtures do not establish production role grants."
+
+[file.f038]
+path = "services/launchpad/pnl-tracker/internal/production/l17/notification_worker.go"
+lines = 64
+verdict = "clean"
+note = "Reviewed durable relay delegation and session/account/wallet revision deduplication with bounded state and explicit ForgetSession cleanup."
+
+[file.f039]
+path = "services/launchpad/pnl-tracker/internal/production/l17/origin_purger.go"
+lines = 74
+verdict = "clean"
+note = "Reviewed HTTPS public-origin validation, bounded deletion probes and required 410 responses for card/share metadata and images."
+
+[file.f040]
+path = "services/launchpad/pnl-tracker/internal/production/l17/origin_purger_test.go"
+lines = 85
+verdict = "clean"
+note = "Reviewed real HTTP origin deletion checks, refusal of non-Gone responses and malformed origin configurations."
+
+[file.f041]
+path = "services/launchpad/pnl-tracker/internal/production/l17/phase2_qualification.py"
+lines = 932
+verdict = "clean"
+note = "Reviewed complete provider-driven qualification tooling, strict monetary JSON, timing distributions, source digests, lifecycle checks and private evidence requirements."
+
+[file.f042]
+path = "services/launchpad/pnl-tracker/internal/production/l17/phase2_test.go"
+lines = 699
+verdict = "clean"
+note = "Reviewed immutable pages, atomic rollback, large export/cancellation, leased restart recovery, private ownership and expiry behavior."
+
+[file.f043]
+path = "services/launchpad/pnl-tracker/internal/production/l17/projection_tx.go"
+lines = 144
+verdict = "clean"
+note = "Reviewed frozen PortfolioUpdate validation, duplicate JSON field refusal, typed versus wire equality and transactional snapshot/delivery composition."
+
+[file.f044]
+path = "services/launchpad/pnl-tracker/internal/production/l17/returns.go"
+lines = 111
+verdict = "clean"
+note = "Reviewed exact rational time-weighted returns, period continuity, denominator checks and explicit missing-history behavior."
+
+[file.f045]
+path = "services/launchpad/pnl-tracker/internal/production/l17/service.go"
+lines = 231
+verdict = "clean"
+note = "Reviewed identity-scoped private reads, public portfolio restrictions, snapshot revision pinning, signed cursor expiry and admission/cache composition."
+
+[file.f046]
+path = "services/launchpad/pnl-tracker/internal/production/l17/share_export.go"
+lines = 270
+verdict = "clean"
+note = "Reviewed sanitized metadata, selected immutable values, display quoting, export content integrity and owner-bound historical metadata."
+
+[file.f047]
+path = "services/launchpad/pnl-tracker/internal/production/l17/shares_v3.go"
+lines = 711
+verdict = "clean"
+note = "Reviewed full selected intent lifecycle, realm/release/interface binding, owner/session authority, public financial privacy, render fencing, expiry and purge recovery."
+
+[file.f048]
+path = "services/launchpad/pnl-tracker/internal/production/l17/shares_v3_http.go"
+lines = 150
+verdict = "clean"
+note = "Reviewed all six frozen v3 share routes, bounded strict request decoding, authenticated owner endpoints and public JSON/PNG deletion responses."
+
+[file.f049]
+path = "services/launchpad/pnl-tracker/internal/production/l17/shares_v3_production_test.go"
+lines = 231
+verdict = "clean"
+note = "Reviewed real PostgreSQL selected-intent idempotency, sensitive-field rejection, real font PNG, expiry and retained-null assertions."
+
+[file.f050]
+path = "services/launchpad/pnl-tracker/internal/production/l17/storage.go"
+lines = 445
+verdict = "clean"
+note = "Reviewed immutable snapshot rows, source-event/digest replay, monotonic wallet revisions, exact positions, expiry, owner/public paging and transactional notification storage."
+
+[file.f051]
+path = "services/launchpad/pnl-tracker/internal/production/l18/FeeAccumulator.json"
+lines = 1502
+verdict = "generated"
+note = "Generated ABI artifact; method/event signatures and tuple shapes compared with the native FeeAccumulator ABI. Generated verdict does not certify deployed runtime bytes."
+
+[file.f052]
+path = "services/launchpad/pnl-tracker/internal/production/l18/FeesRouter.json"
+lines = 707
+verdict = "generated"
+note = "Generated ABI artifact; method/event signatures and tuple shapes compared with the native FeesRouter ABI. Generated verdict does not certify deployed runtime bytes."
+
+[file.f053]
+path = "services/launchpad/pnl-tracker/internal/production/l18/SidioraNFT.json"
+lines = 1028
+verdict = "generated"
+note = "Generated ABI artifact; method/event signatures and tuple shapes compared with the native SidioraNFT ABI. Generated verdict does not certify deployed runtime bytes."
+
+[file.f054]
+path = "services/launchpad/pnl-tracker/internal/production/l18/attribution.go"
+lines = 241
+verdict = "clean"
+note = "Reviewed signed bounded referral tokens, key rotation, consent, first-binding atomicity, replay conflict and immutable campaign/version attribution."
+
+[file.f055]
+path = "services/launchpad/pnl-tracker/internal/production/l18/authority.go"
+lines = 734
+verdict = "clean"
+note = "Reviewed canonical fill digests, committed chain receipt binding, approved funding/payout authority, referral consent, request replay and server-issued token verification."
+
+[file.f056]
+path = "services/launchpad/pnl-tracker/internal/production/l18/chain_test.go"
+lines = 403
+verdict = "clean"
+note = "Reviewed actual isolated Anvil creator/epoch/claim producer paths, receipt ownership and PostgreSQL persistence/replay assertions."
+
+[file.f057]
+path = "services/launchpad/pnl-tracker/internal/production/l18/creator.go"
+lines = 305
+verdict = "clean"
+note = "Reviewed committed checkpoint and runtime hash gates, NFT owner/pool/strategy reads, unsigned prepared call binding and receipt/event verification."
+
+[file.f058]
+path = "services/launchpad/pnl-tracker/internal/production/l18/domain.go"
+lines = 138
+verdict = "clean"
+note = "Reviewed chain 125 constants, exact cashback/epoch arithmetic, overflow bounds and explicit CLAIM/BURN/AIRDROP/LP_REWARDS capability values."
+
+[file.f059]
+path = "services/launchpad/pnl-tracker/internal/production/l18/domain_test.go"
+lines = 65
+verdict = "clean"
+note = "Reviewed exact synthetic arithmetic as domain coverage and missing creator dependency refusals; these do not claim end-to-end production authority."
+
+[file.f060]
+path = "services/launchpad/pnl-tracker/internal/production/l18/epoch.go"
+lines = 403
+verdict = "clean"
+note = "Reviewed canonical event identity, epoch funding/supply checkpoints, exact remaining entitlement, replay protection and unsigned epoch claim preparation."
+
+[file.f061]
+path = "services/launchpad/pnl-tracker/internal/production/l18/fixture.cjs"
+lines = 25
+verdict = "clean"
+note = "Reviewed complete local contract deployment fixture, fixed loopback chain identity and exact owned Anvil process/listener checks before mutation."
+
+[file.f062]
+path = "services/launchpad/pnl-tracker/internal/production/l18/frozen-artifacts.json"
+lines = 12
+verdict = "clean"
+note = "Reviewed retained manifest identity, rule version, contract/ABI digest references and declared chain-bound reward surfaces."
+
+[file.f063]
+path = "services/launchpad/pnl-tracker/internal/production/l18/http.go"
+lines = 162
+verdict = "clean"
+note = "Reviewed authenticated Rewards and PrepareClaim, strict frozen request fields, required Idempotency-Key, body limits and frozen Error envelope; requirement 4300.1 is implemented."
+
+[file.f064]
+path = "services/launchpad/pnl-tracker/internal/production/l18/http_frozen_test.go"
+lines = 77
+verdict = "clean"
+note = "Reviewed the three declared missing-key, malformed-JSON and extra-field cases and their frozen Error schema/status/code assertions for requirement 4300.1."
+
+[file.f065]
+path = "services/launchpad/pnl-tracker/internal/production/l18/journeys.go"
+lines = 797
+verdict = "issues"
+note = "Reviewed entire reward listing/cursor/preparation flow, indexed checkpoints and community watcher; findings cover runtime grants, aged history, strategy isolation and policy changes."
+
+[file.f066]
+path = "services/launchpad/pnl-tracker/internal/production/l18/journeys_test.go"
+lines = 418
+verdict = "clean"
+note = "Reviewed PostgreSQL attribution key rotation/rollback, actual committed creator receipts, cross-campaign UUID replay and recovery; no claim that these execute production grants."
+
+[file.f067]
+path = "services/launchpad/pnl-tracker/internal/production/l18/ledger.go"
+lines = 405
+verdict = "issues"
+note = "Reviewed exact funded liabilities, budget reservation, immutable inbox/entry/claim identities, review holds and transactional reward outbox; no production publisher consumes that outbox."
+
+[file.f068]
+path = "services/launchpad/pnl-tracker/internal/production/l18/localfixture_test.go"
+lines = 47
+verdict = "clean"
+note = "Reviewed local chain fixture loading and phase2 migration substitution with explicit missing-input errors."
+
+[file.f069]
+path = "services/launchpad/pnl-tracker/internal/production/l18/measurement.py"
+lines = 606
+verdict = "clean"
+note = "Reviewed private configuration and artifact permissions, canonical snapshot/digest evidence, all table orderings including payout attempts, timing and post-restart conservation."
+
+[file.f070]
+path = "services/launchpad/pnl-tracker/internal/production/l18/measurement_test.py"
+lines = 80
+verdict = "clean"
+note = "Reviewed uint256 monetary boundaries, source digests, private-input permissions, exclusive output refusal and actual provider measurement release/interface binding."
+
+[file.f071]
+path = "services/launchpad/pnl-tracker/internal/production/l18/phase2_fixture.cjs"
+lines = 1
+verdict = "clean"
+note = "Reviewed complete single-line phase2 contract fixture, owned-process guards, exact chain-bound deployments and emitted receipt evidence."
+
+[file.f072]
+path = "services/launchpad/pnl-tracker/internal/production/l18/phase2_qualify.py"
+lines = 75
+verdict = "clean"
+note = "Reviewed explicit DSN/output/release/interface inputs, owned child teardown, phase-specific commands and mandatory blocker reporting without claiming global qualification."
+
+[file.f073]
+path = "services/launchpad/pnl-tracker/internal/production/l18/qualify.py"
+lines = 171
+verdict = "issues"
+note = "Reviewed process-group cleanup, listener ownership, bounded fixture lifecycle and evidence records; execution depends on an ephemeral runner path and hardcoded database configuration."
+
+[file.f074]
+path = "services/launchpad/pnl-tracker/internal/production/l18/qualify_test.py"
+lines = 102
+verdict = "clean"
+note = "Reviewed process ownership and occupied-port refusal, bounded termination, signal handling and prevention of peer-process mutation."
+
+[file.f075]
+path = "services/launchpad/pnl-tracker/internal/production/l18/schema.sql"
+lines = 52
+verdict = "issues"
+note = "Reviewed all funding/inbox/award/entry/claim/epoch/outbox/binding constraints and exact sequence creation; reviewed runtime manifest names nonexistent sequences."
+
+[file.f076]
+path = "services/launchpad/pnl-tracker/internal/production/l18/settlement.go"
+lines = 494
+verdict = "clean"
+note = "Reviewed role authorization, payout intent/reconciliation, committed receipt matching, retry/investigation state, dual correction approval and analytics separation."
+
+[file.f077]
+path = "services/launchpad/pnl-tracker/internal/production/l18/storage_test.go"
+lines = 299
+verdict = "clean"
+note = "Reviewed isolated PostgreSQL budget, deduplication, entries, holds, claims and rollback tests; syntheticAuthority is confined to primitive tests and supplies no production interface proof."
+
+[file.f078]
+path = "services/launchpad/pnl-tracker/internal/referral/localfixture_test.go"
+lines = 62
+verdict = "clean"
+note = "Reviewed real PostgreSQL local fixture and migration setup, explicit connection requirements and cleanup ownership."
+
+[file.f079]
+path = "services/launchpad/pnl-tracker/internal/referral/production.go"
+lines = 411
+verdict = "clean"
+note = "Reviewed authenticated campaign/version dispatch, code/consent/binding inputs, canonical conversion accrual, idempotent ledger calls and frozen error bodies."
+
+[file.f080]
+path = "services/launchpad/pnl-tracker/internal/referral/referral.go"
+lines = 139
+verdict = "clean"
+note = "Reviewed legacy analytics event deduplication and conversion counters; reward ledger authority is carried by ProductionService rather than analytics counts."
+
+[file.f081]
+path = "services/launchpad/pnl-tracker/internal/referral/referral_test.go"
+lines = 128
+verdict = "clean"
+note = "Reviewed click/bind/conversion deduplication, invalid referral inputs and analytics-to-conversion storage behavior."
+
+[finding.journey-indexer-grants]
+file = "services/launchpad/pnl-tracker/internal/production/l18/journeys.go"
+line = 151
+class = "interface-mismatch"
+severity = "high"
+observed = "JourneyService.market, Rewards, Prepare, sourceCheckpoint and CommunityWatcher query indexer_canonical_creations, indexer_ingest_watermarks and indexer_block_completeness base tables (also lines 306, 418, 434, 578, 587, 688 and 735). The pnl_runtime manifest in launchpad/spec/production-system/integration/migrations/grants.json grants only their _v1 views; its creation-view column grants also omit nft_id. internal/app/app.go wires these queries to the runtime pool, so reward reads, preparation and community scans fail with insufficient privilege."
+expected = "The declared RoleManifest.GrantSQL boundary must let the production PnL runtime consume the indexer's admitted read views and every required column without granting cross-service base-table access."
+proposal = "Change production/l18/journeys.go queries to indexer_canonical_creations_v1, indexer_ingest_watermarks_v1 and indexer_block_completeness_v1. In launchpad/spec/production-system/integration/migrations/grants.json admit nft_id on the creation view, then qualify the mounted reward routes and community worker with the coordinator-provisioned pnl_runtime role."
+owner_domain = 4
+interface = "4.go-shared-db-production-role-manifest-grant-sql"
+
+[finding.schema-sequence-grants]
+file = "services/launchpad/pnl-tracker/internal/production/l18/schema.sql"
+line = 3
+class = "interface-mismatch"
+severity = "high"
+observed = "The schema creates serial sequences only for l18_entries.sequence and l18_outbox.sequence; funding, inbox, awards, claims, epochs and epoch_claims use natural keys. grants.json nevertheless grants USAGE on l18_funding_sequence_seq, l18_inbox_sequence_seq, l18_awards_sequence_seq, l18_claims_sequence_seq, l18_epochs_sequence_seq and l18_epoch_claims_sequence_seq. Migration 180000.sql has the same natural-key schema; coordinatortest applies GrantSQL statements without suppressing errors, preventing pnl_runtime bootstrap."
+expected = "The reviewed production role manifest and migrated schema must agree on actual object names so every runtime GRANT succeeds on a newly provisioned database."
+proposal = "Remove the nonexistent sequence grants from launchpad/spec/production-system/integration/migrations/grants.json while retaining the real entry/outbox and later revision sequences. Prove an unmodified coordinator bootstrap of pnl_runtime against the complete reviewed migration plan, without skipping missing-object errors."
+owner_domain = 4
+interface = "4.go-shared-db-production-role-manifest-grant-sql"
+
+[finding.baseline-role-proof-skips-grants]
+file = "services/launchpad/pnl-tracker/internal/production/l16/baseline_ahead_postgres_test.go"
+line = 126
+class = "test-gap"
+severity = "medium"
+observed = "reviewedPnlRuntime documents that real pnl_runtime provisioning fails, then applies a partial manifest and ignores PostgreSQL 42P01, 3F000 and 42883 errors at lines 176-181. The tests can pass with a role the production coordinator cannot provision, hiding the schema/manifest incompatibility."
+expected = "Baseline recovery tests that claim reviewed runtime privileges must exercise the same successful role provisioning used by production, including every required schema and grant."
+proposal = "After correcting the role manifest, replace reviewedPnlRuntime in baseline_ahead_postgres_test.go with the real coordinator-provisioned runtime login and complete dependency migration plan; fail on every invalid production grant rather than skipping its statement."
+owner_domain = 4
+interface = "4.go-shared-db-production-role-manifest-grant-sql"
+
+[finding.active-snapshot-update-grant]
+file = "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go"
+line = 1185
+class = "interface-mismatch"
+severity = "high"
+observed = "livePersistReplayTx advances inventory_l16_active_v2 with INSERT ON CONFLICT DO UPDATE of generation, snapshot_digest and height; service.go line 451 uses the same activation operation and reads the pointer FOR UPDATE. The pnl_runtime manifest grants only SELECT and INSERT on this table. The live authenticated worker therefore cannot commit advancing inventory snapshots under the declared runtime role."
+expected = "Atomic replay activation must advance the persisted active pointer with the exact privileges supplied to the running PnL worker, including the update/locking rights required by its SQL."
+proposal = "Add a reviewed column-scoped UPDATE grant for generation, snapshot_digest and height on pnl.inventory_l16_active_v2 in grants.json, then prove first activation and a later-height activation through LiveTransferWorker with the actual pnl_runtime login and restart recovery."
+owner_domain = 4
+interface = "4.go-shared-db-production-role-manifest-grant-sql"
+
+[finding.history-row-insert-grant]
+file = "services/launchpad/pnl-tracker/internal/production/l17/history.go"
+line = 204
+class = "interface-mismatch"
+severity = "high"
+observed = "CommitHistoryTx copies snapshot_id, ordinal and payload into portfolio_history_rows, but grants.json grants pnl_runtime only SELECT on that table. Both rebuild and live-transfer wallet commits call CommitHistoryTx in their projection transaction. A nonempty canonical history is rejected before the wallet snapshot, history and notice can commit."
+expected = "The production runtime must be able to persist the immutable history rows required by the declared portfolio/history projection without using a schema-owner login."
+proposal = "Add the minimal INSERT grant for pnl.portfolio_history_rows in launchpad/spec/production-system/integration/migrations/grants.json and qualify a nonempty trade/transfer history through the real worker, then restart and read it through GET /v2/me/portfolio/history as its authenticated owner."
+owner_domain = 4
+interface = "4.go-shared-db-production-role-manifest-grant-sql"
+
+[finding.wallet-range-schema-not-migrated]
+file = "services/launchpad/pnl-tracker/internal/production/l16/service.go"
+line = 993
+class = "wiring-gap"
+severity = "high"
+observed = "commitRebuiltHistoryTx inserts inventory_l16_wallet_ranges_v3 and copies inventory_l16_wallet_intervals_v3; IntervalHistory reads them at lines 1047 and 1061. They exist only in l16/queries.go RebuildDDL, which isolated tests execute directly. No production integration migration or pnl_runtime grant creates/admit these tables; migration 160002.sql contains only the older rebuild objects. A live wallet with replay snapshots reaches this write and rolls back."
+expected = "The canonical wallet history producer and interval-history/leaderboard consumers must share a persisted, coordinator-migrated schema with production runtime permissions and immutable evidence behavior."
+proposal = "Register a new reviewed migration under launchpad/spec/production-system/integration/migrations for the two v3 wallet tables, index and immutable triggers; add PnL INSERT/SELECT and owning consumer read grants to grants.json. Exercise commitRebuiltHistoryTx and IntervalHistory using only coordinator-applied migrations and runtime roles."
+owner_domain = 4
+interface = "4.go-shared-db-production-role-manifest-grant-sql"
+
+[finding.reward-history-age-outage]
+file = "services/launchpad/pnl-tracker/internal/production/l18/journeys.go"
+line = 182
+class = "runtime-risk"
+severity = "high"
+observed = "claimedHistory returns ErrUnavailable when the checkpoint exceeds a market's creation by 100000 blocks. Rewards iterates creations in NFT order and calls claimedHistory at lines 331-345 before excluding unrelated wallets at line 347. No indexed history fallback is wired. Once the oldest market crosses this normal age, first-page creator-fee listing fails for every wallet, including wallets that never owned or claimed from that market."
+expected = "The declared RewardsResponse must remain readable as the committed chain grows, preserving complete claimed totals and stable checkpoint paging without making unrelated old markets a global availability dependency."
+proposal = "Implement canonical indexed fee-claim history for production/l18/journeys.go and select wallet-relevant rewards at the pinned checkpoint. Retain bounded paging and exact totals; add a real indexed-path case where the oldest unrelated market is over 100000 blocks old and a later wallet reward remains listable."
+owner_domain = 4
+interface = "4.go-shared-interfaces-v2-rewards-response"
+
+[finding.nonclaim-market-breaks-listing]
+file = "services/launchpad/pnl-tracker/internal/production/l18/journeys.go"
+line = 351
+class = "runtime-risk"
+severity = "medium"
+observed = "Rewards returns ErrUnavailable for the entire page when an NFT owned by the requested wallet has a capability other than CLAIM, even though StrategyCapability and the native fee system admit BURN, AIRDROP and LP_REWARDS. One legitimate strategy choice prevents that wallet from viewing other creator rewards and historical claimed amounts."
+expected = "Reward listing must distinguish inapplicable creator-claim capability from a failed dependency and preserve independently valid reward entries and historical totals."
+proposal = "Update production/l18/journeys.go to apply the product's strategy eligibility per reward: omit an inapplicable creator claim or expose zero current creator claimability while preserving history, and keep epoch entitlements on their own supported route. Prove a wallet with both CLAIM and non-CLAIM markets can list its eligible rewards."
+owner_domain = 4
+interface = "4.go-shared-interfaces-v2-rewards-response"
+
+[finding.community-policy-restart]
+file = "services/launchpad/pnl-tracker/internal/production/l18/journeys.go"
+line = 778
+class = "restart-recovery"
+severity = "medium"
+observed = "CommunityWatcher stores policy_digest with each observation, but RunOnce selects only the latest owner and treats an unchanged owner as unchanged authority. Restarting with an approvedCommunityWallets list that removes or adds that same owner changes w.policyDigest without triggering Observe; the persisted active/proposed/revoked history and emitted authority event remain under the old policy."
+expected = "Persisted community authority must be re-evaluated when either canonical ownership or the approved-wallet policy changes, including after configuration reload or restart."
+proposal = "Read and compare the latest policy_digest as well as owner in production/l18/journeys.go RunOnce, append a new observation when either changes, and prove restart with a removed and re-added approved wallet updates the durable authority state without requiring an NFT transfer."
+owner_domain = 4
+
+[finding.reward-outbox-has-no-relay]
+file = "services/launchpad/pnl-tracker/internal/production/l18/ledger.go"
+line = 126
+class = "wiring-gap"
+severity = "medium"
+observed = "emit persists fee.claimed, award and community/preparation events into l18_outbox with published_at, but no production code reads or acknowledges that table. internal/app/app.go constructs a shared delivery.Store/Relay only for inventory.rebuild.v2 and portfolio.snapshot.v2; its started jobs include reward settlement and community scanning but no l18 outbox bridge. Reward records accumulate without reaching a delivery consumer."
+expected = "An operational transactional outbox must have an owned delivery path, retry/acknowledgement state and restart recovery, or its product role must be explicitly retained local audit data rather than promised event delivery."
+proposal = "Wire an owned l18_outbox publisher or transactional bridge into the shared delivery outbox in services/launchpad/pnl-tracker/internal/app/app.go and production/l18. Admit the reward subjects and minimal runtime update rights, then prove commit, publish, crash before acknowledgement, redelivery and consumer deduplication on the real transport."
+owner_domain = 4
+
+[finding.qualification-ephemeral-runner]
+file = "services/launchpad/pnl-tracker/internal/production/l18/qualify.py"
+line = 120
+class = "config-drift"
+severity = "medium"
+observed = "The declared qualify CLI invokes /tmp/kindle-implementation-20261009/wave1/run-bounded-check.py, a runner absent from the repository and not supplied by an option, and line 144 overwrites L18_POSTGRES_DSN with a fixed local fixture database. A clean checkout cannot reproduce its command using an operator's admitted database configuration."
+expected = "The stable qualification CLI must obtain its runner from maintained repository code and use explicitly provided disposable database inputs while retaining process ownership and bounded teardown."
+proposal = "Replace the ephemeral runner dependency in production/l18/qualify.py with the maintained owned-process lifecycle or an in-repo bounded runner. Require L18_POSTGRES_DSN and an explicit private output directory, preserve existing listener/process checks, and make qualify_test.py cover these input requirements."
+owner_domain = 4
+interface = "4.cli-pnl-tracker-qualify"
+
+[finding.docs-quickstart-premerge]
+file = "docs/site/docs/overview/quickstart.md"
+line = 167
+class = "doc-drift"
+severity = "medium"
+observed = "The quickstart presents /rpc and /rpc/ws as public paths, includes lx_sendActivity, and at lines 131-132 and 214-219 describes separate custody/anchor roles including 0x1013 and 0x1014. Its running-system instructions preserve the pre-merge interface and separate sequencing/settlement model."
+expected = "Brief facts 1-3 require one paxd chain, root-path node JSON-RPC, committed-block finality and the hosted px_ contract separately; retired custody and anchor paths are not current product onboarding."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md around root-path chain 125 RPC, current signed transaction/receipt verification and bank/sub-account funding. Replace lines 20, 131-132, 167, 214-219 and 298-302 and audit all command examples against the merged node and hosted gateway OpenRPC."
+owner_domain = 8
+
+[finding.docs-settlement-two-networks]
+file = "docs/site/docs/concepts/paxeer-settlement.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-24 divide ordinary LayerX execution from Paxeer transactions and settlement; lines 28-47 prescribe custody deposits, checkpoint-backed withdrawals and an emergency exit without sequencer cooperation. These remain written as active product behavior despite retirement of that custody/checkpoint model."
+expected = "The merged network executes ordinary activity as chain work and finalizes at block commit; funding, withdrawals and outward bridge transfers must follow the admitted bank/ledger/bridge paths rather than retired settlement contracts."
+proposal = "Rewrite docs/site/docs/concepts/paxeer-settlement.md lines 3-47 and 54-72 to describe committed block evidence, native bank/sub-account movement and the current bridge boundary; remove guided emergency-exit and checkpoint custody onboarding and link the current merged network trust model."
+owner_domain = 6
+
+[finding.docs-boundary-retired-relay]
+file = "docs/site/docs/concepts/paxeer-boundary.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The page describes services/platform/hosted/paxeer as an active TLS JSON-RPC/genesis relay and supplies its deployment, port, certificate and environment setup throughout lines 3-159. That tree and the separate paxeer-relay component are explicitly retired in programme/data/retired.kvx component.eth-relay."
+expected = "The operator-facing network endpoint must be the merged paxd node root RPC, with hosted gateway methods documented separately and no separate LayerX-to-Paxeer relay to deploy."
+proposal = "Replace docs/site/docs/concepts/paxeer-boundary.md with the current node RPC/genesis access and chain/TLS verification procedure. Remove relay deployment and environment instructions and state the retirement/migration of the old boundary explicitly."
+owner_domain = 8
+
+[finding.docs-checkpoint-guarantor-model]
+file = "docs/site/docs/concepts/checkpoints.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-13 describe periodic registrations on Paxeer containing only header commitments, lines 17-30 require a bonded guarantor quorum and separate production process, and lines 35-46 retain a multi-level settlement ladder and CheckpointRegistry freshness authority."
+expected = "Brief facts 1-2 and retired anchor/guarantor components establish chain block commitment as finality; there is no external checkpoint registration or running guarantor quorum for merged network activity."
+proposal = "Rewrite docs/site/docs/concepts/checkpoints.md around committed block headers, consensus commit verification and current state proofs. Remove active guarantor, DA certificate, CheckpointRegistry and hosted relay instructions, retaining historical formats only in an explicitly historical section."
+owner_domain = 6
+
+[finding.docs-settlement-evidence-retired-procedure]
+file = "docs/site/docs/operators/settlement-evidence.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The operator procedure in lines 3-39 publishes guarantor-backed checkpoint witnesses and uses confirmation depth, while lines 95-105 continue to direct operators to the retired settlement/anchor contract suite and publication chain."
+expected = "Operators must establish finality from a committed chain block and authenticated evidence rather than confirmation-depth or separate guarantor witness publication."
+proposal = "Replace docs/site/docs/operators/settlement-evidence.md with the merged block-commit verification and proof retrieval procedure, remove retired contract addresses and guarantor publication commands, and distinguish stored historical witnesses from the current operational path."
+owner_domain = 6
+
+[finding.docs-beta-retired-bringup]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The beta cluster inventory and bring-up instructions launch a separate LayerX daemon, authority and relay (lines 3-5, 24-36), configure retired native custody at 0x1013 (40-44), and provision signed explorer reads through the old sequencer/credit flow (88-90). Retained-material instructions still depend on the removed node topology."
+expected = "Disposable rehearsal must use the same merged paxd/kernel topology and chain-125 block finality as the finished network, with no separate daemon, custody-credit bootstrap or relay."
+proposal = "Rewrite docs/site/docs/operators/beta-cluster.md inventory, bring-up, funding and retained-material sections using the maintained merged-network manifests and readiness signals. Replace the two-genesis/settlement-contract sequence and remove retired image, secret, ConfigMap and custody profile dependencies."
+owner_domain = 8
+
+[finding.docs-agent-retired-rpc-path]
+file = "docs/site/docs/agents/running.md"
+line = 512
+class = "doc-drift"
+severity = "medium"
+observed = "The agent-running page says A2A activity.submit sends eth_sendRawTransaction to /rpc at lines 508-513 and documents the old multi-level sequencer/checkpoint/settlement verification defaults at line 701. These network instructions conflict with the root-path merged node and committed-block finality."
+expected = "Agent integration must send chain transactions to the admitted root node RPC and select verification that binds the receipt to committed chain evidence, while hosted px_ methods follow gateway OpenRPC."
+proposal = "Update docs/site/docs/agents/running.md lines 508-513 and the verification-defaults table at 693-704 to the merged endpoint and commitment contract; preserve the independent local agent-daemon authorization/binding instructions that still apply."
+owner_domain = 9
+
+[finding.docs-cli-conflicting-surfaces]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The page requires a /rpc URL at lines 8, 129-135 and 277-299. It also claims wallet/token groups and global --rpc are implemented at lines 8-11 and 25-28, then calls those same groups unimplemented and says no such global flags exist at lines 106-138. Operators receive mutually inconsistent command and transport instructions."
+expected = "The CLI reference must identify a single shipped command/flag set and use merged root-path node JSON-RPC with the current hosted gateway contract, without documenting a retired unified /rpc surface."
+proposal = "Reconcile docs/site/docs/platform/cli.md command tables with tools/platform/cli/src/main.rs and its current transports, delete the contradictory unimplemented/implemented claims, and replace all active /rpc path requirements with the admitted node/gateway endpoint configuration."
+owner_domain = 8
+
+[finding.docs-hosted-node-retired-daemon]
+file = "docs/site/docs/platform/hosted-node.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The entire operational model starts a separate layerxd sequencer pod (lines 3-23), authority and guarantor containers and a Paxeer relay (39-47), configures network id 402 (153-157) and anchors settlement through retired 0x1014 (281-294). Bootstrap, restart and readiness instructions continue to depend on daemon LNI and replica processes."
+expected = "The finished network is chain 125 paxd with integrated kernel and block finality; layerxd, standalone authority/guarantors, anchor settlement and the relay are retired running components."
+proposal = "Replace docs/site/docs/platform/hosted-node.md deployment, genesis, identity, readiness and recovery sections with the merged paxd process and its actual persistent stores and trust configuration. Remove retired daemon/replica/guarantor/LNI startup commands and the network-402 settlement profile."
+owner_domain = 8
+
+[finding.docs-contract-tests-still-planned]
+file = "spec/layerx-merge/contracts/services.md"
+line = 3341
+class = "doc-drift"
+severity = "low"
+observed = "The launchpad-pnl-tracker acceptance table labels TestInventoryMeasurementSourcesExistAtRepositoryRoot and TestPrepareClaimRejectsRequestsOutsideFrozenRewardClaim as planned even though both named test functions and their implementations are present in the package."
+expected = "The generated or maintained service contract should distinguish implemented test declarations from planned work and separately identify whether their declared qualification has run."
+proposal = "Update the source of spec/layerx-merge/contracts/services.md acceptance table for the launchpad-pnl-tracker section so the two existing test declarations are no longer described as planned; retain gate evidence as a separate status rather than implying qualification from existence."
+owner_domain = 4
+
+[doc.d001]
+path = "docs/site/docs/overview/quickstart.md"
+status = "stale"
+notes = "Lines 20, 131-132, 167, 214-219 and 298-302 retain public /rpc and /rpc/ws, lx_sendActivity and separate retired custody/anchor/sequencing concepts; see docs-quickstart-premerge."
+
+[doc.d002]
+path = "docs/site/docs/concepts/paxeer-settlement.md"
+status = "stale"
+notes = "Lines 3-24, 28-47 and 54-72 retain separate LayerX execution, custody checkpoints, emergency exit and relay/guarantor roles; see docs-settlement-two-networks."
+
+[doc.d003]
+path = "docs/site/docs/concepts/paxeer-boundary.md"
+status = "stale"
+notes = "Lines 3-159 document the retired hosted Paxeer relay as a running component and its deployment/configuration; see docs-boundary-retired-relay."
+
+[doc.d004]
+path = "docs/site/docs/concepts/checkpoints.md"
+status = "stale"
+notes = "Lines 3-13, 17-30 and 35-56 retain external checkpoints, guarantors, finality ladder and relay references; see docs-checkpoint-guarantor-model."
+
+[doc.d005]
+path = "docs/site/docs/operators/settlement-evidence.md"
+status = "stale"
+notes = "Lines 3-39 and 95-105 retain guarantor checkpoint publication, confirmation depth and retired settlement contracts; see docs-settlement-evidence-retired-procedure."
+
+[doc.d006]
+path = "docs/site/docs/operators/guarantor.md"
+status = "accurate"
+notes = "All 10 lines explicitly retire the guarantor process and identify validator committed-block finality as the replacement."
+
+[doc.d007]
+path = "docs/site/docs/operators/porting.md"
+status = "accurate"
+notes = "Reviewed all 521 lines of guest/host ABI 2 porting, resource/encoding checks and module registration guidance; retained library names do not themselves assert a separate running network."
+
+[doc.d008]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "stale"
+notes = "Lines 3-5, 24-44, 88-90 and 102-128 require retired daemon/relay/custody bootstrap and retained material topology; see docs-beta-retired-bringup."
+
+[doc.d009]
+path = "docs/site/docs/agents/running.md"
+status = "stale"
+notes = "Reviewed all 868 lines. Lines 508-513 still use /rpc and line 701 retains pre-merge checkpoint/settlement verification defaults; local daemon binding/security material remains independently applicable."
+
+[doc.d010]
+path = "docs/site/docs/agents/sdk-verification.md"
+status = "accurate"
+notes = "Reviewed all 144 lines. The page distinguishes receipted execution from committed chain evidence, independent key pins, authenticated Cosmos/EVM transaction binding and a greater-than-two-thirds consensus commit."
+
+[doc.d011]
+path = "docs/site/docs/platform/cli.md"
+status = "misleading"
+notes = "Reviewed all 403 lines. Lines 8-11 and 25-28 contradict 106-138 about implemented commands/global flags; 277-299 still specifies /rpc; see docs-cli-conflicting-surfaces."
+
+[doc.d012]
+path = "docs/site/docs/platform/hosted-node.md"
+status = "stale"
+notes = "Reviewed all 677 lines. Lines 3-47, 153-157 and 281-294 retain layerxd/replica/guarantor/relay deployment, network 402 and retired anchor settlement; see docs-hosted-node-retired-daemon."
+
+[doc.d013]
+path = "spec/layerx-merge/contracts/services.md"
+status = "stale"
+notes = "Reviewed the interface-registry target section launchpad-pnl-tracker, lines 3301-3343. Code root and named tests resolve, but the acceptance table still calls the two implemented package tests planned; see docs-contract-tests-still-planned."

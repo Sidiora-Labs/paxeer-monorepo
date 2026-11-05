@@ -1,0 +1,48 @@
+[issue.1575]
+number = 1575
+title = "Sweep report updates make sweeps_summary reject the recorded results"
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+verdict = "task"
+evidence = "spec/layerx-merge/programme/sweeps_summary.py:134-137 rejects a target result of no_tests and :158-165 rejects a header whose counts differ from the targets, while spec/layerx-merge/programme/sweeps/rust-build-explorer-verifier.kvx records no_tests targets and a header of 2 passed and 3 failed against 3 and 2 in its targets."
+close_comment = "The sweep summary now accepts the no_tests result the sweep records use and the stale explorer-verifier build header is corrected, so the summary regenerates from the recorded results."
+
+[task.18.1575.1]
+title = "Issue #1575: Make the sweep summary accept the recorded results"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181575.1"]
+capabilities = []
+interfaces = []
+do_1 = "Decision 2490 (triage record spec/layerx-merge/programme/issues/1575.kvx, verdict task): sweeps_summary.py:134-137 accepts only passed, failed and not_run while the sweep records also use no_tests; accept no_tests as a result with its own count (targets_no_tests) in the summary. The header of sweeps/rust-build-explorer-verifier.kvx states targets_passed 2 and targets_failed 3 while its target blocks hold 3 passed and 2 failed; correct the header to the target blocks. Restrict the summary's record enumeration to the sweep files directly under the sweeps directory (not its subdirectories, which hold repair records)."
+do_2 = "Regenerate spec/layerx-merge/programme/sweeps/summary.kvx with the corrected tool; the verify is the summary run itself."
+symbols = []
+touches = ["spec/layerx-merge/programme/sweeps_summary.py", "spec/layerx-merge/programme/sweeps/rust-build-explorer-verifier.kvx", "spec/layerx-merge/programme/sweeps/summary.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile spec/layerx-merge/programme/sweeps_summary.py"
+verify_cmd = "python3 spec/layerx-merge/programme/sweeps_summary.py spec/layerx-merge"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181575]
+title = "The sweep summary regenerates from the recorded results"
+ac_1 = "Given the sweep records under spec/layerx-merge/programme/sweeps, when sweeps_summary.py runs on spec/layerx-merge, then it accepts no_tests results, every header matches its target blocks and summary.kvx is written with exit zero."
+
+[acceptance.18.1575.1]
+feature = "18"
+req = "181575.1"
+scenario = "Given the recorded sweep results, when the summary tool runs, then it exits zero and summary.kvx reflects every result kind."
+contract = "contracts/programme.md#sweeps"
+test = "python3 spec/layerx-merge/programme/sweeps_summary.py spec/layerx-merge (planned)"
+qualification = "UNRUN"

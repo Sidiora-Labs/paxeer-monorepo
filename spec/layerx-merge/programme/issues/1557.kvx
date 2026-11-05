@@ -1,0 +1,7 @@
+[issue.1557]
+number = 1557
+title = "[Coherence] Task 22.9.37 cannot pass its own build because the SDK compiles precompile-calls.test.ts, which only the dependent task 22.9.10 may edit"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "already-fixed"
+evidence = "Decision 2399 (spec/layerx-merge/spec.kvx:7508) assigns the compiled perps test rows to 22.9.37, whose touches includes the file at spec/layerx-merge/spec.kvx:119087 and whose do_5 explicitly amends do_4 at spec/layerx-merge/spec.kvx:119103, and commit c31ded3a33b5c890e15e40b05be99c5b763307e9 updates the builders at services/agent/sdk/typescript/src/perps.ts:741 and services/agent/sdk/typescript/src/perps.ts:752 together with the matching open and cancel calls at services/agent/sdk/typescript/test/precompile-calls.test.ts:151 and services/agent/sdk/typescript/test/precompile-calls.test.ts:153, removing the reported type mismatch without waiting for 22.9.10."
+close_comment = "The perps SDK builders and their call tests now use the same precompile ABI for opening positions and cancelling orders. The test rows were updated together with the builders, resolving the reported build dependency blockage."

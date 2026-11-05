@@ -19,7 +19,6 @@ static lxp_result kernel_state_validate(const lxp_kernel *kernel)
     if (kernel == NULL) return LXP_ERR_NON_CANONICAL;
     if (kernel->state == NULL) return LXP_FATAL_INVARIANT;
     if (kernel->state->count > LXP_STATE_MAX_CELLS ||
-        kernel->state->idempotency_count > LXP_STATE_MAX_IDEMPOTENCY ||
         kernel->module_count > LXP_KERNEL_MAX_MODULE_REGISTRATIONS ||
         kernel->module_kv_count > LXP_KERNEL_MAX_MODULE_KV ||
         kernel->blob_count > LXP_KERNEL_MAX_BLOBS ||

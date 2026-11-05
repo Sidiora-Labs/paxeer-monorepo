@@ -1,0 +1,7 @@
+[issue.1560]
+number = 1560
+title = "[Coherence] Decision 2394 cites the native budgetCreate branch as the source of the ledger budgetCreate disclosure"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "spec-edit"
+evidence = "Decision 2394 at spec/layerx-merge/spec.kvx:7478 and do_7 at spec/layerx-merge/spec.kvx:132224 of the done task (spec/layerx-merge/spec.kvx:132194) must cite services/agent/crates/layerx-crypto/src/disclosure/call.rs:758-786 for the ledger PayBudgetCreate disclosure, or identify both branches, because their current citation covers PayBudgetCreateNative at call.rs:717-737 while services/agent/crates/layerx-crypto/tests/budget_call.rs:87-112 builds the ledger selector and already asserts Transfer 123 followed by SpendingLimit 100."
+close_comment = "Both budgetCreate variants disclose the initial transfer and per-period spending limit, and the ledger payload-rule test already asserts both amounts. Decision 2394 and task 22.9.17 do_7 need a citation correction to the ledger PayBudgetCreate branch at services/agent/crates/layerx-crypto/src/disclosure/call.rs:758-786, or explicit references to both branches."

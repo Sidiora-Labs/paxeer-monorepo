@@ -1,36 +1,28 @@
 [sweep.node-sdk-integrations]
-revision = "03e2d849d7f3e9ca51cada79f6d3cfe90938a0fb"
+revision = "ace3608260f2ec826292dab08cd058031efe2f46"
 command = "cd TARGET && npm ci && npm run build && npm test"
 test_policy = "Run npm test only when package.json declares a test script; otherwise record the install and build result alone."
 targets_total = 4
-targets_passed = 0
-targets_failed = 4
+targets_passed = 4
+targets_failed = 0
 targets_not_run = 0
 
 [target.node-sdk-integrations.1]
 target = "sdk/integrations/agents"
-result = "failed"
-exit_code = 2
-observed = "sdk/integrations/agents/src/config.ts:1:185 failed during build with TS2307: Cannot find module '@sidiora/layerx-sdk' or its corresponding type declarations; npm ci succeeded and npm test was not reached."
-assumption = "The installed workspace dependency likely lacks the generated SDK JavaScript or declaration entry points required by the integration build."
+result = "passed"
+exit_code = 0
 
 [target.node-sdk-integrations.2]
 target = "sdk/integrations/express"
-result = "failed"
-exit_code = 2
-observed = "sdk/integrations/express/src/index.ts:6:8 failed during build with TS2307: Cannot find module '@sidiora/layerx-buyer-middleware' or its corresponding type declarations; npm ci succeeded and package.json has no test script."
-assumption = "The installed workspace dependency likely lacks the generated buyer middleware JavaScript or declaration entry points required by the integration build."
+result = "passed"
+exit_code = 0
 
 [target.node-sdk-integrations.3]
 target = "sdk/integrations/next"
-result = "failed"
-exit_code = 2
-observed = "sdk/integrations/next/src/index.ts:5:8 failed during build with TS2307: Cannot find module '@sidiora/layerx-buyer-middleware' or its corresponding type declarations; npm ci succeeded and package.json has no test script."
-assumption = "The installed workspace dependency likely lacks the generated buyer middleware JavaScript or declaration entry points required by the integration build."
+result = "passed"
+exit_code = 0
 
 [target.node-sdk-integrations.4]
 target = "sdk/integrations/next/example"
-result = "failed"
-exit_code = 1
-observed = "sdk/integrations/next/dist/index.js:1:1 failed during the Turbopack production build with Module not found: Can't resolve '@sidiora/layerx-buyer-middleware'; npm ci succeeded and package.json has no test script."
-assumption = "The generated Next.js integration imports a workspace buyer middleware package whose runtime entry point likely has not been built."
+result = "passed"
+exit_code = 0

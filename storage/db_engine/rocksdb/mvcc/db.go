@@ -66,6 +66,8 @@ type Database struct {
 	latestVersion atomic.Int64
 
 	asyncWriteWG sync.WaitGroup
+	writeMu      sync.Mutex
+	closed       bool
 
 	// Changelog used to support async write
 	streamHandler wal.ChangelogWAL
@@ -111,7 +113,6 @@ func OpenDB(dataDir string, config config.StateStoreConfig) (*Database, error) {
 		tsLow:           tsLow,
 		earliestVersion: earliestVersion,
 		latestVersion:   atomic.Int64{},
-		pendingChanges:  make(chan VersionedChangesets, config.AsyncWriteBuffer),
 	}
 	database.latestVersion.Store(latestVersion)
 	walKeepRecent := math.Max(MinWALEntriesToKeep, float64(config.AsyncWriteBuffer+1))
@@ -123,7 +124,11 @@ func OpenDB(dataDir string, config config.StateStoreConfig) (*Database, error) {
 		return nil, err
 	}
 	database.streamHandler = streamHandler
-	go database.writeAsyncInBackground()
+	if config.AsyncWriteBuffer > 0 {
+		database.pendingChanges = make(chan VersionedChangesets, config.AsyncWriteBuffer)
+		database.asyncWriteWG.Add(1)
+		go database.writeAsyncInBackground()
+	}
 
 	return database, nil
 }
@@ -200,6 +205,7 @@ func (db *Database) Has(storeKey string, version int64, key []byte) (bool, error
 	if err != nil {
 		return false, err
 	}
+	defer slice.Free()
 
 	return slice.Exists(), nil
 }
@@ -219,6 +225,15 @@ func (db *Database) Get(storeKey string, version int64, key []byte) ([]byte, err
 
 // ApplyChangesetSync apply all changesets for a single version in blocking way
 func (db *Database) ApplyChangesetSync(version int64, changeset []*proto.NamedChangeSet) error {
+	db.writeMu.Lock()
+	defer db.writeMu.Unlock()
+	if db.closed {
+		return fmt.Errorf("rocksdb: database is closed")
+	}
+	return db.applyChangesetSync(version, changeset)
+}
+
+func (db *Database) applyChangesetSync(version int64, changeset []*proto.NamedChangeSet) error {
 	// Check if version is 0 and change it to 1
 	// We do this specifically since keys written as part of genesis state come in as version 0
 	// But pebbledb treats version 0 as special, so apply the changeset at version 1 instead
@@ -254,10 +269,11 @@ func (db *Database) ApplyChangesetSync(version int64, changeset []*proto.NamedCh
 }
 
 func (db *Database) ApplyChangesetAsync(version int64, changesets []*proto.NamedChangeSet) error {
-	// Add to pending changes
-	db.pendingChanges <- VersionedChangesets{
-		Version:    version,
-		Changesets: changesets,
+	// Serialize WAL append and publication with other callers and shutdown.
+	db.writeMu.Lock()
+	defer db.writeMu.Unlock()
+	if db.closed {
+		return fmt.Errorf("rocksdb: database is closed")
 	}
 	// Write to WAL
 	if db.streamHandler != nil {
@@ -271,18 +287,21 @@ func (db *Database) ApplyChangesetAsync(version int64, changesets []*proto.Named
 			return err
 		}
 	}
+	if db.pendingChanges == nil {
+		return db.applyChangesetSync(version, changesets)
+	}
+	db.pendingChanges <- VersionedChangesets{
+		Version:    version,
+		Changesets: changesets,
+	}
 	return nil
 }
 
 func (db *Database) writeAsyncInBackground() {
-	db.asyncWriteWG.Add(1)
 	defer db.asyncWriteWG.Done()
 	for nextChange := range db.pendingChanges {
-		if db.streamHandler != nil {
-			version := nextChange.Version
-			if err := db.ApplyChangesetSync(version, nextChange.Changesets); err != nil {
-				panic(err)
-			}
+		if err := db.applyChangesetSync(nextChange.Version, nextChange.Changesets); err != nil {
+			panic(err)
 		}
 	}
 }
@@ -486,11 +505,17 @@ func cloneAppend(bz []byte, tail []byte) (res []byte) {
 	return
 }
 func (db *Database) Close() error {
-	if db.streamHandler != nil {
-		// Close the pending changes channel to signal the background goroutine to stop
+	db.writeMu.Lock()
+	defer db.writeMu.Unlock()
+	if db.closed {
+		return nil
+	}
+	db.closed = true
+	if db.pendingChanges != nil {
 		close(db.pendingChanges)
-		// Wait for the async writes to finish processing all buffered items
-		db.asyncWriteWG.Wait()
+	}
+	db.asyncWriteWG.Wait()
+	if db.streamHandler != nil {
 		// Close the changelog stream first
 		_ = db.streamHandler.Close()
 		// Only set to nil after background goroutine has finished

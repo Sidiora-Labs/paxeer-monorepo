@@ -1,0 +1,39 @@
+[repair]
+task = "22.33.98"
+acceptance = "22998.1"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+implementation = "Preserve all eight original role documents and acceptance assertions. Add explicit model and opaque-payment refusal expectations. Add three profile-free chain-125 regression refusals and three producer-consistent native role messages carrying the exact recorded signed payExact bytes, transaction hash and reference. Bind fixture offers to recorded calldata/logs and provide the original receipt/key pin as expectation metadata, not caller authority. Explain the actual production semantic policy and ingress expectations."
+source_proof = "Parse every repaired JSON record. Pin original role documents/verdicts by canonical digest. Compare added offers, signed transaction, receipt and idempotency reference to the committed producer corpus; decode RLP to assert chain, target, calldata and signature fields, and derive the native payee account id. Assert source calls along production model validation, both codec directions, mounted A2A route dispatch, typed payer verification, relay and receipt-required settlement. Execute the real Python deployment renderer in process and assert the augmented suite's count and digest reach the A2A transport pin."
+review_only = "Rust semantic validation, authenticated mounted requests, EVM sender recovery, transaction/receipt cryptographic verification, relay execution and settlement are not executed by this Python source-fact gate. Additional expectations are not consumed by the existing Rust round-trip harness. Ingress metadata describes authenticated, admitted requests with a configured supported adapter and fixed fixture observation time; it is not a runtime transcript or a claim of payment success. No restart-recovery change is made. No shell script, unit file, manifest or build file is repaired. No subprocess, toolchain, native artifact, environment variable, credential, live endpoint or device is needed by pytest."
+baseline = "No pre-change verification was run: the explicit implementation-first order and exclusive hf-done gate supersede the older unchanged-tree baseline instruction. No baseline failures are claimed. Initial git status/diff showed only runner-prepared .cgignore and spec changes; both were preserved. gate.json recorded zero builds and verifies and no gates.jsonl existed."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_98.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision = "The revision field of this task's final passing hf-done row in /out/run/gates.jsonl."
+evidence = "The final hf-done JSON and private ledger record exact revision, command, exit and log. Build and verification must pass on the same candidate revision. Finalize this record before qualification: embedding its own content-derived candidate hash would change that hash. The runner retains evidence and commits the result; no manual commit or push."
+wiring_requests = ["services/interop/crates/layerx-x402/src/model.rs -> owning domain 11: resolve the audit's profile-free chain-125 proposal against LAYERX_NETWORK=eip155:125 and mandatory layerx_terms; current profile-free vectors must retain ProfileMissing until an authorized policy repair changes the real validator and all callers.", "services/interop/crates/layerx-x402/tests/transports.rs -> owning domain 11: consume expectations and provenance from transport-a2a/role-messages.json, assert exact semantic errors as well as round trips, and exercise the opaque payload's explicit payment refusals through production roles.", "services/interop/crates/layerx-interop-service/src/server.rs -> owning domain 11: drive the added role documents through authenticated mounted A2A seller/verify/settle ingress with an in-process store and committed loopback receipt peer, fixed observed_at_ms, exact recorded payer bytes and pinned receipt; prove pending before evidence and success only after verified matching evidence, plus declared profile-free and opaque-payload refusals."]
+
+[finding.a2a_profile_fixture]
+audit = "22.30.110"
+file = "services/interop/specs/conformance/transport-a2a/role-messages.json"
+audit_line = 23
+class = "test-gap"
+severity = "medium"
+owner_domain = 11
+tests = ["test_original_roles_and_assertions_are_preserved", "test_profile_free_offers_preserve_the_current_semantic_refusal", "test_recorded_offers_bind_the_real_producer_and_all_roles", "test_signed_payer_bytes_match_calldata_receipt_and_reference", "test_production_codecs_validate_the_model_in_both_directions", "test_opaque_role_examples_explicitly_refuse_payment", "test_mounted_ingress_expectations_match_production_dispatch_and_guards", "test_settlement_path_preserves_signed_bytes_and_requires_real_evidence", "test_real_deployment_renderer_pins_the_augmented_fixture_suite", "test_repair_record_maps_the_finding_proofs_limits_and_wiring"]
+closure = "The fixture/source-fact repair is proven by the named tests only after passing hf-done. Full semantic-policy and mounted-runtime closure remains with the three explicit out-of-path wiring requests; neither fixture labels nor source assertions claim that native runtime coverage executed."
+
+[format]
+policy = "No Python or KVX formatter is configured for these qualification paths. Follow neighboring Python style and .editorconfig UTF-8, LF, final newline and trailing whitespace rules after complete implementation. Preserve JSON two-space indentation and Markdown layout."
+
+[gotcha.1]
+observed = "The baseline-verification clause conflicts with the explicit implementation-first order and prohibition on manually running verify_cmd."
+resolution = "Run only hf-build then hf-done after complete implementation; claim no baseline run. Record notes here because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.2]
+observed = "The audit says chain 125 plus a LayerX profile is rejected; current model.rs requires that profile, and transport.rs already calls validate in both directions. Profile-free offers and recorded_x402_request in server.rs cannot pass that validator."
+resolution = "Preserve production checks and existing vectors, add profile-free refusal regressions and recorded native offers with the producer-derived account, and route policy resolution and mounted-runtime wiring to domain 11 without changing out-of-scope files."
+
+[gotcha.3]
+observed = "Broad context reads exceeded output limits, guessed transport/routes paths did not exist, and cg searches were limited to the cached index."
+resolution = "Use bounded reads of discovered source paths and current Git state; no prior gate ledger existed and no earlier task implementation was found."

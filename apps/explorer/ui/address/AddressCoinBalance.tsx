@@ -1,25 +1,19 @@
 import { Box } from '@chakra-ui/react';
-import { useQueryClient } from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/router';
 import React from 'react';
 
-import type { SocketMessage } from 'lib/socket/types';
-import type { AddressCoinBalanceHistoryResponse } from 'types/api/address';
-
-import { getResourceKey } from 'lib/api/useApiQuery';
 import useIsMounted from 'lib/hooks/useIsMounted';
 import getQueryParamString from 'lib/router/getQueryParamString';
-import useSocketChannel from 'lib/socket/useSocketChannel';
-import useSocketMessage from 'lib/socket/useSocketMessage';
 import { ADDRESS_COIN_BALANCE } from 'stubs/address';
 import { generateListStub } from 'stubs/utils';
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import useQueryWithPages from 'ui/shared/pagination/useQueryWithPages';
-import { formatScanTableCount, ScanTableCard } from 'ui/shared/scan';
+import { ScanTableCard } from 'ui/shared/scan';
 import SocketAlert from 'ui/shared/SocketAlert';
 
 import AddressCoinBalanceHistory from './coinBalance/AddressCoinBalanceHistory';
+import useCoinBalanceReconciliation from './useCoinBalanceReconciliation';
 
 // The chart draws itself with d3 in the browser and nowhere else, and it is the only reason this tab
 // carries that code, so it arrives on its own. The placeholder holds the height of the widget - its
@@ -46,8 +40,6 @@ type Props = {
 };
 
 const AddressCoinBalance = ({ shouldRender = true, isQueryEnabled = true }: Props) => {
-  const [ socketAlert, setSocketAlert ] = React.useState(false);
-  const queryClient = useQueryClient();
   const router = useRouter();
   const isMounted = useIsMounted();
 
@@ -73,41 +65,10 @@ const AddressCoinBalance = ({ shouldRender = true, isQueryEnabled = true }: Prop
     },
   });
 
-  const handleSocketError = React.useCallback(() => {
-    setSocketAlert(true);
-  }, []);
-
-  const handleNewSocketMessage: SocketMessage.AddressCoinBalance['handler'] = React.useCallback((payload) => {
-    setSocketAlert(false);
-
-    queryClient.setQueryData(
-      getResourceKey('general:address_coin_balance', { pathParams: { hash: addressHash } }),
-      (prevData: AddressCoinBalanceHistoryResponse | undefined) => {
-        if (!prevData) {
-          return;
-        }
-
-        return {
-          ...prevData,
-          items: [
-            payload.coin_balance,
-            ...prevData.items,
-          ],
-        };
-      });
-  }, [ addressHash, queryClient ]);
-
-  const channel = useSocketChannel({
-    topic: `addresses:${ addressHash.toLowerCase() }`,
-    onSocketClose: handleSocketError,
-    onSocketError: handleSocketError,
-    isDisabled: !addressHash || coinBalanceQuery.isPlaceholderData || coinBalanceQuery.pagination.page !== 1,
-  });
-  useSocketMessage({
-    channel,
-    event: 'coin_balance',
-    handler: handleNewSocketMessage,
-  });
+  const socketAlert = useCoinBalanceReconciliation(
+    addressHash,
+    isQueryEnabled && !coinBalanceQuery.isPlaceholderData && coinBalanceQuery.pagination.page === 1,
+  );
 
   if (!isMounted || !shouldRender) {
     return null;
@@ -133,7 +94,7 @@ const AddressCoinBalance = ({ shouldRender = true, isQueryEnabled = true }: Prop
         <AddressCoinBalanceChart addressHash={ addressHash }/>
       </Box>
       <div ref={ scrollRef }></div>
-      <ScanTableCard title={ formatScanTableCount({ kind: 'total', value: itemsNum, itemsName: 'balance changes' }) }>
+      <ScanTableCard title={ `${ itemsNum.toLocaleString() } visible balance changes` }>
         <AddressCoinBalanceHistory query={ coinBalanceQuery }/>
       </ScanTableCard>
     </>

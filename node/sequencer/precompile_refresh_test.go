@@ -13,6 +13,7 @@ import (
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles"
+	precompiletest "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/testutil"
 	xwebprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/xweb"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/secp256k1"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -68,7 +69,7 @@ func TestExecutorOpenRefreshesPrecompilesItself(t *testing.T) {
 	require.NotContains(t, a.EvmKeeper.CustomPrecompiles(open), xwebAddress)
 
 	if !precompiles.Initialized {
-		require.NoError(t, precompiles.InitializePrecompiles(true, a.GetPrecompileKeepers()))
+		require.NoError(t, precompiles.InitializePrecompiles(true, precompiletest.Keepers(a)))
 	}
 	info := xwebInfo(t)
 	feeInput, err := info.ABI.Pack(xwebprecompile.FeeMethod)

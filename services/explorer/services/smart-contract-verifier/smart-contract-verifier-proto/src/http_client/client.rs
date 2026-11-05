@@ -15,7 +15,11 @@ impl Client {
         };
 
         let request_client = {
-            let client = reqwest::Client::new();
+            let client = reqwest::Client::builder()
+                .timeout(config.request_timeout)
+                .connect_timeout(config.connect_timeout)
+                .build()
+                .unwrap_or_else(|err| panic!("Cannot build smart-contract-verifier client: {err}"));
             let mut client_with_middleware = reqwest_middleware::ClientBuilder::new(client);
             for middleware in config.middleware_stack {
                 client_with_middleware = client_with_middleware.with_arc(middleware);
@@ -43,7 +47,8 @@ impl Client {
 
     fn build_url_with_query(&self, path: &str, query: Option<&str>) -> url::Url {
         let mut url = self.base_url.clone();
-        url.set_path(path);
+        let path = format!("{}{}", url.path().trim_end_matches('/'), path);
+        url.set_path(&path);
         url.set_query(query);
         url
     }

@@ -10,12 +10,13 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"testing"
 	"time"
 )
 
 var recordFields = []string{
-	"symbol", "symbol_full", "price", "change_24h", "volume_24h", "open_interest", "funding_8h", "last_funding_rate_hourly",
+	"market_id", "symbol", "symbol_full", "price", "change_24h", "volume_24h", "open_interest", "funding_8h", "last_funding_rate_hourly",
 	"volume_7d", "volume_30d", "trades_count", "last_updated",
 	"perp_mark_price", "perp_index_price", "perp_basis_bps", "perp_funding_rate", "perp_next_funding_ms",
 	"perp_long_short_ratio", "perp_liq_volume_24h", "perp_oi_contracts", "perp_oi_usd",
@@ -134,6 +135,9 @@ func TestMarketsREST(t *testing.T) {
 		for i, rec := range records {
 			wantKeys(t, rec, slices.Clone(recordFields)...)
 			symbols[i] = field[string](t, rec, "symbol")
+			if got, want := field[string](t, rec, "market_id"), strconv.FormatInt(marketIDs[seedSymbols[i]], 10); got != want {
+				t.Fatalf("%s market_id %q, want %q", symbols[i], got, want)
+			}
 		}
 		if !slices.Equal(symbols, seedSymbols) {
 			t.Fatalf("symbols %v, want %v", symbols, seedSymbols)
@@ -173,11 +177,17 @@ func TestMarketsREST(t *testing.T) {
 			if got := field[string](t, rec, "symbol"); got != "BTC" {
 				t.Fatalf("%s: symbol %q", path, got)
 			}
+			if got := field[string](t, rec, "market_id"); got != "0" {
+				t.Fatalf("%s: market_id %q, want 0", path, got)
+			}
 			wantNumber(t, rec, "volume_24h", 100)
 		}
 		rec := field[map[string]json.RawMessage](t, serveOK(t, mux, "/api/markets/nas100"), "market")
 		if got := field[string](t, rec, "symbol"); got != "NAS100" {
 			t.Fatalf("symbol %q, want NAS100", got)
+		}
+		if got := field[string](t, rec, "market_id"); got != "7" {
+			t.Fatalf("NAS100 market_id %q, want 7", got)
 		}
 	})
 

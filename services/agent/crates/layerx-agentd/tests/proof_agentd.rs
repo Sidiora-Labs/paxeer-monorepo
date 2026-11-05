@@ -1,17 +1,6 @@
-//! Proves: SendDebit/Prepared/ApprovalEvents -> public Rust signing API and Store -> Outbox/idempotency/EventIngestor consumers used by Human.
-//!
-//! The custody and journey_faults callers attach and verify native EVM signatures;
-//! move_money also consumes the kernel owner-signature API. key_export consumes
-//! Prepared canonical bytes and disclosure, intent_submit consumes the raw
-//! transaction and its hash, and native_journey_approval reopens tenant storage.
-//! These tests use those same public items, real signed Send producers, the real
-//! durable store, and a real approval event producer; no boundary is substituted.
-//!
-//! Repairs: src/idempotency.rs::Store::open previously forgot replay state unless
-//! callers supplied every old key to restore. src/prepare/mod.rs::verify_disclosure_binding
-//! previously accepted a typed envelope or cached signer preimage inconsistent
-//! with canonical bytes. src/outbox/mod.rs::Outbox::restore now validates retained
-//! signed transactions and their activity identity before exposing them.
+//! Proves ledger_payment_call -> call-bound daemon preparation/signing -> durable
+//! Outbox, idempotency and ApprovalEvents consumers used by Human. The tests reopen
+//! production stores and require exact EVM bytes, signature and disclosure binding.
 
 use std::fmt::Debug;
 use std::future::Future;
@@ -25,26 +14,18 @@ use layerx_agentd::audit::{Coverage, Log};
 use layerx_agentd::events::{ingest_local_restriction, CoreEvent, EventIngestor, IngestError};
 use layerx_agentd::idempotency::{EconomicResult, IdempotencyError, Outcome, RetentionPolicy};
 use layerx_agentd::outbox::{Outbox, OutboxError, SubmissionState};
-use layerx_agentd::prepare::{
-    evm, restore_canonical, verify_disclosure_binding, DisclosureBindingError, Prepared,
-    RestorePreparationError,
-};
+use layerx_agentd::prepare::{evm, verify_call_binding, CallBindingError, DisclosureBindingError};
 use layerx_agentd::session::SessionId;
 use layerx_agentd::sign::{
-    attach_external_signature, attach_kernel_signature, verify_before_submit,
-    verify_kernel_before_submit, SigningError, SigningPreparation,
+    attach_external_signature, external, verify_before_submit, SigningError, SigningPreparation,
 };
 use layerx_agentd::store::{ObjectKind, StorageClass, Store, TenantId, TenantKey};
 use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
 use layerx_crypto::local::LocalSigner;
-use layerx_crypto::send::{encode_send_envelope, EnvelopeOptions, SendDebit};
-use layerx_crypto::signer::{Signer, SigningRequest};
-use layerx_crypto::SignatureMessage;
-use layerx_types::activity::Authority;
+use layerx_crypto::send::{ledger_payment_call, CallOptions, SendDebit};
 use layerx_types::ids::Did;
 use layerx_types::payload::ModuleRegistry;
 use layerx_types::verify::VerificationLevel;
-use layerx_wire::hash::Domain;
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 const KEY: [u8; 32] = [4; 32];
@@ -96,8 +77,8 @@ fn storage_key(kind: ObjectKind, id: Vec<u8>) -> TenantKey {
     checked(TenantKey::new(tenant(), kind, id))
 }
 
-/// The payload and envelope both come from the production Send encoder and signer.
-fn producer() -> (Prepared, ModuleRegistry, Vec<u8>) {
+/// The signed debit and EVM call both come from the current production producers.
+fn producer() -> (SigningPreparation, ModuleRegistry) {
     let signer = LocalSigner::new(SEED);
     let payload = checked(ready(
         SendDebit {
@@ -116,36 +97,21 @@ fn producer() -> (Prepared, ModuleRegistry, Vec<u8>) {
         }
         .sign(&signer),
     ));
-    let encoded = checked(encode_send_envelope(
-        &payload,
-        &EnvelopeOptions {
-            actor: "did:layerx:human-proof",
-            public_key: signer.public_key(),
-            protocol_version: layerx_wire::limits::PROTOCOL_VERSION,
-            network_id: 125,
-            identity_sequence: 7,
-            idempotency_key: KEY,
-            fee_limit: 7,
-            not_before: 995,
-            not_after: 1_010,
-        },
-    ));
-    let authority = checked(Authority::owner(&signer.public_key()));
-    let prepared = checked(restore_canonical(
-        &encoded.canonical,
-        88,
-        &encoded.registry,
-        Some(&authority),
-    ));
-    assert_eq!(prepared.envelope, encoded.envelope);
-    assert_eq!(prepared.disclosure, encoded.disclosure);
-    (prepared, encoded.registry, payload)
-}
-
-fn signing_preparation(authorization: Prepared, payload: Vec<u8>) -> SigningPreparation {
     let key = checked(k256::ecdsa::SigningKey::from_slice(&SEED));
     let actor = checked(layerx_crypto::secp256k1::evm_address(
         key.verifying_key().to_encoded_point(false).as_bytes(),
+    ));
+    let produced = checked(ledger_payment_call(
+        &payload,
+        &CallOptions {
+            from: actor,
+            chain_id: 125,
+            nonce: 7,
+            max_priority_fee_per_gas: 1,
+            // Match prepare_bound: twice the observed base fee plus the tip.
+            max_fee_per_gas: 5,
+            gas_limit: 100_000,
+        },
     ));
     let transaction = checked(evm::prepare_bound(
         evm::EvmPreparationState {
@@ -169,74 +135,60 @@ fn signing_preparation(authorization: Prepared, payload: Vec<u8>) -> SigningPrep
         },
         100_000,
     ));
-    SigningPreparation {
-        transaction,
-        actor_address: actor,
-        authorization,
-    }
+    assert_eq!(transaction.call, produced.call);
+    assert_eq!(transaction.disclosure, produced.disclosure);
+    checked(verify_call_binding(&transaction));
+    (
+        SigningPreparation {
+            transaction,
+            actor_address: actor,
+        },
+        checked(ModuleRegistry::new(&[])),
+    )
 }
 
 #[test]
 fn prepared_signatures_cross_the_human_api_and_recover_exact_outbox_bytes() {
     let root = Directory::new();
-    let (prepared, registry, payload) = producer();
-    let authority = prepared.envelope.authority().clone();
-    let canonical = prepared.canonical_bytes.clone();
-    let key = storage_key(ObjectKind::Configuration, b"human-prepared".to_vec());
+    let (prepared, registry) = producer();
+    let canonical = prepared.transaction.call.encode_unsigned();
+    let package = checked(external(&prepared));
+    assert_eq!(package.canonical_bytes, canonical);
+    assert_eq!(
+        package.signing_preimage,
+        prepared.transaction.call.signing_hash()
+    );
+    assert_eq!(
+        package.disclosure_digest.0,
+        prepared.transaction.disclosure_digest
+    );
     {
         let mut store = checked(Store::open(&root.0));
-        checked(store.put_local(key.clone(), canonical.clone()));
+        checked(prepared.retain(&mut store, tenant(), KEY));
+        checked(prepared.retain(&mut store, tenant(), KEY));
+        // The retained reference binds the observed head as well as the exact call.
+        let mut changed_head = prepared.clone();
+        changed_head.transaction.observed_head_height += 1;
+        assert_eq!(
+            changed_head.retain(&mut store, tenant(), KEY),
+            Err(SigningError::PreparedBytesChanged)
+        );
     }
-    // Drop the producer and reopen exactly the canonical bytes consumed by custody/key export.
+    let expected = prepared.clone();
     drop(prepared);
     let mut store = checked(Store::open(&root.0));
-    let restored = checked(restore_canonical(
-        store.get(&key).expect("durable preparation").bytes(),
-        88,
-        &registry,
-        Some(&authority),
-    ));
-    assert_eq!(restored.canonical_bytes, canonical);
-    checked(verify_disclosure_binding(&restored));
-    assert!(matches!(
-        restore_canonical(&canonical, 88, &registry, None),
-        Err(RestorePreparationError::MissingAuthority)
-    ));
-    let foreign = checked(Authority::owner(&LocalSigner::new([0x67; 32]).public_key()));
-    assert!(matches!(
-        restore_canonical(&canonical, 88, &registry, Some(&foreign)),
-        Err(RestorePreparationError::AuthorityMismatch)
-    ));
-    let signer = LocalSigner::new(SEED);
-    let message = checked(SignatureMessage::new(
-        Domain::SignaturePreimage,
-        restored.envelope.protocol_version(),
-        restored.envelope.network_id(),
-        &canonical,
-    ));
-    let signature = checked(ready(
-        signer.sign(checked(SigningRequest::new(message, &restored.disclosure))),
-    ));
-    let kernel = checked(attach_kernel_signature(&restored, *signature.as_bytes()));
-    let verified_kernel = checked(verify_kernel_before_submit(
-        &kernel,
-        &restored,
-        &signer.public_key(),
-        &registry,
-    ));
-    assert_eq!(verified_kernel.exact_bytes(), kernel);
-    assert_eq!(verified_kernel.idempotency_key(), KEY);
-    assert!(matches!(
-        verify_kernel_before_submit(
-            &kernel,
-            &restored,
-            &LocalSigner::new([0x67; 32]).public_key(),
-            &registry
-        ),
-        Err(SigningError::AuthorityMismatch)
-    ));
-
-    let signing = signing_preparation(restored, payload);
+    let signing = checked(SigningPreparation::restore(&store, tenant(), KEY));
+    assert_eq!(signing, expected);
+    assert_eq!(signing.transaction.call.encode_unsigned(), canonical);
+    checked(verify_call_binding(&signing.transaction));
+    assert_eq!(
+        SigningPreparation::restore(&store, tenant(), [0; 32]),
+        Err(SigningError::PreparedBytesChanged)
+    );
+    assert_eq!(
+        SigningPreparation::restore(&store, checked(TenantId::new("other-human")), KEY),
+        Err(SigningError::PreparedBytesChanged)
+    );
     let raw = checked(signing.transaction.call.sign(&SEED));
     let (call, signature) = checked(decode_signed(&raw));
     assert_eq!(
@@ -369,70 +321,92 @@ fn prepared_signatures_cross_the_human_api_and_recover_exact_outbox_bytes() {
 }
 
 #[test]
-fn inconsistent_prepared_envelope_preimage_and_audit_are_refused() {
-    let (prepared, registry, payload) = producer();
-    let mut stale_envelope = prepared.clone();
-    let mut signing = signing_preparation(prepared.clone(), payload);
+fn inconsistent_prepared_call_and_disclosure_are_refused() {
+    let (signing, registry) = producer();
     let raw = checked(signing.transaction.call.sign(&SEED));
-    let (_, signature) = checked(decode_signed(&raw));
-    for field in 0..3 {
-        let mut stale = prepared.clone();
-        match field {
-            0 => stale.signing_preimage[0] ^= 1,
-            1 => stale.audit.idempotency_key[0] ^= 1,
-            _ => stale.audit.observed_head_sequence += 1,
-        }
-        assert_eq!(
-            verify_disclosure_binding(&stale),
-            Err(DisclosureBindingError::CanonicalMismatch)
-        );
-        assert!(matches!(
-            attach_kernel_signature(&stale, [0; 64]),
-            Err(SigningError::Disclosure(
-                DisclosureBindingError::CanonicalMismatch
-            ))
-        ));
-        signing.authorization = stale;
-        assert!(matches!(
-            attach_external_signature(&signing, *signature.as_bytes()),
-            Err(SigningError::Disclosure(
-                DisclosureBindingError::CanonicalMismatch
-            ))
-        ));
-        assert!(matches!(
-            verify_before_submit(&raw, &signing, &signing.actor_address, &registry),
-            Err(SigningError::Disclosure(
-                DisclosureBindingError::CanonicalMismatch
-            ))
-        ));
-    }
-    // A separately valid envelope with different identity state must not replace the retained one.
-    stale_envelope.envelope = checked(encode_send_envelope(
-        prepared.envelope.payload().as_bytes(),
-        &EnvelopeOptions {
-            actor: "did:layerx:human-proof",
-            public_key: LocalSigner::new(SEED).public_key(),
-            protocol_version: layerx_wire::limits::PROTOCOL_VERSION,
-            network_id: 125,
-            identity_sequence: 8,
-            idempotency_key: KEY,
-            fee_limit: 7,
-            not_before: 995,
-            not_after: 1_010,
-        },
-    ))
-    .envelope;
+    checked(verify_before_submit(
+        &raw,
+        &signing,
+        &signing.actor_address,
+        &registry,
+    ));
+    let mut stale_digest = signing.clone();
+    stale_digest.transaction.disclosure_digest[0] ^= 1;
+    assert!(matches!(
+        verify_before_submit(&raw, &stale_digest, &stale_digest.actor_address, &registry),
+        Err(SigningError::Disclosure(
+            DisclosureBindingError::DigestMismatch
+        ))
+    ));
+    let mut stale_call = signing.clone();
+    stale_call.transaction.call.data[68 + 4 + 32] ^= 1;
     assert_eq!(
-        verify_disclosure_binding(&stale_envelope),
-        Err(DisclosureBindingError::CanonicalMismatch)
+        verify_before_submit(&raw, &stale_call, &stale_call.actor_address, &registry),
+        Err(SigningError::PreparedBytesChanged)
+    );
+    let mut stale_disclosure = signing.clone();
+    stale_disclosure.transaction.disclosure.idempotency_key[0] ^= 1;
+    assert!(matches!(
+        verify_before_submit(
+            &raw,
+            &stale_disclosure,
+            &stale_disclosure.actor_address,
+            &registry
+        ),
+        Err(SigningError::Disclosure(_))
+    ));
+    let mut stale_actor = signing.clone();
+    stale_actor.actor_address[0] ^= 1;
+    assert_eq!(
+        verify_before_submit(&raw, &stale_actor, &stale_actor.actor_address, &registry),
+        Err(SigningError::SignerMismatch)
+    );
+    // Check the current equivalents of the retired envelope/preimage/audit bindings.
+    let mut stale_hash = signing.clone();
+    stale_hash.transaction.signing_hash[0] ^= 1;
+    assert_eq!(
+        verify_call_binding(&stale_hash.transaction),
+        Err(CallBindingError::SigningHashMismatch)
+    );
+    assert_eq!(
+        external(&stale_hash),
+        Err(SigningError::PreparedBytesChanged)
+    );
+    assert_eq!(
+        attach_external_signature(&stale_hash, [0; 65]),
+        Err(SigningError::PreparedBytesChanged)
+    );
+    let mut stale_sender = signing.clone();
+    stale_sender.transaction.from[0] ^= 1;
+    assert!(matches!(
+        verify_call_binding(&stale_sender.transaction),
+        Err(CallBindingError::Disclosure(_))
+    ));
+    assert!(matches!(
+        external(&stale_disclosure),
+        Err(SigningError::Disclosure(_))
+    ));
+    let mut changed_call = signing.clone();
+    changed_call.transaction.call.nonce += 1;
+    changed_call.transaction.signing_hash = changed_call.transaction.call.signing_hash();
+    assert!(matches!(
+        verify_call_binding(&changed_call.transaction),
+        Err(CallBindingError::Disclosure(_))
+    ));
+    assert!(matches!(
+        external(&changed_call),
+        Err(SigningError::Disclosure(_))
+    ));
+    assert_eq!(
+        verify_before_submit(&raw, &changed_call, &changed_call.actor_address, &registry),
+        Err(SigningError::PreparedBytesChanged)
     );
 }
 
 #[test]
 fn pending_attempt_recovers_original_hash_height_and_exact_request() {
     let root = Directory::new();
-    let (prepared, _, payload) = producer();
-    let signing = signing_preparation(prepared, payload);
+    let (signing, _) = producer();
     let raw = checked(signing.transaction.call.sign(&SEED));
     let hash = transaction_hash(&raw);
     {
@@ -479,7 +453,7 @@ fn pending_attempt_recovers_original_hash_height_and_exact_request() {
 #[test]
 fn real_approval_event_survives_restart_with_evidence_and_rejects_duplicate() {
     let root = Directory::new();
-    let (prepared, _, _) = producer();
+    let (prepared, _) = producer();
     let lifecycle = ApprovalLifecycle {
         tenant: tenant(),
         agent: checked(Did::new(b"did:layerx:human-proof")),
@@ -487,8 +461,8 @@ fn real_approval_event_survives_restart_with_evidence_and_rejects_duplicate() {
         capability: [3; 32],
         policy_version: "policy-v1".into(),
         approval_id: KEY,
-        canonical_digest: prepared.disclosure_digest.0,
-        activity_type: prepared.envelope.activity_type().ordinal(),
+        canonical_digest: prepared.transaction.disclosure_digest,
+        activity_type: prepared.transaction.disclosure.activity_type.ordinal(),
         asset: "LXP".into(),
         kind: ApprovalEventKind::Created,
         principal: None,

@@ -1,0 +1,24 @@
+[repair.22.33.1340]
+base_revision = "5f6b5f0aad35a415da93671f70183d5e5688bda0"
+status = "implementation_requires_bounded_qualification"
+baseline = "Not run: the explicit ordered instructions prohibit tests before complete implementation and prohibit invoking verify_cmd outside hf-done; no baseline failures are claimed."
+evidence = "Closure requires hf-done passing on the hf-build candidate; the runner ledger records the exact verified revision, command, exit and private log."
+wiring_requests = "None: the armor producer already emits ErrWrongPassword and SavePubKey already validates algorithm labels; all changes are inside sdk/crypto/keyring."
+gotcha = "The inherited baseline-test and spec/GOTCHA record instructions conflict with the explicit gate order and scope; retain this in-scope record without an extra gate or out-of-scope edit."
+
+[finding.keyring-test-wrong-password]
+test = "TestRepairM_1340_WrongPassword"
+repair = "Replace all three legacy string assertions with typed ErrWrongPassword and unchanged-inventory checks; the repair gate executes them and proves real secp256k1/sr25519 export/decrypt/import classification (SDK code 23), no account or address-index writes after reopen, and successful import/reopen/sign with the correct password."
+
+[finding.keyring-test-offline-shape]
+test = "TestRepairM_1340_OfflineShape"
+repair = "Exercise real Ed25519 and secp256k1 producers, reject mismatched labels without writes, and inspect matching persisted records through reopened key lookup and account output; the updated legacy test executes in the repair gate."
+
+[finding.keyring-output-public-address]
+test = "TestRepairM_1340_PublicAddress"
+repair = "Derive the EVM address from the actual secp256k1 compressed public key with no private-material access; compare an independent private-key-derived address across actual creation, reopen, watch-only and production-persisted Ledger references, including both pointer and value LocalInfo and absent private material."
+
+[finding.keyring-output-sr25519]
+test = "TestRepairM_1340_SR25519Output"
+cli_test = "TestRepairM_1340_SR25519Show"
+repair = "Guard conversion by the concrete public key type; preserve normal sr25519, Ed25519 and multisig output, and exercise real keys show JSON by name and address using a reopened persisted sr25519 account with unchanged inventory. The external-package CLI test avoids the production keyring-to-client import cycle."

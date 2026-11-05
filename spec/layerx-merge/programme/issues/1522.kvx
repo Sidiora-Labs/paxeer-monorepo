@@ -1,0 +1,48 @@
+[issue.1522]
+number = 1522
+title = "[Coherence] The dashboard's next floor is checked against a new standalone lockfile that the dashboard build never uses, so the shipped dashboard still resolves next 16.3.5"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "task"
+evidence = "Although commit 82f46b5807b164a0fd9c1690c01c2ded3de3ac4a raised the shared Next resolution to 16.4.1 (apps/web/package-lock.json:4753), matching services/platform/hosted/dashboard/web/package.json:14, tools/deps/floors/platform-node.json:25 still selects the dashboard manifest and tools/deps/lockfloor.py:262 therefore reads its unused standalone lock (services/platform/hosted/dashboard/web/package-lock.json:1607), whereas docker/platform-dashboard-web/Dockerfile:8 and Makefile:2528 use apps/web dependencies; scripts/ci/developer-dashboard-lock.mjs:5 checks that shared lock but retains the separate stale UI path assertion at :10, and spec/layerx-merge/spec.kvx:119146 still requires lock consistency."
+close_comment = "The shared web dependencies now resolve Next 16.4.1, but the dashboard dependency floor still checks an unused lockfile. The follow-up task checks the shared install lock directly, removes the unused dashboard lock and adds a regression check that rejects a shared Next resolution below the floor."
+
+[task.18.1522.1]
+title = "Issue #1522: Check the dashboard Next floor against its shared install lock"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181522.1"]
+capabilities = []
+interfaces = []
+do_1 = "Replace the dashboard manifest entry at tools/deps/floors/platform-node.json:25 with an explicit apps/web/package-lock.json entry retaining next >=16.4.1, using the direct-lock support at tools/deps/lockfloor.py:242, and delete services/platform/hosted/dashboard/web/package-lock.json, introduced by ab65ff9baedf72cacc151d5876378a5ce09111ee; the selected lock must be the one installed by docker/platform-dashboard-web/Dockerfile:8 and shared by Makefile:2528, without changing pins, install recipes or existing consistency assertions."
+do_2 = "Add test_dashboard_floor_uses_shared_install_lock to tools/deps/tests/test_lockfloor.py beside the existing run_checker helper at :24: read the real platform-node floors, assert that the dashboard floor names apps/web/package-lock.json directly and that no dashboard lock remains, assert the dashboard Next pin equals the shared resolved version, then copy the real shared lock into a temporary tree and invoke the production checker through run_checker with that configured entry, asserting success and asserting exit 1 with the exact Next violation after lowering the shared Next resolution to 16.3.5, even when a dashboard-local lock in that temporary tree resolves 16.4.1."
+symbols = ["test_dashboard_floor_uses_shared_install_lock"]
+touches = ["tools/deps/floors/platform-node.json", "services/platform/hosted/dashboard/web/package-lock.json", "tools/deps/tests/test_lockfloor.py"]
+tests = ["tools/deps/tests/test_lockfloor.py::test_dashboard_floor_uses_shared_install_lock"]
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/deps/tests/test_lockfloor.py"
+verify_cmd = "python3 -m pytest tools/deps/tests/test_lockfloor.py::test_dashboard_floor_uses_shared_install_lock -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181522]
+title = "The dashboard dependency floor covers the dependencies used to build it"
+ac_1 = "The dashboard Next floor currently declared at tools/deps/floors/platform-node.json:25 checks apps/web/package-lock.json, which docker/platform-dashboard-web/Dockerfile:8 installs and Makefile:2528 shares; no standalone dashboard lock remains, the dashboard Next pin equals the shared resolution, and a shared resolution below 16.4.1 fails even if a separate dashboard lock resolves a patched version."
+
+[acceptance.18.1522.1]
+feature = "18"
+req = "181522.1"
+scenario = "Given the dashboard uses the shared web dependency install, when its configured Next floor checks that shared lock, then the matching patched resolution passes and a shared resolution of 16.3.5 fails even with a patched dashboard-local lock, and the repository contains no unused dashboard lock."
+contract = "contracts/services.md#platform-dashboard"
+test = "tools/deps/tests/test_lockfloor.py::test_dashboard_floor_uses_shared_install_lock (planned)"
+qualification = "UNRUN"

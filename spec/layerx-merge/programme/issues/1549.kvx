@@ -1,0 +1,48 @@
+[issue.1549]
+number = 1549
+title = "[Coherence] The node merge-import test still builds the merge table from keepers without the chains keeper, so it now fails on the chains error this commit asserts"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "task"
+evidence = "node/precompiles_agent_merge_imports_test.go:15 passes bare NewPrecompileKeepers(a) and expects success at line 16, but node/app.go:3893 returns no chains keeper for that value, precompiles/setup_test.go:443 explicitly asserts its chains-keeper refusal, and node/app.go:3900 supplies the missing keeper through GetPrecompileKeepers(), leaving the harness requirement at spec/layerx-merge/spec.kvx:21747 unmet."
+close_comment = "The node merge-table test needs the application's complete precompile keepers to reach its oracle aggregator, scheduler and streams constructor checks. The repair will use GetPrecompileKeepers() and preserve every existing constructor assertion and the missing-keeper refusal checks."
+
+[task.18.1549.1]
+title = "Issue #1549: Supply the chains keeper to the node merge-import test"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181549.1"]
+capabilities = []
+interfaces = []
+do_1 = "In TestMergeConstructorsRegisteredForAgentOracleSchedulerStreams at node/precompiles_agent_merge_imports_test.go:15, replace NewPrecompileKeepers(a) with a.GetPrecompileKeepers(), which attaches the application's chains keeper at node/app.go:3900; preserve the setup, cleanup and every assertion at node/precompiles_agent_merge_imports_test.go:16-33."
+do_2 = "Run the existing TestMergeConstructorsRegisteredForAgentOracleSchedulerStreams at node/precompiles_agent_merge_imports_test.go:11 as the single focused test: table construction must succeed and its oracle aggregator, scheduler and streams subtests must still assert registration, merge-version presence, concrete precompile type, address, name and nonempty ABI; leave the missing-keeper refusals at precompiles/setup_test.go:437-445 unchanged."
+symbols = ["TestMergeConstructorsRegisteredForAgentOracleSchedulerStreams"]
+touches = ["node/precompiles_agent_merge_imports_test.go"]
+tests = ["node/precompiles_agent_merge_imports_test.go::TestMergeConstructorsRegisteredForAgentOracleSchedulerStreams"]
+planned_paths = []
+build_cmd = "CGO_ENABLED=1 go build ./node/"
+verify_cmd = "CGO_ENABLED=1 go test -count=1 ./node/ -run '^TestMergeConstructorsRegisteredForAgentOracleSchedulerStreams$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-rpc-api"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181549]
+title = "The node merge-import test constructs its table with the application's complete precompile keepers"
+ac_1 = "TestMergeConstructorsRegisteredForAgentOracleSchedulerStreams at node/precompiles_agent_merge_imports_test.go:11 supplies a.GetPrecompileKeepers() at line 15, receives no construction error at line 16, and retains every assertion at lines 24-33 proving that the oracle aggregator, scheduler and streams constructors are registered and expose their expected merge versions, addresses, names and ABIs."
+
+[acceptance.18.1549.1]
+feature = "18"
+req = "181549.1"
+scenario = "Given the node application and its registered merge constructors, when the node merge-import test builds the table using the application's complete precompile keepers, then construction succeeds and the oracle aggregator, scheduler and streams entries pass every existing registration, merge-version, type, address, name and ABI assertion."
+contract = "contracts/agent-functions.md#framework"
+test = "node/precompiles_agent_merge_imports_test.go::TestMergeConstructorsRegisteredForAgentOracleSchedulerStreams (planned)"
+qualification = "UNRUN"
