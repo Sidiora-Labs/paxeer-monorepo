@@ -31931,3 +31931,51 @@ symbol = "repair_22_31_534.rs"
 observed = "Attempt 5 at 5a6ccc80176ad70e47257571153162c4268990ea: build exit 101: rustc-LLVM ERROR IO failure on output stream No space left on device while compiling layerx-human-service test targets, collect2 ld terminated with signal 7 Bus error; verify did not run."
 assumption = "An environment failure; the tree is unchanged."
 severity = "low"
+
+[finding.22.99.77.17]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 15 at 522cad9280b7eb5a6e367fe70d25236b3eca3682 (requalify of the attempt-12 tree): build exit 0, dependent-crate check exit 0, verify exit 101: twelve native cases left -3 right 0 (host_boundary.rs line 480 in nine cases, rewards_native.rs line 1678 in two, f03_evaluator_host.rs line 2739), and fuel_budget.rs line 1674 BudgetExceeded Cpu limit 1000000 attempted 1000626 (OPEN_EPOCH 896), 1000008 (OPEN_EPOCH 1024), 1000049 (ADMIT_TASK 1030), 1000002 (ADMIT_TASK 1033)."
+assumption = "The capacity raise changed the encoded payload length; the fuel overrun is the state scaling attempt 12 did not remove."
+severity = "high"
+
+[finding.22.31.539.4]
+task = "22.31.539"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_539.rs"
+symbol = "repair_22_31_539.rs"
+observed = "Attempt 4 at 92bd05d6f21f73e7ebddc711a28bebf5b4e3f611: build exit 0, dependent-crate check exit 0, verify exit 101 in --test bootstrap_bind_layerx only: session_open_prepares_grant_session_for_the_session_address panicked at bootstrap_bind_layerx.rs line 58 bootstrap peer: Os code 2 NotFound; agent_register_prepares_bind_layerx PoisonError at line 816."
+assumption = "Environmental; the tree is unchanged."
+severity = "medium"
+
+[finding.22.33.217.7]
+task = "22.33.217"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_217.rs"
+symbol = "repair_22_33_217.rs"
+observed = "Attempt 7 at f7ed86da3825bcda7c22ba9aeb89f16fe077d70a: build exit 0, dependent-crate check exit 0, verify exit 101: 21 passed, view_binding::header_reports_exact_state_identity_and_explicit_absence panicked at tests/view_binding.rs line 332 left ContentUnavailable right NotYetProduced."
+assumption = "The production helper, not the test, is wrong; src/queries.rs is in the task paths."
+severity = "high"
+
+[finding.22.33.261.6]
+task = "22.33.261"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_261.rs"
+symbol = "repair_22_33_261.rs"
+observed = "Attempt 6 at 956915b4a2056e60fa529237c25d268368d1fda7: build exit 0, dependent-crate check exit 0, verify exit 101: 5 passed, reward_native_reopen panicked at tests/repair_22_33_261.rs line 1490 commit process failed after the commit child panicked at line 63 real path refused: ApplicationError(1)."
+assumption = "A fixture encodes a structure under a version the production decoder refuses; attempt 5 changed the refusal from 526 to 1 without naming the call."
+severity = "high"
+
+[finding.22.33.1569.7]
+task = "22.33.1569"
+file = "services/agent/qualification/pay2/tests/repair_22_33_1569.rs"
+symbol = "repair_22_33_1569.rs"
+observed = "Attempt 7 at 6c80e9450cf1ccdf6c982ff3e66c928066fbea23: build exit 0, dependent-crate check exit 0, verify exit 101: 1 passed, pay2_input_test_gap_executes_the_funded_sdk_and_mcp_workflow panicked at tests/support/funded_scenario.rs line 677 left 2 right 6 after the line PAY2 SDK grant draw verified with activity-specific coverage and pinned node authority."
+assumption = "The fixture peer, inside the task paths, serves one fixed receipt shape; no production change is indicated."
+severity = "medium"
+
+[finding.22.31.496.4]
+task = "22.31.496"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_496.rs"
+symbol = "repair_22_31_496.rs"
+observed = "Attempt 4 at e4f479f37e2805e67a96117ae48575edeb4205be: build exit 0, dependent-crate check exit 0, verify exit 1: cargo test repair_22_31_496 2 passed, then go test ./modules/layerxauth/keeper/ failed with No space left on device during the link; TestRepair_22_31_496 never ran."
+assumption = "Environmental; the tree is unchanged."
+severity = "medium"

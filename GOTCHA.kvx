@@ -15810,3 +15810,38 @@ fix = "18.1578.1 continues: the daemon-side proof carries the error variant in t
 title = "22.31.534 attempt 5: the build stopped on No space left on device and a linker Bus error while compiling the layerx-human-service test targets; no gate reached the tree."
 symptom = "The qualification environment ran out of disk during the build; the attempt tree is unchanged since attempt 2."
 fix = "Requalify at the same tree."
+
+[gotcha.3198]
+title = "22.99.77 attempt 15 (the first verify run of the attempt-12 tree): twelve native cases return status -3 at the harness status assertion (host_boundary.rs line 480 in nine cases, rewards_native.rs line 1678 in two, f03_evaluator_host.rs line 2739) after the attempt-12 harness change raised the response capacity word from 16 to 16384 in tests/programs/test_ai_host_boundary.c; before that change only the harness CREATE returned -3."
+symptom = "-3 on the harness status line is the kernel result LXP_ERR_NON_CANONICAL (include/layerx/lxp_result.h line 38), the return of lxp_kernel_execute_activity that the harness execute helper prints (test_ai_host_boundary.c lines 220 to 289); it is not the guest STATUS_BOUNDS of host/mod.rs line 34, which never reaches the harness status. The capacity 16384 passes both bounds (call.c line 2522 against LX_PROGRAMS_MAX_RESPONSE_BYTES 1048576 and execute.rs line 4365 against MAX_CALL_RESPONSE_BYTES), so the refusal is one of the 93 non-canonical return sites of call.c, most likely the payload length check near lines 2495 to 2555, because the capacity word changes the encoded payload length. The Rust test asserts the status only and never prints receipt.result_code."
+fix = "Print the kernel status and the receipt result code on every harness call, bisect the capacity word (16, 4096, 16384) and realign the payload the harness writes with the length the decoder expects."
+
+[gotcha.3199]
+title = "22.99.77 attempt 15: every_routed_operation_fits_the_protocol_cpu_fuel_cap (fuel_budget.rs line 1674) fails with OPEN_EPOCH at height 896 and 46461 bytes of shared state attempting 1000626 and at height 1024 (49325 bytes) 1000008, ADMIT_TASK at 1030 (50141 bytes) 1000049 and at 1033 (50494 bytes) 1000002 against the DEFAULT_CPU_FUEL cap 1000000; CREATE fits at 186538."
+symptom = "The guest was built by make paxai-host-boundary-build with the distribution wasm-opt version 120 the qualification environment installs; attempts 10 and 11 were 2 to 39 units over the cap at the same heights, so the fuel still scales with the shared state size and the margin is 2 to 626 units."
+fix = "Remove or bound the state-size proportional work on the OPEN_EPOCH and ADMIT_TASK paths and prove the budget with the wasm-opt version the qualification environment installs, not a local build."
+
+[gotcha.3200]
+title = "22.31.539 attempt 4 (requalify of the attempt-3 tree): the lib suite and five test targets pass; bootstrap_bind_layerx fails at bootstrap_bind_layerx.rs line 58 with bootstrap peer: Os code 2 NotFound because the test starts anvil (LAYERX_TEST_ANVIL or anvil on the path, lines 164 to 166) and the qualification environment had none; the second case fails on the poisoned lock at line 816."
+symptom = "The attempt-4 change to that file is one label (CHECKPOINT_FINALISED to COMMITTED). Earlier attempts of other tasks passed the same target because their implementation step installed anvil before the gates ran; a requalify run has no implementation step."
+fix = "The qualification environment now installs the Foundry toolchain when a named test target reads LAYERX_TEST_ANVIL; requalify at the same tree."
+
+[gotcha.3201]
+title = "22.33.217 attempt 7: 21 of 22 cases pass; view_binding::header_reports_exact_state_identity_and_explicit_absence (tests/view_binding.rs line 332) expects NotYetProduced for feature 0 of an uncreated market and receives ContentUnavailable; the main version of the test (line 325) asserts the same."
+symptom = "In src/queries.rs feature_availability (line 531) maps feature 0 through decoded(policy_of(shared), produced), and policy_of answers Err(NOT_FOUND) on an empty PolicyLifecycle section, which the decoded helper maps to ContentUnavailable; the read_header doc names an uncreated market as NOT_FOUND and the 22.31.253 rule (do_15 of 22.33.217) reserves NotYetProduced for an enabled feature with no produced state and NotEnabled for a disabled feature."
+fix = "feature_availability reports NotYetProduced for an empty enabled section before any decode runs; ContentUnavailable is reserved for a present section whose decode fails."
+
+[gotcha.3202]
+title = "22.33.261 attempt 6: five cases pass; reward_native_reopen (tests/repair_22_33_261.rs line 1463) fails at line 1490 with commit process failed because the commit phase child panicked in the ok wrapper (line 63) with real path refused: ApplicationError(1)."
+symptom = "ApplicationError(1) is BAD_VERSION (src/errors.rs line 64, code 0x0001) of the ai-market program. The commit phase write_recovery_store (lines 1329 to 1368) runs the settled fixture, commit_market, the claim request, commit_payout for the claim, decode_shared_state, the request-close call, the refund-free request and commit_payout for the refund; commit_payout wraps decode_envelope, rewards::apply, RewardsAccount::for_ledger and value_adapter::plan in ok, and the wrapper message names no call. Attempt 5 moved the refusal from status 526 to 1 without naming the refusing call."
+fix = "Name the refusing call in the wrapper message, find the structure the fixture encodes under a version the production decoder refuses, and realign its version byte; the reopen assertions stay."
+
+[gotcha.3203]
+title = "22.33.1569 attempt 7: the grant issue now verifies with activity-specific coverage; the SDK grant draw fails at tests/support/funded_scenario.rs line 677 expecting ledger operation 6 and receiving 2 (amount 2 expected, 0 served)."
+symptom = "The loopback peer encodes one fixed protocol receipt shape in execution_receipt (tests/support/funded_peer.rs near lines 640 to 660: module 12, module version 1, operation 2, the uhpx asset digest, amount 0) for every eth_sendRawTransaction whatever ledger operation the bound disclosure constructs (LedgerSend, LedgerIssueGrant, LedgerDraw). The pay2e qualification test on main (pay2e_test.rs lines 598, 735 and 834) expects operation 6 with the drawn amount for a draw and 7 for a grant issue from the network, and the scenario copies those assertions. The attempt recorded the mismatch as a pre-existing receipt contract fault; it is a fixture gap inside the task paths."
+fix = "The peer derives module id, operation tag, asset and amount of the served receipt from the construct method of the bound disclosure; the fixed EVM shape stays only for a call that constructs no ledger operation."
+
+[gotcha.3204]
+title = "22.31.496 attempt 4: the Rust proof passes (2 cases) and the Go keeper gate stopped on No space left on device while linking the auth module test binary; the keeper cases never ran."
+symptom = "The qualification environment ran out of disk during the Go link, the second such stop this week after 22.31.534 attempt 5 (gotcha 3197); the attempt tree carries the protocol-3 actor identity rotation the attempt-4 ruling asked for."
+fix = "Requalify at the same tree."
