@@ -15230,3 +15230,23 @@ fix = "22.31.514 attempt 2 rewrites the case to the node-root contract; a produc
 title = "Pre-creating a daemon store root with create_dir_all makes the store refuse to open"
 symptom = "services/agent/crates/layerx-agentd/src/store/protected.rs validate accepts only a canonical directory owned by the process with mode 0700. A test that creates the root with fs::create_dir_all (mode 0755) and then opens ApprovalExpiry or Store on it gets the Store error (services/human/crates/layerx-human-service/tests/approvals.rs line 260, 22.31.515 attempt 1); tests/support/production_fixture.rs line 384 sets 0o700 for exactly that reason."
 fix = "22.31.515 attempt 2 lets the store create the root or sets 0o700 first; a fixture never pre-creates a store root with default permissions."
+
+[gotcha.3082]
+title = "The re-recorded committed vector carries an absent vote with a null signature, and two recording consumers crash on it"
+symptom = "22.31.486 (74ef78b42b) re-recorded sdk/platform/conformance/fixtures/vector-v4-committed.json under chain 125; positive.receiptInclusion.NextCommit.Signatures now holds a vote with BlockIDFlag 1 (absent) whose Signature is null, as CometBFT records it. apps/web/e2e/repair-22-33-338-commit.ts line 7 and services/platform/middleware/seller/test/committed-fixture.mjs line 9 decode every vote signature with Buffer.from(value, base64) and throw ERR_INVALID_ARG_TYPE (22.33.338 attempt 8, kit_separate_layerx_finality; 22.33.1478 attempt 8, the two committed cases). The production verifier skips flag 1 and flag 3 votes before it reads a signature (services/agent/sdk/typescript/src/verifier.ts line 674)."
+fix = "Decision 2568: a recording consumer decodes a null vote signature as empty bytes and keeps the flag; 338 and 1478 continue with that fix."
+
+[gotcha.3083]
+title = "22.31.515 leaves two Human service test files on the signatures 22.31.495 retired"
+symptom = "services/human/crates/layerx-human-service/tests/decide_nonces.rs (get at lines 375, 406, 599 and 627; DecisionRequest at lines 455 and 483) and tests/repair_22_31_159.rs (get at lines 103 and 278) still call the daemon approval service with three arguments and build DecisionRequest without current_time; 22.31.515 covers approvals.rs, decide.rs and the layerx-mcp tests only, so cargo build --tests for the Human service crate stays red on main after both land (22.33.1510 attempt 4, exit 101, eight errors)."
+fix = "22.31.521 passes the decision time in both files; 22.33.1510 continues after 515 and 521. A signature change is traced through every test crate that calls it, not only the ones named by the first failure (decision 2560)."
+
+[gotcha.3084]
+title = "A receipted-rung node recording is verified without the predecessor check, so the sequence-hash refusal vector records"
+symptom = "services/wallet/gateway/test/support/chain.ts recordSequencerReceipt (22.33.210 attempt 2, line 232) runs verifySequencerReceipt, which refuses an unpinned key, a height outside the key range, an activity id that is not the raw transaction hash and non-canonical bytes, but the chain of sequence hashes (R6) is checked only in the committed batch path (services/agent/sdk/typescript/src/verifier.ts line 787). The V3-seq-hash-mismatch case of sdk/platform/conformance/fixtures/sequencer-receipt-v1.json, whose receipt chains from a root other than its declared prevSeqHash, therefore records instead of throwing, and the refusal loop fails with promise resolved instead of rejecting (the vitest message argument does not name the id)."
+fix = "The fixture compares the verified receipt's previousStateRoot with the recording's prevSeqHash before recording; each refusal id is asserted in its own case so the output names it."
+
+[gotcha.3085]
+title = "The 338 support fixture swallows the handler failure that makes the session load fail"
+symptom = "apps/web/e2e/repair-22-33-338-support.ts catches every assertion its request handler raises into an errors array and answers 500, and the test asserts that array empty only after asserting the session load ready (repair-22-33-338.test.ts line 143), so the output reads 'failed' !== 'ready' and the refused header, path or body assertion never prints (22.33.338 attempts 7 and 8)."
+fix = "The test asserts the errors array empty before the load state and puts the handler's message in the 500 body, so the next run names the cause."

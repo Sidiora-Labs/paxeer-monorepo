@@ -8517,6 +8517,12 @@ value = "services/wallet/pnpm-workspace.yaml names each dependency whose install
 basis = "22.31.513 attempt 1 (gotcha 3079)."
 affects = ["22.31.520", "22.31.513"]
 
+[decision.2568]
+title = "An absent or nil commit vote decodes to an empty signature in every recording consumer"
+value = "A CometBFT commit vote with BlockIDFlag 1 (absent) or 3 (nil) carries no signature and a recorded vector stores null for it. Every test fixture that decodes a recorded commit (block commit, next commit, execution commit) maps a null signature to an empty byte array and keeps the flag and validator address, matching the production verifier, which skips those votes before reading a signature (services/agent/sdk/typescript/src/verifier.ts line 674). A fixture never drops the vote, never invents a signature and never edits the recording."
+basis = "22.33.338 attempt 8 and 22.33.1478 attempt 8 (gotcha 3082)."
+affects = ["22.33.338", "22.33.1478", "22.31.486"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -37407,6 +37413,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.31.521]
+title = "Pass the decision time in the Human service nonce and 159 approval tests the 22.31.495 signature change left behind"
+reqs = ["22998.1"]
+touches = ["services/human/crates/layerx-human-service/tests/decide_nonces.rs", "services/human/crates/layerx-human-service/tests/repair_22_31_159.rs", "services/human/crates/layerx-human-service/tests/repair_22_31_521.kvx"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test decide_nonces --test repair_22_31_159"
+do_1 = "do_1 Gotcha 3083, decision 2560. 9c3cd0e74d (22.31.495) added current_time to the layerx_agentd approval DecisionRequest and a fourth TimestampSeconds argument to the approval service get. Update services/human/crates/layerx-human-service/tests/decide_nonces.rs (the get calls at lines 375, 406, 599 and 627 and the DecisionRequest initialisers at lines 455 and 483) and tests/repair_22_31_159.rs (the get calls at lines 103 and 278) to pass the decision time the production Human service passes (the same clock source its approvals boundary uses, as 22.31.515 does for approvals.rs and decide.rs), not a constant chosen to make a case pass. Change nothing else in either file."
+symbols = []
 
 [capability.22.31.520]
 title = "Declare the wallet workspace dependency build scripts so pnpm install completes under pnpm 12"
@@ -148031,6 +148046,7 @@ do_15 = "Attempt 5 (continue): four grant tests fail with invalid-payment-payloa
 do_16 = "Attempt 6 (continue after 22.31.479): attempt 5 repaired the draw fixture fields and added the HostedGatewayRpc re-export; the build stopped at npm ci --ignore-scripts with EUSAGE on the stale root package-lock.json (gotcha 2994), repaired by 22.31.479, which this task now requires. Take the current main head, keep the implementation and rerun the gates once."
 do_17 = "Attempt 7 (continue): settle() in the seller middleware wraps every PlatformSdkError from verifySequencerReceipt as MiddlewareError verification-failure (index.ts lines 203-214); unwrap and record the inner code in the finding file. The committed commitment path must carry the committed evidence from recordedCommittedReceipt() through encodePaymentCommitmentEvidence (receipt fields alone are refused at level committed); the receipted half is already proven by the test of 22.31.434. Keep the assertions."
 do_18 = "Attempt 8 (requalify after 22.31.486): 17 of 20 cases pass; the three committed-rung cases fail because the committed recording sdk/platform/conformance/fixtures/vector-v4-committed.json carries a legacy (type 0) transaction signed under the retired chain id, and the production verifier verifyPaymentReceipt decodes only EIP-1559 type-2 transactions (services/agent/sdk/typescript/src/evm-transaction.ts line 147). 22.31.486 re-records that vector as a type-2 transaction on chain 125; requalify the attempt-7 tree once it is on main. If a committed case still fails on the new recording, that is a defect of this task's committed path and is repaired here."
+do_19 = "Attempt 9 (continue): after the attempt's repairs 18 of 20 cases pass; recordedNodePaymentCrossesExampleAndRecovers and receiptAuthorityPreservesSdkRefusal throw in services/platform/middleware/seller/test/committed-fixture.mjs line 9 because the re-recorded committed vector's NextCommit holds an absent vote (BlockIDFlag 1) whose Signature is null (gotcha 3082). Decode a null vote signature as an empty Uint8Array and keep the flag and validator address (decision 2568), for vote signatures only; keep every other decoder and the 18 passing cases unchanged; run the declared verify once and record the result and the recording field in the task record."
 
 [task.22.33.1477]
 title = "Repair audit record 22.30.86 medium findings in services/platform/middleware/buyer/test (part 1 of 1): test-gap"
@@ -153556,6 +153572,7 @@ do_14 = "Attempt 5 (continue after 22.31.469): the apps/web type check failed on
 do_15 = "Attempt 6 (continue): three cases fail. sponsored_retired_transport_reopens_recovery (repair-22-33-338.test.ts line 203) expects outcome sent but the production submission path reports unconfirmed because the loopback root node origin the test starts never answers the receipt poll; make the loopback node origin serve eth_getTransactionReceipt for the submitted hash so the production path reaches its confirmed outcome, and assert that outcome. receipt_consumer_proof_retired_target and kit_separate_layerx_finality fail on strict equality of link and copy text: compare against the committed producer (apps/web/src/explorer/links.ts and the copy catalogue under apps/web/copy on main) and, where the catalogue still carries the retired finality wording, change the catalogue entry under apps/web/copy (this task's component) instead of recording a wiring request."
 do_16 = "Attempt 7 (continue): three cases fail. (1) receipt_env_proof_retired_target and receipt_consumer_proof_retired_target serve the committed receipt of daemon/committed-fixture/vectors/vector-v4-committed.json (settlement.receipt) together with the raw transaction and key pin of a different recording, sdk/platform/conformance/fixtures/vector-v4-committed.json (positive), so authenticateSequencerReceipt refuses the pair as 'transaction or receipt layout'. Serve one recording only: the daemon vector's settlement.raw_transaction with its settlement.receipt and the pin that recording was signed under, the way sdk/wallet/test/support/receipt-recordings.ts and apps/wallet/src/surfaces/test/recordedReceipts.ts pair them. If the daemon's own committed pair is then still refused, record the refusing field in the finding file and stop; that is a producer drift to rule separately. (2) sponsored_retired_transport_reopens_recovery still reports 'unconfirmed' instead of 'sent': the loopback root-node origin the test starts must answer pax_sequencerReceipt for HASH with the committed receipt once session.receiptStatus is 0x1, so the production submission path reaches 'sent' with the receipt; keep the four-poll assertion."
 do_17 = "Attempt 8 (after 22.31.486): the committed recording is re-recorded on chain 125 (gotcha 3007). Pair the daemon vector's settlement.raw_transaction with its own settlement.receipt and the pin it was signed under, exactly as 22.31.486 leaves them, and authenticate through the production wallet path; the two retired-target proof cases must then pass. support_fixture_route_shape reports 'failed' instead of 'ready' because the support origin's initialization fails: print the initialization error in the test output and fix the fixture start-up inside apps/web/e2e; the production route shape is the reference. Keep the sponsored_retired_transport_reopens_recovery fix of attempt 7."
+do_18 = "Attempt 9 (continue): three of five cases pass. kit_separate_layerx_finality throws in apps/web/e2e/repair-22-33-338-commit.ts line 7 because the re-recorded committed vector's NextCommit holds an absent vote (BlockIDFlag 1) whose Signature is null (gotcha 3082): decode a null vote signature as an empty Uint8Array and keep the flag and address (decision 2568), only for vote signatures, never for headers or hashes. support_fixture_route_shape still reads 'failed' because the fixture's request handler refused the first GET and the test asserts the errors array only after the load state (gotcha 3085): in repair-22-33-338-support.ts put the caught error's message in the 500 body, and in the test assert the errors array empty before asserting load, so the cause prints; then repair the fixture start-up inside apps/web/e2e for what it names (the production route shape under apps/web/src/support is the reference). Keep the three passing cases unchanged; run the declared verify once and record."
 
 [task.22.33.337]
 title = "Repair audit record 22.30.138 medium findings in apps/web/e2e (part 1 of 2): retired-reference, test-gap"
@@ -155455,6 +155472,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_9 = "Attempt 2 (after 22.31.486): 5 of 6 cases pass; jsonSignatureChainFixtureRejectsMalformedSignedViews fails at test/repair-22-33-210.test.ts line 123 because recordSequencerReceipt in test/support/chain.ts line 232 verifies a recorded node vector against the chain's own receipt key pins, so the V3 refusal cases of sdk/platform/conformance/fixtures/sequencer-receipt-v1.json (key not pinned, height outside the key range, and the rest) are not refused. Verify a recorded vector against the pin the recording declares (its pinnedKey) and keep the chain's pins for receipts the chain signs itself; every listed refusal case must then throw while the V1 and V2 positives still record. 22.31.486 is re-recording that fixture under chain 125, so this attempt runs on a base that carries it."
+do_10 = "Attempt 3 (continue): five of six cases pass; jsonSignatureChainFixtureRejectsMalformedSignedViews fails in the refusal loop at test/repair-22-33-210.test.ts line 123 because recordSequencerReceipt (test/support/chain.ts line 232) verifies a recorded vector with verifySequencerReceipt alone, which never checks the chain of sequence hashes; the V3-seq-hash-mismatch vector then records instead of throwing (gotcha 3084). Before recording, compare the verified receipt's previousStateRoot with the recording's prevSeqHash and throw on a mismatch; keep the pin set as it is. Split the refusal loop so each id is its own assertion (a loop whose failure message is built from the id, or one case per id) so the output names the refused vector; if another id still records, name it and the refusing field in the task record. Then run the declared verify once and record."
 
 [task.22.33.209]
 title = "Repair audit record 22.30.120 medium findings in services/wallet/gateway/test/e2e (part 1 of 1): retired-reference, runtime-risk, test-gap"
@@ -174295,12 +174313,41 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.521]
+title = "Pass the decision time in the Human service nonce and 159 approval tests the 22.31.495 signature change left behind"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.521"]
+interfaces = []
+do_1 = "do_1 Gotcha 3083, decision 2560. 9c3cd0e74d (22.31.495) added current_time to the layerx_agentd approval DecisionRequest and a fourth TimestampSeconds argument to the approval service get. Update services/human/crates/layerx-human-service/tests/decide_nonces.rs (the get calls at lines 375, 406, 599 and 627 and the DecisionRequest initialisers at lines 455 and 483) and tests/repair_22_31_159.rs (the get calls at lines 103 and 278) to pass the decision time the production Human service passes (the same clock source its approvals boundary uses, as 22.31.515 does for approvals.rs and decide.rs), not a constant chosen to make a case pass. Change nothing else in either file."
+do_2 = "do_2 Run the declared build and verify once; both test binaries must compile and every case pass. Record in services/human/crates/layerx-human-service/tests/repair_22_31_521.kvx each site changed, the clock source used and the gate results. Gate: the two test binaries only; no credential, no live endpoint (gotcha 2962)."
+symbols = []
+touches = ["services/human/crates/layerx-human-service/tests/decide_nonces.rs", "services/human/crates/layerx-human-service/tests/repair_22_31_159.rs", "services/human/crates/layerx-human-service/tests/repair_22_31_521.kvx"]
+tests = []
+planned_paths = ["services/human/crates/layerx-human-service/tests"]
+build_cmd = "cargo build --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test decide_nonces --test repair_22_31_159"
+verify_cmd = "cargo test --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test decide_nonces --test repair_22_31_159"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.519]
 title = "Pass the explicit decision time in the daemon approval_semantics test so the daemon test targets build again"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.31.515"]
 reqs = ["22998.1"]
 capabilities = ["22.31.519"]
 interfaces = []
@@ -174323,6 +174370,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue after 22.31.515): attempt 1 passed the decision time at the five sites of tests/approval_semantics.rs and the declared build passed; the dependent-crate check then failed on crates/layerx-mcp/tests/repair_22_33_1551.rs line 668 and tests/session_tools_major_two.rs line 205 (DecisionRequest without current_time) and tests/support/session_transport.rs line 735 (the approval list call without its fifth TimestampSeconds argument), all three in the scope of 22.31.515. Rebase on main once 515 is there, rerun the declared build and verify with no further edit unless the dependent check names a site outside 515, and record the result."
 
 [task.22.31.516]
 title = "Replace the path-included authority human module in the daemon tests with the authority library as a dev-dependency"
@@ -174354,6 +174402,7 @@ time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 2 (continue after 22.31.519): attempt 1 did the task's work (the shared authority library exports, the dev-dependency and the stand-in removal; its first build failed on two module declarations in hosted/authority/src/human/budget_state.rs that the attempt then fixed) and its second build failed only in services/agent/crates/layerx-agentd/tests/approval_semantics.rs, which still uses the signatures 22.31.495 retired (gotcha 3077) and which 22.31.519 repairs. Rebase on main once 519 is there, rerun the declared build and verify with no further edit unless the run names a site inside this task's paths, and record the result."
 
 [task.22.31.515]
 title = "Carry the explicit decision time into the Human service and MCP consumers of the daemon approval service"
@@ -177003,7 +177052,7 @@ title = "Repair audit record 22.30.90 medium findings in services/human/crates/l
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.214", "22.31.215", "22.31.216", "22.31.443", "22.31.462"]
+requires = ["22.31.214", "22.31.215", "22.31.216", "22.31.443", "22.31.462", "22.31.515", "22.31.521"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1510"]
 interfaces = []
@@ -177035,6 +177084,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_9 = "Attempt 2 (continue after 22.31.462): the approval budget actor reported Corrupt because the daemon wrote the verification level's rank (observed 4) where the service decodes a rung rank (0 to 2); 22.31.462 makes both sides use the shared rung contract. On that base rerun the gate; the test keeps feeding daemon-written budget state through the production decoder."
 do_10 = "Attempt 3 (continue): the build fails because services/human/crates/layerx-human-service/tests/support/approval_owner.rs line 81 path-includes services/platform/hosted/authority/src/human as a module; its crate-root imports and parent references do not resolve in the test crate (gotcha 3067) and the authority is not the producer of the state the approval decoder reads (decision 2558). Delete that module and the wiring request to the authority in the task record. Produce the daemon-written budget state the way the production daemon writes it, through layerx_agentd::human_runtime (the shared rung contract of 22.31.462), or replay a recorded transcript of that output from tests/support/approval_fixture, and feed it through the production decoder of the service (services/human/crates/layerx-human-service/src/agents/recovery.rs). Keep the approval and decision cases over real agent transport with reopen, as do_4, do_5 and do_9 require; run build and verify at the same final revision."
 do_11 = "Attempt 4 (continue): the build passes and the fixture now runs the real daemon library behind a recorded loopback authority, as decision 2558 asked; all three cases fail because the daemon's startup recovery refuses the served budget state with reason Unavailable (human_runtime.rs line 14521) and keeps the actor read-only, so every decision is Refused (gotcha 3074). Find why the recovery cannot read the budget record the transcript serves (the persisted record shape or the store it expects, human_runtime.rs line 748 names the two causes) and make the transcript carry exactly what the real authority emits, or produce the budget state through the daemon library in-process; do not loosen the daemon. The verify's three cases must pass; if 22.31.515 is on main when you start, rebase on it and keep its approvals.rs and decide.rs signature changes."
+do_12 = "Attempt 5 (continue after 22.31.515 and 22.31.521): attempt 4's fixture work stands (the real daemon library behind a recorded loopback authority); its build failed only on tests/decide_nonces.rs and tests/repair_22_31_159.rs, which still use the signatures 22.31.495 retired (gotcha 3083) and which 22.31.521 repairs while 22.31.515 repairs approvals.rs and decide.rs. Rebase on main once both are there, run the declared build and the verify; if the three cases still report the budget state Unavailable, follow the attempt-4 instruction (human_runtime.rs line 748 names the two causes; make the transcript carry what the real authority emits or produce the state through the daemon library in-process; never loosen the daemon). Record the outcome and any remaining refusal field in the task record."
 
 [task.22.33.1508]
 title = "Repair audit record 22.30.90 medium findings in services/agent/crates/layerx-agentd/src (part 1 of 1): runtime-risk"
