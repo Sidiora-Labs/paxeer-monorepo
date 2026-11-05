@@ -15675,3 +15675,8 @@ fix = "22.31.551 ports the hold calls, 22.31.552 and 22.31.555 fix the store fix
 title = "The Makefile target paxai-host-boundary-build (Makefile line 2983) exits 1 with wasm-opt is required when the binaryen optimiser is not on PATH, so 22.99.77 attempt 13 failed before cargo ran."
 symptom = "The target optimises the ai-market guest with wasm-opt; GOTCHA 7862 already names binaryen as the package; the qualification environment did not install it because no task declared it."
 fix = "The qualification environment now installs binaryen whenever a build or verify command names paxai-host-boundary or wasm-opt; 22.99.77 re-qualifies as it stands."
+
+[gotcha.3171]
+title = "The 22.33.1537 attempt-2 tree calls support::current_node from services/agent/crates/layerx-agentd/tests/outbox_recover.rs (near lines 140 and 322 to 324) while tests/support/mod.rs defines no such helper, so every build of the outbox_recover target fails with E0433 four times; attempts 3 and 4 re-ran the gates without an agent and could not add it."
+symptom = "tests/support/mod.rs holds the shared constructors of the daemon integration tests (signed_transaction, verified_submission, the budget_* builders, directory, the evidence_authority family, the raw_receipt family, signed_batch_header, rpc_hex and serve) but no constructor of the current node; the amendment that asked for one was written as a task instruction without a relaunch note, so the automatic re-qualification after 22.31.497 reused the attempt-1 ruling."
+fix = "22.33.1537 attempt 5 continues with an agent and writes tests/support/current_node.rs, declared in tests/support/mod.rs (decision 2622); an amendment that needs an agent is always registered as a continue ruling."

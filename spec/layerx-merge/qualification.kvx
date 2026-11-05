@@ -31555,3 +31555,11 @@ symbol = "layerx-programs-ai-market"
 observed = "Attempt 13 at 9c1312407561cb6394fa36dc91ee53f56dd806e4: make exit 1 with wasm-opt is required at Makefile line 2983; no cargo build, no verify run."
 assumption = "Environmental prerequisite, now provided; not a defect of this task."
 severity = "low"
+
+[finding.22.33.1537.4]
+task = "22.33.1537"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1537.rs"
+symbol = "repair_22_33_1537.rs"
+observed = "Attempt 4 at 436d9b36f1c7d3ab0597a2d5010c9ea8e56c8009 re-ran the gates on the attempt-2 tree without an agent: build exit 101 with E0433 failed to resolve: could not find current_node in support four times in the outbox_recover target; no verify run."
+assumption = "The helper was asked for in the attempt-4 instruction but no agent ran to write it; the change set otherwise compiles."
+severity = "medium"
