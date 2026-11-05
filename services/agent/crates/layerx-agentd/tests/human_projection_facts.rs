@@ -405,6 +405,9 @@ fn real_authenticated_approval_and_managed_exports_preserve_facts_refusals_and_r
         scoped_projection_exchange(&fixture, &get, principal),
         approval_response
     );
+    server.stop_peer();
+    server.runtime.shutdown();
+    server.fixture.shutdown();
 }
 
 #[test]
@@ -412,7 +415,7 @@ fn pre_clock_hold_record_refuses_to_open() {
     use layerx_agentd::human::HumanOperationError;
     use layerx_agentd::policy::approval::{ApprovalError, ApprovalRegistry};
 
-    let server = InProcessProjection::prepare();
+    let mut server = InProcessProjection::prepare();
     let tenant = must(TenantId::new(fixture_text(&server.facts, "agent_tenant")));
     let legacy_id = fixture_id(&server.facts, "legacy_approval_id");
     let store_path = Path::new(fixture_text(&server.facts, "retained_store"));
@@ -454,6 +457,8 @@ fn pre_clock_hold_record_refuses_to_open() {
     assert!(must(approvals.hold_ids()).is_empty());
     assert!(server.worker.is_none());
     assert!(!Path::new(fixture_text(&server.facts, "human_socket")).exists());
+    server.runtime.shutdown();
+    server.fixture.shutdown();
 }
 
 #[path = "../../../../platform/hosted/runtime-clock/src/server.rs"]
@@ -519,7 +524,19 @@ mod hex {
     }
 }
 
+#[path = "support/human_budget_native_store.rs"]
+mod native_store;
+
 fn record_authority_budget_state(url: String, fixture: &RecordedAuthority) -> Value {
+    let response = must(read_authority_budget_state(url, fixture));
+    assert_eq!(response.status, 200);
+    must(serde_json::from_slice(&response.body))
+}
+
+fn read_authority_budget_state(
+    url: String,
+    fixture: &RecordedAuthority,
+) -> Result<layerx_platform_authority::Response, layerx_platform_authority::Response> {
     use layerx_platform_authority::{
         budget_state, human_policy::PrincipalPolicy, BudgetStateConfig,
     };
@@ -538,7 +555,7 @@ fn record_authority_budget_state(url: String, fixture: &RecordedAuthority) -> Va
     });
     let policy: PrincipalPolicy = must(serde_json::from_value(json!({
         "tenant":fixture.tenant, "principal":fixture.principal,
-        "account_id":hex::encode([2;32]), "asset_id":hex::encode([4;32]),
+        "account_id":hex::encode(&fixture.budget_call[32..64]), "asset_id":hex::encode([4;32]),
         "activities":[], "budgets":[hex::encode(fixture.budget_id)],
         "identities":[{
             "did":fixture.agent_did, "frozen":false, "authorities":[],
@@ -547,13 +564,7 @@ fn record_authority_budget_state(url: String, fixture: &RecordedAuthority) -> Va
         }],
         "maximum_age_seconds":315_360_000_u64, "maximum_age_sequences":100,
     })));
-    let response = must(budget_state::read(
-        &config,
-        &policy,
-        &hex::encode(fixture.budget_id),
-    ));
-    assert_eq!(response.status, 200);
-    must(serde_json::from_slice(&response.body))
+    budget_state::read(&config, &policy, &hex::encode(fixture.budget_id))
 }
 
 struct LocalServer {
@@ -623,26 +634,75 @@ impl LocalServer {
     }
 
     fn node(fixture: &RecordedAuthority) -> (String, Self) {
+        Self::node_with_fault(fixture, "")
+    }
+
+    fn node_with_fault(fixture: &RecordedAuthority, fault: &'static str) -> (String, Self) {
         let listener = must(TcpListener::bind("127.0.0.1:0"));
         let url = format!("http://{}/", must(listener.local_addr()));
         let fixture: RecordedAuthority =
             must(serde_json::from_value(must(serde_json::to_value(fixture))));
+        let native = native_store::NativeStore::for_authority(&fixture);
+        assert_eq!(
+            fixture.block["stateRoot"],
+            format!("0x{}", hex::encode(native.app_hash))
+        );
+        let checkpoint_reads: Vec<Value> = must(serde_json::from_str(include_str!(
+            "support/human_budget_checkpoint.json"
+        )));
+        let height = u64::from_str_radix(
+            fixture.block["number"]
+                .as_str()
+                .unwrap()
+                .trim_start_matches("0x"),
+            16,
+        )
+        .unwrap();
         let server = Self::spawn(listener, move |mut stream| {
             let (_, body) = read_http(&mut stream);
             let request: Value = must(serde_json::from_slice(&body));
-            if request["method"] == "px_getCommit" {
-                write_http(
-                    &mut stream,
-                    &json!({"jsonrpc":"2.0","id":request["id"],"error":{"code":-32001,"message":"recorded budget facts contain no checkpoint recovery proof"}}),
-                );
-                return;
-            }
             let mut account = json!({
                 "evm_address":format!("0x{}",hex::encode(fixture.actor_address)),
                 "pax_address":null,"layerx_did":fixture.agent_did,
-                "layerx_account":hex::encode([2;32]),"bound":true,
+                "layerx_account":hex::encode(&fixture.budget_call[32..64]),"bound":true,
             });
             let result = match request["method"].as_str().expect("RPC method") {
+                "px_getCommit" | "px_getValidators" => {
+                    assert_eq!(request["params"], json!([height.to_string()]));
+                    let mut recorded = checkpoint_reads
+                        .iter()
+                        .find(|recorded| {
+                            recorded["method"] == request["method"]
+                                && recorded["params"] == request["params"]
+                        })
+                        .expect("checkpoint RPC recorded at the requested height")["result"]
+                        .clone();
+                    if fault == "header" && request["method"] == "px_getCommit" {
+                        recorded["signedHeader"]["header"]["app_hash"] =
+                            json!(hex::encode([0x99; 32]));
+                    }
+                    recorded
+                }
+                "abci_query" => {
+                    assert_eq!(request["params"]["path"], "/store/lxphost/key");
+                    assert_eq!(request["params"]["height"], (height - 1).to_string());
+                    assert_eq!(request["params"]["prove"], true);
+                    let key = request["params"]["data"]
+                        .as_str()
+                        .unwrap()
+                        .strip_prefix("0x")
+                        .unwrap();
+                    let mut proof = native
+                        .queries
+                        .get(key)
+                        .expect("committed native key")
+                        .clone();
+                    proof["height"] = json!((height - 1).to_string());
+                    if fault == "native" {
+                        proof["value"] = json!("AAAAAAAAAAA=");
+                    }
+                    json!({"response":proof})
+                }
                 "eth_chainId" => json!(format!("{:#x}", fixture.chain_id)),
                 "eth_blockNumber" => fixture.block["number"].clone(),
                 "eth_getBlockByNumber" => fixture.block.clone(),
@@ -682,6 +742,14 @@ impl LocalServer {
                             ))
                         );
                         word[12..].copy_from_slice(&fixture.actor_address);
+                        word.to_vec()
+                    } else if data.starts_with(&[0xb1, 0xff, 0xc0, 0x3e]) {
+                        assert_eq!(data.len(), 68);
+                        assert_eq!(request["params"][1], format!("0x{:x}", height - 1));
+                        assert!([&fixture.budget_call[32..64], &fixture.budget_call[64..96]]
+                            .contains(&&data[4..36]));
+                        assert_eq!(&data[36..68], &fixture.budget_call[96..128]);
+                        word[31] = 77;
                         word.to_vec()
                     } else if data.starts_with(
                         &layerx_crypto::evm_transaction::transaction_hash(b"getBudget(bytes32)")
@@ -830,11 +898,20 @@ impl LocalServer {
     }
 }
 
+impl LocalServer {
+    fn shutdown(&mut self) {
+        self.stop.store(true, Ordering::Release);
+        if let Some(worker) = self.worker.take() {
+            must(worker.join());
+        }
+    }
+}
+
 impl Drop for LocalServer {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::Release);
         if let Some(worker) = self.worker.take() {
-            must(worker.join());
+            let _ = worker.join();
         }
     }
 }
@@ -992,6 +1069,7 @@ fn record_human_projection_authority() {
         block: json!({"number":"0x40","hash":format!("0x{}",hex::encode(Sha256::digest(&header_bytes))),"parentHash":format!("0x{}",hex::encode(header.previous_state_root())),"timestamp":format!("{:#x}",header.timestamp_ms()/1000),"transactionsRoot":format!("0x{}",hex::encode([17;32])),"receiptsRoot":format!("0x{}",hex::encode([18;32])),"stateRoot":format!("0x{}",hex::encode(header.resulting_state_root())),"baseFeePerGas":"0x0","transactions":[]}),
         managed_receipt,
     };
+    native_store::prepare_authority(&mut fixture);
     let (url, server) = LocalServer::node(&fixture);
     fixture.budget_state = record_authority_budget_state(url, &fixture);
     assert_eq!(
@@ -1044,8 +1122,43 @@ impl AuthorityFixture {
         let end = data
             .find(concat!("\nEND_RECORDED_", "AUTHORITY */"))
             .expect("recorded authority end");
-        let recorded: RecordedAuthority = must(serde_json::from_str(&data[..end]));
+        let mut recorded: RecordedAuthority = must(serde_json::from_str(&data[..end]));
+        native_store::prepare_authority(&mut recorded);
         let (node_rpc_url, node) = LocalServer::node(&recorded);
+        let endpoint = must(SequencerEndpoint::new(&node_rpc_url, &[]));
+        let checkpoint = must(
+            layerx_agentd::read::ServedCheckpoint::acquire_at_committed_block(
+                &endpoint,
+                recorded.budget_state["observed_head_sequence"]
+                    .as_u64()
+                    .unwrap(),
+                None,
+                &recorded.chain_id.to_string(),
+            ),
+        );
+        assert_eq!(
+            hex::encode(checkpoint.block_hash),
+            recorded.budget_state["checkpoint_digest"]
+        );
+        let state = record_authority_budget_state(node_rpc_url.clone(), &recorded);
+        assert_eq!(state["remaining"], recorded.budget_state["remaining"]);
+        assert_eq!(
+            state["observed_head_sequence"],
+            recorded.budget_state["observed_head_sequence"]
+        );
+        assert_eq!(
+            state["receipt_digest"],
+            hex::encode(Sha256::digest(&recorded.budget_call))
+        );
+        assert_eq!(
+            state["checkpoint_digest"],
+            recorded.budget_state["checkpoint_digest"]
+        );
+        assert_eq!(
+            state["verification"],
+            layerx_types::verify::VerificationLevel::COMMITTED.wire_rank()
+        );
+        recorded.budget_state = state;
         let (authority_endpoint, authority_ca_der, authority) = LocalServer::authority(&recorded);
         Self {
             recorded,
@@ -1053,6 +1166,12 @@ impl AuthorityFixture {
             authority_endpoint,
             authority_ca_der,
             _servers: vec![node, authority],
+        }
+    }
+
+    fn shutdown(&mut self) {
+        for server in &mut self._servers {
+            server.shutdown();
         }
     }
 
@@ -1065,6 +1184,21 @@ impl AuthorityFixture {
             &self.authority_ca_der,
         ))
     }
+}
+
+#[test]
+fn authority_budget_state_rejects_changed_native_evidence_and_committed_header() {
+    let mut fixture = AuthorityFixture::load();
+    for fault in ["native", "header"] {
+        let (url, mut server) = LocalServer::node_with_fault(&fixture, fault);
+        let response = read_authority_budget_state(url, &fixture)
+            .expect_err("unauthenticated budget state must fail closed");
+        assert_eq!(response.status, 503);
+        let body: Value = must(serde_json::from_slice(&response.body));
+        assert_eq!(body["error"]["code"], "budget_state_proof_unavailable");
+        server.shutdown();
+    }
+    fixture.shutdown();
 }
 
 struct Runtime {
@@ -1168,13 +1302,23 @@ impl Runtime {
     }
 }
 
-impl Drop for Runtime {
-    fn drop(&mut self) {
+impl Runtime {
+    fn shutdown(&mut self) {
         self.stop.store(true, Ordering::Release);
         if let Some(worker) = self.worker.take() {
             must(worker.join());
         }
         must(fs::remove_dir_all(&self.root));
+    }
+}
+
+impl Drop for Runtime {
+    fn drop(&mut self) {
+        self.stop.store(true, Ordering::Release);
+        if let Some(worker) = self.worker.take() {
+            let _ = worker.join();
+        }
+        let _ = fs::remove_dir_all(&self.root);
     }
 }
 
@@ -1645,7 +1789,10 @@ impl InProcessProjection {
 
 impl Drop for InProcessProjection {
     fn drop(&mut self) {
-        self.stop_peer();
+        self.stop.store(true, Ordering::Release);
+        if let Some(worker) = self.worker.take() {
+            let _ = worker.join();
+        }
     }
 }
 
@@ -2422,7 +2569,7 @@ impl Drop for InProcessProjection {
     "asset": "0404040404040404040404040404040404040404040404040404040404040404",
     "budget_id": "0101010101010101010101010101010101010101010101010101010101010101",
     "canonical_core_bytes": "000000000000000000000000000000000000000000000000000000000000002002020202020202020202020202020202020202020202020202020202020202020303030303030303030303030303030303030303030303030303030303030303040404040404040404040404040404040404040404040404040404040404040405050505050505050505050505050505050505050505050505050505050505050000000000000000000000000000000000000000000000000000000000000064000000000000000000000000000000000000000000000000000000000000006400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000017000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003e800000000000000000000000000000000000000000000000000000000000003e80000000000000000000000000000000000000000000000000000000000002328000000000000000000000000000000000000000000000000000000000000001f00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000206060606060606060606060606060606060606060606060606060606060606060707070707070707070707070707070707070707070707070707070707070707",
-    "checkpoint_digest": "12edde9620f81e075b410c05b75918ed03739c0013b5ca4e46904de17fe08ad4",
+    "checkpoint_digest": "0469995fc5e67bb6fdfe05db8b4ab34509a8aaef7ed2b4127411faef998c8638",
     "closed": false,
     "evidence_digest": "d5f91cee984084f6a2ca7f0f7ca446ce281d622c4ae567454ed38344d9dfeec6",
     "maximum_age_sequences": 100,
@@ -2458,11 +2605,11 @@ impl Drop for InProcessProjection {
   },
   "block": {
     "baseFeePerGas": "0x0",
-    "hash": "0x12edde9620f81e075b410c05b75918ed03739c0013b5ca4e46904de17fe08ad4",
+    "hash": "0x0469995fc5e67bb6fdfe05db8b4ab34509a8aaef7ed2b4127411faef998c8638",
     "number": "0x40",
     "parentHash": "0x6c2f9b8b1b2960a5d9ff66d611bd2107159eb7bc0397c10dc8f43648b87560e2",
     "receiptsRoot": "0x1212121212121212121212121212121212121212121212121212121212121212",
-    "stateRoot": "0x4147fa94c77b1827e32179b6b7e1d1b3f4254cbc340b7988735c057e6c23cb8c",
+    "stateRoot": "0xe3f311d05ffd7304dbe87c57ab0959ed01d5c6fdd0d21fa09fa2f7036da49cfb",
     "timestamp": "0x6aa78d28",
     "transactions": [],
     "transactionsRoot": "0x1111111111111111111111111111111111111111111111111111111111111111"

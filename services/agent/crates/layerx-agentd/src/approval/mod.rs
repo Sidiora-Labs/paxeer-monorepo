@@ -1817,6 +1817,20 @@ pub struct ApprovalSubmissionQueue {
 }
 
 impl ApprovalSubmissionQueue {
+    pub fn recover_released(
+        &self,
+        registry: &ApprovalRegistry,
+        tenant: &TenantId,
+        limiter: &BudgetLimiter,
+        modules: &layerx_types::payload::ModuleRegistry,
+    ) -> Result<(), ApprovalOperationError> {
+        let released = registry
+            .replay_released(tenant, limiter, modules)
+            .map_err(ApprovalOperationError::Registry)?;
+        self.restore(released)
+            .map_err(|_| ApprovalOperationError::Registry(RegistryError::CorruptRecord))
+    }
+
     pub(crate) fn matches_released_decision(
         &self,
         tenant: &TenantId,
@@ -1973,37 +1987,6 @@ impl ApprovalSubmissionQueue {
         hasher.update(approval_id);
         hasher.update(prepared.unsigned_canonical_bytes.as_bytes());
         hasher.finalize().into()
-    }
-
-    fn release(
-        &self,
-        tenant: TenantId,
-        approval_id: [u8; 32],
-        prepared: Prepared,
-    ) -> Result<[u8; 32], ApprovalOutcome> {
-        let submission_ref = Self::reference(&tenant, approval_id, &prepared);
-        let mut queued = self.queued.lock().map_err(|_| ApprovalOutcome::Conflict)?;
-        match queued.get(&submission_ref) {
-            Some(stored)
-                if stored.tenant == tenant
-                    && stored.approval_id == approval_id
-                    && stored.prepared == prepared =>
-            {
-                Ok(submission_ref)
-            }
-            Some(_) => Err(ApprovalOutcome::Conflict),
-            None => {
-                queued.insert(
-                    submission_ref,
-                    QueuedSubmission {
-                        tenant,
-                        approval_id,
-                        prepared,
-                    },
-                );
-                Ok(submission_ref)
-            }
-        }
     }
 
     /// Returns the exact preparation released by approval.
@@ -2246,27 +2229,22 @@ impl<'a> ApprovalService<'a> {
             )?;
             return Ok(decision(ApprovalOutcome::Defective, None));
         }
-        let queued_submission_ref =
-            match submissions.release(tenant.clone(), approval_id, claimed.prepared.clone()) {
-                Ok(reference) => reference,
-                Err(outcome) => {
-                    self.registry
-                        .abort_claim(approval_id)
-                        .map_err(ApprovalOperationError::Registry)?;
-                    return Ok(decision(outcome, None));
-                }
-            };
-        self.persist_grant(
+        let released = submissions.publish_program_release(
+            tenant.clone(),
             approval_id,
-            approver,
-            queued_submission_ref,
-            decision_record,
-        )?;
-        debug_assert_eq!(submission_ref, Some(queued_submission_ref));
-        Ok(decision(
-            ApprovalOutcome::Granted,
-            Some(queued_submission_ref),
-        ))
+            claimed.prepared.clone(),
+            |reference| {
+                self.persist_grant(approval_id, approver, reference, decision_record)?;
+                debug_assert_eq!(submission_ref, Some(reference));
+                Ok(decision(ApprovalOutcome::Granted, Some(reference)))
+            },
+        );
+        if released.is_err() {
+            self.registry
+                .abort_claim(approval_id)
+                .map_err(ApprovalOperationError::Registry)?;
+        }
+        released
     }
 
     fn persist_grant(
@@ -2279,6 +2257,11 @@ impl<'a> ApprovalService<'a> {
         let fallback_decision_record = (!self.registry.has_durable_store())
             .then(|| decision_record.clone())
             .flatten();
+        if let Some(prepared) = fallback_decision_record {
+            self.expiry
+                .persist_prepared_decision(prepared)
+                .map_err(ApprovalOperationError::Durability)?;
+        }
         self.registry
             .complete_claim(
                 approval_id,
@@ -2289,11 +2272,6 @@ impl<'a> ApprovalService<'a> {
                 decision_record,
             )
             .map_err(ApprovalOperationError::Registry)?;
-        if let Some(prepared) = fallback_decision_record {
-            self.expiry
-                .persist_prepared_decision(prepared)
-                .map_err(ApprovalOperationError::Durability)?;
-        }
         Ok(())
     }
 
