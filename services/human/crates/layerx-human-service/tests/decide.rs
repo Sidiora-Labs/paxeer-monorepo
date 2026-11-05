@@ -358,7 +358,12 @@ impl AgentdDecisions<'_> {
             AgentOutcome::AlreadyDecided | AgentOutcome::Conflict => {
                 match self
                     .service
-                    .get(&self.tenant, approval_id, current_sequence)
+                    .get(
+                        &self.tenant,
+                        approval_id,
+                        current_sequence,
+                        TimestampSeconds(current_sequence),
+                    )
                     .map_err(|_| ApprovalBoundaryError::Unavailable)?
                     .state
                 {
@@ -384,7 +389,12 @@ impl ApprovalBoundary for AgentdDecisions<'_> {
     ) -> Result<AgentApprovalRecord, ApprovalBoundaryError> {
         let record = self
             .service
-            .get(&self.tenant, approval_id, at_sequence)
+            .get(
+                &self.tenant,
+                approval_id,
+                at_sequence,
+                TimestampSeconds(at_sequence),
+            )
             .map_err(|_| ApprovalBoundaryError::Unavailable)?;
         let state = match record.state {
             ApprovalState::AwaitingApproval => AgentApprovalState::AwaitingApproval,
@@ -471,6 +481,7 @@ impl AgentDecisionBoundary for AgentdDecisions<'_> {
                     approver: ApproverId::new("human:mara")
                         .map_err(|_| ApprovalBoundaryError::Corrupt)?,
                     current_sequence,
+                    current_time: TimestampSeconds(current_sequence),
                 },
                 &prepared,
                 self.queue,
@@ -488,7 +499,12 @@ impl AgentDecisionBoundary for AgentdDecisions<'_> {
     ) -> Result<AgentDecision, ApprovalBoundaryError> {
         let record = self
             .service
-            .get(&self.tenant, approval_id, current_sequence)
+            .get(
+                &self.tenant,
+                approval_id,
+                current_sequence,
+                TimestampSeconds(current_sequence),
+            )
             .map_err(|_| ApprovalBoundaryError::Unavailable)?;
         if record.canonical_bytes_digest != held_digest {
             return Err(ApprovalBoundaryError::VerificationFailed);
@@ -503,6 +519,7 @@ impl AgentDecisionBoundary for AgentdDecisions<'_> {
                 approver: ApproverId::new("human:mara")
                     .map_err(|_| ApprovalBoundaryError::Corrupt)?,
                 current_sequence,
+                current_time: TimestampSeconds(current_sequence),
             })
             .map_err(|_| ApprovalBoundaryError::Unavailable)?;
         self.normalize(approval_id, idempotency_key, current_sequence, &decision)
