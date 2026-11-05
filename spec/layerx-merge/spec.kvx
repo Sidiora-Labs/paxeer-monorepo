@@ -175548,7 +175548,7 @@ do_6 = "Attempt 4 (continue, decision 2581): attempt 3 stands; the two hold case
 
 [task.22.31.526]
 title = "Re-record the exact web-search payment fixtures from one type-2 chain-125 signing"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.528", "22.31.529"]
