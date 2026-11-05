@@ -147,3 +147,40 @@ fn hex(bytes: &[u8]) -> String {
     }
     text
 }
+
+/// Prepares a native debit using native ownership and source-sequence evidence.
+pub fn native_send_debit(
+    client: &layerx_sdk::rpc::RpcClient,
+    facts: &crate::wallet_signing::SigningFacts<'_>,
+    asset: [u8; 32],
+    to: [u8; 32],
+    amount: u128,
+) -> Result<layerx_crypto::payments::SendDebit, String> {
+    let snapshot = client
+        .get_ledger_account(facts.actor, asset)
+        .map_err(|error| format!("{error:?}"))?;
+    let from = snapshot.account_id;
+    if from == to {
+        return Err("source and destination accounts must differ".into());
+    }
+    Ok(layerx_crypto::payments::SendDebit {
+        from,
+        to,
+        asset,
+        amount,
+        source_sequence: snapshot.next_sequence,
+        idempotency_key: facts.idempotency_key,
+        expires_at: facts.expires_at_ms,
+        context_hash: layerx_crypto::payments::send_context_hash(
+            &from,
+            &to,
+            &asset,
+            amount,
+            &facts.idempotency_key,
+        ),
+        conditions: Vec::new(),
+        authorization_kind: 1,
+        network_id: facts.network_id,
+        protocol_version: 3,
+    })
+}
