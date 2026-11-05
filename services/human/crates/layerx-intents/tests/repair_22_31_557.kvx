@@ -1,0 +1,17 @@
+[repair.22.31.557]
+base_revision = "77d7cc080e3f2dff4943e6ac6f5c82419e0b6f16"
+decision = "2625"
+continuation_decision = "2633"
+gotchas = ["3177", "3142", "2962", "3185", "3191"]
+continuation = "Preserve the attempt-2 compiler, disclosure and four regression cases. Correct the public-key DID length pin to the byte length of did:layerx: plus 64 hex characters (75 bytes), keeping every subsequent identifier and disclosure assertion intact."
+sites = ["src/compile.rs::compile V3 admission and KeyRotation branch", "src/compile.rs::did protocol-aware identifier", "src/disclosure.rs::DisclosureCheck::verify V3 admission and KeyRotation round trip"]
+derivation = "V3 uses layerx_wire::hash::did_id_for_protocol(did, 3): SHA256(DID id domain including NUL || two-byte big-endian DID length || DID bytes). V1 and V2 retain hash::did_id; the compile.rs and differential.rs tests and committed vectors are unchanged."
+governance_validator = "src/modules/governance/lxp_governance.c:185-192 requires protocol 3, owner authority, lxp_did_id_derive(actor_did) equal to authority.actor and rotation payload bytes 4..36; otherwise LXP_ERR_AUTH_SCOPE (-204). src/state/lxp_identity.c:46-56 defines the length-prefixed derivation."
+proof_boundary = "The in-process compiler and independent disclosure consumer are exercised with real types, including a DID built from a real 32-byte public key. An independent SHA256 preimage reproduces the kernel derivation; this Rust gate does not execute the C governance validator."
+tests = ["v3_rotation_carries_the_length_prefixed_kernel_did_identifier", "v1_and_v2_rotation_bytes_and_hashes_match_the_committed_vectors", "v3_rotation_disclosure_reproduces_the_same_bytes_and_refuses_a_legacy_identifier", "v3_public_key_did_rotation_matches_the_governance_actor_derivation"]
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-intents --tests"
+verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-intents --test repair_22_31_557 --test compile --test differential"
+gate_ledger = "/out/run/gates.jsonl"
+gate_results = "The build and verify entries in gate_ledger record the exact verified revision, command, exit and private log location. Only a passing hf-done with build and verify at the same revision qualifies this repair; this record is written before the gates and is not amended afterward."
+verified_revision = "Resolve the matching revision from the build and verify entries in gate_ledger."
+environment = "No credential, environment variable or live endpoint is required by the regression tests."
