@@ -1,3 +1,7 @@
+use layerx_types::clock::Clock as _;
+#[path = "clock.rs"]
+mod test_clock;
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io::{BufRead, BufReader, Read, Write};
@@ -732,7 +736,15 @@ impl ToolBoundary for SessionOwners {
                 match tool.name {
                     "approval.list" => {
                         let page = service
-                            .list(&tenant, None, 100, HEIGHT)
+                            .list(
+                                &tenant,
+                                None,
+                                100,
+                                HEIGHT,
+                                layerx_agent_api::TimestampSeconds(
+                                    test_clock::TestClock::new(HEIGHT).now(),
+                                ),
+                            )
                             .expect("real approval list");
                         Ok(
                             json!({"approval_ids":page.approvals.iter().map(|r| hex(&r.approval_id)).collect::<Vec<_>>()}),
@@ -757,6 +769,12 @@ impl ToolBoundary for SessionOwners {
                             idempotency_key: &key,
                             approver: ApproverId::new("human:reviewer").expect("approver"),
                             current_sequence: HEIGHT,
+                            current_time: layerx_agent_api::TimestampSeconds(
+                                test_clock::TestClock::new(HEIGHT)
+                                    .sample(std::time::Duration::from_secs(1))
+                                    .expect("clock")
+                                    .unix_seconds(),
+                            ),
                         };
                         let decision = if id == 19 {
                             service
@@ -836,7 +854,7 @@ pub fn all_session_tools_through_daemon_and_mcp() {
         ),
         (
             "approval.get",
-            json!({"approval_id":hex(&[19;32]),"current_sequence":"50"}),
+            json!({"approval_id":hex(&[19;32]),"current_sequence":"50", "current_time":test_clock::TestClock::new(50).now().to_string()}),
         ),
         (
             "approval.approve",

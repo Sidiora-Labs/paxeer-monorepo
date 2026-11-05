@@ -8589,6 +8589,120 @@ value = "When a consumer test in a repair task verify can only pass once product
 basis = "A verify must be satisfiable from the task paths (gotcha 3115); 22.31.492 requires 22.31.524, so the port already follows the fixture."
 affects = ["22.31.524", "22.31.492"]
 
+[decision.2580]
+title = "Full-detail approval text payloads carry the exact amount and the asset identifier as separate lines"
+value = "A full-detail approval delivery on a text channel carries Amount: followed by the exact base-unit amount and Asset: followed by the stable asset identifier, read from the persisted approval binding (22.31.523, decision 2569); it never renders an asset identifier as display money. The 22.31.159 assertion that a text payload contains no Amount line is superseded, and the asset-domain cases assert the binding form instead."
+basis = "The 22.30.107 finding allowed either authenticated display metadata or a distinct field with the exact amount and asset binding; 22.31.523 implemented the second and its tests pin it (gotcha 3116)."
+affects = ["22.31.521", "22.31.523", "22.31.159"]
+
+[decision.2581]
+title = "A decision-time clock refusal raised before any effect settles an MCP invocation as refused"
+value = "When the MCP approval path refuses because the daemon runtime clock sample is unavailable or carries a zero generation (decision 2572) and no hold, payment or network effect has started, the server settles the durable invocation as a refused outcome with the refusal bytes, never as an unknown outcome to reconcile; the client sees the Unavailable refusal and the hold registry stays empty. BoundaryRefusal reports unknown() only for a refusal whose external effect may have happened."
+basis = "An unknown outcome exists for effects the daemon cannot observe (gotcha 3117); a pre-effect refusal is deterministic and repeating it is safe."
+affects = ["22.31.527", "22.31.515"]
+
+[decision.2582]
+title = "The transaction hint of an unverified payload serves the identical-request replay alone"
+value = "As decision 2376 rules for the receipt-digest hint, the transaction hash the seller derives from an unverified payload rawTransaction or transaction field looks a stored fulfilment up only to replay the identical request (the same request digest, no second release). A payload whose request digest differs always reaches the payment authority first: a payload that fails verification is a 402 verification failure, and only a verified payload presented under a differing request is refused as receipt_reuse with 409. The post-verification reuse refusals of 22.23.10 stand."
+basis = "A 409 answered from an unverified hint tells a caller without a valid payment whether a transaction was settled (decision 2376 basis); the recovery property of 22.33.1400 needs the hint only for the identical replay."
+affects = ["22.31.530", "22.31.493", "22.33.1400", "22.8.11"]
+
+[decision.2583]
+title = "An above-threshold metered draw under an existing grant is held and approved on its disclosure; the receiver executes the draw"
+value = "When the metered scheme finds a standing grant for the terms, the web hold path records a durable held spend whose approval binds the disclosure and the spend commitment (amount, asset, receiver, purpose, grant id, expiry) together with the draw call the receiver will execute (GrantTerms::prepare_draw over the grant id and the receiver sequence read through the payer view of next_sequence_call), never a payer transaction: the payer signs and submits nothing for such a hold, before or after approval. Ticket, pending, approved, rejected and expired outcomes, restart recovery from the store and the changed-offer refusals behave exactly as for the exact scheme; after approval the spend settles through the standing grant with no new grant signed. Approval validation re-checks the standing grant (validate_existing_grant), so a grant changed between hold and approval is refused as changed; the sequence word recorded at hold time is not re-validated because the receiver reads it at execution. The Configuration(metered_receiver_approval) refusal is retired. A payer without approval resources still reports unavailable."
+basis = "Gotcha 3119; the pre-22.33.1551 hold held metered spends on their disclosure; the four tests/web.rs cases are the acceptance; the owner ruled that every interface-changing task proves the real producer, transport and consumer path including recovery."
+affects = ["22.31.531", "22.31.529", "22.33.1551"]
+
+[decision.2584]
+title = "The production web payer carries the shared approval store, expiry and budget limit of the daemon and prepares and submits held transactions through its own EIP-1559 path"
+value = "ProductionWebPayer receives the shared Store the daemon opens (services/agent/crates/layerx-agentd/src/main.rs line 756, already passed into publish_mcp_binding), an ApprovalExpiry::from_shared_store over it and a BudgetLimiter holding the MCP limit (mcp_limit, main.rs line 208) with that limit id in limits; WebPayerBoundary implements approval_resources returning them, prepare_transaction through layerx_agentd::prepare::evm::prepare_bound with the pending nonce, base fee and head height read from the node and the EVM address of the signer as sender, and submit_transaction by signing the prepared unsigned bytes with the attestor signer exactly as signed_call does (payer.rs lines 191 to 256) and sending them, with the returned hash checked against the raw bytes. The re-preparing submit path is never used for an approved transaction. A payer built without these resources keeps the trait defaults, so a misconfigured daemon fails closed as unavailable rather than paying unheld."
+basis = "Gotcha 3120; the wiring request 22.33.1551 recorded; tests/support/web_hold.rs RecordedNodePayer lines 409 to 470 is the proven test shape of the same contract."
+affects = ["22.31.532"]
+
+[decision.2585]
+title = "Budget-state verification is judged through the shared label decoder at every daemon site, and the Human service reports a daemon refusal as its own Refused variant"
+value = "Every place in layerx-agentd that judges whether a budget state is verified decodes the wire label with layerx_types::verify::VerificationLevel::from_wire_rank and accepts the state only when the decoded level has rung Committed; retired labels 4 and 5 and unknown labels refuse as not verified, and labels 0 to 3 refuse as not committed. One predicate in the budget module expresses this and human_runtime.rs approval_budget_after and budget/program_sources.rs call it. The Human service boundary error gains a Refused variant; AgentBoundaryError::Refused maps to it and never to NotFound, so an inbox tells a missing actor from a refused state."
+basis = "Gotcha 3124; layerx-types retired the historical labels and 22.31.462 moved the Human decoders to the shared contract; the owner ruled that every interface-changing task proves the real producer, transport and consumer path."
+affects = ["22.31.534", "22.33.1510", "22.31.462"]
+
+[decision.2586]
+title = "A Submitted-rung budget with evidence renders with its rung; UnverifiedBudget is reserved for budget evidence whose digest is zero"
+value = "The approval renderer checks DigestMismatch first, refuses UnverifiedBudget only when the budget evidence digest is all zero, and otherwise renders the disclosure carrying budget_after with its rung so the inbox shows a Submitted budget as explicitly unverified without treating it as approval authority. Tests assert this ordering; no suite may require a Submitted budget with evidence to be refused."
+basis = "Gotcha 3125; the 22.33.61 contract proven by tests/repair_22_33_61.rs."
+affects = ["22.33.44", "22.33.61"]
+
+[decision.2587]
+title = "The explorer adopts one visual system in dark and light modes described by the explorer visual brief"
+value = "The brief at spec/layerx-merge/programme/docs/explorer-ui/design-brief.md is the single design source for apps/explorer: semantic colour tokens with a value in each mode, one accent, uppercase micro-labels over data groups, monospaced tabular numerals, dense tables on the canvas, a single top bar with grouped navigation and a prompt-like search field, an entity-header-tabs-sections page grammar, and data honesty (no sparkline, price, change or market value that the API does not return; absent values render as a dash). The horizontal navigation layout is the only layout. Every touched component takes its colours from semantic tokens and every touched story has a light and a dark variant. Model-backed features are out of scope until the owner decides their backend."
+basis = "The owner asked for the explorer to adopt the dense market-data style in dark and light; the brief records it without third-party material."
+affects = ["22.35.1", "22.35.2", "22.35.3", "22.35.4", "22.35.5", "22.35.6", "22.35.7", "22.35.8"]
+
+[decision.2588]
+title = "The three committed seller suites assert the settled contracts and 22.31.530 carries their alignment"
+value = "receipt-replay.test.mjs, settlement-response.test.mjs and receipt-verification.test.mjs pin the receipt-signature digest of decision 2538 and assert the 22.31.434 contracts (a second principal is refused as receipt_reuse; an exact-payment proof never satisfies a metered or subscription offer; committed evidence carries the recorded inclusion and an independently resolved validator set) and the 22.31.530 contract (a differing request is verified before it is refused as reuse, so the authority settles again). 22.31.530 carries the re-pin and the four alignments together with its product change; 22.31.533 continues after it and records."
+basis = "Gotcha 3126; the two tasks were mutually dependent through the settlement-response suite."
+affects = ["22.31.530", "22.31.533", "22.31.434"]
+
+[decision.2589]
+title = "A task whose declared build compiles every test target of a crate is held behind the task that repairs a red target of that crate"
+value = "When a declared build of the form cargo build -p <crate> --tests fails in a test target the task does not touch, and that target is owned by another in-flight task, the attempt is continued unchanged with the owning task added to its requires; the task never repairs the foreign suite, never narrows its build to its own targets, and the owning task remains the single source of that repair. Gotcha 3129 records the first case (22.31.534 behind 22.31.519)."
+basis = "Gotcha 3129; a foreign red test target is a dependency, not a repair scope."
+affects = ["22.31.534", "22.31.519"]
+
+[decision.2590]
+title = "The production web payer boundary answers precompile views through the node pending read"
+value = "WebPayerBoundary implements WebPayer::view: the owner check runs first, the call is encoded with PrecompileCall::encode, and the bytes are read through the node pending call to the target precompile address and returned unchanged; an encoding failure refuses and a node failure maps through node_error as the other boundary methods do. No production path keeps the trait default for view; the MCP exact-terms resolution over the production payer is proven by the host payer EVM suite."
+basis = "Gotcha 3131; the production path lacked the producer half of the account resolution the MCP tool consumes."
+affects = ["22.31.532"]
+
+[decision.2591]
+title = "Every open task whose gates compile the whole layerx-agentd test set requires 22.31.516 until the human approval budget actor target builds on main"
+value = "A declared build or verify of the form cargo build -p layerx-agentd --tests (or the crate manifest with --tests) compiles tests/human_approval_budget_actor.rs, which is red on main until 22.31.516 lands (decision 2564). Such a task is held behind 22.31.516 by its requires; its attempts are continued unchanged, never narrowed to their own targets and never repairing the foreign suite. Tasks already behind 22.31.497 (which requires 516) need no change."
+basis = "Gotcha 3132; the same dependency rule as decision 2589 applied to the one red target that remains."
+affects = ["22.31.516", "22.31.497", "22.33.1539", "22.31.534"]
+
+[decision.2592]
+title = "The web payer reads the receiver sequence under the receiver DID key that the offer account names, never under the pay-to account id"
+value = "GrantTerms carries receiver_did_key, the 32 bytes after did:layerx: in the offer account (OfferFacts.receiver_did), set at both production construction sites and refused as OfferMismatch(account) when malformed; GrantTerms::next_sequence_call encodes nextSequence(receiver_did_key, asset) and the trait default draw and the approval path use it unchanged. Every test double that answers the sequence view asserts the first word equals the receiver DID key of its recording, and a recording whose request stream ends never panics in its destructor."
+basis = "Gotcha 3133: the ledger and the real producer key the sequence by DID; a double that matches the selector alone proves nothing about the key."
+affects = ["22.31.531", "22.31.223", "22.31.527"]
+
+[decision.2593]
+title = "The hosted authority emits the committed verification wire rank for its committed-evidence responses and every daemon consumer requires it"
+value = "The budget-state, capability-scope and key-policy documents of services/platform/hosted/authority carry VerificationLevel::COMMITTED.wire_rank(); every consumer in the agent daemon (the remote budget-state, key-policy and scope reads, the stored key-policy check and the budget-proof verifier) decodes the label through VerificationLevel::from_wire_rank and requires COMMITTED; the retired labels 4 and 5 are refused on every path, and recorded fixtures that still hold them move to the committed label in the task that owns them. The producer-to-consumer path is proven in both crates by the new task."
+basis = "Gotcha 3134: 22.31.462 moved one consumer to the committed rank and left the producer and four sibling consumers on a retired label the shared type refuses."
+affects = ["22.31.462", "22.31.516", "22.33.1542"]
+
+[decision.2594]
+title = "Explorer recipe slots carry one composed text style and state the properties that must win explicitly in the winning layer"
+value = "In apps/explorer/toolkit/theme/recipes a slot whose look is a text style of the visual system (label, number, statValue, small) names that text style once in its base or in the variant that owns it; no other variant axis re-points the slot to a second text style. Where a variant or compound variant must override a composed property, it writes that property (fontWeight, fontFamily, fontSize) explicitly beside the text style instead of relying on the order in which compositions resolve. The vitest specs assert the resolved slot styles, not the recipe source."
+basis = "Gotcha 3135: two text styles on one slot resolved to a mixture of both and the explicit weight of the base layer did not carry."
+affects = ["22.35.1"]
+
+[decision.2595]
+title = "A construction of a shared type that lands beside a field addition is repaired by a one-site task gated on the red target, never folded into the task its check stopped"
+value = "When two tasks land in the same window and one adds a field to a public type the other constructs, the construction that lacks the field is repaired by its own small task whose build and verify are the red target alone; the task whose dependent-crate check exposed it requires that repair and continues unchanged, and neither task widens its paths into the other crate."
+basis = "Gotcha 3136: the consumer task owns none of the files and the fix is one field."
+affects = ["22.31.531", "22.31.532", "22.31.529"]
+
+[decision.2596]
+title = "A held metered spend prepares its draw under the standing grant before the approver decides, so a hold case asserts one prepared terms record and zero signatures"
+value = "The hold on a metered spend is placed on the disclosure of the prepared draw, which requires the standing-grant lookup and the draw preparation first; nothing is signed or sent until the approver decides, and payment remains the sender signature after approval. A suite payer that records prepared terms therefore shows one record after the hold, after the pending retry and after the decision, and its hold cases assert that count beside zero signatures; a payer that signs or sends anything while held is the defect those cases guard against."
+basis = "Gotcha 3138: the three assertions predate decision 2583 and contradict the intended path, while the signature count already proves no payment."
+affects = ["22.31.529", "22.31.531", "22.33.1551"]
+
+[decision.2597]
+title = "A stored held spend carries the actor DID it was disclosed under; the ticket actor and the hold agent are that DID, never the sender address"
+value = "The spend stored for restart recovery persists the payer DID the disclosure named; the disclosure re-derived from the record and the hold context agent both name that DID, a loaded record naming another actor than the configured payer is refused as changed, and a record without the field is refused as changed so the spend is re-presented and held again under the current form. No DID constructor accepts an address hex as an agent identity on this path."
+basis = "Gotcha 3137: the approver must see the agent that acts, and the stored and the presented disclosures must name the same actor."
+affects = ["22.33.1551", "22.31.529"]
+
+[decision.2598]
+title = "A pre-existing explorer theme test that pins a text style the design brief retires moves to the brief style; the brief wins over the test"
+value = "The explorer design brief is the single design source for the restyle tasks and states that where it and an existing component disagree the brief wins. A recipe test written for the previous look that asserts a retired text style, size, weight or colour is amended by the restyle task to assert the brief value at the layer that now states it, and the test title is reworded to match; assertions about structure, ordering and semantic token names are kept."
+basis = "Gotcha 3139: the old assertion encodes the look the programme replaces, not a behaviour to preserve."
+affects = ["22.35.1", "22.35.2", "22.35.3"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -37479,6 +37593,150 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.31.537]
+title = "Carry the actor DID in the stored held spend so the ticket names the agent, not the sender address"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-mcp/src/tools/web/approval_state.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_537.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_537.kvx", "services/agent/crates/layerx-mcp/tests/repair_22_33_1551.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_531.rs"]
+tests = ["services/agent/crates/layerx-mcp/tests/repair_22_31_537.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --test repair_22_31_537 --test repair_22_33_1551 --test repair_22_31_531"
+do_1 = "do_1 Gotcha 3137, decision 2597. In services/agent/crates/layerx-mcp/src/tools/web/approval_state.rs give StoredSpend a persisted actor field holding the payer DID the disclosure names (config.payer_did, as spend_disclosure already does); authorise_held writes it when a spend is first stored and refuses with ApprovalChanged when a loaded record names another actor than the configured payer; StoredSpend::prepared sets the disclosure actor from that field, and the hold context agent (the line that today builds Did::new from the sender address hex) is the same DID. The storage key prefix is unchanged; a stored record without the field fails the deny_unknown_fields decode and is refused as ApprovalChanged, so the spend is re-presented and held again."
+symbols = []
+
+[capability.22.31.536]
+title = "Give the host repair test grant terms the receiver DID key the shared type now carries"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs", "services/agent/crates/layerx-agentd-host/tests/repair_22_31_536.kvx"]
+tests = ["services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --test repair_22_31_532"
+do_1 = "do_1 Gotcha 3136, decision 2595. In services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs draw_call (line 590) add receiver_did_key to the GrantTerms construction: the receiver DID key the test's node double answers the sequence view for, or, where the test only checks the draw call shape, a fixed 32-byte value distinct from recipient; the suite's existing assertions stay as they are and pass."
+symbols = []
+
+[capability.22.31.535]
+title = "Emit the committed verification wire rank from the hosted authority and require it in every daemon consumer of its responses"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/authority/src/human/budget_state.rs", "services/platform/hosted/authority/src/human.rs", "services/platform/hosted/authority/Cargo.toml", "services/platform/hosted/authority/tests/repair_22_31_535.rs", "services/platform/hosted/authority/tests/repair_22_31_535.kvx", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/managed_agent.rs", "services/agent/crates/layerx-agentd/src/budget/budget_proof.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_535.rs"]
+tests = ["services/platform/hosted/authority/tests/repair_22_31_535.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_535.rs"]
+verification_contract = "cargo test --locked --manifest-path services/platform/hosted/authority/Cargo.toml --test repair_22_31_535 && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_535"
+do_1 = "do_1 Gotcha 3134, decision 2593. In services/platform/hosted/authority/src/human/budget_state.rs line 289 and src/human.rs lines 1134 and 1219 replace the literal verification label 4 with layerx_types::verify::VerificationLevel::COMMITTED.wire_rank() (the crate already depends on layerx-types); the evidence digests, the document shapes and every other field stay as they are."
+symbols = []
+
+[capability.22.35.8]
+title = "Explorer visual system integration: both colour modes end to end and the production build"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui", "apps/explorer/toolkit", "apps/explorer/configs/app/ui.ts", "apps/explorer/playwright"]
+tests = ["apps/explorer/ui/repair-22-35-8.spec.ts"]
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run apps/explorer/ui/repair-22-35-8.spec.ts && NEXT_TELEMETRY_DISABLED=1 yarn build"
+do_1 = "do_1 Decision 2587. With 22.35.1 to 22.35.7 landed, sweep apps/explorer for literal colours and the retired layout branches the brief forbids (section 7): every component under ui and toolkit takes its colours from semantic tokens (grep for hex literals and rgba literals outside toolkit/theme/foundations and move each to a token), the colour-mode toggle and the settings colour theme (ui/snippets/topBar/settings) keep working with the stored preference winning over the system preference, and the vertical layout code paths no longer render a sidebar."
+symbols = []
+
+[capability.22.35.7]
+title = "Explorer network pages: stats, validators, epochs and gas tracker in the visual system"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui/pages/Stats.tsx", "apps/explorer/ui/pages/Epochs.tsx", "apps/explorer/ui/pages/Epoch.tsx", "apps/explorer/ui/pages/ValidatorsBlackfort.tsx", "apps/explorer/ui/pages/ValidatorsStability.tsx", "apps/explorer/ui/pages/ValidatorsZilliqa.tsx", "apps/explorer/ui/pages/GasTracker.tsx", "apps/explorer/ui/stats", "apps/explorer/ui/epochs", "apps/explorer/ui/validators", "apps/explorer/ui/gasTracker", "apps/explorer/ui/shared/chart"]
+tests = ["apps/explorer/ui/stats/repair-22-35-7.spec.tsx"]
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run apps/explorer/ui/stats/repair-22-35-7.spec.tsx"
+do_1 = "do_1 Decision 2587. Apply section 6 of the explorer visual brief (spec/layerx-merge/programme/docs/explorer-ui/design-brief.md) to the network pages: apps/explorer/ui/pages/Stats.tsx and ui/stats render hero tiles (transactions per second, active validators, current epoch, latest block, each only from a field the stats API returns), a RECENT BLOCKS mini table and the charts grid in the card style with the chart tokens; ui/pages/Epochs.tsx, Epoch.tsx and ui/epochs render the dense table (Started, First block, Last block, Duration) and the epoch detail in the entity grammar of 22.35.6; ui/pages/ValidatorsBlackfort.tsx, ValidatorsStability.tsx, ValidatorsZilliqa.tsx and ui/validators render Rank, Validator, Stake, Stake weight and Commission where the respective validators API provides them (a column whose field is absent is not rendered); ui/pages/GasTracker.tsx and ui/gasTracker use stat tiles and the table recipe."
+symbols = []
+
+[capability.22.35.6]
+title = "Explorer entity pages: entity header, tabs and labelled sections for transactions, blocks, addresses and tokens"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui/shared/Page", "apps/explorer/ui/shared/DetailedInfo", "apps/explorer/ui/shared/entities", "apps/explorer/ui/pages/Transaction.tsx", "apps/explorer/ui/pages/Block.tsx", "apps/explorer/ui/pages/Address.tsx", "apps/explorer/ui/pages/Token.tsx", "apps/explorer/ui/pages/TokenInstance.tsx", "apps/explorer/ui/tx", "apps/explorer/ui/block", "apps/explorer/ui/address", "apps/explorer/ui/token", "apps/explorer/ui/shared/RoutedTabs", "apps/explorer/toolkit/components/RoutedTabs"]
+tests = ["apps/explorer/ui/shared/Page/repair-22-35-6.spec.tsx"]
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run apps/explorer/ui/shared/Page/repair-22-35-6.spec.tsx"
+do_1 = "do_1 Decision 2587. Implement the entity header and section group of section 5 of the explorer visual brief (spec/layerx-merge/programme/docs/explorer-ui/design-brief.md) as shared components: apps/explorer/ui/shared/Page/PageTitle.tsx (or a sibling EntityHeader.tsx) renders kind label (uppercase), title (h1), the identifier line in mono with the existing copy and QR affordances and a row of pill tags; apps/explorer/ui/shared/DetailedInfo renders an uppercase group label over a key and value grid (220px key column on desktop, stacked on mobile, hairline rows, hint icon keeps the existing tooltip)."
+symbols = []
+
+[capability.22.35.5]
+title = "Explorer list pages: dense tables for blocks, transactions, accounts and the tokens markets view"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui/pages/Blocks.tsx", "apps/explorer/ui/pages/Transactions.tsx", "apps/explorer/ui/pages/Accounts.tsx", "apps/explorer/ui/pages/Tokens.tsx", "apps/explorer/ui/blocks", "apps/explorer/ui/txs", "apps/explorer/ui/accounts", "apps/explorer/ui/tokens", "apps/explorer/ui/shared/Page", "apps/explorer/ui/shared/filters"]
+tests = ["apps/explorer/ui/tokens/repair-22-35-5.spec.tsx"]
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run apps/explorer/ui/tokens/repair-22-35-5.spec.tsx"
+do_1 = "do_1 Decision 2587. Apply the table and page grammar of sections 4 to 6 of the explorer visual brief (spec/layerx-merge/programme/docs/explorer-ui/design-brief.md) to apps/explorer/ui/pages/Blocks.tsx, Transactions.tsx, Accounts.tsx and Tokens.tsx and their table components under ui/blocks, ui/txs, ui/accounts and ui/tokens: h1 title, filter row, table on the canvas with uppercase column labels, 44px rows, mono right-aligned numbers and middle-truncated hashes with a copy affordance on hover; the mobile list items keep their structure restyled with the tokens."
+symbols = []
+
+[capability.22.35.4]
+title = "Explorer home: ticker strip, hero, stat tiles, network chart and dense latest tables"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui/home", "apps/explorer/ui/pages/Home.tsx", "apps/explorer/ui/shared/stats", "apps/explorer/ui/shared/layout/LayoutHome.tsx"]
+tests = ["apps/explorer/ui/home/repair-22-35-4.spec.tsx"]
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run apps/explorer/ui/home/repair-22-35-4.spec.tsx"
+do_1 = "do_1 Decision 2587. Rebuild the home page of section 6 of the explorer visual brief (spec/layerx-merge/programme/docs/explorer-ui/design-brief.md) in apps/explorer/ui/pages/Home.tsx and apps/explorer/ui/home: a ticker strip under the top bar built from the tokens list the API returns (ui/home/TickerStrip.tsx; one chip per token with a non-null exchange_rate showing symbol, price in the number style and the 24h change coloured positive or negative only when the API provides it; the strip is not rendered when no token has a rate), a hero (HeroBanner.tsx) with the display heading and the hero search field of 22.35.3, a stat row (Stats.tsx over ui/shared/stats/StatsWidget.tsx) of five tiles with uppercase labels (Total blocks, Average block time, Total transactions, Wallet addresses, Gas price) and the network chart (ui/home/indicators) below in the card style, then LATEST BLOCKS and LATEST TRANSACTIONS side by side (LatestBlocks.tsx, Transactions.tsx, LatestTxs.tsx and their items) as dense tables with a View all link in the label row."
+symbols = []
+
+[capability.22.35.3]
+title = "Explorer search as a prompt: hero field, grouped suggestions and the keyboard shortcut"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui/snippets/searchBar"]
+tests = ["apps/explorer/ui/snippets/searchBar/repair-22-35-3.spec.tsx"]
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run apps/explorer/ui/snippets/searchBar/repair-22-35-3.spec.tsx"
+do_1 = "do_1 Decision 2587. Implement the search-as-prompt of section 5 of the explorer visual brief (spec/layerx-merge/programme/docs/explorer-ui/design-brief.md) in apps/explorer/ui/snippets/searchBar: SearchBarInput.tsx renders the 52px hero variant (640px wide, raised surface, strong border, accent border on focus, placeholder Search or ask: a transaction, address, block or token) on the home page and the compact 320px pill in the header; SearchBarSuggest groups results under uppercase labels TRANSACTIONS, ADDRESSES, BLOCKS, TOKENS and APPS with dense rows (mono identifiers, muted secondary text); SearchBarBackdrop and SearchBarRecentKeywords take the tokens of the theme. Keep the existing suggestion data hooks and result types; no new backend call."
+symbols = []
+
+[capability.22.35.2]
+title = "Explorer app shell: single top bar with grouped navigation, prompt-like search field and condensed footer"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui/snippets/header", "apps/explorer/ui/snippets/navigation", "apps/explorer/ui/snippets/topBar", "apps/explorer/ui/snippets/footer", "apps/explorer/ui/shared/layout", "apps/explorer/configs/app/ui.ts", "apps/explorer/lib/hooks/useNavItems.tsx"]
+tests = ["apps/explorer/ui/snippets/header/repair-22-35-2.spec.tsx"]
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run apps/explorer/ui/snippets/header/repair-22-35-2.spec.tsx"
+do_1 = "do_1 Decision 2587. Implement the top bar of section 5 of the explorer visual brief (spec/layerx-merge/programme/docs/explorer-ui/design-brief.md): a 56px sticky header (header bar token with blur) with the network logo and name on the left, the groups Explore (Blocks, Transactions, Tokens, Accounts, Verified contracts), Network (Network stats, Validators, Epochs, Gas tracker) and Developers (API docs, Contract verification, Charts) as text buttons with a chevron in the centre, and the compact search field (320px pill, placeholder Search or ask, shortcut hint Cmd-K or Ctrl-K), the colour-mode toggle and the account button on the right. Build it from apps/explorer/ui/snippets/header/HeaderDesktop.tsx, ui/snippets/navigation/horizontal (NavigationDesktop, NavLinkGroup, NavLink) and ui/snippets/topBar/TopBar.tsx; the group membership comes from lib/hooks/useNavItems.tsx so existing route and feature flags keep deciding which links exist. The group panel is a raised surface with a hairline border, 8px radius and two columns of title plus muted description."
+symbols = []
+
+[capability.22.35.1]
+title = "Explorer visual system: dark and light token foundations and core recipes"
+reqs = ["22998.1"]
+touches = ["apps/explorer/toolkit/theme"]
+tests = ["apps/explorer/toolkit/theme/repair-22-35-1.spec.ts"]
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run apps/explorer/toolkit/theme/repair-22-35-1.spec.ts apps/explorer/toolkit/theme/recipes"
+do_1 = "do_1 Decision 2587. Implement section 2 and 3 of the explorer visual brief (spec/layerx-merge/programme/docs/explorer-ui/design-brief.md) in apps/explorer/toolkit/theme/foundations/colors.ts and semanticTokens.ts: add the semantic roles (canvas, surface, raised, hairline, border strong, text primary, text secondary, text muted, accent, accent soft, on accent, positive and positive soft, negative and negative soft, warning, header bar, focus ring, sparkline, chart grid, chart area) with the dark and light values of the brief, and re-point the existing keys (graphStart, graphStop, success and successSoft, destructive and destructiveSoft, warning and warningSoft, tonal, outline, dataTableBorder, selectedOption, the bg, text, border, icon, heading, accent and feedback semantic tokens) at those roles so untouched components inherit the palette in both modes."
+symbols = []
+
+[capability.22.31.534]
+title = "Judge budget-state verification through the shared label decoder and surface a daemon refusal distinctly"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/src/budget", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_534.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_534.kvx", "services/human/crates/layerx-human-service/src/approvals/mod.rs", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs", "services/human/crates/layerx-human-service/src"]
+tests = ["services/agent/crates/layerx-agentd/tests/repair_22_31_534.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_534 && cargo test --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test repair_22_31_462"
+do_1 = "do_1 Gotcha 3124, decision 2585. Add one predicate in services/agent/crates/layerx-agentd/src/budget (for example budget_state_is_committed(label: u8) -> Result<(), BudgetVerificationError>) that decodes the label with layerx_types::verify::VerificationLevel::from_wire_rank and accepts only a level whose rung is Committed; labels 0 to 3 refuse as not committed, 4, 5 and every unknown label refuse as retired or unknown. Replace the literal (4..=5).contains checks in services/agent/crates/layerx-agentd/src/human_runtime.rs approval_budget_after (line 9893) and services/agent/crates/layerx-agentd/src/budget/program_sources.rs (line 49) with calls to it; keep every other check and the error mapping of those sites."
+symbols = []
+
+[capability.22.31.533]
+title = "Re-pin the three committed seller suites to the receipt-signature digest"
+reqs = ["22998.1"]
+touches = ["services/platform/middleware/seller/test/receipt-replay.test.mjs", "services/platform/middleware/seller/test/settlement-response.test.mjs", "services/platform/middleware/seller/test/receipt-verification.test.mjs", "services/platform/middleware/seller/test/repair-22-31-533.kvx"]
+tests = ["services/platform/middleware/seller/test/receipt-replay.test.mjs", "services/platform/middleware/seller/test/settlement-response.test.mjs", "services/platform/middleware/seller/test/receipt-verification.test.mjs"]
+verification_contract = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && npm --prefix services/platform/middleware/seller run build && node --test services/platform/middleware/seller/test/receipt-replay.test.mjs services/platform/middleware/seller/test/settlement-response.test.mjs services/platform/middleware/seller/test/receipt-verification.test.mjs services/platform/middleware/seller/test/repair-22-31-434.test.mjs"
+do_1 = "do_1 Gotcha 3121, decision 2538. In services/platform/middleware/seller/test/receipt-replay.test.mjs (lines 41 and 149), settlement-response.test.mjs (line 108) and receipt-verification.test.mjs (lines 103 and 152) build the portable proof with the receiptDigest that verifySequencerReceipt from the workspace SDK returns for the committed vector (as repair-22-31-434.test.mjs line 55 does), never keccak-256 of the signed receipt bytes. The tampered-receipt cases keep a digest that cannot verify: compute it the documented way over the tampered bytes or keep a deliberately wrong value, and assert the refusal reason they asserted before. Change no assertion that the suites make about settlement, replay, reuse or the settlement header; change no product code."
+symbols = []
+
+[capability.22.31.532]
+title = "Give the production web payer the approval resources and the held-transaction path"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd-host/src/payer.rs", "services/agent/crates/layerx-agentd/src/main.rs", "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs", "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.kvx"]
+tests = ["services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --test repair_22_31_532 --test payer_evm --test payer && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd"
+do_1 = "do_1 Gotcha 3120, decision 2584. In services/agent/crates/layerx-agentd-host/src/payer.rs give ProductionWebPayer an optional approval-resources field set through a constructor or builder that takes the shared Store (Arc of Mutex of layerx_agentd::store::Store), builds ApprovalExpiry::from_shared_store over it and takes the BudgetLimiter and the limit ids; implement on WebPayerBoundary (line 394) approval_resources returning a clone of them, prepare_transaction through layerx_agentd::prepare::evm::prepare_bound with the pending nonce, base fee and head height read from the node and the EVM address of the signer as sender (the same values signed_call at lines 191 to 256 reads today), and submit_transaction that signs the unsigned canonical bytes of the prepared transaction with the attestor signer exactly as signed_call does, sends them through send and checks the returned hash against the raw bytes; the re-preparing submit path is never used for an approved transaction. In services/agent/crates/layerx-agentd/src/main.rs publish_mcp_binding (the payer is built at line 1037) pass Arc::clone of the shared store it already receives and a BudgetLimiter built from mcp_limit (line 208) or the one the MCP binding path already builds from that limit, with that limit id as the only entry of limits. Keep the trait defaults for a payer built without resources."
+symbols = []
+
+[capability.22.31.531]
+title = "Hold an above-threshold metered draw under an existing grant on its disclosure"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-mcp/src/tools/web/approval_state.rs", "services/agent/crates/layerx-mcp/src/tools/web.rs", "services/agent/crates/layerx-mcp/tests/support/web_hold.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_531.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_531.kvx"]
+tests = ["services/agent/crates/layerx-mcp/tests/repair_22_31_531.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --lib --test repair_22_31_531 --test repair_22_33_1551 --test repair_22_31_527"
+do_1 = "do_1 Gotcha 3119, decision 2583. In services/agent/crates/layerx-mcp/src/tools/web/approval_state.rs approval_call (lines 398 to 442) replace the Configuration(metered_receiver_approval) refusal: when standing_grant returns an id, run validate_existing_grant, read the receiver sequence through self.payer.view(terms.next_sequence_call()) and sequence_result (src/tools/web.rs lines 718 and 779 pair them), build terms.prepare_draw(id, sequence) and return it with Some(id). In authorise_held (lines 200 to 258) never call self.payer.prepare_transaction for a metered spend with an existing grant: record the held spend from the draw call itself (sender the actor address of the boundary, bytes the canonical encoding of the call, digest and signing hash derived from those bytes and the spend commitment) and keep every other check, the durable save and the reopen path unchanged. Extend validate_approval_call (lines 464 to 492) for the metered scheme with an existing grant: decode the stored call as the draw of the terms (grant id, recipient, amount, idempotency key and purpose hash equal to the terms; the sequence word is not re-validated) and re-run validate_existing_grant so a grant changed between hold and approval is refused as changed. After approval the spend settles through the existing standing-grant path in src/tools/web.rs authorise with no new grant signed and no payer transaction submitted. The metered path that issues a new grant and the exact scheme are unchanged; a payer without approval_resources still reports unavailable."
+symbols = []
+
+[capability.22.31.530]
+title = "Verify a differing request before the seller refuses it as receipt reuse"
+reqs = ["22998.1"]
+touches = ["services/platform/middleware/seller/src/index.ts", "services/platform/middleware/seller/test/repair-22-31-530.test.mjs", "services/platform/middleware/seller/test/repair-22-31-530.kvx"]
+tests = ["services/platform/middleware/seller/test/repair-22-31-530.test.mjs"]
+verification_contract = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && npm --prefix services/platform/middleware/seller run build && node --test services/platform/middleware/seller/test/repair-22-31-530.test.mjs services/platform/middleware/seller/test/receipt-replay.test.mjs services/platform/middleware/seller/test/receipt-verification.test.mjs services/platform/middleware/seller/test/repair-22-31-434.test.mjs services/platform/middleware/seller/test/settlement-response.test.mjs && npm --prefix services/platform/middleware/buyer run build"
+do_1 = "do_1 Gotcha 3118, decisions 2376 and 2582. In services/platform/middleware/seller/src/index.ts the lookup by the transaction hint and the legacy receipt-digest hint (lines 276 to 288) keeps serving the identical-request replay from the stored record. When the stored record carries a different request digest, do not return receiptReuseDecision at lines 289 to 291; run this.#authority.settle for the presented payload first (the same call the stored === undefined branch makes, so a tampered or unverifiable payload throws verification-failure and the route answers 402 with no release and no store change), and only after a settled outcome return receiptReuseDecision. Nothing is fulfilled or released on that path, the post-verification reuse refusals at lines 334 to 336 and 349 to 351 stay, and the legacy-record replay of 22.33.1400 stays."
+symbols = []
 
 [capability.22.31.529]
 title = "Give the web suite's recorded payer the approval resources the hold path requires"
@@ -147550,6 +147808,312 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.35.8]
+title = "Explorer visual system integration: both colour modes end to end and the production build"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.35.1", "22.35.2", "22.35.3", "22.35.4", "22.35.5", "22.35.6", "22.35.7", "22.31.512", "22.31.522"]
+reqs = ["22998.1"]
+capabilities = ["22.35.8"]
+interfaces = []
+do_1 = "do_1 Decision 2587. With 22.35.1 to 22.35.7 landed, sweep apps/explorer for literal colours and the retired layout branches the brief forbids (section 7): every component under ui and toolkit takes its colours from semantic tokens (grep for hex literals and rgba literals outside toolkit/theme/foundations and move each to a token), the colour-mode toggle and the settings colour theme (ui/snippets/topBar/settings) keep working with the stored preference winning over the system preference, and the vertical layout code paths no longer render a sidebar."
+do_2 = "do_2 Add Playwright stories in both colour modes for Home, the header, Transaction, Block, Address and Token under their directories (the existing dark-color-mode project provides the dark variant) and a vitest sweep apps/explorer/ui/repair-22-35-8.spec.ts that walks ui and toolkit/components for literal colour values outside the allowed files and fails naming them, and that renders the Home, Transaction and Address pages in light and in dark mode with mocked data asserting the body background token differs between the modes."
+do_3 = "do_3 The production build is the integration gate: next build in production mode completes on the final revision. Write apps/explorer/ui/repair-22-35-8.kvx naming decision 2587, the literals moved, the stories added and the gate results. Gate: the declared build and verify only; no credential, no live endpoint (gotcha 2962)."
+symbols = []
+touches = ["apps/explorer/ui", "apps/explorer/toolkit", "apps/explorer/configs/app/ui.ts", "apps/explorer/playwright"]
+tests = ["apps/explorer/ui/repair-22-35-8.spec.ts"]
+planned_paths = ["apps/explorer"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run apps/explorer/ui/repair-22-35-8.spec.ts && NEXT_TELEMETRY_DISABLED=1 yarn build"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.35.7]
+title = "Explorer network pages: stats, validators, epochs and gas tracker in the visual system"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.35.1", "22.35.6"]
+reqs = ["22998.1"]
+capabilities = ["22.35.7"]
+interfaces = []
+do_1 = "do_1 Decision 2587. Apply section 6 of the explorer visual brief (spec/layerx-merge/programme/docs/explorer-ui/design-brief.md) to the network pages: apps/explorer/ui/pages/Stats.tsx and ui/stats render hero tiles (transactions per second, active validators, current epoch, latest block, each only from a field the stats API returns), a RECENT BLOCKS mini table and the charts grid in the card style with the chart tokens; ui/pages/Epochs.tsx, Epoch.tsx and ui/epochs render the dense table (Started, First block, Last block, Duration) and the epoch detail in the entity grammar of 22.35.6; ui/pages/ValidatorsBlackfort.tsx, ValidatorsStability.tsx, ValidatorsZilliqa.tsx and ui/validators render Rank, Validator, Stake, Stake weight and Commission where the respective validators API provides them (a column whose field is absent is not rendered); ui/pages/GasTracker.tsx and ui/gasTracker use stat tiles and the table recipe."
+do_2 = "do_2 Prove it in apps/explorer/ui/stats/repair-22-35-7.spec.tsx (vitest, jsdom): with a mocked stats response the hero tiles render their labels and a missing field renders the dash; with a mocked validators response the table renders only the columns whose fields are present; update the existing stats, epochs and validators specs whose expectations change and give the touched Playwright stories both colour-mode variants. Write apps/explorer/ui/stats/repair-22-35-7.kvx naming decision 2587 and the gate results. Gate: the declared build and verify only (gotcha 2962)."
+symbols = []
+touches = ["apps/explorer/ui/pages/Stats.tsx", "apps/explorer/ui/pages/Epochs.tsx", "apps/explorer/ui/pages/Epoch.tsx", "apps/explorer/ui/pages/ValidatorsBlackfort.tsx", "apps/explorer/ui/pages/ValidatorsStability.tsx", "apps/explorer/ui/pages/ValidatorsZilliqa.tsx", "apps/explorer/ui/pages/GasTracker.tsx", "apps/explorer/ui/stats", "apps/explorer/ui/epochs", "apps/explorer/ui/validators", "apps/explorer/ui/gasTracker", "apps/explorer/ui/shared/chart"]
+tests = ["apps/explorer/ui/stats/repair-22-35-7.spec.tsx"]
+planned_paths = ["apps/explorer"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run apps/explorer/ui/stats/repair-22-35-7.spec.tsx"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.35.6]
+title = "Explorer entity pages: entity header, tabs and labelled sections for transactions, blocks, addresses and tokens"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.35.1"]
+reqs = ["22998.1"]
+capabilities = ["22.35.6"]
+interfaces = []
+do_1 = "do_1 Decision 2587. Implement the entity header and section group of section 5 of the explorer visual brief (spec/layerx-merge/programme/docs/explorer-ui/design-brief.md) as shared components: apps/explorer/ui/shared/Page/PageTitle.tsx (or a sibling EntityHeader.tsx) renders kind label (uppercase), title (h1), the identifier line in mono with the existing copy and QR affordances and a row of pill tags; apps/explorer/ui/shared/DetailedInfo renders an uppercase group label over a key and value grid (220px key column on desktop, stacked on mobile, hairline rows, hint icon keeps the existing tooltip)."
+do_2 = "do_2 Apply them per section 6 of the brief: Transaction (ui/pages/Transaction.tsx, ui/tx) with the kind TRANSACTION, tabs Overview, Token transfers, Internal, Logs, State and Raw, and Overview groups SUMMARY, TRANSFERS, BALANCE CHANGES and DETAILS; Block (ui/pages/Block.tsx, ui/block) with BLOCK, tabs Transactions, Withdrawals when present and Details, and the BLOCK INFO group; Address (ui/pages/Address.tsx, ui/address) with ADDRESS or CONTRACT, tabs Overview, History, Transfers, Portfolio, Analytics, Contract for contracts and More, mapping every existing tab onto these (History holds transactions and internal transactions as sub-tabs, Portfolio holds tokens, NFTs and the coin balance history, Analytics holds the existing counters and charts as stat tiles, More holds the remaining tabs); Token (ui/pages/Token.tsx, ui/token) with TOKEN, tabs Markets (price, market cap, volume and holders tiles from the API fields only; a chart only when the stats service exposes a series), History, Holders, Metadata and Inventory for NFT collections. Every existing tab id and route query stays valid so deep links keep working."
+do_3 = "do_3 Prove it in apps/explorer/ui/shared/Page/repair-22-35-6.spec.tsx (vitest, jsdom): the entity header renders kind, title, identifier and tags; the section group renders label and rows; the Address page with a mocked address renders the tab set with the existing tab ids reachable; the Token page with a mocked token without exchange_rate renders dashes in the Markets tiles. Update the existing tx, block, address and token specs whose expectations change and give the touched Playwright stories (Transaction, Block, Address, Token) both colour-mode variants. Write apps/explorer/ui/shared/Page/repair-22-35-6.kvx naming decision 2587 and the gate results. Gate: the declared build and verify only (gotcha 2962)."
+symbols = []
+touches = ["apps/explorer/ui/shared/Page", "apps/explorer/ui/shared/DetailedInfo", "apps/explorer/ui/shared/entities", "apps/explorer/ui/pages/Transaction.tsx", "apps/explorer/ui/pages/Block.tsx", "apps/explorer/ui/pages/Address.tsx", "apps/explorer/ui/pages/Token.tsx", "apps/explorer/ui/pages/TokenInstance.tsx", "apps/explorer/ui/tx", "apps/explorer/ui/block", "apps/explorer/ui/address", "apps/explorer/ui/token", "apps/explorer/ui/shared/RoutedTabs", "apps/explorer/toolkit/components/RoutedTabs"]
+tests = ["apps/explorer/ui/shared/Page/repair-22-35-6.spec.tsx"]
+planned_paths = ["apps/explorer"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run apps/explorer/ui/shared/Page/repair-22-35-6.spec.tsx"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.35.5]
+title = "Explorer list pages: dense tables for blocks, transactions, accounts and the tokens markets view"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.35.1"]
+reqs = ["22998.1"]
+capabilities = ["22.35.5"]
+interfaces = []
+do_1 = "do_1 Decision 2587. Apply the table and page grammar of sections 4 to 6 of the explorer visual brief (spec/layerx-merge/programme/docs/explorer-ui/design-brief.md) to apps/explorer/ui/pages/Blocks.tsx, Transactions.tsx, Accounts.tsx and Tokens.tsx and their table components under ui/blocks, ui/txs, ui/accounts and ui/tokens: h1 title, filter row, table on the canvas with uppercase column labels, 44px rows, mono right-aligned numbers and middle-truncated hashes with a copy affordance on hover; the mobile list items keep their structure restyled with the tokens."
+do_2 = "do_2 Tokens becomes the markets view: columns #, Token (icon, name, symbol), Price, Change 24h, Market cap, Volume 24h and Holders in ui/tokens/TokensTable.tsx and TokensTableItem.tsx, rendering price, change, market cap and volume only from the fields the token API returns (exchange_rate, circulating_market_cap, volume_24h, holders_count; a field the API does not return shows an em dash and no derived value), sort controls on the numeric columns through the existing sort hooks, and category chips All, Fungible, NFT and Bridged mapped to the existing token type filters."
+do_3 = "do_3 Prove it in apps/explorer/ui/tokens/repair-22-35-5.spec.tsx (vitest, jsdom): a mocked tokens page renders the seven columns, a token without exchange_rate shows dashes in the price and change cells, a positive and a negative change carry the positive and negative colour tokens, and the Fungible chip applies the existing filter; update any blocks, txs, accounts or tokens spec whose expectations change and give the touched Playwright stories both colour-mode variants. Write apps/explorer/ui/tokens/repair-22-35-5.kvx naming decision 2587 and the gate results. Gate: the declared build and verify only (gotcha 2962)."
+symbols = []
+touches = ["apps/explorer/ui/pages/Blocks.tsx", "apps/explorer/ui/pages/Transactions.tsx", "apps/explorer/ui/pages/Accounts.tsx", "apps/explorer/ui/pages/Tokens.tsx", "apps/explorer/ui/blocks", "apps/explorer/ui/txs", "apps/explorer/ui/accounts", "apps/explorer/ui/tokens", "apps/explorer/ui/shared/Page", "apps/explorer/ui/shared/filters"]
+tests = ["apps/explorer/ui/tokens/repair-22-35-5.spec.tsx"]
+planned_paths = ["apps/explorer"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run apps/explorer/ui/tokens/repair-22-35-5.spec.tsx"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.35.4]
+title = "Explorer home: ticker strip, hero, stat tiles, network chart and dense latest tables"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.35.1", "22.35.3"]
+reqs = ["22998.1"]
+capabilities = ["22.35.4"]
+interfaces = []
+do_1 = "do_1 Decision 2587. Rebuild the home page of section 6 of the explorer visual brief (spec/layerx-merge/programme/docs/explorer-ui/design-brief.md) in apps/explorer/ui/pages/Home.tsx and apps/explorer/ui/home: a ticker strip under the top bar built from the tokens list the API returns (ui/home/TickerStrip.tsx; one chip per token with a non-null exchange_rate showing symbol, price in the number style and the 24h change coloured positive or negative only when the API provides it; the strip is not rendered when no token has a rate), a hero (HeroBanner.tsx) with the display heading and the hero search field of 22.35.3, a stat row (Stats.tsx over ui/shared/stats/StatsWidget.tsx) of five tiles with uppercase labels (Total blocks, Average block time, Total transactions, Wallet addresses, Gas price) and the network chart (ui/home/indicators) below in the card style, then LATEST BLOCKS and LATEST TRANSACTIONS side by side (LatestBlocks.tsx, Transactions.tsx, LatestTxs.tsx and their items) as dense tables with a View all link in the label row."
+do_2 = "do_2 Data honesty: every sparkline, price, change and market value comes from a field the backend returns; absent fields render an em dash with a muted label and never a placeholder series or a zero. Keep the existing loading skeletons and fallbacks (ui/home/fallbacks) restyled with the tokens."
+do_3 = "do_3 Prove it in apps/explorer/ui/home/repair-22-35-4.spec.tsx (vitest, jsdom): with a mocked tokens response of two priced tokens and one without a rate the strip renders two chips with the right sign colours and omits the third; with no priced token the strip is absent; the five tiles render with their labels from a mocked stats response; a missing stat renders the dash. Update the existing home specs whose expectations change and give the Home Playwright stories both colour-mode variants. Write apps/explorer/ui/home/repair-22-35-4.kvx naming decision 2587 and the gate results. Gate: the declared build and verify only (gotcha 2962)."
+symbols = []
+touches = ["apps/explorer/ui/home", "apps/explorer/ui/pages/Home.tsx", "apps/explorer/ui/shared/stats", "apps/explorer/ui/shared/layout/LayoutHome.tsx"]
+tests = ["apps/explorer/ui/home/repair-22-35-4.spec.tsx"]
+planned_paths = ["apps/explorer"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run apps/explorer/ui/home/repair-22-35-4.spec.tsx"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.35.3]
+title = "Explorer search as a prompt: hero field, grouped suggestions and the keyboard shortcut"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.35.1"]
+reqs = ["22998.1"]
+capabilities = ["22.35.3"]
+interfaces = []
+do_1 = "do_1 Decision 2587. Implement the search-as-prompt of section 5 of the explorer visual brief (spec/layerx-merge/programme/docs/explorer-ui/design-brief.md) in apps/explorer/ui/snippets/searchBar: SearchBarInput.tsx renders the 52px hero variant (640px wide, raised surface, strong border, accent border on focus, placeholder Search or ask: a transaction, address, block or token) on the home page and the compact 320px pill in the header; SearchBarSuggest groups results under uppercase labels TRANSACTIONS, ADDRESSES, BLOCKS, TOKENS and APPS with dense rows (mono identifiers, muted secondary text); SearchBarBackdrop and SearchBarRecentKeywords take the tokens of the theme. Keep the existing suggestion data hooks and result types; no new backend call."
+do_2 = "do_2 Add the Cmd-K or Ctrl-K shortcut that focuses the nearest search field from any page (a small hook in the searchBar directory used by SearchBarDesktop.tsx and SearchBarMobile.tsx) and make the header field open the same suggestion panel as the hero field."
+do_3 = "do_3 Prove it in apps/explorer/ui/snippets/searchBar/repair-22-35-3.spec.tsx (vitest, jsdom): the hero and compact variants render with their placeholders, the shortcut focuses the field, and a mocked suggestion response renders under the grouped labels in order; give the SearchBar Playwright stories both colour-mode variants. Write apps/explorer/ui/snippets/searchBar/repair-22-35-3.kvx naming decision 2587 and the gate results. Gate: the declared build and verify only (gotcha 2962)."
+symbols = []
+touches = ["apps/explorer/ui/snippets/searchBar"]
+tests = ["apps/explorer/ui/snippets/searchBar/repair-22-35-3.spec.tsx"]
+planned_paths = ["apps/explorer"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run apps/explorer/ui/snippets/searchBar/repair-22-35-3.spec.tsx"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.35.2]
+title = "Explorer app shell: single top bar with grouped navigation, prompt-like search field and condensed footer"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.35.1"]
+reqs = ["22998.1"]
+capabilities = ["22.35.2"]
+interfaces = []
+do_1 = "do_1 Decision 2587. Implement the top bar of section 5 of the explorer visual brief (spec/layerx-merge/programme/docs/explorer-ui/design-brief.md): a 56px sticky header (header bar token with blur) with the network logo and name on the left, the groups Explore (Blocks, Transactions, Tokens, Accounts, Verified contracts), Network (Network stats, Validators, Epochs, Gas tracker) and Developers (API docs, Contract verification, Charts) as text buttons with a chevron in the centre, and the compact search field (320px pill, placeholder Search or ask, shortcut hint Cmd-K or Ctrl-K), the colour-mode toggle and the account button on the right. Build it from apps/explorer/ui/snippets/header/HeaderDesktop.tsx, ui/snippets/navigation/horizontal (NavigationDesktop, NavLinkGroup, NavLink) and ui/snippets/topBar/TopBar.tsx; the group membership comes from lib/hooks/useNavItems.tsx so existing route and feature flags keep deciding which links exist. The group panel is a raised surface with a hairline border, 8px radius and two columns of title plus muted description."
+do_2 = "do_2 Make the horizontal layout the only layout: in configs/app/ui.ts accept the value vertical for the navigation layout setting and resolve it to horizontal, and let ui/shared/layout/components (Container, Content, MainArea, MainColumn, NavBar, SideBar) render without the desktop sidebar; the mobile header (ui/snippets/header/HeaderMobile.tsx, Burger.tsx and ui/snippets/navigation/mobile) shows logo, search icon and burger, with the groups as an accordion sheet. Keep the existing top-bar stats, network menu and settings menu available inside the right-hand group of the header or the settings menu."
+do_3 = "do_3 Restyle apps/explorer/ui/snippets/footer (Footer.tsx, FooterLinkItem.tsx) into three condensed columns with uppercase label headings and hairline separation, keeping every link and the indexing status."
+do_4 = "do_4 Prove it in apps/explorer/ui/snippets/header/repair-22-35-2.spec.tsx (vitest, jsdom, the testWrapper render): the header renders the three groups and the search field in horizontal mode, the vertical setting resolves to the same header, a group opens its panel with the links useNavItems provides, and the footer renders its three columns; update any existing header, navigation or footer spec whose expectations change and give the touched Playwright stories (HeaderDesktop, NavigationDesktop, Footer) both colour-mode variants. Write apps/explorer/ui/snippets/header/repair-22-35-2.kvx naming decision 2587 and the gate results. Gate: the declared build and verify only (gotcha 2962)."
+symbols = []
+touches = ["apps/explorer/ui/snippets/header", "apps/explorer/ui/snippets/navigation", "apps/explorer/ui/snippets/topBar", "apps/explorer/ui/snippets/footer", "apps/explorer/ui/shared/layout", "apps/explorer/configs/app/ui.ts", "apps/explorer/lib/hooks/useNavItems.tsx"]
+tests = ["apps/explorer/ui/snippets/header/repair-22-35-2.spec.tsx"]
+planned_paths = ["apps/explorer"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run apps/explorer/ui/snippets/header/repair-22-35-2.spec.tsx"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.35.1]
+title = "Explorer visual system: dark and light token foundations and core recipes"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.35.1"]
+interfaces = []
+do_1 = "do_1 Decision 2587. Implement section 2 and 3 of the explorer visual brief (spec/layerx-merge/programme/docs/explorer-ui/design-brief.md) in apps/explorer/toolkit/theme/foundations/colors.ts and semanticTokens.ts: add the semantic roles (canvas, surface, raised, hairline, border strong, text primary, text secondary, text muted, accent, accent soft, on accent, positive and positive soft, negative and negative soft, warning, header bar, focus ring, sparkline, chart grid, chart area) with the dark and light values of the brief, and re-point the existing keys (graphStart, graphStop, success and successSoft, destructive and destructiveSoft, warning and warningSoft, tonal, outline, dataTableBorder, selectedOption, the bg, text, border, icon, heading, accent and feedback semantic tokens) at those roles so untouched components inherit the palette in both modes."
+do_2 = "do_2 In foundations/typography.ts add the mono family of the brief and the text styles display, h1, h2, body, small, label (uppercase, 0.08em tracking, muted colour), number and statValue with the sizes, line heights and weights of section 3, keeping the configured body typeface and the existing fallbacks; headings use the body family. In foundations/borders.ts and shadows.ts set the radii (6px controls, 8px cards, 999px pills) and reduce shadows to the hairline border treatment of section 4."
+do_3 = "do_3 Restyle the recipes table.recipe.ts (36px header with the label style, 44px rows, hairline rules, raised hover, right-aligned numbers in the number style), tabs.recipe.ts (text tabs with a 2px accent underline, muted counts), badge.recipe.ts and tag.recipe.ts (999px pills with soft background and strong text per semantic colour), button.recipe.ts (accent primary, hairline secondary, 6px radius) and stat.recipe.ts (label, statValue, delta) with semantic tokens only; keep every recipe variant name the components use so no call site changes."
+do_4 = "do_4 Prove it in apps/explorer/toolkit/theme/repair-22-35-1.spec.ts (vitest): every new semantic token resolves to a value in both modes (walk semanticTokens and assert _light and _dark are present for each colour token), the text styles exist with the brief sizes, and the recipe specs already in the directory still pass (run them in the verify). Write apps/explorer/toolkit/theme/repair-22-35-1.kvx naming decision 2587, the tokens added, the keys re-pointed and the gate results. Gate: the declared build and verify only (gotcha 2962)."
+symbols = []
+touches = ["apps/explorer/toolkit/theme"]
+tests = ["apps/explorer/toolkit/theme/repair-22-35-1.spec.ts"]
+planned_paths = ["apps/explorer"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run apps/explorer/toolkit/theme/repair-22-35-1.spec.ts apps/explorer/toolkit/theme/recipes"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 2 (continue, gotcha 3135, decision 2594): attempt 1 stands in full (the colour, border, shadow and typography foundations, the semantic tokens, the global CSS, the six recipes, the two toolkit components and the spec). In apps/explorer/toolkit/theme/recipes/stat.recipe.ts remove textStyle heading.sm from the valueText of the scan entry on the variant axis (keep its colour and layout properties) and in the scan compound variant state fontWeight 600 beside textStyle statValue on valueText (and fontFamily mono if the resolved styles show the family drifting too); change nothing in repair-22-35-1.spec.ts unless the resolved styles prove the assertion itself wrong, in which case the record says why. Re-run the declared build and verify once; if recipesResolveToTheVisualSystem still fails, write the resolved valueText styles of the three layers into repair-22-35-1.kvx and stop."
+do_6 = "Attempt 3 (continue, gotcha 3139, decision 2598): attempt 2 stands in full (the recipe change, the six repair proofs, the record). One change in apps/explorer/toolkit/theme/recipes/stat.recipe.spec.ts: the scan variant test at line 20 to 23 now asserts the label as before and the value as the brief states it: scan valueText matches color text.primary and names no textStyle, and the scan compound variant (or whichever layer states it) carries textStyle statValue and fontWeight 600; reword the test title to say stat-value sized. Add one line to repair-22-35-1.kvx naming the amended assertion and why. Then run the declared build and verify once and record the result."
+
+[task.22.31.533]
+title = "Re-pin the three committed seller suites to the receipt-signature digest"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.31.530"]
+reqs = ["22998.1"]
+capabilities = ["22.31.533"]
+interfaces = []
+do_1 = "do_1 Gotcha 3121, decision 2538. In services/platform/middleware/seller/test/receipt-replay.test.mjs (lines 41 and 149), settlement-response.test.mjs (line 108) and receipt-verification.test.mjs (lines 103 and 152) build the portable proof with the receiptDigest that verifySequencerReceipt from the workspace SDK returns for the committed vector (as repair-22-31-434.test.mjs line 55 does), never keccak-256 of the signed receipt bytes. The tampered-receipt cases keep a digest that cannot verify: compute it the documented way over the tampered bytes or keep a deliberately wrong value, and assert the refusal reason they asserted before. Change no assertion that the suites make about settlement, replay, reuse or the settlement header; change no product code."
+do_2 = "do_2 Run the declared build and verify once; the three suites and repair-22-31-434.test.mjs must pass. Record in services/platform/middleware/seller/test/repair-22-31-533.kvx the lines re-pinned, the digest definition applied and the gate results. Gate: the declared build and verify only; no credential, no live endpoint (gotcha 2962)."
+symbols = []
+touches = ["services/platform/middleware/seller/test/receipt-replay.test.mjs", "services/platform/middleware/seller/test/settlement-response.test.mjs", "services/platform/middleware/seller/test/receipt-verification.test.mjs", "services/platform/middleware/seller/test/repair-22-31-533.kvx"]
+tests = ["services/platform/middleware/seller/test/receipt-replay.test.mjs", "services/platform/middleware/seller/test/settlement-response.test.mjs", "services/platform/middleware/seller/test/receipt-verification.test.mjs"]
+planned_paths = ["services/platform/middleware/seller/test"]
+build_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && npm --prefix services/platform/middleware/seller run build"
+verify_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && npm --prefix services/platform/middleware/seller run build && node --test services/platform/middleware/seller/test/receipt-replay.test.mjs services/platform/middleware/seller/test/settlement-response.test.mjs services/platform/middleware/seller/test/receipt-verification.test.mjs services/platform/middleware/seller/test/repair-22-31-434.test.mjs"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue after 22.31.530, gotcha 3126, decision 2588): 22.31.530 carries the five digest re-pins of attempt 1 and the alignment of the four stale assertions together with its product change. Once 22.31.530 has landed, rebase on main; where the rebase conflicts in the three suites take the main version of each file; keep repair-22-31-533.kvx and update it to record that the re-pin landed through 22.31.530, the four alignments and the gate results. Change no test and no product code; run the declared build and verify once and record."
+
+[task.22.31.530]
+title = "Verify a differing request before the seller refuses it as receipt reuse"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.530"]
+interfaces = []
+do_1 = "do_1 Gotcha 3118, decisions 2376 and 2582. In services/platform/middleware/seller/src/index.ts the lookup by the transaction hint and the legacy receipt-digest hint (lines 276 to 288) keeps serving the identical-request replay from the stored record. When the stored record carries a different request digest, do not return receiptReuseDecision at lines 289 to 291; run this.#authority.settle for the presented payload first (the same call the stored === undefined branch makes, so a tampered or unverifiable payload throws verification-failure and the route answers 402 with no release and no store change), and only after a settled outcome return receiptReuseDecision. Nothing is fulfilled or released on that path, the post-verification reuse refusals at lines 334 to 336 and 349 to 351 stay, and the legacy-record replay of 22.33.1400 stays."
+do_2 = "do_2 Add services/platform/middleware/seller/test/repair-22-31-530.test.mjs over the real SellerMiddleware, the real ReceiptPayloadAuthority and the durable fulfilment repository with the committed vector services/platform/middleware/seller/test/receipt-replay.test.mjs already uses: (1) settle once and release; (2) replay the identical request and assert it is served from the stored record with no second release; (3) present the same rawTransaction with the receipt key public key changed under a different request and assert a refused decision with status 402 and errorReason verification-failure, never receipt_reuse, with the release count and the repository unchanged; (4) present a valid payload for the same receipt under a different request and assert status 409 and errorReason receipt_reuse. Case 3 must fail on the pre-repair code."
+do_3 = "do_3 Write services/platform/middleware/seller/test/repair-22-31-530.kvx naming decisions 2376 and 2582, gotcha 3118 and the four cases. Run the declared build and verify once at the final revision; the verify also runs the Next integration receipt-keys suite, the consumer whose line 296 case proved the regression. Gate: the declared build and verify only; no credential, no live endpoint (gotcha 2962)."
+symbols = []
+touches = ["services/platform/middleware/seller/src/index.ts", "services/platform/middleware/seller/test/repair-22-31-530.test.mjs", "services/platform/middleware/seller/test/repair-22-31-530.kvx", "services/platform/middleware/seller/test/receipt-replay.test.mjs", "services/platform/middleware/seller/test/settlement-response.test.mjs", "services/platform/middleware/seller/test/receipt-verification.test.mjs"]
+tests = ["services/platform/middleware/seller/test/repair-22-31-530.test.mjs"]
+planned_paths = ["services/platform/middleware/seller/src", "services/platform/middleware/seller/test"]
+build_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && npm --prefix services/platform/middleware/seller run build"
+verify_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && npm --prefix services/platform/middleware/seller run build && node --test services/platform/middleware/seller/test/repair-22-31-530.test.mjs services/platform/middleware/seller/test/receipt-replay.test.mjs services/platform/middleware/seller/test/receipt-verification.test.mjs services/platform/middleware/seller/test/repair-22-31-434.test.mjs services/platform/middleware/seller/test/settlement-response.test.mjs && npm --prefix services/platform/middleware/buyer run build"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue after 22.31.533, gotcha 3121): attempt 1 stands in full (the verification before the reuse refusal in src/index.ts, the four cases and the record). Rebase on main once 22.31.533 has landed, change nothing, run the declared build and verify once and record."
+do_5 = "Attempt 2 (continue, gotcha 3126, decision 2588; this replaces the earlier attempt-2 instruction to change nothing): attempt 1 stands in full. In addition, in the same candidate: (1) build the portable proof in test/receipt-replay.test.mjs (lines 41 and 149), test/settlement-response.test.mjs (line 108) and test/receipt-verification.test.mjs (lines 103 and 152) with the receiptDigest that verifySequencerReceipt returns (decision 2538, as repair-22-31-434.test.mjs line 55 and repair-22-31-530.test.mjs do); the tampered cases keep a digest that cannot verify and their refusal assertions. (2) receiptIdentityIsScopedToMerchant: the second principal presenting the same receipt is refused as receipt_reuse (409) and releases nothing, as receiptReusePrincipal of repair-22-31-434.test.mjs proves; the later cross-principal replays stay refused; rename the case receiptIdentityIsBoundToOnePrincipal. (3) meteredOfferWithPurposeHashVerifies: an exact-payment proof cannot satisfy a metered or subscription offer (sellerGrantFinalVerifier); assert verification-failure for both schemes, keep the purpose-hash mismatch refusal and rename the case meteredOfferRefusesExactEvidence. (4) settlementResponseCarriesPortableReceipt: build the committed evidence with recordedCommittedReceipt from test/committed-fixture.mjs and its resolver as commitmentInclusionUnverified does, give the seller the resolver through the configuration option src/index.ts and src/commitment.ts expose for committed verification, assert committedPortable.receiptDigest equals hex(signed.receiptDigest) in place of the keccak-256 equality at line 308, and take the signature and validator counts from the recorded evidence. (5) replayedSettlementAnswersStoredTransaction keeps settleCount 2: it is the verification before the reuse refusal this task adds. Change no product code beyond attempt 1. Run the declared build and verify once (the verify now includes receipt-verification.test.mjs) and record the alignments in repair-22-31-530.kvx."
+do_6 = "Attempt 3 (continue, gotcha 3130, decision 2579): attempt 2 stands in full (the differing-request verification, the five digest re-pins and the four suite alignments). The Next consumer port belongs to 22.31.493 and the verify no longer builds or runs sdk/integrations/next; rebase, change nothing, run the declared build and verify once and record."
+
 [task.22.31.525]
 title = "Leave a paid order unchanged when a later payment attempt is refused"
 status = "done"
@@ -147582,7 +148146,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.524]
 title = "Decode the absent vote in the shared committed fixture of the seller tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -147614,10 +148178,10 @@ do_5 = "Attempt 4 (continue, decision 2579): attempt 3 stands in full; 21 of 25 
 
 [task.22.31.522]
 title = "Add the chain routes to the explorer page type map and commit the regenerated route type"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.503"]
+requires = ["22.31.503", "22.31.512"]
 reqs = ["22998.1"]
 capabilities = ["22.31.522"]
 interfaces = []
@@ -147641,6 +148205,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Attempt 2 (continue after 22.31.503): attempt 1 added the two entries, regenerated the route type and wrote the spec and record; the production build failed because the regenerated route type carries the four audit test files under pages as routes (gotcha 3097). 22.31.503 moves them out and now carries the two map entries itself. Rebase on main once 503 is there, keep repair-22-31-522.spec.ts and the record, drop the attempt's own map and route-type edits where 503 already committed them, regenerate nextjs/nextjs-routes.d.ts with the declared build and commit it if it differs, run the declared build and verify once and record."
+do_4 = "Attempt 3 (continue after 22.31.512, gotcha 3078): attempt 2 stands in full (the spec and the record; the map entries and the route type came with 22.31.503). Rebase on main once 22.31.512 has landed, change nothing, run the declared build and verify once and record."
 
 [task.22.31.520]
 title = "Declare the wallet workspace dependency build scripts so pnpm install completes under pnpm 12"
@@ -147673,7 +148238,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.517]
 title = "Keep wallet gateway routes from awaiting pool queries while they hold a transaction client"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.520"]
@@ -147707,7 +148272,7 @@ do_7 = "Attempt 3 (continue): attempt 2 requalified attempt 1's implementation o
 
 [task.22.31.512]
 title = "Restore the explorer frontend production build by keeping node-fetch out of the client and edge compiles"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.503"]
@@ -147770,7 +148335,7 @@ do_4 = "Attempt 2 (continue, decision 2556): the double now answers getParams an
 
 [task.22.31.503]
 title = "Move the explorer page repair tests out of the Next.js pages directory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -147804,10 +148369,10 @@ do_7 = "Attempt 4 (continue): attempt 3 carries the four moved pairs, the guard,
 
 [task.22.31.493]
 title = "Make the Express and Next route checks accept the receipt-signature digest the seller releases"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.492"]
+requires = ["22.31.492", "22.31.530"]
 reqs = ["22998.1"]
 capabilities = ["22.31.493"]
 interfaces = []
@@ -147815,7 +148380,7 @@ do_1 = "do_1 Decision 2538: in sdk/integrations/next/src/index.ts assertReceiptB
 do_2 = "do_2 Add sdk/integrations/next/test/repair_22_31_493.test.mjs and sdk/integrations/express/test/repair_22_31_493.test.mjs: each mounts the real integration over the real seller middleware with an in-memory fulfillment store, pays with buyer evidence for the committed V1-layerxledger-pay-exact vector produced by the real seller RPC proof producer, and asserts a 200 release whose settlement header carries the vector's transaction and the verifier's digest; a second case tampers the digest in the released settlement and asserts receipt-not-backed. Both files must fail on the pre-repair code."
 do_3 = "do_3 Write sdk/integrations/next/repair_22_31_493.kvx naming decision 2538, gotcha 3025 and the proving cases. Run the build and the verify once at the final revision."
 symbols = []
-touches = ["sdk/integrations/next/src/index.ts", "sdk/integrations/express/src/index.ts", "sdk/integrations/next/test/repair_22_31_493.test.mjs", "sdk/integrations/express/test/repair_22_31_493.test.mjs", "sdk/integrations/next/repair_22_31_493.kvx"]
+touches = ["sdk/integrations/next/src/index.ts", "sdk/integrations/express/src/index.ts", "sdk/integrations/next/test/repair_22_31_493.test.mjs", "sdk/integrations/express/test/repair_22_31_493.test.mjs", "sdk/integrations/next/repair_22_31_493.kvx", "sdk/integrations/express/package-lock.json", "sdk/integrations/express/package.json", "sdk/integrations/express/test/receipt-keys.test.mjs", "sdk/integrations/next/package-lock.json", "sdk/integrations/next/package.json", "sdk/integrations/next/test/receipt-digest-support.mjs"]
 tests = ["sdk/integrations/next/test/repair_22_31_493.test.mjs", "sdk/integrations/express/test/repair_22_31_493.test.mjs"]
 planned_paths = ["sdk/integrations/next/src/index.ts", "sdk/integrations/express/src/index.ts", "sdk/integrations/next/test", "sdk/integrations/express/test", "sdk/integrations/next/repair_22_31_493.kvx", "sdk/integrations/next/package.json", "sdk/integrations/express/package.json", "sdk/integrations/next/package-lock.json", "sdk/integrations/express/package-lock.json"]
 build_cmd = "npm --prefix sdk/integrations/next ci --ignore-scripts && npm --prefix sdk/integrations/next run build && npm --prefix sdk/integrations/express install --no-audit --no-fund --ignore-scripts && npm --prefix sdk/integrations/express run build"
@@ -147831,10 +148396,12 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue after 22.31.530, gotcha 3118): attempt 1 stands in full; both route checks compare the verifier receiptDigest (decision 2538) and the four new cases pass. The only failing case, sdk/integrations/next/test/receipt-keys.test.mjs line 296, fails because the seller refuses the changed-key payload as receipt_reuse before verifying it, the regression 22.31.530 repairs under decision 2582. Rebase on main once 22.31.530 has landed, change nothing in the route checks or the cases, run the declared build and verify once and record."
+do_5 = "Attempt 2 note (gotcha 3130): with 22.31.530 attempt 2 the seller answers the pre-port Next integration 500 at sdk/integrations/next/test/receipt-keys.test.mjs line 273; do_1 remains the port that turns that case green, and this task verify is the only one that runs the Next and Express receipt-keys suites."
 
 [task.22.31.492]
 title = "Make the buyer, agent and conformance middleware use the receipt-signature digest the seller verifies"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.511", "22.31.524"]
@@ -148243,7 +148810,7 @@ do_17 = "Attempt 4 (continue after 22.31.477): the conformance build failed on T
 
 [task.22.33.1478]
 title = "Repair audit record 22.30.86 medium findings in services/platform/middleware/seller/test (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.359", "22.31.360", "22.31.361", "22.31.362", "22.31.434", "22.31.435", "22.31.436", "22.31.479", "22.31.486", "22.31.525", "22.31.492", "22.31.493"]
@@ -150846,7 +151413,7 @@ do_16 = "Attempt 2 (continue): the collateral account-race case waits for the in
 
 [task.22.33.619]
 title = "Repair audit record 22.30.163 medium findings in sdk/integrations/next/example/test (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.287", "22.31.414", "22.31.415", "22.31.416", "22.31.417", "22.31.418", "22.31.419", "22.31.420", "22.31.457", "22.31.479", "22.31.493"]
@@ -155753,7 +156320,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.208]
 title = "Repair audit record 22.30.120 medium findings in services/wallet/gateway/test (part 2 of 2): runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.249", "22.31.250", "22.31.447", "22.31.509", "22.31.517"]
@@ -166452,7 +167019,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.513]
 title = "Bring the Wallet Go tests workflow to green through both jobs: provision the Attestor job, regenerate the drifted copies and repair the ceremony paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.520"]
@@ -174558,12 +175125,197 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.537]
+title = "Carry the actor DID in the stored held spend so the ticket names the agent, not the sender address"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.537"]
+interfaces = []
+do_1 = "do_1 Gotcha 3137, decision 2597. In services/agent/crates/layerx-mcp/src/tools/web/approval_state.rs give StoredSpend a persisted actor field holding the payer DID the disclosure names (config.payer_did, as spend_disclosure already does); authorise_held writes it when a spend is first stored and refuses with ApprovalChanged when a loaded record names another actor than the configured payer; StoredSpend::prepared sets the disclosure actor from that field, and the hold context agent (the line that today builds Did::new from the sender address hex) is the same DID. The storage key prefix is unchanged; a stored record without the field fails the deny_unknown_fields decode and is refused as ApprovalChanged, so the spend is re-presented and held again."
+do_2 = "do_2 Add services/agent/crates/layerx-mcp/tests/repair_22_31_537.rs using the tests/support/web_hold.rs fixture in the manner of repair_22_33_1551.rs: hold a metered search above the threshold through the served route, read the ticket from the registry and assert ticket.disclosure.actor is the configured payer DID (did:layerx:..., not the sender address hex), and where the ticket exposes its hold context assert the agent is that DID; reopen the store (restart) and assert the retry is reported as pending, not changed, because the re-derived disclosure equals the ticket disclosure; write a record without the actor field under the spend key and assert the retry is refused as ApprovalChanged with zero signatures and nothing sent. Existing tests in repair_22_33_1551.rs and repair_22_31_531.rs pass unchanged except an assertion that names the address hex as the actor, which moves to the DID."
+do_3 = "do_3 Record in services/agent/crates/layerx-mcp/tests/repair_22_31_537.kvx the field, the refusal cases and the gate results. The gates need no credential, environment variable or live endpoint (gotcha 2962)."
+symbols = []
+touches = ["services/agent/crates/layerx-mcp/src/tools/web/approval_state.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_537.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_537.kvx", "services/agent/crates/layerx-mcp/tests/repair_22_33_1551.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_531.rs"]
+tests = ["services/agent/crates/layerx-mcp/tests/repair_22_31_537.rs"]
+planned_paths = ["services/agent/crates/layerx-mcp"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --test repair_22_31_537 --test repair_22_33_1551 --test repair_22_31_531"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.31.536]
+title = "Give the host repair test grant terms the receiver DID key the shared type now carries"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.536"]
+interfaces = []
+do_1 = "do_1 Gotcha 3136, decision 2595. In services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs draw_call (line 590) add receiver_did_key to the GrantTerms construction: the receiver DID key the test's node double answers the sequence view for, or, where the test only checks the draw call shape, a fixed 32-byte value distinct from recipient; the suite's existing assertions stay as they are and pass."
+do_2 = "do_2 Record in services/agent/crates/layerx-agentd-host/tests/repair_22_31_536.kvx the site changed, the value chosen and the gate results. The gates need no credential, environment variable or live endpoint (gotcha 2962); nothing outside the one test file and the record changes."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs", "services/agent/crates/layerx-agentd-host/tests/repair_22_31_536.kvx"]
+tests = ["services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"]
+planned_paths = ["services/agent/crates/layerx-agentd-host/tests"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --test repair_22_31_532"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.31.535]
+title = "Emit the committed verification wire rank from the hosted authority and require it in every daemon consumer of its responses"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.535"]
+interfaces = []
+do_1 = "do_1 Gotcha 3134, decision 2593. In services/platform/hosted/authority/src/human/budget_state.rs line 289 and src/human.rs lines 1134 and 1219 replace the literal verification label 4 with layerx_types::verify::VerificationLevel::COMMITTED.wire_rank() (the crate already depends on layerx-types); the evidence digests, the document shapes and every other field stay as they are."
+do_2 = "do_2 In services/agent/crates/layerx-agentd/src/human_runtime.rs make the key-rotation policy consumer (lines 2109 to 2110) and the two observed-scope checks (lines 18430 to 18431 and 19830 to 19831), and in src/managed_agent.rs the stored key-policy check at line 784, decode the label through VerificationLevel::from_wire_rank and require VerificationLevel::COMMITTED exactly as the budget-state consumer at human_runtime.rs line 2065 already does; in src/budget/budget_proof.rs budget_verification_level (line 22) require COMMITTED instead of the retired CHECKPOINT_FINALISED (from_wire_rank never returns a retired label, so that path refused every document), and move the in-crate budget-proof fixture at line 783 and any in-crate unit test that fed label 4 or 5 to the committed label."
+do_3 = "do_3 Prove the path from producer to consumer. services/platform/hosted/authority/tests/repair_22_31_535.rs, registered as a [[test]] entry in the crate manifest and including src/main.rs the way tests/repair_22_33_1473.rs does, asserts that the budget-state read and export documents, the capability-scope document and the key-policy document the producers build carry verification equal to COMMITTED.wire_rank() and decode through from_wire_rank to COMMITTED. services/agent/crates/layerx-agentd/tests/repair_22_31_535.rs serves those three documents from a loopback HTTP stand-in to the production RemoteHumanAuthority and asserts budget_state, key_rotation_policy and the scope read accept them, and that the same documents with label 4 and with label 5 are refused on every path; where the budget-proof verifier can be driven without a live chain it also accepts an export document with the committed label and refuses one with label 4, otherwise the in-crate unit tests of budget_proof.rs cover the label and the record says so."
+do_4 = "do_4 Record in services/platform/hosted/authority/tests/repair_22_31_535.kvx the three producer sites, the five consumer sites, the cases and the gate results. The gates need no credential, environment variable or live endpoint (gotcha 2962). tests/human_approval_budget_actor.rs and tests/human_projection_facts.rs of the daemon are not in this task: 22.31.516 moves their recorded fixtures and assertions to the committed label when it continues after this task."
+symbols = []
+touches = ["services/platform/hosted/authority/src/human/budget_state.rs", "services/platform/hosted/authority/src/human.rs", "services/platform/hosted/authority/Cargo.toml", "services/platform/hosted/authority/tests/repair_22_31_535.rs", "services/platform/hosted/authority/tests/repair_22_31_535.kvx", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/managed_agent.rs", "services/agent/crates/layerx-agentd/src/budget/budget_proof.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_535.rs"]
+tests = ["services/platform/hosted/authority/tests/repair_22_31_535.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_535.rs"]
+planned_paths = ["services/platform/hosted/authority", "services/agent/crates/layerx-agentd/src", "services/agent/crates/layerx-agentd/tests"]
+build_cmd = "cargo build --locked --manifest-path services/platform/hosted/authority/Cargo.toml --tests && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test repair_22_31_535"
+verify_cmd = "cargo test --locked --manifest-path services/platform/hosted/authority/Cargo.toml --test repair_22_31_535 && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_535"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.31.534]
+title = "Judge budget-state verification through the shared label decoder and surface a daemon refusal distinctly"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.31.519", "22.31.516"]
+reqs = ["22998.1"]
+capabilities = ["22.31.534"]
+interfaces = []
+do_1 = "do_1 Gotcha 3124, decision 2585. Add one predicate in services/agent/crates/layerx-agentd/src/budget (for example budget_state_is_committed(label: u8) -> Result<(), BudgetVerificationError>) that decodes the label with layerx_types::verify::VerificationLevel::from_wire_rank and accepts only a level whose rung is Committed; labels 0 to 3 refuse as not committed, 4, 5 and every unknown label refuse as retired or unknown. Replace the literal (4..=5).contains checks in services/agent/crates/layerx-agentd/src/human_runtime.rs approval_budget_after (line 9893) and services/agent/crates/layerx-agentd/src/budget/program_sources.rs (line 49) with calls to it; keep every other check and the error mapping of those sites."
+do_2 = "do_2 In services/human/crates/layerx-human-service/src/approvals/mod.rs add ApprovalBoundaryError::Refused and in src/server/agent_runtime.rs map_approval_error (line 4389) map AgentBoundaryError::Refused to it; update every exhaustive match on ApprovalBoundaryError (grep the crate) so the service builds, reporting Refused to the inbox as a refused state and never as a missing actor."
+do_3 = "do_3 Prove it in services/agent/crates/layerx-agentd/tests/repair_22_31_534.rs: label 6 is accepted; 0, 1, 2 and 3 refuse as not committed; 4, 5 and 7 refuse as retired or unknown; and approval_budget_after over the recorded authority of tests/support/approval_fixture (budget_state.verification 6) returns the budget instead of Refused. The Human-service repair_22_31_462 suite still passes and the service crate builds with the new variant. Write services/agent/crates/layerx-agentd/tests/repair_22_31_534.kvx naming gotcha 3124, decision 2585, the two sites and the gate results. Gate: the declared build and verify only; no credential, no live endpoint (gotcha 2962)."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/src/budget", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_534.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_534.kvx", "services/human/crates/layerx-human-service/src/approvals/mod.rs", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs", "services/human/crates/layerx-human-service/src"]
+tests = ["services/agent/crates/layerx-agentd/tests/repair_22_31_534.rs"]
+planned_paths = ["services/agent/crates/layerx-agentd", "services/human/crates/layerx-human-service"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests && cargo build --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_534 && cargo test --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test repair_22_31_462"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue after 22.31.519, gotcha 3129, decision 2589): attempt 1 stands in full (the shared predicate, the two call sites, the Refused variant and its mapping, the two tests). Rebase on main, where tests/approval_semantics.rs builds again since d739b429df; change nothing of the product, run the declared build and verify once and record."
+do_5 = "Attempt 2 also waits for 22.31.516 (gotcha 3132, decision 2591): the declared build compiles tests/human_approval_budget_actor.rs, red on main until 516 lands; nothing else changes in the attempt-2 instruction."
+
+[task.22.31.532]
+title = "Give the production web payer the approval resources and the held-transaction path"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.532"]
+interfaces = []
+do_1 = "do_1 Gotcha 3120, decision 2584. In services/agent/crates/layerx-agentd-host/src/payer.rs give ProductionWebPayer an optional approval-resources field set through a constructor or builder that takes the shared Store (Arc of Mutex of layerx_agentd::store::Store), builds ApprovalExpiry::from_shared_store over it and takes the BudgetLimiter and the limit ids; implement on WebPayerBoundary (line 394) approval_resources returning a clone of them, prepare_transaction through layerx_agentd::prepare::evm::prepare_bound with the pending nonce, base fee and head height read from the node and the EVM address of the signer as sender (the same values signed_call at lines 191 to 256 reads today), and submit_transaction that signs the unsigned canonical bytes of the prepared transaction with the attestor signer exactly as signed_call does, sends them through send and checks the returned hash against the raw bytes; the re-preparing submit path is never used for an approved transaction. In services/agent/crates/layerx-agentd/src/main.rs publish_mcp_binding (the payer is built at line 1037) pass Arc::clone of the shared store it already receives and a BudgetLimiter built from mcp_limit (line 208) or the one the MCP binding path already builds from that limit, with that limit id as the only entry of limits. Keep the trait defaults for a payer built without resources."
+do_2 = "do_2 Add services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs following tests/payer_evm.rs (which already constructs ProductionWebPayer against a local node) with: (1) a payer built with resources over a temporary Store returns them and the same expiry serves a decision recorded through it after reopening the store; (2) prepare_transaction yields a prepared call whose sender is the signer address, whose chain id is 125 and whose decoded call equals the input; (3) submit_transaction sends exactly the signed form of the prepared bytes (the raw transaction the local node receives decodes to the prepared unsigned fields and recovers the signer) and refuses a prepared transaction whose signing hash does not match its bytes; (4) a payer built without resources returns None. Record in services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.kvx the fields added, the main.rs wiring and the gate results. Gate: the declared build and verify only; no credential, no live endpoint (gotcha 2962)."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd-host/src/payer.rs", "services/agent/crates/layerx-agentd/src/main.rs", "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs", "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.kvx", "services/agent/crates/layerx-agentd-host/tests/payer_evm.rs"]
+tests = ["services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"]
+planned_paths = ["services/agent/crates/layerx-agentd-host/src", "services/agent/crates/layerx-agentd-host/tests", "services/agent/crates/layerx-agentd/src"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --tests && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --test repair_22_31_532 --test payer_evm --test payer && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue, gotcha 3128): attempt 1 stands in full (the optional approval resources, prepare_bound preparation, the held submission path, the main.rs wiring and the four cases). In tests/payer_evm.rs (1) web_pay_exact_submits_a_signed_layerxpay_call resolves the terms through WebCall::exact_terms_with_payer over a WebPayerBoundary (a second payer built by the payer helper on the same node double, converted with into_web_payer) with the test clock, since no production path calls the environment-bound exact_terms; update the expected request-method list to the views the boundary issues, naming each view in a comment; (2) in SigningFixture::start install a fixed native clock on the signer with AttestorSigner::with_native_replay_journal over a journal path under the attestor harness root directory and Arc::clone of the harness clock field as the Clock (the clock that mints the owner assertion), so grant signing never reads the ambient runtime clock; keep every other assertion. Change no product code; run the declared build and verify once and record in repair-22-31-532.kvx that the two suite cases were aligned."
+do_4 = "Attempt 3 (continue, gotcha 3131, decision 2590): attempt 2 stands in full (the optional approval resources, prepare_bound preparation, the held submission path, the main.rs wiring, the four repair cases and the two test alignments of gotcha 3128). In services/agent/crates/layerx-agentd-host/src/payer.rs implement view on WebPayerBoundary (line 394): run the owner check, encode the call with PrecompileCall::encode (an encoding error refuses), read the bytes through the node pending call to the target precompile address exactly as validate reads accountOwner (lines 170 to 178, mapping node failures through node_error and WebPayerError::from) and return them unchanged. In tests/repair_22_31_532.rs add case (5): a boundary view of accountId(bytes32,bytes32) over the local node double returns the node answer bytes unchanged, and the same view refuses when the owner check refuses. Record the method and the case in tests/repair_22_31_532.kvx, run the declared build and verify once and record."
+
+[task.22.31.531]
+title = "Hold an above-threshold metered draw under an existing grant on its disclosure"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.531"]
+interfaces = []
+do_1 = "do_1 Gotcha 3119, decision 2583. In services/agent/crates/layerx-mcp/src/tools/web/approval_state.rs approval_call (lines 398 to 442) replace the Configuration(metered_receiver_approval) refusal: when standing_grant returns an id, run validate_existing_grant, read the receiver sequence through self.payer.view(terms.next_sequence_call()) and sequence_result (src/tools/web.rs lines 718 and 779 pair them), build terms.prepare_draw(id, sequence) and return it with Some(id). In authorise_held (lines 200 to 258) never call self.payer.prepare_transaction for a metered spend with an existing grant: record the held spend from the draw call itself (sender the actor address of the boundary, bytes the canonical encoding of the call, digest and signing hash derived from those bytes and the spend commitment) and keep every other check, the durable save and the reopen path unchanged. Extend validate_approval_call (lines 464 to 492) for the metered scheme with an existing grant: decode the stored call as the draw of the terms (grant id, recipient, amount, idempotency key and purpose hash equal to the terms; the sequence word is not re-validated) and re-run validate_existing_grant so a grant changed between hold and approval is refused as changed. After approval the spend settles through the existing standing-grant path in src/tools/web.rs authorise with no new grant signed and no payer transaction submitted. The metered path that issues a new grant and the exact scheme are unchanged; a payer without approval_resources still reports unavailable."
+do_2 = "do_2 Add services/agent/crates/layerx-mcp/tests/repair_22_31_531.rs over the real WebRoute, approval_state and a payer that reports a standing grant (extend tests/support/web_hold.rs RecordedNodePayer with a standing-grant mode, or follow tests/web.rs RecordedPayer, whose standing grant comes from the committed gateway/metered.json recording and whose view goes through tests/support/node_recording.rs) with: (1) an above-threshold metered search under the standing grant is held, the ticket disclosure carries the amount and the hold id, and prepare_transaction, grant and submit are never called; (2) the hold survives a server restart from the same store and is reported pending; (3) approval settles the spend through the standing grant with no new grant signed; (4) rejection refuses without payment; (5) a grant changed between hold and approval (per-draw maximum below the amount) is refused as changed. Cases 1 to 3 must fail on the pre-repair code with the metered_receiver_approval refusal."
+do_3 = "do_3 Record in services/agent/crates/layerx-mcp/tests/repair_22_31_531.kvx the refusal removed, the stored-spend shape for receiver-executed draws, the five cases and the gate results. Gate: the declared build and verify only; no credential, no live endpoint (gotcha 2962)."
+symbols = []
+touches = ["services/agent/crates/layerx-mcp/src/tools/web/approval_state.rs", "services/agent/crates/layerx-mcp/src/tools/web.rs", "services/agent/crates/layerx-mcp/tests/support/web_hold.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_531.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_531.kvx", "services/agent/crates/layerx-mcp/tests/web_payments_layerxpay.rs", "services/agent/crates/layerx-mcp/tests/proof_mcp.rs", "services/agent/crates/layerx-agentd-host/tests/payer_evm.rs", "services/agent/crates/layerx-agentd-host/tests/support/payer_audit.rs"]
+tests = ["services/agent/crates/layerx-mcp/tests/repair_22_31_531.rs"]
+planned_paths = ["services/agent/crates/layerx-mcp/src/tools/web", "services/agent/crates/layerx-mcp/tests"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --lib --test repair_22_31_531 --test repair_22_33_1551 --test repair_22_31_527"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 3127): the attempt-1 product changes stand (the draw held on its disclosure, the HeldAuthorisation plumbing, the five cases). In the unit tests of src/tools/web.rs make StandingPayer::view answer every view the production path issues: the account view with selector 0x3f050cbc (owner and asset words, issued by payer_account) is answered from the recorded exchange the way the replay fixture at line 2246 answers it, the grant view 0x423fe4b2 keeps its id assertion and answers the grant record, and the sequence view of next_sequence_call answers an encoded sequence word; count every view and set the expected (views, issues, draws, submissions) tuples to the counts the direct below-threshold path really produces, with a comment naming each view. Change no product code and no other assertion; run the declared build and verify once and record."
+do_5 = "Attempt 3 (continue, gotcha 3133, decision 2592): attempt 2 stands in full (the standing-grant hold, the stored draw spend, the restart case, the five cases and the recording). Add receiver_did_key: [u8; 32] to GrantTerms in services/agent/crates/layerx-mcp/src/tools/web.rs and set it at both construction sites: web.rs line 1366 from facts.receiver_did (the 32 hex bytes after did:layerx:, refusing OfferMismatch(account) when malformed) and src/tools/web/approval_state.rs line 384 from the stored terms or facts the same way; make GrantTerms::next_sequence_call (line 753) encode nextSequence(receiver_did_key, asset) so the trait default draw and approval_call read the sequence the ledger keeps. Update the four test constructions of the production type: tests/web_payments_layerxpay.rs line 311 (and its assertion at line 363, which now expects the DID key), tests/proof_mcp.rs line 64, and in layerx-agentd-host tests/payer_evm.rs line 555 and tests/support/payer_audit.rs line 330. In tests/support/web_hold.rs the recording and the unit double at web.rs near line 2351 assert the first word of a nextSequence request equals the receiver DID key of gateway/metered.json (2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8), and the recording destructor tolerates a wake connection that is refused and reports a join error without panicking, so one unrecorded view fails its case instead of aborting the process. Record the field, the key source and the six cases in tests/repair_22_31_531.kvx and run the declared build and verify once."
+
 [task.22.31.529]
 title = "Give the web suite's recorded payer the approval resources the hold path requires"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.527"]
+requires = ["22.31.527", "22.31.531", "22.31.536", "22.31.537"]
 reqs = ["22998.1"]
 capabilities = ["22.31.529"]
 interfaces = []
@@ -174586,6 +175338,9 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue after 22.31.531, gotcha 3119): attempt 1 stands in full (the web_hold directory and resources on RecordedPayer, approval_resources implemented, every assertion unchanged). Rebase on main once 22.31.531 has landed, change nothing else, run the declared build and verify once and record."
+do_4 = "Attempt 3 (continue after 22.31.536, gotcha 3136, decision 2595): attempt 2 stands in full (the fixture retained, every assertion unchanged, the record). Rebase on main once 22.31.536 is there, change nothing, run the declared build and verify once and record the result."
+do_5 = "Attempt 4 (continue after 22.31.537, gotchas 3137 and 3138, decisions 2596 and 2597): attempt 3 stands in full (the fixture, the directory lifetime, the record). One change in tests/web.rs: in the hold cases replace the three assert!(payer.grants.is_empty()) assertions at lines 1357, 1365 and 1415 with assert_eq!(payer.grants.len(), 1), since the standing-grant lookup records the terms once and the pending retry and the decision add none; every replay.signatures() == 0 assertion stays. The actor assertion at line 2272 stays as written and passes once 22.31.537 is on main. Rebase on main once 22.31.537 is there, run the declared build and verify once and record the result."
 
 [task.22.31.528]
 title = "Reconcile the web-search payment suite with the exact-only offers"
@@ -174618,7 +175373,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.527]
 title = "Port the MCP approval policy and web approval boundary to the timed daemon entries with the runtime clock"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -174629,7 +175384,7 @@ do_1 = "do_1 Gotcha 3094, decision 2572. In services/agent/crates/layerx-mcp/src
 do_2 = "do_2 Every layerx-mcp test target compiles against the new signatures: tests that construct WebApproval or WebAuthority pass a DeterministicClock from layerx_types::test_support at the case's established time; where a test builds the daemon DecisionRequest it passes current_time from that clock, and where it calls the approval service get it passes the fourth argument (22.31.495). Change no assertion to make a case pass; a case whose expectation is wrong is named in the task record."
 do_3 = "do_3 Prove the real path in services/agent/crates/layerx-mcp/tests/repair_22_31_527.rs with the real server, binding and route (as repair_22_33_1551 serves a hold): a web spend above the approval threshold is held (not refused), the hold carries the decision time the clock reports, approve through the served route decides it and the spend completes; a clock sample with zero generation refuses Unavailable and leaves no hold; after dropping and rebuilding the registry from the same store the held approval is recovered and decidable with the same clock advanced. Run the declared verify once; the restart cases of repair_22_33_1551 must pass on the final revision. Record in services/agent/crates/layerx-mcp/tests/repair_22_31_527.kvx the signatures changed, the clock sources, the files touched and the gate results. Gate: the declared build and verify only; no credential, no live endpoint (gotcha 2962)."
 symbols = []
-touches = ["services/agent/crates/layerx-mcp/src/approval.rs", "services/agent/crates/layerx-mcp/src/tools/web/approval_state.rs", "services/agent/crates/layerx-mcp/src/tools/web.rs", "services/agent/crates/layerx-mcp/src/binding.rs", "services/agent/crates/layerx-mcp/src/server.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_527.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_527.kvx", "services/agent/crates/layerx-mcp/tests/repair_22_33_1552.rs", "services/agent/crates/layerx-mcp/tests/support/session_transport.rs", "services/agent/crates/layerx-mcp/tests/session_tools_major_two.rs", "services/agent/crates/layerx-agentd/src/main.rs", "services/agent/crates/layerx-agentd-host/tests/payer_evm.rs", "services/human/crates/layerx-human-service/tests/decide.rs"]
+touches = ["services/agent/crates/layerx-mcp/src/approval.rs", "services/agent/crates/layerx-mcp/src/tools/web/approval_state.rs", "services/agent/crates/layerx-mcp/src/tools/web.rs", "services/agent/crates/layerx-mcp/src/binding.rs", "services/agent/crates/layerx-mcp/src/server.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_527.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_527.kvx", "services/agent/crates/layerx-mcp/tests/repair_22_33_1552.rs", "services/agent/crates/layerx-mcp/tests/support/session_transport.rs", "services/agent/crates/layerx-mcp/tests/session_tools_major_two.rs", "services/agent/crates/layerx-agentd/src/main.rs", "services/agent/crates/layerx-agentd-host/tests/payer_evm.rs", "services/human/crates/layerx-human-service/tests/decide.rs", "services/agent/crates/layerx-mcp/src/boundary.rs", "services/agent/crates/layerx-mcp/tests/approval.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_223.rs"]
 tests = ["services/agent/crates/layerx-mcp/tests/repair_22_31_527.rs"]
 planned_paths = ["services/agent/crates/layerx-mcp/src", "services/agent/crates/layerx-mcp/tests", "services/agent/crates/layerx-agentd/src"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --tests && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --bins"
@@ -174647,6 +175402,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue): attempt 1's five production files, the shared web-hold fixture under tests/support and the three proofs stand; both builds failed on compile alone and verification never ran. (1) Gotcha 3105: port the remaining four-argument ApprovalService::list callers, services/agent/crates/layerx-mcp/tests/repair_22_33_1552.rs lines 530 and 607 and tests/support/session_transport.rs line 735 if it is still on four, to pass the case's deterministic clock time as the fifth TimestampSeconds argument exactly as attempt 1 did at line 739; change no assertion. (2) Decision 2574: in services/agent/crates/layerx-agentd/src/main.rs attach_mcp_payers (line 1052) pass owner.mcp_clock() mapped to the string refusal MCP approval clock is unavailable as the first WebAuthority::new argument; the accessor exists on SharedAgentOwner in human_runtime.rs line 2569; add no clock construction, no environment read and no layerx-client dependency to the MCP crate. (3) Test clocks come from layerx_types::test_support::DeterministicClock as do_2 asks; the tests/support/clock.rs adapter may stay only as a thin wrapper of that type, and the helpers the build warned were unused are removed or used. (4) The build now also compiles the daemon binary: run the declared build once, then the declared verify once; record the daemon site, the three ported callers and the gate results in repair_22_31_527.kvx and replace the production_wiring_blocker entry with the wiring done."
 do_5 = "Attempt 3 (continue): attempt 2 builds and its own tests pass; the dependent-crate check refuses two consumers of the widened signatures that no landed task carries. Port services/agent/crates/layerx-agentd-host/tests/payer_evm.rs line 477 to the clock-bearing exact_terms with the fixed test clock the repair_22_31_527 tests use, and services/human/crates/layerx-human-service/tests/decide.rs lines 361, 387 and 491 to the four-argument get with an explicit TimestampSeconds and lines 466 and 498 to a DecisionRequest carrying current_time, using the same decision time the fixture already uses for its sequences. 22.31.515 keeps approvals.rs and the MCP consumers and drops these sites. Run the declared build and verify once and record."
+do_6 = "Attempt 4 (continue, decision 2581): attempt 3 stands; the two hold cases pass and the dependent-crate check passes. The zero-generation case fails because BoundaryRefusal::Unavailable reports unknown() true (src/boundary.rs line 63), so the server records the pre-effect clock refusal as an unknown outcome (src/server.rs lines 1157 to 1166) and the daemon invocation returns InvocationUnknown before the release boundary sees the refusal. Make a decision-time refusal raised before any hold, payment or network effect settle as a refused outcome: either carry that provenance on the refusal so unknown() is false for it while the case keeps matching Unavailable, or sample the decision time before the durable invocation begins and refuse there; the server then settles the invocation with the refusal bytes as for any refused outcome and the registry stays empty. Keep the three cases and every other assertion, run the declared build and verify once and record."
 
 [task.22.31.526]
 title = "Re-record the exact web-search payment fixtures from one type-2 chain-125 signing"
@@ -174713,7 +175469,7 @@ do_4 = "Attempt 2 (requalify): the final revision of attempt 1 carries the bindi
 
 [task.22.31.521]
 title = "Pass the decision time in the Human service nonce and 159 approval tests the 22.31.495 signature change left behind"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -174743,10 +175499,11 @@ do_3 = "Attempt 2 (fresh, gotcha 3093): attempt 1 changed nothing, reading 'Chan
 do_4 = "Attempt 3 (continue): attempt 2 carried the decision time into the eight sites correctly; both decide_nonces cases fail before them because pending_nonce (line 277) prepares PrecompileCall::ledger_transfer(vec![0x33; 32]) and since 9.35.1 the preparation binds the call disclosure through the call codec, which decodes the ledger payload as an asset-send envelope (tag 0x5301, ten fields) and refuses it with Disclosure(MalformedPayload) (gotcha 3102). Build the payload as tests/journey_faults.rs does: compile a send intent and pass its envelope payload bytes to ledger_transfer; keep every assertion (nonce 7, head height 88) and the eight decision-time sites. The fixture is in the task's file. Run the declared build and verify once."
 do_5 = "Attempt 4 (continue): attempt 3's send-intent payload, the hold_at clock reading and the eight decision-time sites stand; both nonce cases now fail inside Decisions::approve before the nonce check because 67f0df3c9e made approve call the boundary's verified_budget_after (src/approvals/decide.rs line 182) and the AgentdDecisions boundary in tests/decide_nonces.rs (around line 480) answers Err(VerificationFailed) after its get (gotcha 3107). Answer it as tests/decide.rs line 413 does: read the hold through the service get with the decision time, then return VerifiedBudgetAfter with the remaining budget the fixture established, Rung::Committed, the fixture's evidence digest and observed_at_sequence equal to the at_sequence argument, so budget.verification() is Verified and observed_at_sequence never exceeds the pending nonce; apply the same to the boundary in tests/repair_22_31_159.rs if it refuses. Keep every assertion: nonce 7 releases the held preparation, nonce 8 is refused with StaleNonce expected 7 pending 8 recorded on the boundary, head height 88. Run the declared build and verify once and record the stub change beside the eight sites."
 do_6 = "Attempt 5 (continue): attempt 4 stands; both nonce cases pass and the three repair_22_31_159 cases fail only on the store root creation. Create the 159 stream root with fs::DirBuilder::new().recursive(true).mode(0o700).create(&stream_root) as gotcha 3096 prescribes: support::directory returns a path whose parent does not exist yet, so the non-recursive builder ends in NotFound and create_dir_all leaves a mode the protected store refuses. Change nothing else; run the declared build and verify once and record."
+do_7 = "Attempt 6 (continue, decision 2580): attempt 5 stands; the store root is created recursively with mode 0o700 and both nonce cases pass. The three asset-domain cases fail only at tests/repair_22_31_159.rs line 265, an assertion written before 22.31.523 added the binding lines. Replace that text-channel assertion with the binding form: when the payload carries an Amount line it is exactly Amount: followed by the base-unit amount under test and is followed by Asset: with the asset under test, as tests/repair_22_31_523.rs lines 219 and 222 assert, and the payload never contains the rendered money form (the amount, a space and the asset). Keep the JSON-channel assertion and every other assertion unchanged, note the superseding decision in tests/repair_22_31_521.kvx, run the declared build and verify once and record."
 
 [task.22.31.519]
 title = "Pass the explicit decision time in the daemon approval_semantics test so the daemon test targets build again"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.515"]
@@ -174773,13 +175530,14 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Attempt 2 (continue after 22.31.515): attempt 1 passed the decision time at the five sites of tests/approval_semantics.rs and the declared build passed; the dependent-crate check then failed on crates/layerx-mcp/tests/repair_22_33_1551.rs line 668 and tests/session_tools_major_two.rs line 205 (DecisionRequest without current_time) and tests/support/session_transport.rs line 735 (the approval list call without its fifth TimestampSeconds argument), all three in the scope of 22.31.515. Rebase on main once 515 is there, rerun the declared build and verify with no further edit unless the dependent check names a site outside 515, and record the result."
+do_4 = "Attempt 3 (continue, gotchas 3122 and 3123): attempt 2 stands (the decision-time arguments, the ordering and recovery cases, the record). In tests/approval_semantics.rs (1) port the four hold calls at lines 151 to 153, 241, 297 and 324 from the retired sequence-only hold to hold_at(registry, context, prepared, ApprovalSequence(current), ApprovalSequence(expires), TimestampSeconds(now)) as tests/approval_ops.rs lines 146 to 163 do, with the current time the suite already fixes; the outlive case (hold_expiry_cannot_outlive_the_prepared_activity) passes a current time at or past the preparation expiry, or an expiry sequence not above the current sequence, and keeps asserting Err(ApprovalError::InvalidWindow); (2) in Directory::new (lines 30 to 37) remove the directory and let ApprovalExpiry::open create the root, or create it with mode 0o700 through std::os::unix::fs::DirBuilderExt, so the protected root accepts it. No product change; run the declared build and verify once and record."
 
 [task.22.31.516]
 title = "Replace the path-included authority human module in the daemon tests with the authority library as a dev-dependency"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.519"]
+requires = ["22.31.519", "22.31.535"]
 reqs = ["22998.1"]
 capabilities = ["22.31.516"]
 interfaces = []
@@ -174788,7 +175546,7 @@ do_2 = "do_2 In services/agent/crates/layerx-agentd/Cargo.toml add layerx-platfo
 do_3 = "do_3 Change no behaviour of the authority or the daemon; the two test files, the authority lib.rs and both Cargo manifests (and the lock file if it changes) are the change. Record in services/agent/crates/layerx-agentd/tests/repair_22_31_516.kvx the items exported, the stand-in removed and the two test runs."
 do_4 = "do_4 The gate needs no environment variable, credential or live endpoint (gotcha 2962); the build compiles every daemon test target and the verify runs the two tests that were red."
 symbols = []
-touches = ["services/platform/hosted/authority/src/lib.rs", "services/agent/crates/layerx-agentd/Cargo.toml", "services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs", "services/agent/crates/layerx-agentd/tests/human_projection_facts.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_516.kvx"]
+touches = ["services/platform/hosted/authority/src/lib.rs", "services/agent/crates/layerx-agentd/Cargo.toml", "services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs", "services/agent/crates/layerx-agentd/tests/human_projection_facts.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_516.kvx", "services/platform/hosted/authority/Cargo.toml", "services/platform/hosted/authority/src/main.rs", "services/platform/hosted/authority/src/chain_receipt.rs", "services/platform/hosted/authority/src/committed.rs", "services/platform/hosted/authority/src/protected.rs", "services/platform/hosted/authority/src/trust.rs", "services/platform/hosted/authority/src/human.rs", "services/platform/hosted/authority/src/human/budget_state.rs", "services/platform/hosted/authority/src/human/budget_state/native.rs", "services/agent/Cargo.lock"]
 tests = ["services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs", "services/agent/crates/layerx-agentd/tests/human_projection_facts.rs"]
 planned_paths = ["services/platform/hosted/authority/src", "services/platform/hosted/authority/Cargo.toml", "services/agent/crates/layerx-agentd/tests", "services/agent/Cargo.lock", "services/agent/Cargo.toml"]
 build_cmd = "cargo build --locked --manifest-path services/platform/hosted/authority/Cargo.toml && cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
@@ -174805,10 +175563,12 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Attempt 2 (continue after 22.31.519): attempt 1 did the task's work (the shared authority library exports, the dev-dependency and the stand-in removal; its first build failed on two module declarations in hosted/authority/src/human/budget_state.rs that the attempt then fixed) and its second build failed only in services/agent/crates/layerx-agentd/tests/approval_semantics.rs, which still uses the signatures 22.31.495 retired (gotcha 3077) and which 22.31.519 repairs. Rebase on main once 519 is there, rerun the declared build and verify with no further edit unless the run names a site inside this task's paths, and record the result."
+do_6 = "Attempt 3 (continue after 22.31.535, gotcha 3134, decision 2593): attempt 2 stands in full (the authority library exports, the dev-dependency and the stand-in removal). Rebase on main once 22.31.535 is there, keeping both the committed label it writes in src/human/budget_state.rs and src/human.rs and the library exports of attempt 2. In tests/human_approval_budget_actor.rs and tests/human_projection_facts.rs move the recorded budget-state fixture literal and every assertion on the verification label to layerx_types::verify::VerificationLevel::COMMITTED.wire_rank() (on main: human_approval_budget_actor.rs lines 778, 1067 and the fixture at 1870 plus the fixture equality near line 530 of attempt 2; human_projection_facts.rs lines 249, 968, 1181 and the fixture at 2379); the projection metadata strings stay as recorded. Change nothing else, run the declared build and verify once and record the result."
+do_7 = "Attempt 4 (continue, gotcha 3136): attempt 3 stands in full (the authority library, both fixtures and assertions at COMMITTED.wire_rank(), the record). Rebase on main, which now carries 22.31.536 at 0935120943 with the receiver_did_key construction in the host repair test, change nothing, run the declared build and verify once and record the result."
 
 [task.22.31.515]
 title = "Carry the explicit decision time into the Human service and MCP consumers of the daemon approval service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.527"]
@@ -176442,7 +177202,7 @@ title = "Repair audit record 22.30.95 medium findings in services/agent/crates/l
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.368", "22.31.443", "22.31.483", "22.31.495", "22.31.519"]
+requires = ["22.31.368", "22.31.443", "22.31.483", "22.31.495", "22.31.519", "22.31.516"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1539"]
 interfaces = []
@@ -176474,6 +177234,8 @@ do_8 = "Attempt 3 (requalify): attempt 2 passed 2 of 5 cases, then repaired the 
 do_9 = "Attempt 4 (requalify after 22.31.483): attempt 3 re-ran the gates on the attempt-2 tree and passed the build; the dependent-crate check failed in the gateway's tests/repair_22_31_345.rs (the two-argument handle_connection call; the deployment.yaml include is restored by 22.31.467), a file owned by 22.31.483. Requalify the attempt-3 tree once 22.31.483 is on main."
 do_10 = "Attempt 5 (after 22.31.495): attempt 4 passed three of five cases; finding_27_grant_rejection_concurrency_and_durable_winner and finding_27_api_changed_call_and_disclosure_never_queue fail with Registry(ClockRequired) from the approval service's grant and reject entry points, which 22.31.495 threads the current time through. Re-run the gates on the attempt-4 tree once 22.31.495 is on main, pass the explicit time the new entry points take, and fix inside the paths only what still fails."
 do_11 = "Attempt 6 (continue after 22.31.519): attempt 5 passed current_time at the three sites of tests/approval_ordering/mod.rs (lines 129, 157 and 213) but never imported the type, so the lib test build failed with E0425 cannot find TimestampSeconds; the module is included from both the lib tests and the integration tests, so import it by a path valid in both, layerx_agent_api::TimestampSeconds as the compiler suggests. The crate's test build also compiles tests/approval_semantics.rs, which 22.31.519 repairs (gotcha 3077); rebase on main once it is there, run the declared build and verify, and record."
+do_12 = "Attempt 6 (continue after 22.31.519, gotchas 3122 and 3123): apply the same two changes to tests/approval_ordering/mod.rs that 22.31.519 attempt 3 applies to tests/approval_semantics.rs: the hold calls at lines 151 and 231 use hold_at with ApprovalSequence and TimestampSeconds arguments at the fixed decision time, and line 32 no longer pre-creates the store root with fs::create_dir_all (let ApprovalExpiry::open create it, or create it with mode 0o700); change no assertion and no product code."
+do_13 = "Attempt 7 (continue after 22.31.516, gotcha 3132, decision 2591): attempt 6 stands in full (the TimestampSeconds import, the hold_at calls and the store-root change of attempt 6, every earlier assertion). Rebase on main once 22.31.516 is there, change nothing, run the declared build and verify once and record."
 
 [task.22.33.1538]
 title = "Repair audit record 22.30.95 medium findings in services/agent/crates/layerx-agentd/tests (part 3 of 3): retired-reference, test-gap"
@@ -177457,7 +178219,7 @@ title = "Repair audit record 22.30.90 medium findings in services/human/crates/l
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.214", "22.31.215", "22.31.216", "22.31.443", "22.31.462", "22.31.515", "22.31.521"]
+requires = ["22.31.214", "22.31.215", "22.31.216", "22.31.443", "22.31.462", "22.31.515", "22.31.521", "22.31.534"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1510"]
 interfaces = []
@@ -177490,6 +178252,7 @@ do_9 = "Attempt 2 (continue after 22.31.462): the approval budget actor reported
 do_10 = "Attempt 3 (continue): the build fails because services/human/crates/layerx-human-service/tests/support/approval_owner.rs line 81 path-includes services/platform/hosted/authority/src/human as a module; its crate-root imports and parent references do not resolve in the test crate (gotcha 3067) and the authority is not the producer of the state the approval decoder reads (decision 2558). Delete that module and the wiring request to the authority in the task record. Produce the daemon-written budget state the way the production daemon writes it, through layerx_agentd::human_runtime (the shared rung contract of 22.31.462), or replay a recorded transcript of that output from tests/support/approval_fixture, and feed it through the production decoder of the service (services/human/crates/layerx-human-service/src/agents/recovery.rs). Keep the approval and decision cases over real agent transport with reopen, as do_4, do_5 and do_9 require; run build and verify at the same final revision."
 do_11 = "Attempt 4 (continue): the build passes and the fixture now runs the real daemon library behind a recorded loopback authority, as decision 2558 asked; all three cases fail because the daemon's startup recovery refuses the served budget state with reason Unavailable (human_runtime.rs line 14521) and keeps the actor read-only, so every decision is Refused (gotcha 3074). Find why the recovery cannot read the budget record the transcript serves (the persisted record shape or the store it expects, human_runtime.rs line 748 names the two causes) and make the transcript carry exactly what the real authority emits, or produce the budget state through the daemon library in-process; do not loosen the daemon. The verify's three cases must pass; if 22.31.515 is on main when you start, rebase on it and keep its approvals.rs and decide.rs signature changes."
 do_12 = "Attempt 5 (continue after 22.31.515 and 22.31.521): attempt 4's fixture work stands (the real daemon library behind a recorded loopback authority); its build failed only on tests/decide_nonces.rs and tests/repair_22_31_159.rs, which still use the signatures 22.31.495 retired (gotcha 3083) and which 22.31.521 repairs while 22.31.515 repairs approvals.rs and decide.rs. Rebase on main once both are there, run the declared build and the verify; if the three cases still report the budget state Unavailable, follow the attempt-4 instruction (human_runtime.rs line 748 names the two causes; make the transcript carry what the real authority emits or produce the state through the daemon library in-process; never loosen the daemon). Record the outcome and any remaining refusal field in the task record."
+do_13 = "Attempt 6 (continue after 22.31.534, gotcha 3124, decision 2585): attempt 5 stands in full (the recorded authority, the owner fixture, the three cases and the record; recovery reconciles and admits). Rebase on main once 22.31.534 has landed, change nothing, run the declared build and verify once and record."
 
 [task.22.33.1508]
 title = "Repair audit record 22.30.90 medium findings in services/agent/crates/layerx-agentd/src (part 1 of 1): runtime-risk"
@@ -184617,7 +185380,7 @@ do_8 = "Publication of attempt 1: the gates passed; the result waited only becau
 
 [task.22.33.44]
 title = "Repair audit record 22.30.105 medium findings in services/human/crates/layerx-human-service/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.3", "22.31.443", "22.31.495", "22.31.515"]
@@ -184658,6 +185421,7 @@ do_14 = "Attempt 3 (requalify): 14 of 15 cases passed; authenticated_routes_pres
 do_15 = "Attempt 4 (continue): the approval fixture at tests/support/repair_22_33_44_approval.rs line 122 panics ClockRequired because validate_for_read now takes the current time (22.33.1507); pass the runtime clock's current time through the fixture, keep the fifteen cases, and run the verify."
 do_16 = "Attempt 5 (after 22.31.495): attempt 4 passed eight of fifteen cases; the seven failing cases drive the real approval service, which refuses every awaiting hold with ClockRequired because its entry points carry no time (gotcha 3028), repaired by 22.31.495. Re-run the gates on the attempt-4 tree once 22.31.495 is on main, passing the authenticated runtime time to the service's timed entry points."
 do_17 = "Attempt 6 (requalify after 22.31.515): attempt 5 requalified the attempt-4 tree without edits and failed only because the Human service test build is red on main since 22.31.495 (gotcha 3072); tests/approvals.rs lacks the fourth get argument and the current_time field, none of which the attempt changed. Requalify the same tree once 22.31.515 is on main."
+do_18 = "Attempt 7 (continue, gotcha 3125, decision 2586): attempt 6 stands (14 of 15 cases). Align render::mismatched_digest_and_unverified_budget_are_refused_before_content in tests/render.rs (lines 296 to 303): a Submitted-rung budget with a non-zero evidence digest renders Ok with budget_after.rung Submitted carried into the presentation; a budget whose evidence digest is zero is Err(UnverifiedBudget); the DigestMismatch assertion stays and is checked first. Change no product code; run the declared build and verify once and record."
 
 [task.22.33.43]
 title = "Repair audit record 22.30.105 medium findings in services/human/crates/layerx-human-service/src (part 1 of 1): doc-drift, restart-recovery, runtime-risk"
@@ -326658,7 +327422,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.877]
 title = "Repair audit record 22.30.183 medium findings in tools/qualification/paxeer-x (part 2 of 3): doc-drift, retired-reference, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.330", "22.31.491"]
@@ -326697,6 +327461,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_15 = "Attempt 2 (after 22.31.491): 57 of 59 cases passed; the two terminal-0 cases served the ledger revert case V2-layerxledger-revert, which the production check rightly refuses as a preexecution refusal (gotcha 3024). Serve the committed case V2-pax-transfer-insufficient-funds added by 22.31.491 as terminal-0 and keep the production check unchanged; re-run the gates on the attempt-1 tree once 22.31.491 is on main."
+do_16 = "Attempt 3 (continue): the requalification of attempt 1 could not pass because attempt 1 still serves V2-layerxledger-revert as terminal-0 (tests/test_repair_22_33_877.py line 113), a receipted revert with return data that the production check rightly refuses (gotcha 3024). Apply the standing instruction: serve the committed case V2-pax-transfer-insufficient-funds from sdk/platform/conformance/fixtures/sequencer-receipt-v1.json (added by 22.31.491: status 0x0, return data 0x, no logs, vmError insufficient balance for transfer) as terminal-0 in ChainPeer and its records, keep the production check in native-terminal-outcome.py unchanged, keep every other case, run the declared build and verify once and record."
 
 [task.22.33.875]
 title = "Repair audit record 22.30.183 medium findings in docker (part 1 of 1): security"

@@ -73,7 +73,7 @@ function effect(ordinal, kind, body) {
   return Buffer.concat([uint(12n, 2), uint(BigInt(ordinal), 2), uint(0n, 2), Buffer.of(kind, 0), bounded(Buffer.alloc(32)), bounded(body)]);
 }
 
-function signedProof({ amount = 25n, height = 7n, signingPin = pin, paymentReference = reference,
+async function signedProof({ amount = 25n, height = 7n, signingPin = pin, paymentReference = reference,
   paymentTo = payee, logAddress = LAYERX_LEDGER_ADDRESS, count = 1, resultCode = 0n } = {}) {
   const rawTransaction = transaction(amount);
   const txHash = keccak256(rawTransaction);
@@ -98,9 +98,10 @@ function signedProof({ amount = 25n, height = 7n, signingPin = pin, paymentRefer
   const unsignedReceipt = Buffer.concat([prefix, Buffer.of(0)]);
   const signingDigest = sha256(Buffer.concat([Buffer.from("LXP/v1/receipt\0"), unsignedReceipt]));
   const signedReceipt = Buffer.concat([prefix, Buffer.of(1), bounded(sign(null, signingDigest, pair.privateKey))]);
+  const verified = await verifySequencerReceipt(signedReceipt, rawTransaction, [pin]);
   return {
     format: "layerx-receipt-proof-v2", verificationLevel: "receipted", rawTransaction: hex(rawTransaction),
-    signedReceipt: hex(signedReceipt), receiptDigest: hex(keccak256(signedReceipt)),
+    signedReceipt: hex(signedReceipt), receiptDigest: hex(verified.receiptDigest),
     receiptKey: { keyId: hex(signingPin.keyId), publicKey: hex(signingPin.publicKey),
       firstHeight: `0x${signingPin.first_height.toString(16)}`, lastHeight: `0x${signingPin.last_height.toString(16)}` },
   };
@@ -116,7 +117,7 @@ function request(proof) {
 }
 
 async function verifyPaymentReceiptAcceptsSignedSequencerReceipt() {
-  const proof = signedProof();
+  const proof = await signedProof();
   const settled = await new ReceiptPayloadAuthority([pin]).settle(request(proof));
   assert.equal(settled.kind, "settled");
   assert.equal(settled.rawTransaction, proof.rawTransaction);
@@ -131,11 +132,11 @@ async function verifyPaymentReceiptAcceptsSignedSequencerReceipt() {
   assert.deepEqual(Buffer.from(verified.payment.to), payee);
   assert.deepEqual(Buffer.from(verified.payment.paymentReference), reference);
   for (const height of [1n, 1000n]) {
-    assert.equal((await verifyPaymentReceipt(signedProof({ height }), requirements, [pin])).height, height);
+    assert.equal((await verifyPaymentReceipt(await signedProof({ height }), requirements, [pin])).height, height);
   }
   for (const changes of [{ count: 0 }, { count: 2 }, { paymentReference: word(0x66) },
     { paymentTo: word(0x77) }, { logAddress: "0x000000000000000000000000000000000000101b" }, { resultCode: 1n }]) {
-    await assert.rejects(verifyPaymentReceipt(signedProof(changes), requirements, [pin]), refuses("verification-failure"));
+    await assert.rejects(verifyPaymentReceipt(await signedProof(changes), requirements, [pin]), refuses("verification-failure"));
   }
   for (const malformed of [{ ...proof, format: "layerx-receipt-proof-v1" }, { ...proof, verificationLevel: "sequencer-signed" },
     { ...proof, extra: true }, { ...proof, receiptKey: { ...proof.receiptKey, extra: true } }]) {
@@ -156,7 +157,7 @@ async function verifyPaymentReceiptAcceptsSignedSequencerReceipt() {
 async function verifyPaymentReceiptRefusesKeyOutsideHeightRange() {
   for (const outside of [{ ...pin, first_height: 8n }, { ...pin, last_height: 6n },
     { ...pin, first_height: 100n, last_height: 200n }]) {
-    const proof = signedProof({ signingPin: outside });
+    const proof = await signedProof({ signingPin: outside });
     await assert.rejects(verifySequencerReceipt(bytes(proof.signedReceipt), bytes(proof.rawTransaction), [outside]),
       (error) => error.code === "verification-failure" && error.check === "key_out_of_range");
     await assert.rejects(verifyPaymentReceipt(proof, requirements, [outside]), refuses("verification-failure"));
@@ -166,7 +167,7 @@ async function verifyPaymentReceiptRefusesKeyOutsideHeightRange() {
 }
 
 async function verifyPaymentReceiptRefusesAmountMismatch() {
-  const proof = signedProof({ amount: 24n });
+  const proof = await signedProof({ amount: 24n });
   const valid = await verifySequencerReceipt(bytes(proof.signedReceipt), bytes(proof.rawTransaction), [pin]);
   assert.equal(valid.height, 7n);
   assert.equal((await verifyPaymentReceipt(proof, { ...requirements, amount: "24" }, [pin])).payment.amount, 24n);
@@ -174,7 +175,7 @@ async function verifyPaymentReceiptRefusesAmountMismatch() {
 }
 
 async function exactOfferWithoutPurposeHashVerifies() {
-  const proof = signedProof();
+  const proof = await signedProof();
   const offer = { ...requirements, extra: { layerx: { commitment: "receipted" } } };
   const verified = await verifyPaymentReceipt(proof, offer, [pin]);
   assert.equal(verified.rung, "receipted");
@@ -190,7 +191,7 @@ async function exactOfferWithoutPurposeHashVerifies() {
 }
 
 async function meteredOfferWithoutPurposeHashRefuses() {
-  const proof = signedProof();
+  const proof = await signedProof();
   for (const scheme of ["metered", "subscription"]) {
     const offer = { ...requirements, scheme, extra: { layerx: { commitment: "receipted" } } };
     await assert.rejects(verifyPaymentReceipt(proof, offer, [pin]), (error) => {
@@ -203,22 +204,14 @@ async function meteredOfferWithoutPurposeHashRefuses() {
   }
 }
 
-async function meteredOfferWithPurposeHashVerifies() {
-  const proof = signedProof();
+async function meteredOfferRefusesExactEvidence() {
+  const proof = await signedProof();
   for (const scheme of ["metered", "subscription"]) {
     const offer = { ...requirements, scheme, extra: { layerx: {
       ...requirements.extra.layerx,
       ...(scheme === "subscription" ? { windowSeconds: "60" } : {}),
     } } };
-    const verified = await verifyPaymentReceipt(proof, offer, [pin]);
-    assert.equal(verified.rung, "receipted");
-    assert.equal(verified.height, 7n);
-    assert.equal(verified.txHash, hex(keccak256(bytes(proof.rawTransaction))));
-    assert.equal(verified.payment.amount, 25n);
-    assert.deepEqual(Buffer.from(verified.payment.assetId), asset);
-    assert.deepEqual(Buffer.from(verified.payment.to), payee);
-    assert.deepEqual(Buffer.from(verified.payment.from), payer);
-    assert.deepEqual(Buffer.from(verified.payment.paymentReference), reference);
+    await assert.rejects(verifyPaymentReceipt(proof, offer, [pin]), refuses("verification-failure"));
     await assert.rejects(verifyPaymentReceipt(proof, {
       ...offer, extra: { layerx: { ...offer.extra.layerx, purposeHash: word(0x66).toString("hex") } },
     }, [pin]), refuses("verification-failure"));
@@ -226,7 +219,7 @@ async function meteredOfferWithPurposeHashVerifies() {
 }
 
 async function receiptPayloadAuthorityRefusesDigestMismatch() {
-  const proof = signedProof();
+  const proof = await signedProof();
   const authority = new ReceiptPayloadAuthority([pin]);
   assert.equal((await authority.settle(request(proof))).kind, "settled");
   for (const index of [0, 31]) {
@@ -243,5 +236,5 @@ test(verifyPaymentReceiptRefusesKeyOutsideHeightRange);
 test(verifyPaymentReceiptRefusesAmountMismatch);
 test(exactOfferWithoutPurposeHashVerifies);
 test(meteredOfferWithoutPurposeHashRefuses);
-test(meteredOfferWithPurposeHashVerifies);
+test(meteredOfferRefusesExactEvidence);
 test(receiptPayloadAuthorityRefusesDigestMismatch);

@@ -5,25 +5,20 @@ use std::time::Duration;
 
 use layerx_client::runtime_clock::{ClockBinding, RuntimeClock};
 use layerx_human_service::custody::{
-    GatewayLimits, GatewayPolicy, GatewayTls, LxkpGateway, RemoteKmsProvider,
+    GatewayChainSnapshot, GatewayLimits, GatewayPolicy, GatewayTls, LxkpGateway, RemoteKmsProvider,
 };
 use layerx_human_service::frame::{Limits, MutualTlsConfig};
 use layerx_types::clock::Clock;
 use layerx_types::payload::ModuleRegistry;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls::RootCertStore;
-use serde::Deserialize;
 use zeroize::Zeroizing;
 
 const PREFIX: &str = "LAYERX_HUMAN_KMS_GATEWAY";
 const LAYERX_HUMAN_KMS_GATEWAY_REGISTRY_FILE: &str = "LAYERX_HUMAN_KMS_GATEWAY_REGISTRY_FILE";
 const REMOTE_PROVIDER: &str = "remote-lxkp";
 
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct ChainSnapshot {
-    pub(super) chain_id: u32,
-}
+pub(super) type ChainSnapshot = GatewayChainSnapshot;
 
 pub(super) fn runtime_clock(binding: ClockBinding) -> Result<Arc<dyn Clock>, String> {
     RuntimeClock::connect(binding)
@@ -132,15 +127,7 @@ pub(super) fn prepare(
 pub(super) fn snapshot(path: &Path) -> Result<ChainSnapshot, String> {
     let bytes = protected(path, false)
         .map_err(|reason| format!("{LAYERX_HUMAN_KMS_GATEWAY_REGISTRY_FILE} {reason}"))?;
-    let snapshot: ChainSnapshot = serde_json::from_slice(&bytes).map_err(|error| {
-        format!("{LAYERX_HUMAN_KMS_GATEWAY_REGISTRY_FILE} chain snapshot is invalid: {error}")
-    })?;
-    if snapshot.chain_id != 125 {
-        return Err(format!(
-            "{LAYERX_HUMAN_KMS_GATEWAY_REGISTRY_FILE} chain_id must be 125"
-        ));
-    }
-    Ok(snapshot)
+    GatewayChainSnapshot::decode(&bytes)
 }
 
 struct Settings<'a> {

@@ -189,6 +189,10 @@ pub struct MutualTlsConfig {
 }
 
 impl MutualTlsConfig {
+    pub(crate) fn deadline_client(&self) -> Arc<ClientConfig> {
+        Arc::clone(&self.inner)
+    }
+
     /// Builds a server-authenticated configuration with mandatory local client
     /// certificate material.
     ///

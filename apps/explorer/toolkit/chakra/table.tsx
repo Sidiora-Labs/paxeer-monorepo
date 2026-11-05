@@ -22,7 +22,7 @@ export interface TableCellProps extends ChakraTable.CellProps {
 export const TableCell = (props: TableCellProps) => {
   const { isNumeric, ...rest } = props;
 
-  return <ChakraTable.Cell textAlign={ isNumeric ? 'right' : undefined } { ...rest }/>;
+  return <ChakraTable.Cell data-is-numeric={ isNumeric || undefined } textAlign={ isNumeric ? 'right' : undefined } { ...rest }/>;
 };
 
 export interface TableColumnHeaderProps extends ChakraTable.ColumnHeaderProps {
@@ -32,7 +32,7 @@ export interface TableColumnHeaderProps extends ChakraTable.ColumnHeaderProps {
 export const TableColumnHeader = (props: TableColumnHeaderProps) => {
   const { isNumeric, ...rest } = props;
 
-  return <ChakraTable.ColumnHeader textAlign={ isNumeric ? 'right' : undefined } { ...rest }/>;
+  return <ChakraTable.ColumnHeader data-is-numeric={ isNumeric || undefined } textAlign={ isNumeric ? 'right' : undefined } { ...rest }/>;
 };
 
 export interface TableColumnHeaderSortableProps<F extends string> extends TableColumnHeaderProps {

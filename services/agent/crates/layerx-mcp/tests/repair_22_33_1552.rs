@@ -49,6 +49,7 @@ use layerx_mcp::server::{DeploymentMode, ReadOnly, Server, ToolDefinition};
 use layerx_mcp::stdio::{Bound, Session};
 use layerx_sdk::agent_envelope::{encode_envelope, EnvelopeCredential};
 use layerx_types::ids::Did;
+use layerx_types::test_support::DeterministicClock;
 use layerx_types::verify::VerificationLevel;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -527,7 +528,8 @@ impl OwnerTransport<'_> {
                     Operation::ApprovalList => {
                         let service = self.service.as_ref().expect("real approval service");
                         let limit = request["limit"].as_str().expect("limit").parse().expect("page limit");
-                        let page = service.list(credential.tenant(), None, limit, HEIGHT)
+                        let page = service.list(credential.tenant(), None, limit, HEIGHT,
+                            layerx_agent_api::TimestampSeconds(DeterministicClock::new(HEIGHT).now()))
                             .expect("owning service accepts schema maximum");
                         Ok(json!({"approvals": page.approvals.iter().map(|record| json!({"approval_id":hex(&record.approval_id)})).collect::<Vec<_>>(),
                             "next_cursor": page.next_cursor.map(|id| hex(&id))}))
@@ -608,7 +610,8 @@ fn approval_page_bound_authenticated_transport() {
             &TenantId::new("tenant-a").expect("tenant"),
             None,
             101,
-            HEIGHT
+            HEIGHT,
+            layerx_agent_api::TimestampSeconds(DeterministicClock::new(HEIGHT).now())
         ),
         Err(ApprovalOperationError::InvalidPageLimit)
     ));

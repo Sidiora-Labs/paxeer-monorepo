@@ -1131,7 +1131,7 @@ fn native_capability_scope(
             "counterparties": [], "assets": [], "amount_ceiling": "0",
             "expiry_sequence": scope.expiry_sequence, "action_key": scope.action_key,
             "capability_id": scope.capability_id, "authority": scope.authority,
-            "enforceable_dimensions": [], "observed_sequence": head, "verification": 4,
+            "enforceable_dimensions": [], "observed_sequence": head, "verification": layerx_types::verify::VerificationLevel::COMMITTED.wire_rank(),
             "evidence_digest": hex::encode(&item.receipt_digest),
             "canonical_core_bytes": hex::encode(summary),
             "checkpoint_digest": hex::encode(&checkpoint.checkpoint_id),
@@ -1216,7 +1216,7 @@ fn native_key_policy(
             "maximum_delay_seconds": maximum,
             "effective_sequence": policy.effective_sequence,
             "observed_head_sequence": head,
-            "verification": 4,
+            "verification": layerx_types::verify::VerificationLevel::COMMITTED.wire_rank(),
             "evidence_digest": hex::encode(&item.receipt_digest),
             "checkpoint_digest": hex::encode(&checkpoint
                 .map(|c| c.checkpoint_id)

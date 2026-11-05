@@ -1,10 +1,11 @@
+import "./source-loader.mjs";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { keccak256 } from "@sidiora/layerx-sdk";
+import { keccak256, verifySequencerReceipt } from "@sidiora/layerx-sdk";
 import {
   MiddlewareError,
   PAYMENT_RESPONSE_HEADER,
@@ -33,12 +34,13 @@ const pin = {
   first_height: BigInt(vector.pinnedKey.firstHeight),
   last_height: BigInt(vector.pinnedKey.lastHeight),
 };
+const verified = await verifySequencerReceipt(bytes(vector.signedReceipt), bytes(vector.rawTransaction), [pin]);
 const proof = {
   format: "layerx-receipt-proof-v2",
   verificationLevel: "receipted",
   rawTransaction: vector.rawTransaction,
   signedReceipt: vector.signedReceipt,
-  receiptDigest: hex(keccak256(bytes(vector.signedReceipt))),
+  receiptDigest: hex(verified.receiptDigest),
   receiptKey: {
     keyId: vector.pinnedKey.keyId,
     publicKey: vector.pinnedKey.publicKey,
@@ -119,7 +121,7 @@ async function receiptReplayRefusesChangedRequestAndReplaysOriginal(t) {
   assert.deepEqual(stored.resource, first.resource);
 }
 
-async function receiptIdentityIsScopedToMerchant(t) {
+async function receiptIdentityIsBoundToOnePrincipal(t) {
   const directory = await mkdtemp(join(tmpdir(), "seller-receipt-merchants-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const middleware = seller(directory);
@@ -131,12 +133,11 @@ async function receiptIdentityIsScopedToMerchant(t) {
   const first = await middleware.handle("merchant-one", header("first request"), release);
   const second = await middleware.handle("merchant-two", header("second request"), release);
   assert.equal(first.kind, "released");
-  assert.equal(second.kind, "released");
-  assert.equal(releasedKeys.length, 2);
-  assert.notEqual(releasedKeys[0], releasedKeys[1]);
+  assertReceiptReuse(second);
+  assert.equal(releasedKeys.length, 1);
   assertReceiptReuse(await middleware.handle("merchant-one", header("second request"), release));
   assertReceiptReuse(await middleware.handle("merchant-two", header("first request"), release));
-  assert.equal(releasedKeys.length, 2);
+  assert.equal(releasedKeys.length, 1);
 }
 
 async function unverifiedReceiptCannotClaimFulfillment(t) {
@@ -163,5 +164,80 @@ async function unverifiedReceiptCannotClaimFulfillment(t) {
 }
 
 test(receiptReplayRefusesChangedRequestAndReplaysOriginal);
-test(receiptIdentityIsScopedToMerchant);
+test(receiptIdentityIsBoundToOnePrincipal);
 test(unverifiedReceiptCannotClaimFulfillment);
+
+async function authenticatedReceiptRaceSurvivesServerReopen(t) {
+  const { createServer } = await import("node:http");
+  const { once } = await import("node:events");
+  const directory = await mkdtemp(join(tmpdir(), "seller-authenticated-replay-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const principals = new Map([["Bearer owner", "merchant-one"], ["Bearer other", "merchant-two"]]);
+  let releases = 0;
+  let server;
+  let firstResource;
+  const start = async () => {
+    // Independent repository instances share only the durable directory.
+    const middleware = [seller(directory), seller(directory)];
+    let index = 0;
+    server = createServer(async (request, response) => {
+      const principal = principals.get(request.headers.authorization);
+      if (!principal) { response.writeHead(401).end(); return; }
+      try {
+        const decision = await middleware[index++ % middleware.length].handle(principal,
+          request.headers["payment-signature"], async (idempotencyKey) => {
+            releases++;
+            return { idempotencyKey, order: "one-paid-order" };
+          });
+        response.writeHead(decision.status, { "content-type": "application/json", ...decision.headers });
+        response.end(JSON.stringify(decision.kind === "released" ? decision.resource : decision.settlement));
+      } catch (error) { response.writeHead(503).end(JSON.stringify({ error: error.code })); }
+    });
+    server.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    return `http://127.0.0.1:${server.address().port}/paid`;
+  };
+  const stop = async () => {
+    const closing = new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    server.closeAllConnections(); await closing;
+  };
+  t.after(async () => { if (server.listening) await stop(); });
+  let endpoint = await start();
+  const call = (token, signature) => fetch(endpoint, { headers: { authorization: `Bearer ${token}`, "payment-signature": signature } });
+  const original = header("authenticated order");
+  const conflicting = header("different order");
+  const unauthorized = await call("invalid", original);
+  assert.equal(unauthorized.status, 401); await unauthorized.text();
+  assert.equal(releases, 0);
+  const first = await call("owner", original);
+  assert.equal(first.status, 200);
+  firstResource = await first.json();
+  const firstSettlement = decodeSettlementHeader(first.headers.get(PAYMENT_RESPONSE_HEADER));
+  assert.equal(firstSettlement.transaction, vector.receiptJson.txHash);
+  for (const phase of ["concurrent", "reopened"]) {
+    if (phase === "reopened") { await stop(); endpoint = await start(); }
+    const responses = await Promise.all([
+      call("owner", original), call("other", original), call("owner", conflicting), call("other", conflicting), call("owner", original),
+    ]);
+    for (const [index, result] of responses.entries()) {
+      assert.equal(result.status, index === 0 || index === 4 ? 200 : 409);
+      const body = await result.json();
+      const settlement = decodeSettlementHeader(result.headers.get(PAYMENT_RESPONSE_HEADER));
+      if (result.status === 200) {
+        assert.deepEqual(body, firstResource);
+        assert.deepEqual(settlement, firstSettlement);
+      } else {
+        assert.equal(body.errorReason, "receipt_reuse");
+        assert.equal(settlement.success, false);
+        assert.equal(settlement.transaction, "");
+      }
+    }
+    assert.equal(releases, 1);
+    assert.equal((await readdir(directory)).length, 1);
+    const recovered = await fulfillments(directory).get(firstResource.idempotencyKey);
+    assert.equal(recovered.receiptDigest, proof.receiptDigest);
+    assert.deepEqual(recovered.resource, firstResource);
+  }
+}
+
+test(authenticatedReceiptRaceSurvivesServerReopen);
