@@ -184057,7 +184057,7 @@ do_15 = "Attempt 8 (requalify after 22.31.550, gotcha 3172, decision 2623): the 
 
 [task.22.33.222]
 title = "Repair audit record 22.30.124 medium findings in programs/crates/layerx-programs-registry/tests/support (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.256", "22.31.257", "22.31.258", "22.31.443", "22.31.485", "22.31.497", "22.31.550"]
