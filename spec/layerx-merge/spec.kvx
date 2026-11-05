@@ -155765,7 +155765,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.208]
 title = "Repair audit record 22.30.120 medium findings in services/wallet/gateway/test (part 2 of 2): runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.249", "22.31.250", "22.31.447", "22.31.509", "22.31.517"]
