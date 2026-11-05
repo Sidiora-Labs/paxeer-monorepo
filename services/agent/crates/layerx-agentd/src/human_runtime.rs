@@ -1612,7 +1612,7 @@ impl CoreLeaseAttestation {
 }
 
 /// TLS-authenticated independent authority replica. The endpoint is distinct
-/// from the node LNI socket and every response is decoded into closed protocol
+/// from the node JSON-RPC endpoint and every response is decoded into closed protocol
 /// types before it can influence preparation or receipt verification.
 pub struct RemoteHumanAuthority {
     agent: ureq::Agent,
@@ -2238,7 +2238,7 @@ fn retained_activity_owner(
 
 /// Concrete production path. Prepared bytes remain key-free; externally
 /// supplied signatures are attached, reverified, durably queued, and only then
-/// submitted through the sole frozen LNI client.
+/// submitted through the node sequencer client.
 pub struct ProductionHumanOperations<A> {
     authority: A,
     node: layerx_client::sequencer::SequencerEndpoint,

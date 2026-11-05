@@ -8757,6 +8757,72 @@ value = "encode_response in services/agent/crates/layerx-agentd/src/human.rs wri
 basis = "Gotcha 3150: the daemon test targets did not compile for a week, so the reason field of 22.31.219 reached the tests only now and the first one to compile failed on it."
 affects = ["22.31.219", "22.31.516"]
 
+[decision.2608]
+title = "A retirement record kept beside the code and a documentation sentence that a test asserts verbatim are allowed by exact line entries in the retired-callers catalogue; free prose that names a retired component without being asserted is reworded instead"
+value = "The retired-callers catalogue (tools/paxeer-x/retired_callers.json) carries, under allowed_references with a citation, the exact lines of a repair record such as services/agent/crates/layerx-client/src/repair_22_33_1541.kvx and of a README sentence a test asserts verbatim, such as the no-LNI-connection sentence of services/agent/crates/layerx-agentd/README.md that tests/repair_22_33_1532.rs checks; records are history and asserted sentences are contracts, so neither is rewritten. A doc comment or other prose nobody asserts, such as line 7 of services/agent/crates/layerx-client/src/lib.rs, is reworded to describe the present interface (the node root JSON-RPC and the hosted gateway) without naming the retired component. The scan stays strict for every other line. Decisions 2606 and 2378 stand."
+basis = "Gotcha 3151: the scan reached documentation of the retirement and a record of the retiring task; rewriting a record would falsify history and rewording the asserted README sentence would break the repair test that pins it."
+affects = ["16.90.1", "22.33.1532", "22.33.1541"]
+
+[decision.2609]
+title = "A gate whose test starts the local EVM names the binary in the command text, so the qualification environment provides it"
+value = "Every task whose declared build or verify command runs a test that spawns the local EVM process, today tests/native_send_preview_evm.rs of layerx-agentd (the LAYERX_TEST_ANVIL executable, anvil by default) and the agent SDK gas-station suite, opens its verify command with anvil --version and a shell conjunction before the test invocation, including when the test runs through a wrapper script such as tools/runtime/run-with-clock.sh. The Foundry toolchain is a property of the qualification environment, not of the task; a task whose only defect is the missing binary is re-qualified at the same revision once its gate names the tool. Decisions 2068 and 2423 generalise to this rule."
+basis = "Gotcha 3152: 22.31.543 attempt 1 failed only on the missing binary, and two pending gates (9.35.19, 9.35.20) reach the same test through a wrapper script that names no Foundry tool."
+affects = ["22.31.543", "9.35.19", "9.35.20", "18.1233.1", "22.9.10"]
+
+[decision.2610]
+title = "A test target that compiles again after a long red period is swept for retired producer entries before its gates run, and the remaining test callers of a retired entry are ported together in one repair"
+value = "When an attempt restores compilation of a test target (as 22.31.516 does for the human daemon suites), it searches the target for calls to entries the producer has since retired or marked deprecated (the sequence-only approval entries hold, hold_reserved, reserve_and_hold, decide and expire of services/agent/crates/layerx-agentd/src/policy/approval.rs, which return ClockRequired unconditionally since 22.31.495) and ports them to the live entries in the same attempt, so the first verify run exercises the real path. A retired entry whose test callers outside the task still expect the former result is repaired in one task that ports every such caller (22.31.544 for tests/repair_22_31_216.rs), and a task that retires an entry lists every test caller in the crate, not only its production callers (gotcha 3094 extended)."
+basis = "Gotchas 3153 and 3154: the retirement of 22.31.495 reached two daemon tests only after 22.31.516 made one of them compile again, and the other has been red on main since the retirement."
+affects = ["22.31.516", "22.31.495", "22.31.216"]
+
+[decision.2611]
+title = "A repair whose test target fails upstream of its own assertion pins the refusing guard with one backtrace run before the gates, amends only a stale fixture, and records a production refusal of a correct request instead of patching it in a test-only task"
+value = "When a test-only task finds its target failing before the assertion it changes, the attempt runs that one case once with RUST_BACKTRACE=1 before the declared gates and reads the frame of the guard that returned the refusal. If the guard refuses because the fixture predates a landed contract (the committed verification rank of 22.31.535 and 22.31.538, the approval time of 22.31.495, the fee policy of 9.25.7, the receipt rank of 22.31.541), the attempt amends the fixture so it emits what the daemon now requires and names the guard and the contract in its record. If the guard refuses a request the fixture builds correctly, nothing under src changes: the record names the guard by file and line and the reason, the declared gates run once, and the attempt ends implemented-not-qualified so a repair task carries the production fix with its own proof of the producer, transport and consumer path. A refusal variant that carries no reason is itself a diagnosability finding for the audit."
+basis = "Gotcha 3155: the owner preview path refuses the native preview fixture with a reasonless variant and more than twenty candidate guards; guessing the guard from the evidence is not a ruling."
+affects = ["22.31.543", "22.31.535", "22.31.538", "22.31.495", "9.25.7", "22.31.541"]
+
+[decision.2612]
+title = "A daemon test fixture creates its store root as a 0700 directory, as the Human service fixtures already do"
+value = "Every test under services/agent/crates/layerx-agentd/tests that opens a Store creates its root under the temporary directory and sets its permissions to mode 0700 before Store::open (std::fs::set_permissions with Permissions::from_mode(0o700), or DirBuilder with mode 0o700), as tests/bootstrap_bind_layerx.rs and tests/human_approval_budget_actor.rs do; a fixture that creates the root with default permissions is corrected inside the attempt that meets the refusal, and a new daemon test takes its root helper from an existing fixture. Gotcha 3096 (the Human service rule) extends to the agent daemon."
+basis = "Gotcha 3156: the replay-bounds test fixture predates the store privacy check and failed before any assertion of the ported calls."
+affects = ["22.31.544", "22.31.216", "22.31.523"]
+
+[decision.2613]
+title = "A test that models an approval hold recorded before the trusted clock existed writes the legacy LXAPHLD4 record into the store directly and lets the daemon replay it, instead of calling a retired entry"
+value = "The sequence-only hold entries are retired (decision 2560, 22.31.495) and return ClockRequired, yet a daemon store may still carry holds written before them in the legacy format and the replay path of src/policy/approval.rs keeps decoding them without presentation facts; the facts operation answers status 2 (unavailable) for such a hold. A daemon test that exercises that case holds the approval through the timed entry, then, before the registry that serves the test replays the store, replaces the stored LXAPHLD5 record under the hold key with its embedded legacy bytes (the length-prefixed LXAPHLD4 payload that follows the magic) through Store::put_local, and keeps its unavailable expectation. The port of a retired call keeps the meaning of the test, not only its compilation; where the test meant a pre-clock record, the record is produced in the pre-clock format."
+basis = "Gotcha 3157: attempt 8 of 22.31.516 ported the call faithfully to the attempt-7 instruction and the legacy expectation at line 231 then failed because the hold had become a timed hold."
+affects = ["22.31.516", "22.31.495", "22.31.219"]
+
+[decision.2614]
+title = "Retiring a shared contract version is complete only when every production producer and consumer has been ported to its replacement in the same repair programme, and the retired version refuses only at wire boundaries that still receive it"
+value = "When a shared crate retires a contract version (here NativeSendPurposeV1 in layerx-agent-api, retired by 22.31.214 with NativeSendPurposeV2 as the replacement), each wiring request the retiring task records becomes a port task in the same programme before the retirement is counted as closed: the daemon (src/human_runtime.rs producers, src/agent_rpc_wire.rs decoders, src/capability/binding.rs verifiers, src/human.rs response types), the schema with its golden copy, the SDK and MCP carriers, and the Human service with the KMS signer and sender recovery each adopt V2, resolve the current stable owner DID, consent key and 20-byte EVM sender, and prove their path with a real producer, transport and consumer test including restart where state is persisted. A test that refused through the retired version (gotcha 3158) is held behind the port task of its own crate and reruns after it. The retired V1 keeps its explicit refusal at the wire boundaries that still receive it."
+basis = "Gotcha 3158: 22.31.214 retired V1 and left four wiring requests that never became tasks, so the whole native send consent path has refused correct requests since 2026-11-01; 22.31.543 attempt 3 pinned the daemon guard."
+affects = ["22.31.214", "22.31.543", "22.31.219"]
+
+[decision.2615]
+title = "A verification level that crosses a service boundary as a string label is produced and decoded only through the shared label helpers of layerx-types, and a daemon identity guard compares the decoded level with COMMITTED instead of naming a retired constant"
+value = "VerificationLevel in services/agent/crates/layerx-types/src/verify.rs gains wire_label (the stable string of a level) and from_wire_label (decoding a string into a level, accepting only the current labels and refusing checkpoint_finalised, settlement_anchored and unknown strings, the mirror of from_wire_rank refusing ranks 4 and 5). The hosted authority writes every verification_level string through wire_label and emits COMMITTED for the subject identity and context documents; the agent daemon decodes every such string through from_wire_label and each identity guard requires the decoded level to equal VerificationLevel::COMMITTED, never comparing with a deprecated constant, because the Ord impl sorts the retired constants below every current level and such a comparison refuses nothing (decision 2600 extended from ranks to labels). Test fixtures that serve an identity document write the label through the same helper so the two crates cannot drift."
+basis = "Gotcha 3159: decisions 2593 and 2600 covered the rank-carrying documents and left the label-carrying identity and context documents on the retired label, with daemon guards that are void by construction."
+affects = ["22.31.535", "22.31.538", "22.33.1542"]
+
+[decision.2616]
+title = "Decision 2601 stands for a received identity document: the daemon maps the two legacy spellings to COMMITTED and accepts committed; decision 2615 is narrowed to the producer side and the shared label helpers"
+value = "The daemon identity string decoder (services/agent/crates/layerx-agentd/src/human_runtime.rs line 17543) accepts committed and maps checkpoint_finalised and settlement_anchored to COMMITTED as 22.31.539 specifies, refusing unknown strings, and the five identity floors require COMMITTED under 22.31.539. The hosted authority emits VerificationLevel::COMMITTED.wire_label() for the subject identity and context documents, src/human_runtime/subject.rs line 54 decodes the served label through the same mapped decode and requires COMMITTED, the daemon fixtures serve the committed label, and layerx-types gains wire_label and from_wire_label where from_wire_label decodes the five current labels and refuses the rest while the daemon applies the legacy mapping before it. These are the scope of 22.31.549, which follows 22.31.539 and 22.31.545. A new finding is checked site by site against the gotcha, decision and task text before a task is written."
+basis = "Gotcha 3160: batch 494 duplicated the floors and the decoder of 22.31.539 and contradicted decision 2601 on the legacy spellings."
+affects = ["22.31.539", "22.31.540", "22.31.549"]
+
+[decision.2617]
+title = "A pre-clock approval hold record is refused when the store replays, as 22.33.1507 specified; a daemon test that models such a record asserts the refusal to open, and a hold the test serves is a timed hold whose facts operation answers with the facts"
+value = "Decision 2613 is superseded on its premise: the replay path of services/agent/crates/layerx-agentd/src/policy/approval.rs does not decode a bare LXAPHLD4 record into a served hold. decode_legacy_hold reads it, validate_replayed (line 1439) refuses it as LegacyTimeUnits, replay_tenant fails and the owner that replays that store refuses to open, which is the behaviour the 22.33.1507 record states (policy replay refuses rather than inventing a time source; operator-owned recovery re-prepares or cancels such holds). In tests/human_projection_facts.rs the case real_authenticated_approval_and_managed_exports_preserve_facts_refusals_and_reopen keeps the legacy approval as a timed hold and expects operation 47 to answer with the facts frame; the pre-clock record becomes a case of its own that writes the bare LXAPHLD4 record the way attempt 9 of 22.31.516 did and asserts that the owner construction returns an error and serves nothing. The operator-owned recovery of legacy holds stays unowned until the owner decides whether a daemon store written before the trusted clock can exist at the upgrade."
+basis = "Gotcha 3161: attempt 9 of 22.31.516 followed decision 2613 and the serving owner refused to open on the rewritten record."
+affects = ["22.31.516", "22.33.1507", "22.31.495"]
+
+[decision.2618]
+title = "A task whose verify target carries an assertion that a pending follower task owns amends that assertion itself to the behaviour on main, and the follower keeps it on rebase"
+value = "22.31.545 runs tests/native_send_preview_evm.rs and the refusal assertion after post_preview(5, [12; 32]) belongs to 22.31.543 do_2, which follows 22.31.545 under decision 2614. 22.31.545 attempt 2 asserts the whole reason-bearing frame (magic LXHAGT01, status byte 1, big-endian u32 length 17, operation.refused) through a field helper and records the reason; 22.31.543 keeps that assertion when it rebases and finishes tests/human_peer_retired.rs and its record. In general the leader of a requires edge writes an assertion that sits inside its own verify target even when a follower lists it, and the follower records that the assertion is already on main instead of rewriting it."
+basis = "Gotcha 3162: 22.31.545 attempt 1 failed only on the assertion its follower 22.31.543 owns."
+affects = ["22.31.545", "22.31.543", "22.31.219"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -37648,12 +37714,66 @@ verification_contract = "cargo test --locked --manifest-path services/agent/Carg
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
 
+[capability.22.31.549]
+title = "Emit and require the committed verification label for subject identity and context across the authority and the daemon"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-types/src/verify.rs", "services/platform/hosted/authority/src/human.rs", "services/platform/hosted/authority/src/human/dynamic.rs", "services/platform/hosted/authority/Cargo.toml", "services/platform/hosted/authority/tests/repair_22_31_549.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/human_runtime/subject.rs", "services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs", "services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs", "services/agent/crates/layerx-agentd/tests/human_projection_facts.rs", "services/agent/crates/layerx-agentd/tests/support/repair_22_33_1529.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_549.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_549.kvx"]
+tests = ["services/platform/hosted/authority/tests/repair_22_31_549.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_549.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/crates/layerx-types/Cargo.toml --lib -- wire_label && cargo test --locked --manifest-path services/platform/hosted/authority/Cargo.toml --test repair_22_31_549 && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_549 --test bootstrap_bind_layerx"
+do_1 = "do_1 Gotcha 3159, decision 2615. In services/agent/crates/layerx-types/src/verify.rs add two helpers beside from_wire_rank: wire_label returns the stable string label of a level as a static string slice (unverified, sequencer_signed, batch_included, state_proven, committed, and the archive names checkpoint_finalised and settlement_anchored for the two retired ranks so archive decoders can still name them), and from_wire_label decodes a string label into a level, accepting only the five current labels and refusing checkpoint_finalised, settlement_anchored and any unknown string with a new InvalidVerificationLabel error carrying the offending string; unit tests in the same module cover the round trip of the five current labels and the two retired refusals."
+symbols = []
+
+[capability.22.31.548]
+title = "Port the Human service native send journey, custody provider and KMS attestor to NativeSendPurposeV2"
+reqs = ["22998.1"]
+touches = ["services/human/crates/layerx-human-service/src/journeys/engine.rs", "services/human/crates/layerx-human-service/src/server/native_send.rs", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs", "services/human/crates/layerx-human-service/src/custody/provider.rs", "services/human/crates/layerx-human-kms/src/attestor.rs", "services/human/crates/layerx-human-service/tests/native_send_purpose.rs", "services/human/crates/layerx-human-service/tests/native_journey_approval.rs", "services/human/crates/layerx-human-service/tests/repair_22_31_548.kvx"]
+tests = ["services/human/crates/layerx-human-service/tests/native_send_purpose.rs", "services/human/crates/layerx-human-service/tests/native_journey_approval.rs"]
+verification_contract = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test native_send_purpose --test native_journey_approval && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --lib -- attestor"
+do_1 = "do_1 Gotcha 3158, decision 2614. In services/human/crates/layerx-human-service/src/journeys/engine.rs (the purpose field near line 268, the signed_purpose builder near line 637 and every NativeSendPurposeV1 or SignedNativeSendPurposeV1 use), src/server/native_send.rs (the purpose field near line 538), src/server/agent_runtime.rs (the signed purpose parameters near lines 4138, 4146 and 5108 and the canonical decode near line 5411) and src/custody/provider.rs (the SendPurpose variant near line 397 and the decode near line 450) adopt layerx_agent_api::identity::NativeSendPurposeV2 and SignedNativeSendPurposeV2: the Human service fills owner_did with the stable owner DID, consent_public_key with the current consent verification key of the held key (KeyDescriptor.public_key), evm_sender with the 20-byte sender of the prepared type-2 transaction on chain 125, and signs SHA256 of the V2 canonical bytes with the current consent key."
+symbols = []
+
+[capability.22.31.547]
+title = "Port the SDK native effect carrier and the MCP catalogue to NativeSendPurposeV2"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-sdk/src/native_effect.rs", "services/agent/crates/layerx-sdk/src/agent_envelope.rs", "services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs", "services/agent/crates/layerx-sdk/tests/repair_22_31_547.kvx", "services/agent/crates/layerx-mcp/src/catalogue.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_224.rs"]
+tests = ["services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_224.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --lib --test repair_22_31_547 -- native && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --test repair_22_31_224"
+do_1 = "do_1 Gotcha 3158, decision 2614. In services/agent/crates/layerx-sdk/src/native_effect.rs (the purpose construction near line 475 and the signed purpose near line 496) and services/agent/crates/layerx-sdk/src/agent_envelope.rs build and carry layerx_agent_api::identity::NativeSendPurposeV2 and SignedNativeSendPurposeV2 with the wire field names 22.31.545 defines in the daemon (version 2, consent_public_key, evm_sender, transaction_type, chain_id); the SDK signs SHA256 of the V2 canonical bytes with the consent key it holds and sends the V2 wire body. In services/agent/crates/layerx-mcp/src/catalogue.rs line 1093 the advertised purpose version becomes NativeSendPurposeV2::VERSION."
+symbols = []
+
+[capability.22.31.546]
+title = "Declare the NativeSendPurposeV2 and SignedNativeSendPurposeV2 records in the agent API schema and its golden copy"
+reqs = ["22998.1"]
+touches = ["services/agent/schema/agent-api/v1.kvx", "services/agent/schema/agent-api/golden/v1.kvx", "services/agent/crates/layerx-agent-api/tests/schema.rs", "services/agent/crates/layerx-agent-api/tests/schema_retired.rs", "services/agent/crates/layerx-agent-api/tests/repair_22_31_546.kvx"]
+tests = ["services/agent/crates/layerx-agent-api/tests/schema.rs", "services/agent/crates/layerx-agent-api/tests/schema_rungs.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agent-api --test schema --test schema_rungs --test schema_retired"
+do_1 = "do_1 Gotcha 3158, decision 2614. In services/agent/schema/agent-api/v1.kvx add record.NativeSendPurposeV2 (rust layerx_agent_api::identity::NativeSendPurposeV2, wire_type NativeSendPurposeV2Wire, the fields in the canonical order of src/native_send.rs: tenant, agent_did, owner_did, consent_public_key hex32, evm_sender hex20, session_id, generation and expires_at_ms decimal strings, capability_id, transaction_type and chain_id decimal strings, activity NativeActivityV1, preparation_id, canonical_digest, economic_action, idempotency_key, commitment hex32; domain LayerX/native/send-purpose/v2, version 2, type 2, chain 125) and record.SignedNativeSendPurposeV2 (purpose:NativeSendPurposeV2, signature:hex64, signature_digest SHA256 of the exact V2 canonical bytes signed by the current consent key, sender recovered from the type-2 transaction compared with evm_sender). The existing record.NativeSendPurposeV1 and record.SignedNativeSendPurposeV1 stay and gain a retired note stating the explicit native_send.legacy_version refusal."
+symbols = []
+
+[capability.22.31.545]
+title = "Port the daemon native send purpose producers, wire decoders and binding verifiers to NativeSendPurposeV2"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/human.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs", "services/agent/crates/layerx-agentd/src/capability/binding.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_545.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_545.kvx"]
+tests = ["services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_545.rs"]
+verification_contract = "anvil --version && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- native_send && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test native_send_preview_evm --test repair_22_31_545"
+do_1 = "do_1 Gotcha 3158, decision 2614. In services/agent/crates/layerx-agentd/src/human_runtime.rs the three producers that construct and validate layerx_agent_api::identity::NativeSendPurposeV1 (the owner preview native_send_owner_preview_on_surface near line 6310, mcp_native_web_purpose near line 436 and its wrapper near line 2656) construct layerx_agent_api::identity::NativeSendPurposeV2 instead: owner_did is the stable owner DID of the bound owner, consent_public_key is the current owner verification key the owner resolution returns (owner.public_key()), evm_sender is the 20-byte address the preparation was built for (the address whose pending nonce the prepared type-2 call carries), transaction_type is NativeSendPurposeV2::TRANSACTION_TYPE, chain_id is NativeSendPurposeV2::CHAIN_ID (125), activity stays NativeActivity (1, 5), and the digest fields stay as today; the response type HumanNativeSendOwnerPreviewV1 in src/human.rs carries the V2 purpose and its encoder writes the V2 canonical bytes. Where a function signature names NativeSendPurposeV1 it names NativeSendPurposeV2."
+symbols = []
+
+[capability.22.31.544]
+title = "Port the approval replay-bounds test to the timed approval entries"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/tests/repair_22_31_216.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_544.kvx"]
+tests = ["services/agent/crates/layerx-agentd/tests/repair_22_31_216.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_216"
+do_1 = "do_1 Gotcha 3154, decision 2610. In services/agent/crates/layerx-agentd/tests/repair_22_31_216.rs replace every call of the retired sequence-only entries of services/agent/crates/layerx-agentd/src/policy/approval.rs with the timed entry of the same name: reserve_and_hold becomes reserve_and_hold_at (registry, limiter, context, prepared, the reservation request, ApprovalSequence(expiry sequence), TimestampSeconds(decision time)), hold becomes hold_at (registry, context, prepared, ApprovalSequence(current), ApprovalSequence(expiry), TimestampSeconds(decision time)) and hold_reserved becomes hold_reserved_timed (registry, context, prepared, ApprovalSequence(current), ApprovalSequence(expiry), the reservation, TimestampSeconds(decision time)); the decision time is one fixed constant below the prepared expiry TimestampSeconds(500) that the prepared helper sets, for example 100; the imports at line 15 follow."
+symbols = []
+
 [capability.22.31.543]
 title = "Assert the reason-bearing human refusal frame in the retired-rung and native preview daemon tests"
 reqs = ["22998.1"]
 touches = ["services/agent/crates/layerx-agentd/tests/human_peer_retired.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_543.kvx"]
 tests = ["services/agent/crates/layerx-agentd/tests/human_peer_retired.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs"]
-verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test human_peer_retired --test native_send_preview_evm"
+verification_contract = "anvil --version && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test human_peer_retired --test native_send_preview_evm"
 do_1 = "do_1 Gotcha 3150, decision 2607. In services/agent/crates/layerx-agentd/tests/human_peer_retired.rs line 18 the expected response to the ExportLevelUnattainable refusal becomes the magic LXHAGT01, status byte 1, the big-endian u32 length and the bytes of refusal.reason() (export.rung_unattainable), built with a field helper like the one in tests/human_peer_rungs.rs; the include_str assertions of that test stay."
 symbols = []
 
@@ -66984,7 +67104,7 @@ title = "Serve the Human API prepare, native, native-effect, native-send and nat
 reqs = ["22059.1"]
 touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/human.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/prepare_eip1559.rs", "services/agent/crates/layerx-agentd/tests/native_routes_rpc.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs"]
-verification_contract = "sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test prepare_eip1559 --test native_routes_rpc --test native_send_preview_evm --test write_path_evm --test rpc_surface_major_two"
+verification_contract = "anvil --version && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test prepare_eip1559 --test native_routes_rpc --test native_send_preview_evm --test write_path_evm --test rpc_surface_major_two"
 do_1 = "In services/agent/crates/layerx-agentd/src/human_runtime.rs the prepared cache (the prepared map read at :7237-7251 and the transaction field at :2390) holds the EvmPrepared and its registry only; rpc_prepare (:7461), rpc_prepare_native (:5531), rpc_prepare_native_effect (:6429) and rpc_prepare_native_send (:6887) prepare the type-2 call through prepare::evm::prepare_activity against the node (ProductionEvmPreparationBoundary) and derive every answer field they read from the envelope today (actor at :5607, :6516, :6964, :7508; protocol version and not_after at :5709, :5830-5856, :6568, :6774-6807, :7016, :7217-7250; payload hash) from the call and its bound disclosure under the mapping of task 9.35.19; the legacy prepare_activity_for_protocol path and the prepare::legacy import at :51 are no longer called from these functions."
 symbols = ["rpc_prepare_native", "rpc_prepare_native_effect", "rpc_prepare_native_send", "rpc_native_disclosure"]
 
@@ -66993,7 +67113,7 @@ title = "Read the call-bound preparation in the native-effect carrier and the pr
 reqs = ["22058.1"]
 touches = ["services/agent/crates/layerx-agentd/src/approval/native_effect.rs", "services/agent/crates/layerx-agentd/src/approval/native_program.rs", "services/agent/crates/layerx-agentd/src/approval/program_requirement.rs", "services/agent/crates/layerx-agentd/src/approval/native_program_presentation.rs", "services/agent/crates/layerx-agentd/src/policy/native_program.rs", "services/agent/crates/layerx-agentd/src/budget/program_settlement.rs", "services/agent/crates/layerx-agentd/src/budget/program_lifecycle_settlement.rs", "services/agent/crates/layerx-agentd/src/budget/program_sources.rs", "services/agent/crates/layerx-agentd/src/capability/binding.rs", "services/agent/crates/layerx-agentd/src/prepare/expiry.rs", "services/agent/crates/layerx-agentd/src/session_control.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs", "services/agent/crates/layerx-agentd/tests/program_ops_layerxprograms.rs"]
-verification_contract = "sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test native_send_preview_evm --test program_ops_layerxprograms --test fee_projection_program_state --test approval_ops -- --skip checks_the_actual_server_identity"
+verification_contract = "anvil --version && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test native_send_preview_evm --test program_ops_layerxprograms --test fee_projection_program_state --test approval_ops -- --skip checks_the_actual_server_identity"
 do_1 = "services/agent/crates/layerx-agentd/src/approval/native_effect.rs NativeEffectApprovalCarrier keeps canonical_bytes as the call's encode_unsigned() output, gains sender: [u8; 20] and drops the authority and envelope_not_after fields in favour of the disclosure's expiry; bind (:193-240) takes &EvmPrepared, verifies it with verify_call_binding, drops the protocol-version-3 check and reads the module from the disclosure's activity type, the reservation deadline from disclosure.expiry.not_after and the head from observed_head_height; disclosure() (:307-335) decodes the call and binds with bind_call(&call, self.sender), keeping the budget context comparison on the disclosure's budget fields; restore_prepared (:1093-1140) decodes the call with decode_unsigned, rebuilds the EvmPrepared through bind_call and the stored head height and no longer uses the envelope builder; a carrier of the previous version is refused as Corrupt and the preparation is prepared again, nothing is migrated."
 symbols = ["NativeEffectApprovalCarrier", "verify_call_binding"]
 
@@ -148008,7 +148128,7 @@ do_4 = "Attempt 2 (continue, gotcha 3148, decision 2605): the attempt-1 tree sta
 
 [task.22.35.5]
 title = "Explorer list pages: dense tables for blocks, transactions, accounts and the tokens markets view"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.35.1"]
@@ -148038,7 +148158,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.35.4]
 title = "Explorer home: ticker strip, hero, stat tiles, network chart and dense latest tables"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.35.1", "22.35.3"]
@@ -148068,7 +148188,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.35.3]
 title = "Explorer search as a prompt: hero field, grouped suggestions and the keyboard shortcut"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.35.1", "22.35.2"]
@@ -156509,6 +156629,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_15 = "Attempt 2 (continue, gotcha 3164): the attempt-1 tree at 9e2d7c38271235266bdad9d61d5e4729edbe7bb6 stands (eight of nine cases pass; the repair test, the recorded fixtures and the test changes beside it). In services/wallet/gateway/test/repair-22-33-207.test.ts line 778 the station replay case compares the verified receipt with toMatchObject against an activityId built by the bytes helper, which returns a Buffer, while the production evidence carries a Uint8Array and vitest treats the two types as different. Assert the two fields directly: Buffer.from(evidence.receipt.activityId) equals bytes(delegated.receipt.txHash) through toEqual, and resultCode equals 1; change no production file. Rebase onto current main, run the declared build and verify once at the final revision, record both verify runs of attempt 1 (the first met a transient gas_station_unavailable refusal and a closed database connection) and the gates of this attempt by reference to the gate ledger, and amend no file after they run."
 
 [task.22.33.206]
 title = "Repair audit record 22.30.120 medium findings in apps/wallet/src/surfaces/test (part 1 of 1): test-gap"
@@ -175235,24 +175356,118 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
-[task.22.31.543]
-title = "Assert the reason-bearing human refusal frame in the retired-rung and native preview daemon tests"
+[task.22.31.549]
+title = "Emit and require the committed verification label for subject identity and context across the authority and the daemon"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.219"]
+requires = ["22.31.535", "22.31.545", "22.31.539"]
 reqs = ["22998.1"]
-capabilities = ["22.31.543"]
+capabilities = ["22.31.549"]
 interfaces = []
-do_1 = "do_1 Gotcha 3150, decision 2607. In services/agent/crates/layerx-agentd/tests/human_peer_retired.rs line 18 the expected response to the ExportLevelUnattainable refusal becomes the magic LXHAGT01, status byte 1, the big-endian u32 length and the bytes of refusal.reason() (export.rung_unattainable), built with a field helper like the one in tests/human_peer_rungs.rs; the include_str assertions of that test stay."
-do_2 = "do_2 In services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs line 1026 the refusal returned by post_preview(5, [12; 32]) is asserted as the whole frame: find the refusal variant that preview path returns in src/human.rs and src/human_runtime.rs, build the expected frame from its reason() (or operation.refused for the untyped refusal) with the same helper, and assert the full byte vector; record the reason in tests/repair_22_31_543.kvx."
-do_3 = "do_3 Nothing under src changes; the encoder of src/human.rs is the producer and the two tests are its consumers. Build and verify run once at the final revision, the record lists the gate commands by reference to the gate ledger and no file is amended after the gates run (gotcha 3142)."
+do_1 = "do_1 Gotcha 3159, decision 2615. In services/agent/crates/layerx-types/src/verify.rs add two helpers beside from_wire_rank: wire_label returns the stable string label of a level as a static string slice (unverified, sequencer_signed, batch_included, state_proven, committed, and the archive names checkpoint_finalised and settlement_anchored for the two retired ranks so archive decoders can still name them), and from_wire_label decodes a string label into a level, accepting only the five current labels and refusing checkpoint_finalised, settlement_anchored and any unknown string with a new InvalidVerificationLabel error carrying the offending string; unit tests in the same module cover the round trip of the five current labels and the two retired refusals."
+do_2 = "do_2 In services/platform/hosted/authority the subject identity document (src/human.rs line 1030 and src/human/dynamic.rs line 625) and the subject context document (src/human/dynamic.rs line 388) write verification_level as VerificationLevel::COMMITTED.wire_label(); no literal verification label string remains under the authority src. Add tests/repair_22_31_549.rs with its [[test]] entry in the authority Cargo.toml, built on tests/support/committed_human_fixture.rs or tests/support/human_unit.rs, that serves the identity and context documents through the real handlers and asserts both carry the committed label and that from_wire_label decodes each to VerificationLevel::COMMITTED."
+do_3 = "do_3 In services/agent/crates/layerx-agentd the parser verification_level at src/human_runtime.rs lines 17543 to 17552 decodes through VerificationLevel::from_wire_label, so committed yields COMMITTED and checkpoint_finalised, settlement_anchored and unknown labels yield IdentityError::Unverified; src/human_runtime/subject.rs line 54 compares the served label with VerificationLevel::COMMITTED.wire_label(); the five identity guards at src/human_runtime.rs lines 5074, 11749, 11799, 12963 and 14257 replace the ordering comparison with the deprecated CHECKPOINT_FINALISED by identity.verification_level != VerificationLevel::COMMITTED, so an identity below committed is refused as today the guards intend. The deprecated constants are no longer named in the identity path."
+do_4 = "do_4 Move every daemon test fixture that serves a stand-in identity or context document to the committed label, each writing VerificationLevel::COMMITTED.wire_label() rather than a literal: tests/bootstrap_bind_layerx.rs lines 395 and 399, tests/native_send_preview_evm.rs lines 441 and 445, tests/human_approval_budget_actor.rs line 374, tests/human_projection_facts.rs lines 761 and 771 and tests/support/repair_22_33_1529.rs line 232. Write tests/repair_22_31_549.rs proving the consumer side over the real transport with the bootstrap_bind_layerx.rs harness: a stand-in authority serving the identity document with the committed label lets the bound owner operation succeed; the same document labelled checkpoint_finalised, settlement_anchored or sequencer_signed makes the operation refuse with HumanOperationError::Refused; and the parser unit cases hold. The producer side is proven in the authority crate by do_2; both sides go through the shared helpers so the crates cannot drift."
+do_5 = "do_5 Record in services/agent/crates/layerx-agentd/tests/repair_22_31_549.kvx the helpers added, the three producer sites, the parser, the six guard sites and every fixture moved. The gates need no environment variable, credential or live endpoint; build and verify run once at the final revision, the record lists the gate commands by reference to the gate ledger and no file is amended after the gates run (gotcha 3142)."
 symbols = []
-touches = ["services/agent/crates/layerx-agentd/tests/human_peer_retired.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_543.kvx"]
-tests = ["services/agent/crates/layerx-agentd/tests/human_peer_retired.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs"]
-planned_paths = ["services/agent/crates/layerx-agentd/tests/human_peer_retired.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_543.kvx"]
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test human_peer_retired --test native_send_preview_evm"
-verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test human_peer_retired --test native_send_preview_evm"
+touches = ["services/agent/crates/layerx-types/src/verify.rs", "services/platform/hosted/authority/src/human.rs", "services/platform/hosted/authority/src/human/dynamic.rs", "services/platform/hosted/authority/Cargo.toml", "services/platform/hosted/authority/tests/repair_22_31_549.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/human_runtime/subject.rs", "services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs", "services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs", "services/agent/crates/layerx-agentd/tests/human_projection_facts.rs", "services/agent/crates/layerx-agentd/tests/support/repair_22_33_1529.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_549.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_549.kvx"]
+tests = ["services/platform/hosted/authority/tests/repair_22_31_549.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_549.rs"]
+planned_paths = ["services/agent/crates/layerx-types", "services/platform/hosted/authority", "services/agent/crates/layerx-agentd"]
+build_cmd = "cargo build --locked --manifest-path services/agent/crates/layerx-types/Cargo.toml --lib && cargo build --locked --manifest-path services/platform/hosted/authority/Cargo.toml --lib --test repair_22_31_549 && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test repair_22_31_549 --test bootstrap_bind_layerx --test human_approval_budget_actor --test human_projection_facts --test native_send_preview_evm"
+verify_cmd = "cargo test --locked --manifest-path services/agent/crates/layerx-types/Cargo.toml --lib -- wire_label && cargo test --locked --manifest-path services/platform/hosted/authority/Cargo.toml --test repair_22_31_549 && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_549 --test bootstrap_bind_layerx"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Amendment (gotcha 3160, decision 2616): this task follows 22.31.539 and 22.31.545 and is narrowed to the producer side. do_3 is replaced: the identity string decoder at src/human_runtime.rs line 17543 and the five identity floors are owned by 22.31.539 and are not changed here beyond what rebasing onto it requires; src/human_runtime/subject.rs line 54 decodes the served label through the decoder 22.31.539 leaves (committed accepted, the two legacy spellings mapped to COMMITTED) and requires VerificationLevel::COMMITTED instead of comparing a literal. do_1 stands with one change: from_wire_label decodes the five current labels and refuses the rest, and the daemon applies the legacy mapping of decision 2601 before it. do_2, do_4 and do_5 stand, except that the refusal cases of the daemon test in do_4 are an identity document labelled sequencer_signed or an unknown string, and a document labelled checkpoint_finalised is accepted as COMMITTED under decision 2601. Start from main after 22.31.539 and 22.31.545 have landed."
+
+[task.22.31.548]
+title = "Port the Human service native send journey, custody provider and KMS attestor to NativeSendPurposeV2"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.31.545"]
+reqs = ["22998.1"]
+capabilities = ["22.31.548"]
+interfaces = []
+do_1 = "do_1 Gotcha 3158, decision 2614. In services/human/crates/layerx-human-service/src/journeys/engine.rs (the purpose field near line 268, the signed_purpose builder near line 637 and every NativeSendPurposeV1 or SignedNativeSendPurposeV1 use), src/server/native_send.rs (the purpose field near line 538), src/server/agent_runtime.rs (the signed purpose parameters near lines 4138, 4146 and 5108 and the canonical decode near line 5411) and src/custody/provider.rs (the SendPurpose variant near line 397 and the decode near line 450) adopt layerx_agent_api::identity::NativeSendPurposeV2 and SignedNativeSendPurposeV2: the Human service fills owner_did with the stable owner DID, consent_public_key with the current consent verification key of the held key (KeyDescriptor.public_key), evm_sender with the 20-byte sender of the prepared type-2 transaction on chain 125, and signs SHA256 of the V2 canonical bytes with the current consent key."
+do_2 = "do_2 In services/human/crates/layerx-human-kms/src/attestor.rs (the purpose parameter near line 1024 and the decode near line 1030) the attestor decodes the V2 canonical purpose, independently recovers the sender of the signed type-2 transaction and compares it with purpose.evm_sender through NativeSendPurposeV2::check_prepared_transaction before release; a V1 canonical purpose is refused with the existing contract error path."
+do_3 = "do_3 Prove the path with the real producer and consumer: amend services/human/crates/layerx-human-service/tests/native_send_purpose.rs and tests/native_journey_approval.rs to the V2 types and add cases that an owner whose primary key rotated still signs and releases under the same stable owner DID, that a purpose whose consent key or sender differs from the current owner is refused, and that a journey persisted before a process restart revalidates its V2 purpose after reopening; the KMS case lives in the attestor unit tests. Change nothing under services/agent."
+do_4 = "do_4 Record in services/human/crates/layerx-human-service/tests/repair_22_31_548.kvx the sites ported and the three cases; build and verify run once at the final revision, the record lists the gate commands by reference to the gate ledger and no file is amended after the gates run (gotcha 3142)."
+symbols = []
+touches = ["services/human/crates/layerx-human-service/src/journeys/engine.rs", "services/human/crates/layerx-human-service/src/server/native_send.rs", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs", "services/human/crates/layerx-human-service/src/custody/provider.rs", "services/human/crates/layerx-human-kms/src/attestor.rs", "services/human/crates/layerx-human-service/tests/native_send_purpose.rs", "services/human/crates/layerx-human-service/tests/native_journey_approval.rs", "services/human/crates/layerx-human-service/tests/repair_22_31_548.kvx"]
+tests = ["services/human/crates/layerx-human-service/tests/native_send_purpose.rs", "services/human/crates/layerx-human-service/tests/native_journey_approval.rs"]
+planned_paths = ["services/human/crates/layerx-human-service", "services/human/crates/layerx-human-kms"]
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --lib --test native_send_purpose --test native_journey_approval && cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --lib"
+verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test native_send_purpose --test native_journey_approval && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --lib -- attestor"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.31.547]
+title = "Port the SDK native effect carrier and the MCP catalogue to NativeSendPurposeV2"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.31.545"]
+reqs = ["22998.1"]
+capabilities = ["22.31.547"]
+interfaces = []
+do_1 = "do_1 Gotcha 3158, decision 2614. In services/agent/crates/layerx-sdk/src/native_effect.rs (the purpose construction near line 475 and the signed purpose near line 496) and services/agent/crates/layerx-sdk/src/agent_envelope.rs build and carry layerx_agent_api::identity::NativeSendPurposeV2 and SignedNativeSendPurposeV2 with the wire field names 22.31.545 defines in the daemon (version 2, consent_public_key, evm_sender, transaction_type, chain_id); the SDK signs SHA256 of the V2 canonical bytes with the consent key it holds and sends the V2 wire body. In services/agent/crates/layerx-mcp/src/catalogue.rs line 1093 the advertised purpose version becomes NativeSendPurposeV2::VERSION."
+do_2 = "do_2 Prove the path end to end against the real daemon: a test services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs starts the daemon the way tests/native_capabilities.rs or tests/sdk.rs do, prepares a native send, carries the V2 signed purpose through the SDK and the daemon RPC and asserts the daemon accepts it and refuses a version 1 body with the malformed rejection; the MCP test services/agent/crates/layerx-mcp/tests/repair_22_31_224.rs is amended where it asserts the advertised version."
+do_3 = "do_3 Change nothing under layerx-agentd or layerx-agent-api. Record in services/agent/crates/layerx-sdk/tests/repair_22_31_547.kvx the sites ported and the end-to-end case; build and verify run once at the final revision, the record lists the gate commands by reference to the gate ledger and no file is amended after the gates run (gotcha 3142)."
+symbols = []
+touches = ["services/agent/crates/layerx-sdk/src/native_effect.rs", "services/agent/crates/layerx-sdk/src/agent_envelope.rs", "services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs", "services/agent/crates/layerx-sdk/tests/repair_22_31_547.kvx", "services/agent/crates/layerx-mcp/src/catalogue.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_224.rs"]
+tests = ["services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_224.rs"]
+planned_paths = ["services/agent/crates/layerx-sdk", "services/agent/crates/layerx-mcp"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --lib --test repair_22_31_547 && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --lib --test repair_22_31_224"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --lib --test repair_22_31_547 -- native && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --test repair_22_31_224"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.31.546]
+title = "Declare the NativeSendPurposeV2 and SignedNativeSendPurposeV2 records in the agent API schema and its golden copy"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.31.214", "22.31.516"]
+reqs = ["22998.1"]
+capabilities = ["22.31.546"]
+interfaces = []
+do_1 = "do_1 Gotcha 3158, decision 2614. In services/agent/schema/agent-api/v1.kvx add record.NativeSendPurposeV2 (rust layerx_agent_api::identity::NativeSendPurposeV2, wire_type NativeSendPurposeV2Wire, the fields in the canonical order of src/native_send.rs: tenant, agent_did, owner_did, consent_public_key hex32, evm_sender hex20, session_id, generation and expires_at_ms decimal strings, capability_id, transaction_type and chain_id decimal strings, activity NativeActivityV1, preparation_id, canonical_digest, economic_action, idempotency_key, commitment hex32; domain LayerX/native/send-purpose/v2, version 2, type 2, chain 125) and record.SignedNativeSendPurposeV2 (purpose:NativeSendPurposeV2, signature:hex64, signature_digest SHA256 of the exact V2 canonical bytes signed by the current consent key, sender recovered from the type-2 transaction compared with evm_sender). The existing record.NativeSendPurposeV1 and record.SignedNativeSendPurposeV1 stay and gain a retired note stating the explicit native_send.legacy_version refusal."
+do_2 = "do_2 Mirror the same declarations into services/agent/schema/agent-api/golden/v1.kvx so the golden comparison in services/agent/crates/layerx-agent-api/tests/schema_rungs.rs holds; extend tests/schema.rs (or tests/schema_retired.rs where the retired declarations are asserted) with a case that reads both V2 records and the V1 retired note from the schema file. Change nothing under layerx-agent-api/src."
+do_3 = "do_3 Record in services/agent/crates/layerx-agent-api/tests/repair_22_31_546.kvx the records added and the test cases; build and verify run once at the final revision, the record lists the gate commands by reference to the gate ledger and no file is amended after the gates run (gotcha 3142)."
+symbols = []
+touches = ["services/agent/schema/agent-api/v1.kvx", "services/agent/schema/agent-api/golden/v1.kvx", "services/agent/crates/layerx-agent-api/tests/schema.rs", "services/agent/crates/layerx-agent-api/tests/schema_retired.rs", "services/agent/crates/layerx-agent-api/tests/repair_22_31_546.kvx"]
+tests = ["services/agent/crates/layerx-agent-api/tests/schema.rs", "services/agent/crates/layerx-agent-api/tests/schema_rungs.rs"]
+planned_paths = ["services/agent/schema/agent-api", "services/agent/crates/layerx-agent-api/tests"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agent-api --test schema --test schema_rungs --test schema_retired"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agent-api --test schema --test schema_rungs --test schema_retired"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -175264,6 +175479,105 @@ time_limit_minutes = 60
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue after 22.31.516): the attempt-1 tree at 531f68e2497476db73369cfd93489aa6d471ff68 stands (both V2 records in v1.kvx and the golden copy, the retired notes on the V1 records, the schema test cases, the record). Once 22.31.516 is on main, rebase onto it and run the declared build and verify once; the dependent-crate check then compiles the human_approval_budget_actor target that 22.31.516 repairs. Record the gates by reference to the gate ledger and amend no file after they run."
+
+[task.22.31.545]
+title = "Port the daemon native send purpose producers, wire decoders and binding verifiers to NativeSendPurposeV2"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.31.214", "22.31.219"]
+reqs = ["22998.1"]
+capabilities = ["22.31.545"]
+interfaces = []
+do_1 = "do_1 Gotcha 3158, decision 2614. In services/agent/crates/layerx-agentd/src/human_runtime.rs the three producers that construct and validate layerx_agent_api::identity::NativeSendPurposeV1 (the owner preview native_send_owner_preview_on_surface near line 6310, mcp_native_web_purpose near line 436 and its wrapper near line 2656) construct layerx_agent_api::identity::NativeSendPurposeV2 instead: owner_did is the stable owner DID of the bound owner, consent_public_key is the current owner verification key the owner resolution returns (owner.public_key()), evm_sender is the 20-byte address the preparation was built for (the address whose pending nonce the prepared type-2 call carries), transaction_type is NativeSendPurposeV2::TRANSACTION_TYPE, chain_id is NativeSendPurposeV2::CHAIN_ID (125), activity stays NativeActivity (1, 5), and the digest fields stay as today; the response type HumanNativeSendOwnerPreviewV1 in src/human.rs carries the V2 purpose and its encoder writes the V2 canonical bytes. Where a function signature names NativeSendPurposeV1 it names NativeSendPurposeV2."
+do_2 = "do_2 In services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs add NativeSendPurposeV2Wire and SignedNativeSendPurposeV2Wire (version string 2, the V2 fields with consent_public_key hex32, evm_sender hex20, transaction_type and chain_id decimal strings, no owner_public_key, protocol_version or network_id) with into_request calling validate, and Canonical for both V2 types; the request sites that decode a native send purpose (the native_send_v1 variant parsing and every site the grep for NativeSendPurposeV1Wire finds) accept the V2 wire and keep refusing a version 1 body with the existing malformed rejection; the V1 wire structs stay only for that refusal."
+do_3 = "do_3 In services/agent/crates/layerx-agentd/src/capability/binding.rs port VerifiedNativeSendPurposeV1, verify_native_send_purpose (the function near line 3877), native_send_purpose_digest and the persisted signed-purpose read and write near lines 4041 to 4075 to the V2 types: the verifier compares purpose.owner_did, consent_public_key and evm_sender with the independently resolved current owner through NativeSendPurposeV2::check_current_owner, checks the retained preparation through check_prepared_transaction (type 2, chain 125, the recovered or expected sender, the canonical digest), verifies the Ed25519 signature over SHA256 of the V2 canonical bytes with the consent key, and the persisted record is V2 canonical bytes that a restarted daemon decodes with SignedNativeSendPurposeV2::from_canonical_bytes; a stored V1 record is refused, not migrated."
+do_4 = "do_4 Amend services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs only where it decodes or asserts the purpose: the preview payload decodes with NativeSendPurposeV2::from_canonical_bytes, purpose.chain_id is 125, purpose.transaction_type is 2, purpose.evm_sender equals the fixture account EVM address, purpose.consent_public_key equals the owner public key the fixture sends, and the existing canonical_digest, preparation_id and commitment assertions stay. Write services/agent/crates/layerx-agentd/tests/repair_22_31_545.rs proving the real path: a V2 purpose produced by the owner preview over the real Unix transport is signed by an Ed25519 consent key, verified by the binding verifier, persisted, and still verifies after the store is closed and reopened; a V1 wire body is refused with the malformed rejection; a V2 purpose whose consent key or sender differs from the current owner is refused with the current_owner mismatch."
+do_5 = "do_5 Change nothing in layerx-agent-api. Record in services/agent/crates/layerx-agentd/tests/repair_22_31_545.kvx every producer, decoder and verifier ported, the wire field list, and the restart case. The gates need no environment variable, credential or live endpoint beyond the local EVM the test starts (gotcha 2962, decision 2609); build and verify run once at the final revision, the record lists the gate commands by reference to the gate ledger and no file is amended after the gates run (gotcha 3142)."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/human.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs", "services/agent/crates/layerx-agentd/src/capability/binding.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_545.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_545.kvx"]
+tests = ["services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_545.rs"]
+planned_paths = ["services/agent/crates/layerx-agentd/src", "services/agent/crates/layerx-agentd/tests"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test native_send_preview_evm --test repair_22_31_545"
+verify_cmd = "anvil --version && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- native_send && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test native_send_preview_evm --test repair_22_31_545"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Attempt 2 (continue, gotcha 3162, decision 2618): the attempt-1 tree at 238d3c29af4bb9dcc25e28d01e87ecb5a95c70d1 stands in full (the V2 purpose producers, the wire decoders, the binding verifiers, the restart regression tests/repair_22_31_545.rs and the record). In services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs the assertion that follows post_preview(5, [12; 32]) (line 1033 of attempt 1, line 1026 on main) expects the two-byte refusal; the daemon on main answers the reason-bearing frame that attempt 1 observed: the magic LXHAGT01, status byte 1, a big-endian u32 length of 17 and the bytes of operation.refused. Assert that whole frame through a field helper like the one in tests/human_peer_rungs.rs (22.31.543 do_2 describes the same assertion and keeps it on rebase under decision 2618) and record the reason in tests/repair_22_31_545.kvx. Rebase onto current main, run the declared build and verify once at the final revision, record the gates by reference to the gate ledger and amend no file after they run."
+
+[task.22.31.544]
+title = "Port the approval replay-bounds test to the timed approval entries"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.31.495"]
+reqs = ["22998.1"]
+capabilities = ["22.31.544"]
+interfaces = []
+do_1 = "do_1 Gotcha 3154, decision 2610. In services/agent/crates/layerx-agentd/tests/repair_22_31_216.rs replace every call of the retired sequence-only entries of services/agent/crates/layerx-agentd/src/policy/approval.rs with the timed entry of the same name: reserve_and_hold becomes reserve_and_hold_at (registry, limiter, context, prepared, the reservation request, ApprovalSequence(expiry sequence), TimestampSeconds(decision time)), hold becomes hold_at (registry, context, prepared, ApprovalSequence(current), ApprovalSequence(expiry), TimestampSeconds(decision time)) and hold_reserved becomes hold_reserved_timed (registry, context, prepared, ApprovalSequence(current), ApprovalSequence(expiry), the reservation, TimestampSeconds(decision time)); the decision time is one fixed constant below the prepared expiry TimestampSeconds(500) that the prepared helper sets, for example 100; the imports at line 15 follow."
+do_2 = "do_2 Every expectation of the four cases stays as written: 64 items survive reopen, 65 items are refused without a reservation leak, the borrowed admission of 65 items is refused with ApprovalError::TooManyItems and the registry holds nothing, and the decoder still refuses oversized records. If a timed entry returns a different error variant for the same input, the test expects the variant the live entry documents and the record names it; nothing under src changes."
+do_3 = "do_3 Write services/agent/crates/layerx-agentd/tests/repair_22_31_544.kvx recording the six call sites ported and the decision time used. Build and verify run once at the final revision, the record lists the gate commands by reference to the gate ledger and no file is amended after the gates run (gotcha 3142)."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/tests/repair_22_31_216.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_544.kvx"]
+tests = ["services/agent/crates/layerx-agentd/tests/repair_22_31_216.rs"]
+planned_paths = ["services/agent/crates/layerx-agentd/tests/repair_22_31_216.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_544.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_216"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_216"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 3156, decision 2612): the attempt-1 tree at a619f7302b24 stands (the six calls ported to reserve_and_hold_at, hold_at and hold_reserved_timed, the imports, the record). In services/agent/crates/layerx-agentd/tests/repair_22_31_216.rs make Root::new set the permissions of the created directory to mode 0700 immediately after std::fs::create_dir, as tests/bootstrap_bind_layerx.rs does at lines 72 to 75 (std::fs::set_permissions with std::fs::Permissions::from_mode(0o700), importing std::os::unix::fs::PermissionsExt); change nothing else in the fixture. Note the correction in tests/repair_22_31_544.kvx. Rebase onto the current main, run the declared build and verify once at the final revision, record the gates by reference to the gate ledger and amend no file after they run."
+
+[task.22.31.543]
+title = "Assert the reason-bearing human refusal frame in the retired-rung and native preview daemon tests"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.31.219", "22.31.545"]
+reqs = ["22998.1"]
+capabilities = ["22.31.543"]
+interfaces = []
+do_1 = "do_1 Gotcha 3150, decision 2607. In services/agent/crates/layerx-agentd/tests/human_peer_retired.rs line 18 the expected response to the ExportLevelUnattainable refusal becomes the magic LXHAGT01, status byte 1, the big-endian u32 length and the bytes of refusal.reason() (export.rung_unattainable), built with a field helper like the one in tests/human_peer_rungs.rs; the include_str assertions of that test stay."
+do_2 = "do_2 In services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs line 1026 the refusal returned by post_preview(5, [12; 32]) is asserted as the whole frame: find the refusal variant that preview path returns in src/human.rs and src/human_runtime.rs, build the expected frame from its reason() (or operation.refused for the untyped refusal) with the same helper, and assert the full byte vector; record the reason in tests/repair_22_31_543.kvx."
+do_3 = "do_3 Nothing under src changes; the encoder of src/human.rs is the producer and the two tests are its consumers. Build and verify run once at the final revision, the record lists the gate commands by reference to the gate ledger and no file is amended after the gates run (gotcha 3142)."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/tests/human_peer_retired.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_543.kvx"]
+tests = ["services/agent/crates/layerx-agentd/tests/human_peer_retired.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs"]
+planned_paths = ["services/agent/crates/layerx-agentd/tests/human_peer_retired.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_543.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test human_peer_retired --test native_send_preview_evm"
+verify_cmd = "anvil --version && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test human_peer_retired --test native_send_preview_evm"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (requalify, gotcha 3152, decision 2609): the attempt-1 tree at d32e243e779d stands unchanged: the full-frame assertions in tests/human_peer_retired.rs and tests/native_send_preview_evm.rs through a field helper and the repair record tests/repair_22_31_543.kvx. The verify command now opens with anvil --version so the qualification environment provides the local EVM binary the native preview test starts at line 161. Rebase onto the current main, run the declared build and verify once at the final revision, record the gates by reference to the gate ledger and amend no file after they run."
+do_5 = "Attempt 3 (continue, gotcha 3155, decision 2611): the attempt-2 tree at 5ce5764e25af stands (both full-frame assertions through the field helper, the record; human_peer_retired passed; the local EVM starts). The native preview case fails before the amended assertion: the first native_send_owner_preview_v1 call at line 900 returns HumanOperationError::Refused, which carries no reason. Before the gates, run that one case once with RUST_BACKTRACE=1 (cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test native_send_preview_evm -- --exact native_send_preview_is_an_unsigned_ledger_transfer_call) and read the frame of the refusing guard inside native_send_owner_preview_on_surface of src/human_runtime.rs (the uid and token checks, decode_owner_authority, subject_owner, core_preparation_snapshot, native_fee_policy, the payload hash comparison, agent_rpc_peer::bind, the purpose and capability checks). If the guard refuses because the fixture predates a landed contract (the committed verification rank of 22.31.535 and 22.31.538, the approval time of 22.31.495, the fee policy of 9.25.7, the receipt rank of 22.31.541), amend the fixture in tests/native_send_preview_evm.rs so it emits what the daemon now requires and name the guard and the contract in tests/repair_22_31_543.kvx. If the guard refuses a request the fixture builds correctly, change nothing under src: record the guard by file and line and the reason in tests/repair_22_31_543.kvx, run the declared gates once and end implemented-not-qualified naming it, so a repair task carries the production fix. Rebase onto the current main, run the declared build and verify once at the final revision, record the gates by reference to the gate ledger and amend no file after they run."
+do_6 = "Attempt 4 (continue after 22.31.545, gotcha 3158, decision 2614): the attempt-3 tree at c1ea1692db67af4e7d13364efe38b93ee817b9a2 stands (both complete refusal-frame assertions, the retired source-name checks, the record with blocker.owner_preview). Once 22.31.545 is on main, rebase onto it keeping its V2 amendments of tests/native_send_preview_evm.rs together with the frame assertions of this task; where both touched the same lines the V2 decode and field assertions of 22.31.545 win and the refusal frame of this task stays. Replace blocker.owner_preview in tests/repair_22_31_543.kvx with a closure note naming 22.31.545 and the guard it removed. Change nothing under src. Run the declared build and verify once at the final revision, record the gates by reference to the gate ledger and amend no file after they run."
+do_7 = "Amendment (gotcha 3162, decision 2618): 22.31.545 attempt 2 writes the full refusal frame assertion of do_2 in tests/native_send_preview_evm.rs; on rebase keep it as 22.31.545 left it, record in tests/repair_22_31_543.kvx that the native preview assertion landed with 22.31.545, and finish tests/human_peer_retired.rs and the record as do_1 and do_3 say."
 
 [task.22.31.542]
 title = "Remove the remaining by-path includes of library source from the agent daemon integration tests"
@@ -175867,6 +176181,9 @@ do_7 = "Attempt 4 (continue, gotcha 3136): attempt 3 stands in full (the authori
 do_8 = "Attempt 5 (continue, gotcha 3141, decision 2600): attempt 4 stands in full, including the recorded authority responses and the assertions at VerificationLevel::COMMITTED.wire_rank(). Once 22.31.538 is on main, rebase once, change nothing, run the declared build and verify once and record the result."
 do_9 = "Attempt 6 (continue, gotcha 3144, decision 2602): the attempt-5 tree stands, including its replacement of the path-included authority human module in the daemon tests by the authority library as a dev-dependency and its rebase onto 22.31.538. Rebase once more when 22.31.541 is on main (it removes the by-path include of budget_proof.rs from the 535 test, which is the only reason the attempt-5 build failed), then run the declared build and verify once and change nothing else; record the gates by reference to the gate ledger and amend no file after they run."
 do_10 = "Attempt 7 (continue, gotcha 3150, decision 2607): the attempt-6 tree stands in full (the authority library as a dev-dependency, the stand-in removal, the recorded authority responses, the assertions at COMMITTED.wire_rank()). Amend only the five refusal expectations: in tests/human_approval_budget_actor.rs lines 1052 and 1058 and in tests/human_projection_facts.rs lines 214, 266 and 271 the expected response becomes the whole frame the encoder writes, the magic LXHAGT01, status byte 1, the big-endian u32 length and the reason bytes, built with a field helper like the one in tests/human_peer_rungs.rs from the reason of the refusal each path returns (the stale-sequence operation returned operation.refused in the attempt-6 output; read the others from the refusal variant in src/human.rs and src/human_runtime.rs rather than guessing). Change nothing under src. Rebase onto the current main, run the declared build and verify once at the final revision, record the gates by reference to the gate ledger and amend no file after they run."
+do_11 = "Attempt 8 (continue, gotcha 3153, decision 2610): the attempt-7 tree at 3039b4588564 stands in full (the authority library as a dev-dependency, the stand-in removal, the recorded authority responses, the five full-frame refusal assertions; build and dependent-crate check passed, human_approval_budget_actor passed). In services/agent/crates/layerx-agentd/tests/human_projection_facts.rs the legacy reservation hold inside real_authenticated_approval_and_managed_exports_preserve_facts_refusals_and_reopen (must(hold_reserved(&owner.approvals, ..., sequence, window, &legacy_reservation)), line 1453 on main) becomes hold_reserved_at with the same arguments and runtime.clock.as_ref() appended, exactly as the hold of the second reservation that follows it; the expectations after it stay. Before the gates, search both test files for any other call of hold, hold_reserved, reserve_and_hold, decide or expire without the _at or _timed suffix and port it the same way. Rebase onto the current main, run the declared build and verify once at the final revision, record the gates by reference to the gate ledger and amend no file after they run."
+do_12 = "Attempt 9 (continue, gotcha 3157, decision 2613): the attempt-8 tree at 533c08cdf4133b226683dd97bd8cd7d78528917a stands in full (the authority library as a dev-dependency, the stand-in removal, the recorded authority responses, the five full-frame refusal assertions, the legacy hold ported to hold_reserved_at with runtime.clock.as_ref()). In services/agent/crates/layerx-agentd/tests/human_projection_facts.rs, inside the fixture start() of the real_authenticated_approval_and_managed_exports_preserve_facts_refusals_and_reopen case, after drop(owner) and drop(shared) and before the store is reopened for the serving owner (lines 1488 to 1491 of attempt 8), open the store once more with Store::open(&store_path), read the record under TenantKey::new(tenant.clone(), ObjectKind::PreparedActivity, approval-hold-v1: followed by the 32 legacy_id bytes), assert its first eight bytes are LXAPHLD5, take the big-endian u32 length at bytes 8 to 12 and the legacy payload at bytes 12 to 12 plus that length (it starts with LXAPHLD4), write that payload back under the same key with put_local, and drop the store before the reopen so the serving owner replays a legacy hold without presentation facts. Change nothing else: the expectation at line 231 (LXHAGT01 followed by status byte 2 for operation 47 on the legacy approval) stays, as does everything after it. Change nothing under src. Record the rewrite in tests/repair_22_31_516.kvx. Rebase onto the current main, run the declared build and verify once at the final revision, record the gates by reference to the gate ledger and amend no file after they run."
+do_13 = "Attempt 10 (continue, gotcha 3161, decision 2617): the attempt-9 tree at cfd12b83e73f22dc1110089d084fc77bcae7e8fe stands (the authority library as a dev-dependency, the stand-in removal, the recorded authority responses, the five full-frame refusal assertions, the legacy hold held through hold_reserved_at with runtime.clock.as_ref()) except for the fixture block that rewrites the stored hold. In services/agent/crates/layerx-agentd/tests/human_projection_facts.rs: first, remove the block attempt 9 added after drop(owner) and drop(shared) in the case real_authenticated_approval_and_managed_exports_preserve_facts_refusals_and_reopen (the extra Store::open, the read of the approval-hold-v1 record under the legacy id, the LXAPHLD5 and LXAPHLD4 assertions, the put_local of the embedded payload and the drop; lines 1490 to 1505 of attempt 9) so the serving owner replays the timed hold attempt 8 wrote; second, at lines 229 to 234 the operation 47 expectation for the legacy approval becomes a successful frame: the magic LXHAGT01, status byte 0 and the facts payload the facts encoder writes for a timed hold (attempt 8 observed 141 bytes of facts); assert the status byte, the payload length and, where the payload carries the approval id, its equality with the legacy approval id, and pin no other byte; third, add a second case to the same file, named pre_clock_hold_record_refuses_to_open or with that meaning, that builds the same fixture and store, holds the approval through the timed entry as the main case does, drops the owner and the shared store, rewrites the hold record to its embedded bare LXAPHLD4 payload exactly as the removed block did, reopens the store and asserts that constructing the serving owner (UnifiedAgentOwner::new with the same arguments the fixture owner helper passes, called without must so the error is observed) returns an error and that no hold is served; the case proves the refusal of 22.33.1507 (validate_replayed, src/policy/approval.rs line 1439) across a real store reopen; fourth, in tests/repair_22_31_516.kvx record attempt 10 with both cases and the gates by reference to the gate ledger. Change nothing under src. Run the declared build and verify once and amend no file after they run."
 
 [task.22.31.515]
 title = "Carry the explicit decision time into the Human service and MCP consumers of the daemon approval service"
@@ -185467,7 +185784,7 @@ title = "Repair audit record 22.30.106 medium findings in services/human/crates/
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.155", "22.31.156", "22.31.443"]
+requires = ["22.31.155", "22.31.156", "22.31.443", "22.31.539", "22.31.540"]
 reqs = ["22998.1"]
 capabilities = ["22.33.50"]
 interfaces = []
@@ -185498,6 +185815,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_8 = "Attempt 3 (continue): the build or the dependent-crate check failed before this task's verify because services/human/crates/layerx-human-service/tests/observed_balances_denom.rs no longer builds against the Quantity type (gotcha 2974); 22.31.443 repairs that test and this task now requires it. Keep the implementation and re-run both commands when it has published."
 do_9 = "Attempt 4 (continue): the two cases fail because the agent receipt ingress of the human service reports Submitted for a receipt the recorded node transport has already receipted; that ingress lives in services/human/crates/layerx-human-service/src, this domain, so it is repaired here rather than requested: the ingress derives the state from the node receipt it was given (Receipted once the committed receipt is present, Submitted only before), and the recovery path re-derives it on replay. Keep the assertions as written and finish on one commit after the verify passes."
 do_10 = "Attempt 5 (continue): the human receipt ingress whose persisted metadata still reports Submitted after the receipt is held is implemented in the agent daemon's human runtime and receipt modules, so the scope now includes services/agent/crates/layerx-agentd/src. Repair the persisted state transition there (the reopened metadata reports Receipted once the receipt is held, and the replay assertion sees it), keep the three assertions as they stand, never await a scope decision (this ruling is the decision), and run the build and the verify once on the final revision with no commit after the pass."
+do_11 = "Attempt 6 (continue after 22.31.539 and 22.31.540, gotcha 3163, decision 2601): drop the attempt-5 edits under services/agent/crates/layerx-agentd/src (human_receipt_frame.rs decode_from, the rank function of human_runtime.rs, persist_authenticated_receipt and decode_metadata in receipt.rs), which 22.31.539 owns and lands with the legacy mapping of decision 2601; keep tests/repair_22_33_50.rs, tests/support/committed_controls.rs, the two recordings, the agent_controls_rungs.rs change and the record. Once 22.31.539 and 22.31.540 are on main, rebase onto it, then before the gates run the failing case once with RUST_BACKTRACE=1 (cargo test --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test repair_22_33_50 -- --exact finding12_control_transport_preserves_checkpoint_verification) and name in the record the line of src/server/agent_runtime.rs or src/journeys/engine.rs that returns AgentBoundaryError::CorruptResponse. If that site decodes the verification code or label, the repair is the 22.31.539 and 22.31.540 change already on main and nothing else changes; if it is another check, repair it inside services/human/crates/layerx-human-service/src (this domain) with the three assertions unchanged. Run the declared build and verify once at the final revision and amend no file after the gates."
 
 [task.22.33.49]
 title = "Repair audit record 22.30.106 medium findings in services/human/crates/layerx-human-service/src/onboarding (part 1 of 1): restart-recovery, runtime-risk"
@@ -193953,7 +194271,7 @@ touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services
 tests = ["services/agent/crates/layerx-agentd/tests/prepare_eip1559.rs", "services/agent/crates/layerx-agentd/tests/native_routes_rpc.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
-verify_cmd = "sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test prepare_eip1559 --test native_routes_rpc --test native_send_preview_evm --test write_path_evm --test rpc_surface_major_two"
+verify_cmd = "anvil --version && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test prepare_eip1559 --test native_routes_rpc --test native_send_preview_evm --test write_path_evm --test rpc_surface_major_two"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -193984,7 +194302,7 @@ touches = ["services/agent/crates/layerx-agentd/src/approval/native_effect.rs", 
 tests = ["services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs", "services/agent/crates/layerx-agentd/tests/program_ops_layerxprograms.rs"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
-verify_cmd = "sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test native_send_preview_evm --test program_ops_layerxprograms --test fee_projection_program_state --test approval_ops -- --skip checks_the_actual_server_identity"
+verify_cmd = "anvil --version && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test native_send_preview_evm --test program_ops_layerxprograms --test fee_projection_program_state --test approval_ops -- --skip checks_the_actual_server_identity"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -362081,7 +362399,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.90.1]
 title = "Write the two tooling acceptance tests the merged spec names"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 47
 requires = ["16.9.4", "16.97.2", "5.54.9", "5.51.1", "5.51.4", "5.50.7", "1.19.3", "6.60.2", "9.24.7", "22.31.515", "22.31.521"]
@@ -362091,7 +362409,7 @@ interfaces = []
 do_1 = "Finding 17.4.5.2 and decision 2194: the merged spec names this test and its owning task passed a verify command that matched nothing, so the test was never written. Add test_deleted_trees_absent_and_catalogue_valid to RetiredCatalogueDeletedTest in tools/paxeer-x/tests/test_retired_catalogue_deleted.py: with the catalogue listing the deleted daemon trees, the scanner run with --self-test and then with --deleted for those components exits 0 both times (acceptance 16.44.1), beside test_catalogue_valid_and_self_test_passes. Add test_bridge_credit_suites_absent to tests/ci/test_requested_suites_absent.py: the three bridge credit suite paths are absent from the tree and make -n build test exits 0 (16.966.4), in the form of test_arbiter_native_authority_absent."
 do_2 = "No production file changes; pytest refuses an unknown node id, so the verify command fails when either test is missing."
 symbols = ["test_deleted_trees_absent_and_catalogue_valid", "test_bridge_credit_suites_absent"]
-touches = ["tools/paxeer-x/tests/test_retired_catalogue_deleted.py", "tests/ci/test_requested_suites_absent.py", "services/agent/README.md", "services/agent/crates/layerx-agentd/host-tests", "services/agent/crates/layerx-agentd/src", "tools/paxeer-x/retired_callers.json", "services/agent/crates/layerx-agentd/host-tests/node_integration.rs", "services/agent/crates/layerx-agentd/host-tests/runtime_mode.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/protocol_evidence.rs"]
+touches = ["tools/paxeer-x/tests/test_retired_catalogue_deleted.py", "tests/ci/test_requested_suites_absent.py", "services/agent/README.md", "services/agent/crates/layerx-agentd/host-tests", "services/agent/crates/layerx-agentd/src", "tools/paxeer-x/retired_callers.json", "services/agent/crates/layerx-agentd/host-tests/node_integration.rs", "services/agent/crates/layerx-agentd/host-tests/runtime_mode.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/protocol_evidence.rs", "services/agent/crates/layerx-client/src/lib.rs"]
 tests = ["tools/paxeer-x/tests/test_retired_catalogue_deleted.py::RetiredCatalogueDeletedTest.test_deleted_trees_absent_and_catalogue_valid", "tests/ci/test_requested_suites_absent.py::test_bridge_credit_suites_absent"]
 planned_paths = []
 build_cmd = "python3 -m py_compile tools/paxeer-x/tests/test_retired_catalogue_deleted.py tests/ci/test_requested_suites_absent.py"
@@ -362116,6 +362434,7 @@ do_8 = "Attempt 6 (continue): the retired-catalogue test flags services/agent/RE
 do_9 = "Attempt 7 (continue): the two acceptance tests are in place and the retired-catalogue check fails on one remaining reference outside the task's files: the integration test function at line 178 of services/agent/crates/layerx-agentd/host-tests/node_integration.rs carries the retired LNI name in its identifier. Rename that test (and any variable or message it reads under the retired name) to the network-era wording of what it checks, the node JSON-RPC startup check against the human service variable, with the host-tests directory now in touches; do not add an allowance to the catalogue check and do not weaken it. Re-run the verify command and finish on one commit."
 do_10 = "Attempt 9 (continue): the attempt-6 ruling stands (rename the LNI identifiers); the remaining references in services/agent/crates/layerx-agentd/src (human_runtime.rs line 1535, protocol_evidence.rs and the boundary checker) are now in this task's paths for the renames only; change nothing else in that crate."
 do_11 = "Attempt 10 (continue, gotcha 3149, decision 2606): the attempt-9 tree stands (both acceptance tests, the README and host-test renames, the three doc renames in human_runtime.rs and protocol_evidence.rs). Rebase it onto the current main, which carries 22.31.515 and 22.31.521 so the MCP and Human service test targets compile again. In tools/paxeer-x/retired_callers.json add an allowed_references entry for services/agent/tools/boundary-check/src/main.rs with the three lines of the lni_reference function header, its layerx_client::lni contains test and the call site at line 166, and a one-line citation naming this task and decision 2606, in the shape of the existing entry for services/human/tools/boundary-check/src/lib.rs; rename nothing in the agent boundary checker and change nothing else in the daemon crate. Run the declared build and verify once at the final revision, record the gates by reference to the gate ledger and amend no file after they run."
+do_12 = "Attempt 11 (continue, gotcha 3151, decision 2608): the attempt-10 tree stands (both acceptance tests, the renames, the boundary-checker allowance). In tools/paxeer-x/retired_callers.json add allowed_references entries, each with a one-line citation naming this task and decision 2608, for services/agent/crates/layerx-agentd/README.md with the exact line 40 that carries the no-LNI-connection sentence, and for services/agent/crates/layerx-client/src/repair_22_33_1541.kvx with its exact lines 7 and 16. Reword line 7 of services/agent/crates/layerx-client/src/lib.rs so the crate doc comment says the frame module provides a generic bounded codec and transport without a separate kernel protocol boundary, naming no retired component; change nothing else in that crate. Rebase onto the current main, rerun the lni scan once locally through the verify command, then run the declared build and verify once at the final revision, record the gates by reference to the gate ledger and amend no file after they run."
 
 [task.19.0.1]
 title = "Refuse the name-system closure while any name task is not done"
@@ -372429,6 +372748,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_8 = "Attempt 2 (continue on current main): the attempt-1 tree at 15a75e15b655d42a5714fd8bcf12443765570d58 passed its build and verify (three cases) but its README hunk no longer applies because 22.33.527 (05f25a9768) rewrote the archive paragraph of services/explorer/backend/README.md on main. Start from current main: add apps/explorer/test/repair/repair_22_33_490_test.exs as attempt 1 wrote it, and in README.md keep the 22.33.527 paragraph (Historical anchor and old receipt rows are read-only data ...) and fold in what finding 022 asks that it lacks: name the three registered archive routes as the table beneath it does and state in the receipts row that the frozen receipts carry their recorded verification status (the attempt-1 wording of that row); change nothing else. Run the declared build and verify once at the final revision and record the gates by reference to the gate ledger."
 
 [task.22.33.489]
 title = "Repair audit record 22.30.150 medium findings in services/explorer/backend/apps/nft_media_handler (part 1 of 1): doc-drift"
