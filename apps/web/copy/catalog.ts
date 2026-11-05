@@ -717,7 +717,7 @@ export const copyEntries = [
   { key: "approval.detail.budget", message: "Budget remaining after", context: "Label for the verified budget remaining after approval.", surface: "default", kind: "body", moneyAdjacent: true },
   { key: "verification.unverified", message: "Not verified yet", context: "Verification level of a figure this plane cannot verify.", surface: "default", kind: "body", moneyAdjacent: true },
   { key: "verification.receipt_verified", message: "Verified against its receipt", context: "Verification level backed by a verified LayerX receipt.", surface: "default", kind: "body", moneyAdjacent: true },
-  { key: "verification.checkpoint_finalised", message: "Finalised on LayerX", context: "Verification level backed by LayerX settlement finality.", surface: "default", kind: "body", moneyAdjacent: true },
+  { key: "verification.checkpoint_finalised", message: "Finalised in a committed Paxeer block", context: "Verification level backed by verified inclusion in a committed Paxeer block.", surface: "default", kind: "body", moneyAdjacent: true },
   { key: "approval.approve.action", message: "Approve", context: "Primary decision control on a pending hold.", surface: "default", kind: "action", moneyAdjacent: true },
   { key: "approval.reject.action", message: "Reject", context: "Refusing decision control on a pending hold.", surface: "default", kind: "action", moneyAdjacent: true },
   { key: "approval.approve.confirm_title", message: "Approve this request?", context: "Step-up confirmation title before approving.", surface: "default", kind: "body", moneyAdjacent: true },
