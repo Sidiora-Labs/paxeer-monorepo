@@ -31107,3 +31107,19 @@ symbol = "web.rs"
 observed = "Attempt 2: build exit 0; the dependent-crate check stopped on services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs line 590, a GrantTerms construction without receiver_did_key that landed with 22.31.532 attempt 3 beside the field 22.31.531 attempt 3 added; verify never ran."
 assumption = "The red target is outside the task's paths and is one missing field; the attempt's own work is not in question."
 severity = "low"
+
+[finding.22.31.529.3]
+task = "22.31.529"
+file = "services/agent/crates/layerx-mcp/tests/web.rs"
+symbol = "web.rs"
+observed = "Attempt 3: build exit 0 at ab26915ed7; verify exit 101: web 18 passed, 4 failed: lines 1357 and 1415 payer.grants.is_empty() (the terms of the standing-grant lookup are recorded before the hold is placed, decision 2583 path), and line 2272 twice, ticket.disclosure.actor was the sender address hex abab..ab instead of the payer DID (the stored spend of 22.33.1551 names hex(&self.sender) as the actor); web_payments_layerxpay did not run."
+assumption = "The actor defect is production and outside the task paths, so it is a new task; the three assertions contradict the intended hold path and change to the count the suite already expects after approval."
+severity = "low"
+
+[finding.22.31.516.3]
+task = "22.31.516"
+file = "services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs"
+symbol = "human_approval_budget_actor.rs"
+observed = "Attempt 3: build exit 0 at 9fa8d29462; the dependent-crate check stopped on services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs line 590, a GrantTerms construction without receiver_did_key, because the attempt was claimed four minutes before 22.31.536 published; verify never ran."
+assumption = "The red target is repaired on main; the attempt's own work is not in question."
+severity = "low"

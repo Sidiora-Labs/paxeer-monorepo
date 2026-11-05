@@ -8685,6 +8685,18 @@ value = "When two tasks land in the same window and one adds a field to a public
 basis = "Gotcha 3136: the consumer task owns none of the files and the fix is one field."
 affects = ["22.31.531", "22.31.532", "22.31.529"]
 
+[decision.2596]
+title = "A held metered spend prepares its draw under the standing grant before the approver decides, so a hold case asserts one prepared terms record and zero signatures"
+value = "The hold on a metered spend is placed on the disclosure of the prepared draw, which requires the standing-grant lookup and the draw preparation first; nothing is signed or sent until the approver decides, and payment remains the sender signature after approval. A suite payer that records prepared terms therefore shows one record after the hold, after the pending retry and after the decision, and its hold cases assert that count beside zero signatures; a payer that signs or sends anything while held is the defect those cases guard against."
+basis = "Gotcha 3138: the three assertions predate decision 2583 and contradict the intended path, while the signature count already proves no payment."
+affects = ["22.31.529", "22.31.531", "22.33.1551"]
+
+[decision.2597]
+title = "A stored held spend carries the actor DID it was disclosed under; the ticket actor and the hold agent are that DID, never the sender address"
+value = "The spend stored for restart recovery persists the payer DID the disclosure named; the disclosure re-derived from the record and the hold context agent both name that DID, a loaded record naming another actor than the configured payer is refused as changed, and a record without the field is refused as changed so the spend is re-presented and held again under the current form. No DID constructor accepts an address hex as an agent identity on this path."
+basis = "Gotcha 3137: the approver must see the agent that acts, and the stored and the presented disclosures must name the same actor."
+affects = ["22.33.1551", "22.31.529"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -37575,6 +37587,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.31.537]
+title = "Carry the actor DID in the stored held spend so the ticket names the agent, not the sender address"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-mcp/src/tools/web/approval_state.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_537.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_537.kvx", "services/agent/crates/layerx-mcp/tests/repair_22_33_1551.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_531.rs"]
+tests = ["services/agent/crates/layerx-mcp/tests/repair_22_31_537.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --test repair_22_31_537 --test repair_22_33_1551 --test repair_22_31_531"
+do_1 = "do_1 Gotcha 3137, decision 2597. In services/agent/crates/layerx-mcp/src/tools/web/approval_state.rs give StoredSpend a persisted actor field holding the payer DID the disclosure names (config.payer_did, as spend_disclosure already does); authorise_held writes it when a spend is first stored and refuses with ApprovalChanged when a loaded record names another actor than the configured payer; StoredSpend::prepared sets the disclosure actor from that field, and the hold context agent (the line that today builds Did::new from the sender address hex) is the same DID. The storage key prefix is unchanged; a stored record without the field fails the deny_unknown_fields decode and is refused as ApprovalChanged, so the spend is re-presented and held again."
+symbols = []
 
 [capability.22.31.536]
 title = "Give the host repair test grant terms the receiver DID key the shared type now carries"
@@ -175097,6 +175118,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.537]
+title = "Carry the actor DID in the stored held spend so the ticket names the agent, not the sender address"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.537"]
+interfaces = []
+do_1 = "do_1 Gotcha 3137, decision 2597. In services/agent/crates/layerx-mcp/src/tools/web/approval_state.rs give StoredSpend a persisted actor field holding the payer DID the disclosure names (config.payer_did, as spend_disclosure already does); authorise_held writes it when a spend is first stored and refuses with ApprovalChanged when a loaded record names another actor than the configured payer; StoredSpend::prepared sets the disclosure actor from that field, and the hold context agent (the line that today builds Did::new from the sender address hex) is the same DID. The storage key prefix is unchanged; a stored record without the field fails the deny_unknown_fields decode and is refused as ApprovalChanged, so the spend is re-presented and held again."
+do_2 = "do_2 Add services/agent/crates/layerx-mcp/tests/repair_22_31_537.rs using the tests/support/web_hold.rs fixture in the manner of repair_22_33_1551.rs: hold a metered search above the threshold through the served route, read the ticket from the registry and assert ticket.disclosure.actor is the configured payer DID (did:layerx:..., not the sender address hex), and where the ticket exposes its hold context assert the agent is that DID; reopen the store (restart) and assert the retry is reported as pending, not changed, because the re-derived disclosure equals the ticket disclosure; write a record without the actor field under the spend key and assert the retry is refused as ApprovalChanged with zero signatures and nothing sent. Existing tests in repair_22_33_1551.rs and repair_22_31_531.rs pass unchanged except an assertion that names the address hex as the actor, which moves to the DID."
+do_3 = "do_3 Record in services/agent/crates/layerx-mcp/tests/repair_22_31_537.kvx the field, the refusal cases and the gate results. The gates need no credential, environment variable or live endpoint (gotcha 2962)."
+symbols = []
+touches = ["services/agent/crates/layerx-mcp/src/tools/web/approval_state.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_537.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_537.kvx", "services/agent/crates/layerx-mcp/tests/repair_22_33_1551.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_531.rs"]
+tests = ["services/agent/crates/layerx-mcp/tests/repair_22_31_537.rs"]
+planned_paths = ["services/agent/crates/layerx-mcp"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --test repair_22_31_537 --test repair_22_33_1551 --test repair_22_31_531"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.536]
 title = "Give the host repair test grant terms the receiver DID key the shared type now carries"
 status = "done"
@@ -175257,7 +175308,7 @@ title = "Give the web suite's recorded payer the approval resources the hold pat
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.527", "22.31.531", "22.31.536"]
+requires = ["22.31.527", "22.31.531", "22.31.536", "22.31.537"]
 reqs = ["22998.1"]
 capabilities = ["22.31.529"]
 interfaces = []
@@ -175282,6 +175333,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Attempt 2 (continue after 22.31.531, gotcha 3119): attempt 1 stands in full (the web_hold directory and resources on RecordedPayer, approval_resources implemented, every assertion unchanged). Rebase on main once 22.31.531 has landed, change nothing else, run the declared build and verify once and record."
 do_4 = "Attempt 3 (continue after 22.31.536, gotcha 3136, decision 2595): attempt 2 stands in full (the fixture retained, every assertion unchanged, the record). Rebase on main once 22.31.536 is there, change nothing, run the declared build and verify once and record the result."
+do_5 = "Attempt 4 (continue after 22.31.537, gotchas 3137 and 3138, decisions 2596 and 2597): attempt 3 stands in full (the fixture, the directory lifetime, the record). One change in tests/web.rs: in the hold cases replace the three assert!(payer.grants.is_empty()) assertions at lines 1357, 1365 and 1415 with assert_eq!(payer.grants.len(), 1), since the standing-grant lookup records the terms once and the pending retry and the decision add none; every replay.signatures() == 0 assertion stays. The actor assertion at line 2272 stays as written and passes once 22.31.537 is on main. Rebase on main once 22.31.537 is there, run the declared build and verify once and record the result."
 
 [task.22.31.528]
 title = "Reconcile the web-search payment suite with the exact-only offers"
@@ -175487,7 +175539,7 @@ do_2 = "do_2 In services/agent/crates/layerx-agentd/Cargo.toml add layerx-platfo
 do_3 = "do_3 Change no behaviour of the authority or the daemon; the two test files, the authority lib.rs and both Cargo manifests (and the lock file if it changes) are the change. Record in services/agent/crates/layerx-agentd/tests/repair_22_31_516.kvx the items exported, the stand-in removed and the two test runs."
 do_4 = "do_4 The gate needs no environment variable, credential or live endpoint (gotcha 2962); the build compiles every daemon test target and the verify runs the two tests that were red."
 symbols = []
-touches = ["services/platform/hosted/authority/src/lib.rs", "services/agent/crates/layerx-agentd/Cargo.toml", "services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs", "services/agent/crates/layerx-agentd/tests/human_projection_facts.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_516.kvx"]
+touches = ["services/platform/hosted/authority/src/lib.rs", "services/agent/crates/layerx-agentd/Cargo.toml", "services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs", "services/agent/crates/layerx-agentd/tests/human_projection_facts.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_516.kvx", "services/platform/hosted/authority/Cargo.toml", "services/platform/hosted/authority/src/main.rs", "services/platform/hosted/authority/src/chain_receipt.rs", "services/platform/hosted/authority/src/committed.rs", "services/platform/hosted/authority/src/protected.rs", "services/platform/hosted/authority/src/trust.rs", "services/platform/hosted/authority/src/human.rs", "services/platform/hosted/authority/src/human/budget_state.rs", "services/platform/hosted/authority/src/human/budget_state/native.rs", "services/agent/Cargo.lock"]
 tests = ["services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs", "services/agent/crates/layerx-agentd/tests/human_projection_facts.rs"]
 planned_paths = ["services/platform/hosted/authority/src", "services/platform/hosted/authority/Cargo.toml", "services/agent/crates/layerx-agentd/tests", "services/agent/Cargo.lock", "services/agent/Cargo.toml"]
 build_cmd = "cargo build --locked --manifest-path services/platform/hosted/authority/Cargo.toml && cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
@@ -175505,6 +175557,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Attempt 2 (continue after 22.31.519): attempt 1 did the task's work (the shared authority library exports, the dev-dependency and the stand-in removal; its first build failed on two module declarations in hosted/authority/src/human/budget_state.rs that the attempt then fixed) and its second build failed only in services/agent/crates/layerx-agentd/tests/approval_semantics.rs, which still uses the signatures 22.31.495 retired (gotcha 3077) and which 22.31.519 repairs. Rebase on main once 519 is there, rerun the declared build and verify with no further edit unless the run names a site inside this task's paths, and record the result."
 do_6 = "Attempt 3 (continue after 22.31.535, gotcha 3134, decision 2593): attempt 2 stands in full (the authority library exports, the dev-dependency and the stand-in removal). Rebase on main once 22.31.535 is there, keeping both the committed label it writes in src/human/budget_state.rs and src/human.rs and the library exports of attempt 2. In tests/human_approval_budget_actor.rs and tests/human_projection_facts.rs move the recorded budget-state fixture literal and every assertion on the verification label to layerx_types::verify::VerificationLevel::COMMITTED.wire_rank() (on main: human_approval_budget_actor.rs lines 778, 1067 and the fixture at 1870 plus the fixture equality near line 530 of attempt 2; human_projection_facts.rs lines 249, 968, 1181 and the fixture at 2379); the projection metadata strings stay as recorded. Change nothing else, run the declared build and verify once and record the result."
+do_7 = "Attempt 4 (continue, gotcha 3136): attempt 3 stands in full (the authority library, both fixtures and assertions at COMMITTED.wire_rank(), the record). Rebase on main, which now carries 22.31.536 at 0935120943 with the receiver_did_key construction in the host repair test, change nothing, run the declared build and verify once and record the result."
 
 [task.22.31.515]
 title = "Carry the explicit decision time into the Human service and MCP consumers of the daemon approval service"
