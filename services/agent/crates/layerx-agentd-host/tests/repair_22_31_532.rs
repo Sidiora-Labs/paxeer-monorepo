@@ -594,6 +594,7 @@ fn draw_call() -> PrecompileCall {
         ),
         payer_account: PAYER,
         recipient: [0x42; 32],
+        receiver_did_key: [0x63; 32],
         asset: ASSET,
         expires_at_ms: 1_900_000_000_000,
         amount: 654_321,
