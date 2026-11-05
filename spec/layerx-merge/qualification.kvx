@@ -31275,3 +31275,11 @@ symbol = "human_peer_retired.rs"
 observed = "Attempt 3: build exit 0; human_peer_retired passed; native_send_preview_evm refused at line 900 before the amended assertion; the attempt pinned the refusal to the retired NativeSendPurposeV1 validation the owner preview still runs and recorded it."
 assumption = "A production refusal of a correct request (gotcha 3158) that the port task 22.31.545 removes; nothing in this task is at fault."
 severity = "low"
+
+[finding.22.31.546.1]
+task = "22.31.546"
+file = "services/agent/crates/layerx-agent-api/tests/schema.rs"
+symbol = "schema.rs"
+observed = "Attempt 1: build exit 0 at 531f68e2497476db73369cfd93489aa6d471ff68; the dependent-crate check exited 101 because the layerx-agentd test target human_approval_budget_actor does not compile on main (eight errors in the by-path included hosted authority budget-state module: unresolved crate::committed, loopback_http, Human and Policy in super, Config.human); verify did not run."
+assumption = "The break is owned by 22.31.516 (finding 22.31.516.6 and the earlier findings on the same target); the schema change of this task cannot affect that target."
+severity = "low"

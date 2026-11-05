@@ -8805,6 +8805,12 @@ value = "VerificationLevel in services/agent/crates/layerx-types/src/verify.rs g
 basis = "Gotcha 3159: decisions 2593 and 2600 covered the rank-carrying documents and left the label-carrying identity and context documents on the retired label, with daemon guards that are void by construction."
 affects = ["22.31.535", "22.31.538", "22.33.1542"]
 
+[decision.2616]
+title = "Decision 2601 stands for a received identity document: the daemon maps the two legacy spellings to COMMITTED and accepts committed; decision 2615 is narrowed to the producer side and the shared label helpers"
+value = "The daemon identity string decoder (services/agent/crates/layerx-agentd/src/human_runtime.rs line 17543) accepts committed and maps checkpoint_finalised and settlement_anchored to COMMITTED as 22.31.539 specifies, refusing unknown strings, and the five identity floors require COMMITTED under 22.31.539. The hosted authority emits VerificationLevel::COMMITTED.wire_label() for the subject identity and context documents, src/human_runtime/subject.rs line 54 decodes the served label through the same mapped decode and requires COMMITTED, the daemon fixtures serve the committed label, and layerx-types gains wire_label and from_wire_label where from_wire_label decodes the five current labels and refuses the rest while the daemon applies the legacy mapping before it. These are the scope of 22.31.549, which follows 22.31.539 and 22.31.545. A new finding is checked site by site against the gotcha, decision and task text before a task is written."
+basis = "Gotcha 3160: batch 494 duplicated the floors and the decoder of 22.31.539 and contradicted decision 2601 on the legacy spellings."
+affects = ["22.31.539", "22.31.540", "22.31.549"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -175342,7 +175348,7 @@ title = "Emit and require the committed verification label for subject identity 
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.535", "22.31.545"]
+requires = ["22.31.535", "22.31.545", "22.31.539"]
 reqs = ["22998.1"]
 capabilities = ["22.31.549"]
 interfaces = []
@@ -175368,6 +175374,7 @@ time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Amendment (gotcha 3160, decision 2616): this task follows 22.31.539 and 22.31.545 and is narrowed to the producer side. do_3 is replaced: the identity string decoder at src/human_runtime.rs line 17543 and the five identity floors are owned by 22.31.539 and are not changed here beyond what rebasing onto it requires; src/human_runtime/subject.rs line 54 decodes the served label through the decoder 22.31.539 leaves (committed accepted, the two legacy spellings mapped to COMMITTED) and requires VerificationLevel::COMMITTED instead of comparing a literal. do_1 stands with one change: from_wire_label decodes the five current labels and refuses the rest, and the daemon applies the legacy mapping of decision 2601 before it. do_2, do_4 and do_5 stand, except that the refusal cases of the daemon test in do_4 are an identity document labelled sequencer_signed or an unknown string, and a document labelled checkpoint_finalised is accepted as COMMITTED under decision 2601. Start from main after 22.31.539 and 22.31.545 have landed."
 
 [task.22.31.548]
 title = "Port the Human service native send journey, custody provider and KMS attestor to NativeSendPurposeV2"
@@ -175435,7 +175442,7 @@ title = "Declare the NativeSendPurposeV2 and SignedNativeSendPurposeV2 records i
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.214"]
+requires = ["22.31.214", "22.31.516"]
 reqs = ["22998.1"]
 capabilities = ["22.31.546"]
 interfaces = []
@@ -175459,6 +175466,7 @@ time_limit_minutes = 60
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue after 22.31.516): the attempt-1 tree at 531f68e2497476db73369cfd93489aa6d471ff68 stands (both V2 records in v1.kvx and the golden copy, the retired notes on the V1 records, the schema test cases, the record). Once 22.31.516 is on main, rebase onto it and run the declared build and verify once; the dependent-crate check then compiles the human_approval_budget_actor target that 22.31.516 repairs. Record the gates by reference to the gate ledger and amend no file after they run."
 
 [task.22.31.545]
 title = "Port the daemon native send purpose producers, wire decoders and binding verifiers to NativeSendPurposeV2"
