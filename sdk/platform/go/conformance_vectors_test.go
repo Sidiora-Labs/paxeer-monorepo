@@ -154,8 +154,8 @@ func TestVectorFilesV1ToV3MatchSequencerReceiptFixture(t *testing.T) {
 		Cases []json.RawMessage `json:"cases"`
 	}
 	readConformanceVector(t, "sequencer-receipt-v1", &source)
-	if len(source.Cases) != 12 {
-		t.Fatalf("want 12 source cases, got %d", len(source.Cases))
+	if len(source.Cases) != 13 {
+		t.Fatalf("want 13 source cases, got %d", len(source.Cases))
 	}
 	refusals := map[string]struct {
 		check sdk.ReceiptCheck
@@ -173,7 +173,7 @@ func TestVectorFilesV1ToV3MatchSequencerReceiptFixture(t *testing.T) {
 		count         int
 	}{
 		{"vector-v1-receipted-positive", "V1", 5},
-		{"vector-v2-receipted-revert", "V2", 1},
+		{"vector-v2-receipted-revert", "V2", 2},
 		{"vector-v3-receipt-refusals", "V3", 6},
 	} {
 		t.Run(group.section, func(t *testing.T) {
@@ -239,6 +239,10 @@ func TestVectorFilesV1ToV3MatchSequencerReceiptFixture(t *testing.T) {
 					if group.section == "V1" {
 						if result.Status != 1 || result.Revert != nil {
 							t.Fatal("positive receipt was not successful")
+						}
+					} else if c.ID == "V2-pax-transfer-insufficient-funds" {
+						if result.Status != 0 || result.Receipt.ResultCode != 1 || len(result.ReturnData) != 0 || len(result.Logs) != 0 || c.LXPCode != "" || result.Revert == nil || result.Revert.Code != "" || result.Revert.Reason != "" {
+							t.Fatalf("lost preexecution refusal: %+v", result)
 						}
 					} else if result.Status != 0 || result.Revert == nil || result.Revert.Code != c.LXPCode ||
 						result.Revert.Reason != "LXP_INSUFFICIENT_BALANCE: insufficient balance" || !bytes.Equal(result.Revert.ReturnData, result.ReturnData) {
