@@ -174630,7 +174630,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.527]
 title = "Port the MCP approval policy and web approval boundary to the timed daemon entries with the runtime clock"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -326672,7 +326672,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.877]
 title = "Repair audit record 22.30.183 medium findings in tools/qualification/paxeer-x (part 2 of 3): doc-drift, retired-reference, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.330", "22.31.491"]
