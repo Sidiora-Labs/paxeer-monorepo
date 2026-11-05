@@ -8649,6 +8649,18 @@ value = "When a declared build of the form cargo build -p <crate> --tests fails 
 basis = "Gotcha 3129; a foreign red test target is a dependency, not a repair scope."
 affects = ["22.31.534", "22.31.519"]
 
+[decision.2590]
+title = "The production web payer boundary answers precompile views through the node pending read"
+value = "WebPayerBoundary implements WebPayer::view: the owner check runs first, the call is encoded with PrecompileCall::encode, and the bytes are read through the node pending call to the target precompile address and returned unchanged; an encoding failure refuses and a node failure maps through node_error as the other boundary methods do. No production path keeps the trait default for view; the MCP exact-terms resolution over the production payer is proven by the host payer EVM suite."
+basis = "Gotcha 3131; the production path lacked the producer half of the account resolution the MCP tool consumes."
+affects = ["22.31.532"]
+
+[decision.2591]
+title = "Every open task whose gates compile the whole layerx-agentd test set requires 22.31.516 until the human approval budget actor target builds on main"
+value = "A declared build or verify of the form cargo build -p layerx-agentd --tests (or the crate manifest with --tests) compiles tests/human_approval_budget_actor.rs, which is red on main until 22.31.516 lands (decision 2564). Such a task is held behind 22.31.516 by its requires; its attempts are continued unchanged, never narrowed to their own targets and never repairing the foreign suite. Tasks already behind 22.31.497 (which requires 516) need no change."
+basis = "Gotcha 3132; the same dependency rule as decision 2589 applied to the one red target that remains."
+affects = ["22.31.516", "22.31.497", "22.33.1539", "22.31.534"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -148095,7 +148107,7 @@ do_5 = "Attempt 4 (continue, decision 2579): attempt 3 stands in full; 21 of 25 
 
 [task.22.31.522]
 title = "Add the chain routes to the explorer page type map and commit the regenerated route type"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.503", "22.31.512"]
@@ -175047,7 +175059,7 @@ title = "Judge budget-state verification through the shared label decoder and su
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.519"]
+requires = ["22.31.519", "22.31.516"]
 reqs = ["22998.1"]
 capabilities = ["22.31.534"]
 interfaces = []
@@ -175072,6 +175084,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue after 22.31.519, gotcha 3129, decision 2589): attempt 1 stands in full (the shared predicate, the two call sites, the Refused variant and its mapping, the two tests). Rebase on main, where tests/approval_semantics.rs builds again since d739b429df; change nothing of the product, run the declared build and verify once and record."
+do_5 = "Attempt 2 also waits for 22.31.516 (gotcha 3132, decision 2591): the declared build compiles tests/human_approval_budget_actor.rs, red on main until 516 lands; nothing else changes in the attempt-2 instruction."
 
 [task.22.31.532]
 title = "Give the production web payer the approval resources and the held-transaction path"
@@ -175102,6 +175115,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Attempt 2 (continue, gotcha 3128): attempt 1 stands in full (the optional approval resources, prepare_bound preparation, the held submission path, the main.rs wiring and the four cases). In tests/payer_evm.rs (1) web_pay_exact_submits_a_signed_layerxpay_call resolves the terms through WebCall::exact_terms_with_payer over a WebPayerBoundary (a second payer built by the payer helper on the same node double, converted with into_web_payer) with the test clock, since no production path calls the environment-bound exact_terms; update the expected request-method list to the views the boundary issues, naming each view in a comment; (2) in SigningFixture::start install a fixed native clock on the signer with AttestorSigner::with_native_replay_journal over a journal path under the attestor harness root directory and Arc::clone of the harness clock field as the Clock (the clock that mints the owner assertion), so grant signing never reads the ambient runtime clock; keep every other assertion. Change no product code; run the declared build and verify once and record in repair-22-31-532.kvx that the two suite cases were aligned."
+do_4 = "Attempt 3 (continue, gotcha 3131, decision 2590): attempt 2 stands in full (the optional approval resources, prepare_bound preparation, the held submission path, the main.rs wiring, the four repair cases and the two test alignments of gotcha 3128). In services/agent/crates/layerx-agentd-host/src/payer.rs implement view on WebPayerBoundary (line 394): run the owner check, encode the call with PrecompileCall::encode (an encoding error refuses), read the bytes through the node pending call to the target precompile address exactly as validate reads accountOwner (lines 170 to 178, mapping node failures through node_error and WebPayerError::from) and return them unchanged. In tests/repair_22_31_532.rs add case (5): a boundary view of accountId(bytes32,bytes32) over the local node double returns the node answer bytes unchanged, and the same view refuses when the owner check refuses. Record the method and the case in tests/repair_22_31_532.kvx, run the declared build and verify once and record."
 
 [task.22.31.531]
 title = "Hold an above-threshold metered draw under an existing grant on its disclosure"
@@ -177022,7 +177036,7 @@ title = "Repair audit record 22.30.95 medium findings in services/agent/crates/l
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.368", "22.31.443", "22.31.483", "22.31.495", "22.31.519"]
+requires = ["22.31.368", "22.31.443", "22.31.483", "22.31.495", "22.31.519", "22.31.516"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1539"]
 interfaces = []
@@ -177055,6 +177069,7 @@ do_9 = "Attempt 4 (requalify after 22.31.483): attempt 3 re-ran the gates on the
 do_10 = "Attempt 5 (after 22.31.495): attempt 4 passed three of five cases; finding_27_grant_rejection_concurrency_and_durable_winner and finding_27_api_changed_call_and_disclosure_never_queue fail with Registry(ClockRequired) from the approval service's grant and reject entry points, which 22.31.495 threads the current time through. Re-run the gates on the attempt-4 tree once 22.31.495 is on main, pass the explicit time the new entry points take, and fix inside the paths only what still fails."
 do_11 = "Attempt 6 (continue after 22.31.519): attempt 5 passed current_time at the three sites of tests/approval_ordering/mod.rs (lines 129, 157 and 213) but never imported the type, so the lib test build failed with E0425 cannot find TimestampSeconds; the module is included from both the lib tests and the integration tests, so import it by a path valid in both, layerx_agent_api::TimestampSeconds as the compiler suggests. The crate's test build also compiles tests/approval_semantics.rs, which 22.31.519 repairs (gotcha 3077); rebase on main once it is there, run the declared build and verify, and record."
 do_12 = "Attempt 6 (continue after 22.31.519, gotchas 3122 and 3123): apply the same two changes to tests/approval_ordering/mod.rs that 22.31.519 attempt 3 applies to tests/approval_semantics.rs: the hold calls at lines 151 and 231 use hold_at with ApprovalSequence and TimestampSeconds arguments at the fixed decision time, and line 32 no longer pre-creates the store root with fs::create_dir_all (let ApprovalExpiry::open create it, or create it with mode 0o700); change no assertion and no product code."
+do_13 = "Attempt 7 (continue after 22.31.516, gotcha 3132, decision 2591): attempt 6 stands in full (the TimestampSeconds import, the hold_at calls and the store-root change of attempt 6, every earlier assertion). Rebase on main once 22.31.516 is there, change nothing, run the declared build and verify once and record."
 
 [task.22.33.1538]
 title = "Repair audit record 22.30.95 medium findings in services/agent/crates/layerx-agentd/tests (part 3 of 3): retired-reference, test-gap"

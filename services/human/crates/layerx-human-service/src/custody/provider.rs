@@ -848,6 +848,7 @@ impl RemoteKmsProvider {
         if limits.maximum_frame_bytes > PROVIDER_FRAME_LIMIT {
             return Err(CustodyError::Kms(KmsError::InvalidConfiguration));
         }
+        let deadline_tls = Some(tls.deadline_client());
         Ok(Self {
             clock,
             provider_reference,
@@ -856,7 +857,7 @@ impl RemoteKmsProvider {
             tls,
             gate: ConnectionGate::new(limits.maximum_connections),
             limits,
-            deadline_tls: None,
+            deadline_tls,
             operation_deadline: None,
         })
     }

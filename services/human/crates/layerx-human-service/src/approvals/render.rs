@@ -150,13 +150,13 @@ impl DisclosureRenderer {
             }));
         };
 
-        let observed_digest: [u8; 32] = match disclosure.reencode() {
-            Ok(canonical) => Sha256::digest(&canonical).into(),
-            Err(DisclosureError::FieldMismatch("source")) => disclosure
-                .audit_digest()
-                .map_err(DisclosureRenderError::DefectiveDisclosure)?,
-            Err(error) => return Err(DisclosureRenderError::DefectiveDisclosure(error)),
-        };
+        disclosure
+            .validate()
+            .map_err(DisclosureRenderError::DefectiveDisclosure)?;
+        let canonical = disclosure
+            .reencode()
+            .map_err(DisclosureRenderError::DefectiveDisclosure)?;
+        let observed_digest: [u8; 32] = Sha256::digest(&canonical).into();
         if observed_digest != held_digest {
             return Err(DisclosureRenderError::DigestMismatch);
         }
