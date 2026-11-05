@@ -22,7 +22,7 @@ test.beforeEach(async({ mockTextAd }) => {
 });
 
 test.describe('fetched bytecode', () => {
-  test('should refetch address query', async({ render, mockApiResponse, createSocket, page }) => {
+  test('should refetch address query +@dark-mode', async({ render, mockApiResponse, createSocket, page }) => {
     const addressApiUrl = await mockApiResponse('general:address', addressMock.validator, { pathParams: { hash: addressMock.hash } });
     await mockApiResponse('general:address_counters', addressCountersMock.forValidator, { pathParams: { hash: addressMock.hash } });
     await mockApiResponse('general:address_tabs_counters', addressTabCountersMock.base, { pathParams: { hash: addressMock.hash } });
@@ -39,7 +39,7 @@ test.describe('fetched bytecode', () => {
   });
 });
 
-test('degradation view', async({ render, page, mockRpcResponse, mockApiResponse }) => {
+test('degradation view +@dark-mode', async({ render, page, mockRpcResponse, mockApiResponse }) => {
   await mockApiResponse('general:address', null as never, { pathParams: { hash: addressMock.hash }, status: 500 });
   await mockApiResponse('general:address_counters', addressCountersMock.forValidator, { pathParams: { hash: addressMock.hash } });
   await mockApiResponse('general:address_tabs_counters', null as never, { pathParams: { hash: addressMock.hash }, status: 500 });
@@ -53,6 +53,18 @@ test('degradation view', async({ render, page, mockRpcResponse, mockApiResponse 
   const component = await render(<Address/>, { hooksConfig });
   await page.waitForResponse(config.chain.rpcUrls[0]);
 
+  await expect(component).toHaveScreenshot({
+    mask: [ page.locator(pwConfig.adsBannerSelector) ],
+    maskColor: pwConfig.maskColor,
+  });
+});
+
+test('entity overview +@mobile +@dark-mode', async({ render, mockApiResponse, page }) => {
+  await mockApiResponse('general:address', addressMock.contract, { pathParams: { hash: addressMock.hash } });
+  await mockApiResponse('general:address_counters', addressCountersMock.forContract, { pathParams: { hash: addressMock.hash } });
+  await mockApiResponse('general:address_tabs_counters', addressTabCountersMock.base, { pathParams: { hash: addressMock.hash } });
+  const component = await render(<Address/>, { hooksConfig });
+  await expect(component.locator('[data-section-group="ADDRESS INFO"]')).toBeVisible();
   await expect(component).toHaveScreenshot({
     mask: [ page.locator(pwConfig.adsBannerSelector) ],
     maskColor: pwConfig.maskColor,

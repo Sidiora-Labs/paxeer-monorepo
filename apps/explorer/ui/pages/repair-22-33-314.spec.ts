@@ -122,12 +122,18 @@ async function addressFixtureShapeReachesLoadedDetailOverHttp() {
   routerState.pathname = '/address/[hash]';
   routerState.query = { hash: addressMock.hash };
   addressDetailFixtures.forEach((value, key) => peer.documents.set(key, value));
-  const { container } = openPage(React.createElement(Address));
+  const { container, rerender } = openPage(React.createElement(Address));
   await waitFor(() => {
-    expect(container.querySelector('[data-address-card="More info"]')?.textContent).toContain('5,462');
+    expect(container.querySelector('[data-section-group="ADDRESS INFO"]')).not.toBeNull();
     expect(container.querySelector(`a[href="/tx/${ addressMock.contract.creation_transaction_hash }"]`)).not.toBeNull();
   });
-  expect(container.querySelectorAll('[data-address-card]')).toHaveLength(3);
+  expect(container.querySelectorAll('[data-address-card]')).toHaveLength(2);
+  expect(container.querySelector('[data-address-balances]')).not.toBeNull();
+  routerState.query = { hash: addressMock.hash, tab: 'analytics' };
+  rerender(React.createElement(
+    React.Fragment, null, React.createElement(CacheProbe), React.createElement(SocketProvider, { children: React.createElement(Address) }),
+  ));
+  await waitFor(() => expect(container.querySelector('[data-stat-tile="Transactions"]')?.textContent).toContain('5,462'));
   expect(peer.requests.find(request => request.target === `/api/v2/addresses/${ addressMock.hash }`)?.body).toEqual(addressMock.contract);
   expect(peer.requests.find(request => request.target.endsWith('/counters'))?.body)
     .toEqual(addressDetailFixtures.get(`/api/v2/addresses/${ addressMock.hash }/counters`));
@@ -311,7 +317,7 @@ async function invalidArchiveEvidenceIsRefusedOverHttp() {
 
 async function tokenSupplyStringsCrossPhoenixLosslesslyIncludingBufferedZero() {
   routerState.pathname = '/token/[hash]';
-  routerState.query = { hash: tokenInfo.address_hash, tab: 'token_transfers' };
+  routerState.query = { hash: tokenInfo.address_hash, tab: 'metadata' };
   tokenDetailFixtures.forEach((value, key) => peer.documents.set(key, value));
   peer.documents.set(`/api/v1/chains/1/token-infos/${ tokenInfo.address_hash }`, TOKEN_INFO_APPLICATION.APPROVED);
   let release: () => void = () => undefined;
@@ -339,7 +345,7 @@ async function tokenSupplyStringsCrossPhoenixLosslesslyIncludingBufferedZero() {
       await waitFor(() => {
         expect(client.getQueryData<TokenInfo>(tokenKey)?.total_supply).toBe(payload.total_supply);
         const displayed = new BigNumber(payload.total_supply).shiftedBy(-Number(tokenInfo.decimals)).dp(3).toFormat();
-        expect(container.querySelector('[data-token-card="Overview"]')?.textContent).toContain(`${ displayed } ARIA`);
+        expect(container.querySelector('[data-token-card="TOKEN INFO"]')?.textContent).toContain(`${ displayed } ARIA`);
       });
     }
     const notifier = readFileSync(path.join(root, 'services/explorer/backend/apps/block_scout_web/lib/block_scout_web/notifier.ex'), 'utf8');

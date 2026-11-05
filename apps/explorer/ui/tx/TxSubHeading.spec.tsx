@@ -72,7 +72,7 @@ describe('TxSubHeading', () => {
 
     const heading = container.querySelector('h1');
 
-    expect(heading?.textContent).toBe('Transaction details');
+    expect(heading?.textContent).toBe(base.hash);
     expect(container.querySelector('[data-tx-sub-heading]')).not.toBeNull();
   });
 

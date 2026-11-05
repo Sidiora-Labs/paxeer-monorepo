@@ -59,14 +59,14 @@ describe('AddressTokens', () => {
     expect(tabs.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('asks for the token balances under every tokens tab the page routes here except the NFT one', async() => {
+  it('routes the legacy NFT list id to the NFT list endpoint', async() => {
     routerState.query = { hash: HASH, tab: 'tokens_nfts_list' };
 
     render(<AddressTokens/>);
 
     await waitFor(() => {
-      expect(requestedPaths()).toContain(`/api/v2/addresses/${ HASH }/tokens`);
+      expect(requestedPaths()).toContain(`/api/v2/addresses/${ HASH }/nft`);
     });
-    expect(requestedPaths()).not.toContain(`/api/v2/addresses/${ HASH }/nft`);
+    expect(requestedPaths()).not.toContain(`/api/v2/addresses/${ HASH }/tokens`);
   });
 });
