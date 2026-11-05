@@ -1,6 +1,8 @@
+import "./source-loader.mjs";
 import assert from "node:assert/strict";
 import { createHash, generateKeyPairSync, sign } from "node:crypto";
 import test from "node:test";
+import { refusesUnboundCommitments } from "./repair-22-33-1478-support.mjs";
 import { secp256k1 } from "@noble/curves/secp256k1.js";
 import { decodeRawEip1559, keccak256, verifySequencerReceipt } from "@sidiora/layerx-sdk";
 import {
@@ -275,20 +277,21 @@ async function settlementResponseCarriesPortableReceipt() {
   assert.equal(committedDecision.verification.rung, "committed");
   assert.equal(committedPortable.rawTransaction, proof.rawTransaction);
   assert.equal(committedPortable.signedReceipt, proof.signedReceipt);
-  const wireEvidence = JSON.parse(JSON.stringify(evidence, (_key, value) => {
-    if (value instanceof Uint8Array) return hex(value);
-    if (typeof value === "bigint") return `0x${value.toString(16)}`;
-    return value;
-  }));
-  for (const field of ["landingBlockHeight", "blockHeader", "receiptInclusion", "commit", "validatorSet"]) {
-    assert.deepEqual(committedPortable[field], wireEvidence[field]);
+  assert.equal(committedPortable.landingBlockHeight, `0x${evidence.landingBlockHeight.toString(16)}`);
+  assert.equal(committedPortable.landingBlockHash, hex(evidence.blockHeader.blockId.hash));
+  for (const field of ["blockHeader", "receiptInclusion", "commit", "validatorSet"]) {
+    assert.equal(Object.hasOwn(committedPortable, field), false);
   }
-  assert.equal(committedPortable.receiptInclusion.transactionHash, txHash);
-  assert.equal(committedPortable.receiptInclusion.receiptDigest, hex(signed.receiptDigest));
   assert.equal(committedPortable.receiptDigest, proof.receiptDigest);
   assert.equal(committedPortable.receiptDigest, hex(signed.receiptDigest));
-  assert.equal(committedPortable.commit.signatures.length, evidence.commit.signatures.length);
-  assert.equal(committedPortable.validatorSet.length, evidence.validatorSet.length);
+  const independentlyVerified = await verifyPaymentReceipt(committedPortable, terms, [committedPin], commitments);
+  assert.equal(independentlyVerified.rung, "committed");
+  assert.equal(independentlyVerified.txHash, txHash);
+  const stored = await committed.fulfillments.get(committed.releaseKeys[0]);
+  assert.deepEqual(stored.commitmentEvidence, evidence);
+  assert.equal(stored.commitmentEvidence.commit.signatures.length, committedVector.receiptInclusion.NextCommit.Signatures.length);
+  assert.equal(stored.commitmentEvidence.validatorSet.length, committedVector.receiptInclusion.NextValidators.length);
+  await refusesUnboundCommitments();
 
   commitments.records.clear();
   const replay = await new SellerMiddleware(committed.config).handle("merchant", committed.header, committed.release);

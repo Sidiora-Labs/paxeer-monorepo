@@ -8673,6 +8673,18 @@ value = "The budget-state, capability-scope and key-policy documents of services
 basis = "Gotcha 3134: 22.31.462 moved one consumer to the committed rank and left the producer and four sibling consumers on a retired label the shared type refuses."
 affects = ["22.31.462", "22.31.516", "22.33.1542"]
 
+[decision.2594]
+title = "Explorer recipe slots carry one composed text style and state the properties that must win explicitly in the winning layer"
+value = "In apps/explorer/toolkit/theme/recipes a slot whose look is a text style of the visual system (label, number, statValue, small) names that text style once in its base or in the variant that owns it; no other variant axis re-points the slot to a second text style. Where a variant or compound variant must override a composed property, it writes that property (fontWeight, fontFamily, fontSize) explicitly beside the text style instead of relying on the order in which compositions resolve. The vitest specs assert the resolved slot styles, not the recipe source."
+basis = "Gotcha 3135: two text styles on one slot resolved to a mixture of both and the explicit weight of the base layer did not carry."
+affects = ["22.35.1"]
+
+[decision.2595]
+title = "A construction of a shared type that lands beside a field addition is repaired by a one-site task gated on the red target, never folded into the task its check stopped"
+value = "When two tasks land in the same window and one adds a field to a public type the other constructs, the construction that lacks the field is repaired by its own small task whose build and verify are the red target alone; the task whose dependent-crate check exposed it requires that repair and continues unchanged, and neither task widens its paths into the other crate."
+basis = "Gotcha 3136: the consumer task owns none of the files and the fix is one field."
+affects = ["22.31.531", "22.31.532", "22.31.529"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -37563,6 +37575,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.31.536]
+title = "Give the host repair test grant terms the receiver DID key the shared type now carries"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs", "services/agent/crates/layerx-agentd-host/tests/repair_22_31_536.kvx"]
+tests = ["services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --test repair_22_31_532"
+do_1 = "do_1 Gotcha 3136, decision 2595. In services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs draw_call (line 590) add receiver_did_key to the GrantTerms construction: the receiver DID key the test's node double answers the sequence view for, or, where the test only checks the draw call shape, a fixed 32-byte value distinct from recipient; the suite's existing assertions stay as they are and pass."
+symbols = []
 
 [capability.22.31.535]
 title = "Emit the committed verification wire rank from the hosted authority and require it in every daemon consumer of its responses"
@@ -148000,6 +148021,7 @@ time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 2 (continue, gotcha 3135, decision 2594): attempt 1 stands in full (the colour, border, shadow and typography foundations, the semantic tokens, the global CSS, the six recipes, the two toolkit components and the spec). In apps/explorer/toolkit/theme/recipes/stat.recipe.ts remove textStyle heading.sm from the valueText of the scan entry on the variant axis (keep its colour and layout properties) and in the scan compound variant state fontWeight 600 beside textStyle statValue on valueText (and fontFamily mono if the resolved styles show the family drifting too); change nothing in repair-22-35-1.spec.ts unless the resolved styles prove the assertion itself wrong, in which case the record says why. Re-run the declared build and verify once; if recipesResolveToTheVisualSystem still fails, write the resolved valueText styles of the three layers into repair-22-35-1.kvx and stop."
 
 [task.22.31.533]
 title = "Re-pin the three committed seller suites to the receipt-signature digest"
@@ -148760,7 +148782,7 @@ do_17 = "Attempt 4 (continue after 22.31.477): the conformance build failed on T
 
 [task.22.33.1478]
 title = "Repair audit record 22.30.86 medium findings in services/platform/middleware/seller/test (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.359", "22.31.360", "22.31.361", "22.31.362", "22.31.434", "22.31.435", "22.31.436", "22.31.479", "22.31.486", "22.31.525", "22.31.492", "22.31.493"]
@@ -151363,7 +151385,7 @@ do_16 = "Attempt 2 (continue): the collateral account-race case waits for the in
 
 [task.22.33.619]
 title = "Repair audit record 22.30.163 medium findings in sdk/integrations/next/example/test (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.287", "22.31.414", "22.31.415", "22.31.416", "22.31.417", "22.31.418", "22.31.419", "22.31.420", "22.31.457", "22.31.479", "22.31.493"]
@@ -175075,9 +175097,38 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.536]
+title = "Give the host repair test grant terms the receiver DID key the shared type now carries"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.536"]
+interfaces = []
+do_1 = "do_1 Gotcha 3136, decision 2595. In services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs draw_call (line 590) add receiver_did_key to the GrantTerms construction: the receiver DID key the test's node double answers the sequence view for, or, where the test only checks the draw call shape, a fixed 32-byte value distinct from recipient; the suite's existing assertions stay as they are and pass."
+do_2 = "do_2 Record in services/agent/crates/layerx-agentd-host/tests/repair_22_31_536.kvx the site changed, the value chosen and the gate results. The gates need no credential, environment variable or live endpoint (gotcha 2962); nothing outside the one test file and the record changes."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs", "services/agent/crates/layerx-agentd-host/tests/repair_22_31_536.kvx"]
+tests = ["services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"]
+planned_paths = ["services/agent/crates/layerx-agentd-host/tests"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --test repair_22_31_532"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.535]
 title = "Emit the committed verification wire rank from the hosted authority and require it in every daemon consumer of its responses"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -175171,7 +175222,7 @@ do_4 = "Attempt 3 (continue, gotcha 3131, decision 2590): attempt 2 stands in fu
 
 [task.22.31.531]
 title = "Hold an above-threshold metered draw under an existing grant on its disclosure"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -175206,7 +175257,7 @@ title = "Give the web suite's recorded payer the approval resources the hold pat
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.527", "22.31.531"]
+requires = ["22.31.527", "22.31.531", "22.31.536"]
 reqs = ["22998.1"]
 capabilities = ["22.31.529"]
 interfaces = []
@@ -175230,6 +175281,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Attempt 2 (continue after 22.31.531, gotcha 3119): attempt 1 stands in full (the web_hold directory and resources on RecordedPayer, approval_resources implemented, every assertion unchanged). Rebase on main once 22.31.531 has landed, change nothing else, run the declared build and verify once and record."
+do_4 = "Attempt 3 (continue after 22.31.536, gotcha 3136, decision 2595): attempt 2 stands in full (the fixture retained, every assertion unchanged, the record). Rebase on main once 22.31.536 is there, change nothing, run the declared build and verify once and record the result."
 
 [task.22.31.528]
 title = "Reconcile the web-search payment suite with the exact-only offers"

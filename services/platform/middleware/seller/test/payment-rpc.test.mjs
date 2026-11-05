@@ -1,9 +1,11 @@
+import "./source-loader.mjs";
 import assert from "node:assert/strict";
 import { once } from "node:events";
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import test from "node:test";
-import { MiddlewareError, PaymentRpc, PaymentRpcError, rpcHex, verifyRpcPayment } from "../dist/index.js";
+import { verifySequencerReceipt } from "@sidiora/layerx-sdk";
+import { HostedGatewayRpc, MiddlewareError, PaymentRpc, PaymentRpcError, rpcHex, verifyRpcPayment } from "../dist/index.js";
 
 const vectors = JSON.parse(await readFile(new URL(
   "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json", import.meta.url,
@@ -35,8 +37,8 @@ async function loopbackRpc(context, responses) {
       requests.push({ method: request.method, url: request.url, headers: request.headers, body });
       const answer = remaining.shift();
       if (answer === undefined) throw new Error("unexpected-rpc-request");
-      response.writeHead(200, { "content-type": "application/json" });
-      response.end(JSON.stringify({ jsonrpc: "2.0", id: body.id, ...answer }));
+      response.writeHead(answer.httpStatus ?? 200, { "content-type": "application/json", ...answer.headers });
+      response.end(answer.rawBody ?? JSON.stringify({ jsonrpc: "2.0", id: body.id, ...answer }));
     } catch (error) {
       response.writeHead(500);
       response.end(String(error));
@@ -50,8 +52,8 @@ async function loopbackRpc(context, responses) {
   });
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
-  const rpc = new PaymentRpc(`http://127.0.0.1:${server.address().port}/rpc`, { "x-payment-client": "seller" });
-  return { rpc, requests };
+  const rpc = new PaymentRpc(`http://127.0.0.1:${server.address().port}/`, { "x-payment-client": "seller" });
+  return { rpc, requests, endpoint: `http://127.0.0.1:${server.address().port}/` };
 }
 
 async function paymentRpcSendsRawTransaction(context) {
@@ -75,7 +77,7 @@ async function paymentRpcSendsRawTransaction(context) {
   }
   for (const [index, request] of requests.entries()) {
     assert.equal(request.method, "POST");
-    assert.equal(request.url, "/rpc");
+    assert.equal(request.url, "/");
     assert.equal(request.headers["content-type"], "application/json");
     assert.equal(request.headers["x-payment-client"], "seller");
     assert.deepEqual(request.body, {
@@ -167,6 +169,7 @@ async function verifyRpcPaymentAcceptsPinnedSequencerReceipt() {
   assert.equal(verified.verificationLevel, "receipted");
   assert.equal(verified.rawTransaction, payment.rawTransaction);
   assert.equal(verified.signedReceipt, payment.signedReceipt);
+  assert.equal(verified.receiptDigest, `0x${Buffer.from((await verifySequencerReceipt(bytes(payment.signedReceipt), bytes(payment.rawTransaction), receiptKeys)).receiptDigest).toString("hex")}`);
   assert.equal(verified.verification.rung, "receipted");
   assert.equal(verified.verification.txHash, payment.receiptJson.txHash);
   assert.equal(verified.verification.payment.amount.toString(), requirements.amount);
@@ -187,3 +190,41 @@ test(paymentRpcSendsRawTransaction);
 test(paymentRpcReadsSequencerReceipt);
 test(verifyRpcPaymentReportsSubmittedAsPending);
 test(verifyRpcPaymentAcceptsPinnedSequencerReceipt);
+
+async function paymentRpcSeparatesNodeAndHostedOrigins(context) {
+  const { rpc, requests, endpoint } = await loopbackRpc(context, [{ result: payment.receiptJson.txHash }]);
+  const hostedPeer = await loopbackRpc(context, [{ result: { account: "agent:merchant:main" } }]);
+  // The peer's endpoint is exported by the fixture; each origin has an independent request id.
+  const gateway = new HostedGatewayRpc(`${hostedPeer.endpoint}rpc`, { authorization: "Bearer hosted-fixture" });
+  assert.equal(await rpc.send(payment.rawTransaction), payment.receiptJson.txHash);
+  assert.deepEqual(await gateway.call("px_resolveAccount", ["merchant"]), { account: "agent:merchant:main" });
+  assert.notEqual(new URL(hostedPeer.endpoint).origin, new URL(endpoint).origin);
+  assert.equal(requests[0].url, "/");
+  assert.equal(hostedPeer.requests[0].url, "/rpc");
+  assert.equal(hostedPeer.requests[0].headers.authorization, "Bearer hosted-fixture");
+  assert.deepEqual(hostedPeer.requests[0].body, { jsonrpc: "2.0", id: 1, method: "px_resolveAccount", params: ["merchant"] });
+  assert.throws(() => rpc.call("px_resolveAccount", []), /invalid-node-method/u);
+  assert.throws(() => gateway.call("eth_sendRawTransaction", []), /invalid-gateway-method/u);
+  assert.equal(requests.length, 1);
+  assert.equal(hostedPeer.requests.length, 1);
+}
+
+async function paymentRpcRetainsEndpointAndBodyBounds(context) {
+  for (const endpoint of ["https://user:secret@example.test/", "https://example.test/rpc", "https://example.test/?query=1",
+    "https://example.test/#fragment", "http://example.test/"]) {
+    assert.throws(() => new PaymentRpc(endpoint), /invalid-rpc-endpoint/u);
+  }
+  for (const endpoint of ["https://example.test/", "http://example.test/rpc", "https://example.test/rpc?query=1",
+    "https://user:secret@example.test/rpc", "https://example.test/rpc#fragment"]) {
+    assert.throws(() => new HostedGatewayRpc(endpoint), /invalid-rpc-endpoint/u);
+  }
+  const redirect = await loopbackRpc(context, [{ httpStatus: 307, headers: { location: "http://127.0.0.1:1/" } }]);
+  await assert.rejects(redirect.rpc.call("eth_chainId", []));
+  const oversized = await loopbackRpc(context, [{ rawBody: "x".repeat(8_388_609) }]);
+  await assert.rejects(oversized.rpc.call("eth_chainId", []), /rpc-body-too-large/u);
+  const malformed = await loopbackRpc(context, [{ rawBody: '{"jsonrpc":"2.0","id":999,"result":"0x7d"}' }]);
+  await assert.rejects(malformed.rpc.call("eth_chainId", []), /invalid-rpc-envelope/u);
+}
+
+test(paymentRpcSeparatesNodeAndHostedOrigins);
+test(paymentRpcRetainsEndpointAndBodyBounds);

@@ -1,12 +1,11 @@
+import "./source-loader.mjs";
 // Proves: conformance/receipts.ts buildSignedReceipt and scenarios.ts ConformancePaymentRpcSession, seller ReceiptPayloadAuthority, verifyPaymentReceipt, verifyPaymentCommitmentEvidence, verifyRpcPayment, PaymentRpc -> @sidiora/layerx-seller-middleware exports -> Express, Next, paid-api, merchant-app, conformance releasedDecision and MerchantMiddleware.
 // Repairs: SellerMiddleware.paymentRequired exposed mutable offer state; both example
 // fulfillment stores lost bigint/Uint8Array commitment evidence on disk; merchant
 // quotes persisted malformed seller terms.
-// The SDK and seller dist entries are built by the gate. Other workspace consumers
-// run from their actual TS sources through Node's TypeScript transform, without
+// Production TypeScript sources run through Node's TypeScript transform, without
 // replacing any exports, verification, storage, signatures, or HTTP transport.
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
 import { once } from "node:events";
 import { existsSync, readFileSync } from "node:fs";
 import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
@@ -15,7 +14,7 @@ import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { ed25519 } from "@noble/curves/ed25519.js";
+import { committedPaymentFixture, refusesUnboundCommitments } from "./repair-22-33-1478-support.mjs";
 import { keccak256 } from "@sidiora/layerx-sdk";
 import * as seller from "@sidiora/layerx-seller-middleware";
 
@@ -73,31 +72,6 @@ async function produce(purposeHash) {
   return { sequencer, resolver, keys, offer, facts, receipt, payload };
 }
 
-function committedEvidence(verified) {
-  const secrets = [1, 2, 3, 4].map((value) => fixedBytes(value));
-  const validatorSet = secrets.map((secret) => {
-    const publicKey = ed25519.getPublicKey(secret);
-    return { publicKey, address: Uint8Array.from(createHash("sha256").update(publicKey).digest().subarray(0, 20)), votingPower: 1n << 54n };
-  });
-  const hash = fixedBytes(0x11);
-  const partsHash = fixedBytes(0x22);
-  const blockId = { hash, partSetHeader: { total: 1, hash: partsHash } };
-  const heightBytes = Buffer.alloc(8);
-  heightBytes.writeBigInt64LE(verified.height);
-  // Canonical CometBFT precommit bytes, signed by three of four real validators.
-  const vote = Buffer.concat([Buffer.from("65080211", "hex"), heightBytes,
-    Buffer.from("22480a20", "hex"), hash, Buffer.from("122408011220", "hex"), partsHash,
-    Buffer.from("2a020801320a7061786565722d313235", "hex")]);
-  return {
-    landingBlockHeight: verified.height,
-    blockHeader: { chainId: "paxeer-125", blockId },
-    receiptInclusion: { transactionHash: verified.receipt.activityId.slice(), receiptDigest: verified.receiptDigest.slice(), sequence: verified.receipt.globalSequence },
-    commit: { height: verified.height, round: 0, blockId, signatures: validatorSet.slice(0, 3).map((validator, index) => ({
-      blockIdFlag: 2, validatorAddress: validator.address, timestamp: { seconds: 1n, nanos: 0 }, signature: ed25519.sign(vote, secrets[index]),
-    })) },
-    validatorSet,
-  };
-}
 
 function makeSeller(produced, repository, commitments) {
   return new seller.SellerMiddleware({ paymentRequired: produced.offer.paymentRequired, receiptKeys: produced.keys,
@@ -120,10 +94,28 @@ async function close(server) {
 async function sellerExportsPersistCommittedPaymentsAcrossConsumers(t) {
   const directory = await mkdtemp(join(tmpdir(), "seller-exports-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
-  const produced = await produce();
-  const verified = await seller.verifyPaymentReceipt(produced.receipt, produced.offer.requirements, produced.keys);
-  const evidence = committedEvidence(verified);
-  await seller.verifyPaymentCommitmentEvidence(verified, "committed", evidence);
+  const recorded = await committedPaymentFixture();
+  const produced = { keys: recorded.keys, receipt: recorded.proof,
+    offer: { requirements: recorded.requirements, paymentRequired: { x402Version: 2,
+      resource: { url: "https://merchant.example/paid" }, accepts: [recorded.requirements] } } };
+  const evidence = await recorded.resolver.resolve(recorded.vector.receiptJson.txHash, produced.offer.requirements.network);
+  let verified;
+  try {
+    verified = await seller.verifyPaymentReceipt(produced.receipt, produced.offer.requirements, produced.keys, recorded.resolver);
+    assert.deepEqual(verified.commitmentEvidence, evidence);
+    assert.deepEqual(verified.canonicalBytes, recorded.verified.canonicalBytes);
+    assert.deepEqual(verified.receiptDigest, recorded.verified.receiptDigest);
+    await seller.verifyPaymentCommitmentEvidence(recorded.verified, "committed", evidence,
+      produced.offer.requirements.network, recorded.resolver);
+  } catch (error) {
+    const causes = [];
+    for (let inner = error; inner instanceof Error; inner = inner.cause) {
+      causes.push({ name: inner.name, code: inner.code, check: inner.check, message: inner.message });
+    }
+    t.diagnostic(JSON.stringify({ committedExportsFailure: causes, innermost: causes.at(-1) }));
+    throw error;
+  }
+  await refusesUnboundCommitments(seller.verifyPaymentCommitmentEvidence);
   const portable = seller.encodePaymentCommitmentEvidence(evidence);
   assert.deepEqual(seller.decodePaymentCommitmentEvidence(JSON.parse(JSON.stringify(portable))), evidence);
   for (const malformed of [null, { ...portable, extra: true }, { ...portable, landingBlockHeight: "0x00" },
@@ -132,10 +124,10 @@ async function sellerExportsPersistCommittedPaymentsAcrossConsumers(t) {
   }
   const badEvidence = structuredClone(evidence);
   badEvidence.commit.signatures[0].signature[0] ^= 1;
-  await assert.rejects(seller.verifyPaymentCommitmentEvidence(verified, "committed", badEvidence), { code: "verification-failure" });
+  await assert.rejects(seller.verifyPaymentCommitmentEvidence(recorded.verified, "committed", badEvidence, "eip155:125", recorded.resolver), { code: "verification-failure" });
   produced.receipt.verificationLevel = "committed";
   produced.payload = buyerPayload(produced.offer, produced.receipt, "exports-proof");
-  const commitments = { resolve: async (hash, network) => {
+  const commitments = { ...recorded.resolver, resolve: async (hash, network) => {
     assert.equal(hash, verified.txHash); assert.equal(network, produced.offer.requirements.network);
     return structuredClone(evidence);
   } };
@@ -157,7 +149,7 @@ async function sellerExportsPersistCommittedPaymentsAcrossConsumers(t) {
     let middleware = makeSeller(produced, repository, commitments);
     const offered = middleware.paymentRequired();
     offered.body.accepts[0].amount = "1";
-    assert.equal(middleware.paymentRequired().body.accepts[0].amount, "250000");
+    assert.equal(middleware.paymentRequired().body.accepts[0].amount, recorded.payment.amount.toString());
     let releases = 0;
     const resource = { contentType: "application/json", body: '{"report":"paid"}' };
     const first = await middleware.handle("public-paid-api", header, async () => { releases += 1; return resource; });
@@ -170,12 +162,15 @@ async function sellerExportsPersistCommittedPaymentsAcrossConsumers(t) {
     assert.deepEqual(diskRecord.commitmentEvidence, portable);
     assert.deepEqual(persisted.commitmentEvidence, evidence);
     // Every file operation closes its descriptor. Drop both objects and reopen
-    // the actual on-disk repository; recovery must not need a live resolver.
+    // the actual on-disk repository; recovery keeps the independently trusted validator anchor.
     middleware = undefined;
     repository = undefined;
     const reopened = new Repository(state);
     assert.deepEqual(await reopened.get(key), persisted);
-    const recoveredSeller = makeSeller(produced, reopened);
+    const recoveredSeller = makeSeller(produced, reopened, {
+      resolveValidators: (...args) => recorded.resolver.resolveValidators(...args),
+      async resolve() { assert.fail("recovery must use persisted inclusion evidence"); },
+    });
     const repeated = await recoveredSeller.handle("public-paid-api", header, async () => { releases += 1; return resource; });
     assert.deepEqual(repeated, first);
     assert.equal(releases, 1);
@@ -201,21 +196,36 @@ async function sellerExportsPersistCommittedPaymentsAcrossConsumers(t) {
       }
     } finally { await close(server); }
     // Next's real mount receives a replay and refuses tampered evidence.
-    const environment = environmentFor(produced);
-    const mount = next.mountLayerX({ environment, resources: runtime.resources, fulfillments: reopened,
+    const receiptedRequirements = { ...recorded.requirements,
+      extra: { layerx: { ...recorded.requirements.extra.layerx, commitment: "receipted" } } };
+    const receiptedProduced = { ...produced, receipt: { ...produced.receipt, verificationLevel: "receipted" },
+      offer: { requirements: receiptedRequirements, paymentRequired: { ...produced.offer.paymentRequired, accepts: [receiptedRequirements] } } };
+    const environment = environmentFor(receiptedProduced);
+    const mount = next.mountLayerX({ environment, resources: { release: async () => resource },
+      fulfillments: new Repository(join(directory, `${name}-next`)),
       deliveries: new next.SingleProcessWebhookDeliveryStore(), events: { handle: async () => {} } });
     try {
       const offer = mount.seller.paymentRequired();
       assert.equal(offer.status, 402);
+      const mountedOffer = { paymentRequired: offer.body, requirements: offer.body.accepts[0] };
+      const receiptedPayload = buyerPayload(mountedOffer, receiptedProduced.receipt, "next-receipted-proof");
+      const receiptedHeader = seller.encodePaymentPayloadHeader(receiptedPayload);
+      const receiptedTampered = structuredClone(receiptedPayload);
+      receiptedTampered.payload.receiptDigest = `0x${"00".repeat(32)}`;
+      const receiptedBadHeader = seller.encodePaymentPayloadHeader(receiptedTampered);
       const challenge = await mount.resource.GET(new Request(environment.LAYERX_RESOURCE_URL));
       assert.equal(challenge.status, 402);
       assert.deepEqual(seller.decodePaymentRequiredHeader(challenge.headers.get("PAYMENT-REQUIRED")), offer.body);
+      const committedRefusal = await mount.resource.GET(new Request(environment.LAYERX_RESOURCE_URL,
+        { headers: { "PAYMENT-SIGNATURE": header } }));
+      assert.equal(committedRefusal.status, 402);
+      assert.equal((await committedRefusal.json()).error, "requirements-mismatch");
       await challenge.text();
-      const paid = await mount.resource.GET(new Request(environment.LAYERX_RESOURCE_URL, { headers: { "PAYMENT-SIGNATURE": header } }));
+      const paid = await mount.resource.GET(new Request(environment.LAYERX_RESOURCE_URL, { headers: { "PAYMENT-SIGNATURE": receiptedHeader } }));
       assert.equal(paid.status, 200);
       assert.equal(await paid.text(), resource.body);
       assert.equal(seller.decodeSettlementHeader(paid.headers.get("PAYMENT-RESPONSE")).transaction, verified.txHash);
-      const malformed = await mount.resource.GET(new Request(environment.LAYERX_RESOURCE_URL, { headers: { "PAYMENT-SIGNATURE": badHeader } }));
+      const malformed = await mount.resource.GET(new Request(environment.LAYERX_RESOURCE_URL, { headers: { "PAYMENT-SIGNATURE": receiptedBadHeader } }));
       assert.equal(malformed.status, 402);
       assert.equal((await malformed.json()).error, "verification-failure");
     } finally { mount.destroy(); }
@@ -229,7 +239,7 @@ async function sellerExportsPersistCommittedPaymentsAcrossConsumers(t) {
       const refusedResponse = await fetch(`${base}/paid`, { headers: { "PAYMENT-SIGNATURE": badHeader } });
       assert.equal(refusedResponse.status, 400);
       assert.equal((await refusedResponse.json()).state, "refused");
-      const rpc = new seller.PaymentRpc(`${base}/rpc`);
+      const rpc = new seller.PaymentRpc(`${base}/`);
       await assert.rejects(rpc.receipt(verified.txHash), /rpc-http-404/);
       await assert.rejects(rpc.send("0x02"));
       assert.throws(() => new seller.PaymentRpc(`${base}/paid`), /invalid-rpc-endpoint/);
@@ -259,7 +269,7 @@ function environmentFor(produced) {
     LAYERX_PAY_TO: produced.offer.requirements.payTo, LAYERX_PAYMENT_TIMEOUT_SECONDS: "120",
     LAYERX_PAYMENT_PURPOSE_HASH: produced.offer.requirements.extra.layerx.purposeHash,
     LAYERX_RECEIPT_KEYS_JSON: JSON.stringify(produced.keys.map((key) => ({ keyId: hex(key.keyId), publicKey: hex(key.publicKey), firstHeight: key.first_height.toString(), lastHeight: key.last_height.toString() }))),
-    LAYERX_WEBHOOK_PATH: "/webhook", LAYERX_WEBHOOK_PUBLIC_KEYS_JSON: JSON.stringify({ sequencer: Buffer.from(produced.sequencer.publicKey).toString("base64") }) };
+    LAYERX_WEBHOOK_PATH: "/webhook", LAYERX_WEBHOOK_PUBLIC_KEYS_JSON: JSON.stringify({ sequencer: Buffer.from(produced.keys[0].publicKey).toString("base64") }) };
 }
 
 async function merchantConsumerRecoversPaidOrdersAndRefusesUnknownSku(t) {
@@ -299,12 +309,21 @@ async function merchantConsumerRecoversPaidOrdersAndRefusesUnknownSku(t) {
   bad.payload.receiptDigest = `0x${"00".repeat(32)}`;
   await assert.rejects(merchant.checkout("merchant", "proof", lines, seller.encodePaymentPayloadHeader(bad)), refused);
   assert.deepEqual(await new FileOrders(join(directory, "orders")).get("proof"), paid.order);
+  const conflicting = buyerPayload({ paymentRequired: checkout.order.quote.paymentRequired,
+    requirements: checkout.order.quote.paymentRequired.accepts[0] }, produced.receipt, "merchant-conflicting-replay");
+  assert.notDeepEqual(conflicting, payload);
+  assert.deepEqual(conflicting.payload, payload.payload);
+  const refusedReplay = await merchant.checkout("merchant", "proof", lines, seller.encodePaymentPayloadHeader(conflicting));
+  assert.equal(refusedReplay.kind, "refused");
+  assert.deepEqual(refusedReplay.order, paid.order);
+  assert.deepEqual(await new FileOrders(join(directory, "orders")).get("proof"), paid.order);
   const invalidCatalog = new MerchantMiddleware({ catalog: new DeclaredCatalog({ ...item, extra: { layerx: { commitment: "retired" } } }),
     orders: new FileOrders(join(directory, "invalid-orders")), sellers, resourceUrl: () => resourceUrl });
   await assert.rejects(invalidCatalog.checkout("merchant", "invalid", lines), { code: "invalid-payment-required" });
 }
 
 async function rpcProducerEvidenceCrossesThePublicNextExports() {
+  const requests = [];
   const produced = await produce();
   const terms = produced.offer.requirements;
   const session = new ConformancePaymentRpcSession(produced.sequencer, produced.facts, terms);
@@ -315,10 +334,11 @@ async function rpcProducerEvidenceCrossesThePublicNextExports() {
   const server = createServer(async (request, response) => {
     try {
       assert.equal(request.method, "POST");
-      assert.equal(request.url, "/rpc");
+      assert.equal(request.url, "/");
       const chunks = [];
       for await (const chunk of request) chunks.push(chunk);
       const call = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+      requests.push({ url: request.url, call });
       assert.equal(call.jsonrpc, "2.0");
       const result = await session.call(call.method, call.params);
       response.writeHead(200, { "content-type": "application/json" });
@@ -329,7 +349,10 @@ async function rpcProducerEvidenceCrossesThePublicNextExports() {
   });
   const base = await listen(server);
   try {
-    const rpc = new next.PaymentRpc(`${base}/rpc`);
+    const rpc = new next.PaymentRpc(`${base}/`);
+    assert.doesNotThrow(() => new next.PaymentRpc("https://node.example/"));
+    assert.throws(() => new next.PaymentRpc(`${base}/rpc`), /invalid-rpc-endpoint/u);
+    assert.throws(() => rpc.call("px_resolveAccount", []), /invalid-node-method/u);
     assert.equal(await rpc.receipt(original.txHash), null);
     for (let i = 0; i < 2; i += 1) {
       assert.equal(await rpc.send(produced.receipt.rawTransaction), original.txHash);
@@ -349,6 +372,30 @@ async function rpcProducerEvidenceCrossesThePublicNextExports() {
     const other = await produce();
     await assert.rejects(rpc.send(other.receipt.rawTransaction), /rpc-http-500/);
     assert.equal(session.issuedCount, 1);
+    for (const [index, request] of requests.entries()) {
+      assert.equal(request.url, "/");
+      assert.equal(request.call.id, index + 1);
+      assert.equal(request.call.params.length, 1);
+      assert.match(request.call.method, /^(?:eth_sendRawTransaction|pax_sequencerReceipt)$/u);
+    }
+    const hostedRequests = [];
+    const gatewayServer = createServer(async (request, response) => {
+      const chunks = []; for await (const chunk of request) chunks.push(chunk);
+      const body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+      hostedRequests.push({ url: request.url, authorization: request.headers.authorization, body });
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify({ jsonrpc: "2.0", id: body.id, result: { account: "agent:merchant:main" } }));
+    });
+    const gatewayBase = await listen(gatewayServer);
+    try {
+      const gateway = new seller.HostedGatewayRpc(`${gatewayBase}/rpc`, { authorization: "Bearer hosted-fixture" });
+      assert.notEqual(new URL(gatewayBase).origin, new URL(base).origin);
+      assert.deepEqual(await gateway.call("px_resolveAccount", ["merchant"]), { account: "agent:merchant:main" });
+      assert.deepEqual(hostedRequests, [{ url: "/rpc", authorization: "Bearer hosted-fixture",
+        body: { jsonrpc: "2.0", id: 1, method: "px_resolveAccount", params: ["merchant"] } }]);
+      assert.throws(() => gateway.call("eth_sendRawTransaction", []), /invalid-gateway-method/u);
+      assert.equal(hostedRequests.length, 1);
+    } finally { await close(gatewayServer); }
   } finally { await close(server); }
 }
 
