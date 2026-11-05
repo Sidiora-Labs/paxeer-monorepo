@@ -287,10 +287,7 @@ export class SellerMiddleware<T> {
       stored = await this.#fulfillments.get(legacyKey);
       if (stored !== undefined) fulfillmentKey = legacyKey;
     }
-    if (stored !== undefined && stored.requestDigest !== requestDigest) {
-      return receiptReuseDecision(requirements);
-    }
-    if (stored === undefined) {
+    if (stored === undefined || stored.requestDigest !== requestDigest) {
       const outcome = await this.#authority.settle({
         principal,
         payload,
@@ -303,6 +300,9 @@ export class SellerMiddleware<T> {
       }
       if (outcome.kind === "refused") {
         return refusalDecision(requirements, outcome.reason);
+      }
+      if (stored !== undefined) {
+        return receiptReuseDecision(requirements);
       }
       const proof: PortableReceiptV2 = structuredClone({
         format: outcome.format,

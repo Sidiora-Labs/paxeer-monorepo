@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash, generateKeyPairSync, sign } from "node:crypto";
 import test from "node:test";
-import { ed25519 } from "@noble/curves/ed25519.js";
 import { secp256k1 } from "@noble/curves/secp256k1.js";
 import { decodeRawEip1559, keccak256, verifySequencerReceipt } from "@sidiora/layerx-sdk";
 import {
@@ -9,11 +8,13 @@ import {
   MiddlewareError,
   PAYMENT_RESPONSE_HEADER,
   SellerMiddleware,
+  decodePaymentExactLog,
   decodeSettlementHeader,
   encodePaymentPayloadHeader,
   ReceiptPayloadAuthority,
   verifyPaymentReceipt,
 } from "../dist/index.js";
+import { committedVector, recordedCommittedReceipt } from "./committed-fixture.mjs";
 
 const hex = (value) => `0x${Buffer.from(value).toString("hex")}`;
 const bytes = (value) => Buffer.from(value.slice(2), "hex");
@@ -78,7 +79,7 @@ function effect(ordinal, kind, body) {
   return Buffer.concat([uint(12n, 2), uint(BigInt(ordinal), 2), uint(0n, 2), Buffer.of(kind, 0), bounded(Buffer.alloc(32)), bounded(body)]);
 }
 
-function signedProof({ amount = 25n, height = 7n, signingPin = pin, paymentReference = reference,
+async function signedProof({ amount = 25n, height = 7n, signingPin = pin, paymentReference = reference,
   paymentTo = payee, logAddress = LAYERX_LEDGER_ADDRESS, count = 1, resultCode = 0n } = {}) {
   const rawTransaction = transaction(amount);
   const txHash = keccak256(rawTransaction);
@@ -103,57 +104,12 @@ function signedProof({ amount = 25n, height = 7n, signingPin = pin, paymentRefer
   const unsignedReceipt = Buffer.concat([prefix, Buffer.of(0)]);
   const signingDigest = sha256(Buffer.concat([Buffer.from("LXP/v1/receipt\0"), unsignedReceipt]));
   const signedReceipt = Buffer.concat([prefix, Buffer.of(1), bounded(sign(null, signingDigest, pair.privateKey))]);
+  const verified = await verifySequencerReceipt(signedReceipt, rawTransaction, [pin]);
   return {
     format: "layerx-receipt-proof-v2", verificationLevel: "receipted", rawTransaction: hex(rawTransaction),
-    signedReceipt: hex(signedReceipt), receiptDigest: hex(keccak256(signedReceipt)),
+    signedReceipt: hex(signedReceipt), receiptDigest: hex(verified.receiptDigest),
     receiptKey: { keyId: hex(signingPin.keyId), publicKey: hex(signingPin.publicKey),
       firstHeight: `0x${signingPin.first_height.toString(16)}`, lastHeight: `0x${signingPin.last_height.toString(16)}` },
-  };
-}
-
-const secrets = [1, 2, 3, 4].map((value) => new Uint8Array(32).fill(value));
-const power = 1n << 54n;
-
-function committedFixture(verified, height = verified.height, validatorCount = 4, signerCount = 3) {
-  const validatorSet = secrets.slice(0, validatorCount).map((secret) => {
-    const publicKey = ed25519.getPublicKey(secret);
-    return {
-      publicKey,
-      address: Uint8Array.from(createHash("sha256").update(publicKey).digest().subarray(0, 20)),
-      votingPower: power,
-    };
-  });
-  const hash = new Uint8Array(32).fill(0x11);
-  const partsHash = new Uint8Array(32).fill(0x22);
-  const blockId = { hash, partSetHeader: { total: 1, hash: partsHash } };
-  const heightBytes = Buffer.alloc(8);
-  heightBytes.writeBigInt64LE(height);
-  const signBytes = Buffer.concat([
-    Buffer.from("65080211", "hex"), heightBytes,
-    Buffer.from("22480a20", "hex"), hash,
-    Buffer.from("122408011220", "hex"), partsHash,
-    Buffer.from("2a020801320a7061786565722d313235", "hex"),
-  ]);
-  const signatures = validatorSet.slice(0, signerCount).map((validator, index) => {
-    const signature = ed25519.sign(signBytes, secrets[index]);
-    assert.equal(ed25519.verify(signature, signBytes, validator.publicKey, { zip215: false }), true);
-    return {
-      blockIdFlag: 2,
-      validatorAddress: validator.address,
-      timestamp: { seconds: 1n, nanos: 0 },
-      signature,
-    };
-  });
-  return {
-    landingBlockHeight: height,
-    blockHeader: { chainId: "paxeer-125", blockId },
-    receiptInclusion: {
-      transactionHash: verified.receipt.activityId.slice(),
-      receiptDigest: verified.receiptDigest.slice(),
-      sequence: verified.receipt.globalSequence,
-    },
-    commit: { height, round: 0, blockId, signatures },
-    validatorSet,
   };
 }
 
@@ -203,6 +159,14 @@ class InMemoryFulfillmentRepository {
 class CommitmentEvidenceRepository {
   records = new Map();
 
+  constructor(validators) {
+    this.validators = validators;
+  }
+
+  async resolveValidators(network, height) {
+    return this.validators.resolveValidators(network, height);
+  }
+
   async resolve(transactionHash, network) {
     const evidence = this.records.get(`${network}/${transactionHash}`);
     if (evidence === undefined) throw new MiddlewareError("verification-failure");
@@ -210,8 +174,9 @@ class CommitmentEvidenceRepository {
   }
 }
 
-function sellerFixture(proof = signedProof(), terms = requirements, commitments) {
-  const authority = new CountingReceiptPayloadAuthority([pin]);
+async function sellerFixture(proof, terms = requirements, commitments, receiptKeys = [pin]) {
+  proof ??= await signedProof();
+  const authority = new CountingReceiptPayloadAuthority(receiptKeys);
   const fulfillments = new InMemoryFulfillmentRepository();
   const paymentRequired = {
     x402Version: 2,
@@ -223,7 +188,7 @@ function sellerFixture(proof = signedProof(), terms = requirements, commitments)
   });
   let releaseCount = 0;
   const releaseKeys = [];
-  const config = { paymentRequired, receiptKeys: [pin], authority, fulfillments,
+  const config = { paymentRequired, receiptKeys, authority, fulfillments,
     ...(commitments === undefined ? {} : { commitments }) };
   return {
     proof, authority, fulfillments, header, config,
@@ -247,7 +212,7 @@ function response(decision) {
 }
 
 async function settlementResponseNamesTransactionHash() {
-  const fixture = sellerFixture();
+  const fixture = await sellerFixture();
   const decision = await fixture.seller.handle("merchant", fixture.header, fixture.release);
   const settlement = response(decision);
   const txHash = hex(keccak256(bytes(fixture.proof.rawTransaction)));
@@ -269,7 +234,7 @@ async function settlementResponseNamesTransactionHash() {
 }
 
 async function settlementResponseCarriesPortableReceipt() {
-  const fixture = sellerFixture();
+  const fixture = await sellerFixture();
   const decision = await fixture.seller.handle("merchant", fixture.header, fixture.release);
   const portable = response(decision).extensions.layerx;
   assert.equal(portable.format, "layerx-receipt-proof-v2");
@@ -280,14 +245,30 @@ async function settlementResponseCarriesPortableReceipt() {
   assert.equal(verified.rung, "receipted");
   assert.equal(verified.txHash, decision.settlement.transaction);
 
-  const proof = { ...signedProof(), verificationLevel: "committed" };
-  const terms = { ...requirements, extra: { layerx: { ...requirements.extra.layerx, commitment: "committed" } } };
-  const signed = await verifySequencerReceipt(bytes(proof.signedReceipt), bytes(proof.rawTransaction), [pin]);
-  const evidence = committedFixture(signed);
-  const commitments = new CommitmentEvidenceRepository();
+  const { verified: signed, evidence, resolver } = await recordedCommittedReceipt();
+  const key = committedVector.pinnedKey;
+  const committedPin = {
+    keyId: bytes(key.keyId), publicKey: bytes(key.publicKey),
+    first_height: BigInt(key.firstHeight), last_height: BigInt(key.lastHeight),
+  };
+  const proof = {
+    format: "layerx-receipt-proof-v2", verificationLevel: "committed",
+    rawTransaction: committedVector.rawTransaction, signedReceipt: committedVector.signedReceipt,
+    receiptDigest: hex(signed.receiptDigest),
+    receiptKey: { keyId: key.keyId, publicKey: key.publicKey,
+      firstHeight: `0x${committedPin.first_height.toString(16)}`,
+      lastHeight: `0x${committedPin.last_height.toString(16)}` },
+  };
+  const log = committedVector.receiptJson.logs.find((entry) => entry.topics[0] === hex(exactTopic));
+  assert.ok(log);
+  const payment = decodePaymentExactLog({ address: log.address, data: bytes(log.data), topics: log.topics.map(bytes) });
+  const terms = { ...requirements, amount: payment.amount.toString(), asset: hex(payment.assetId), payTo: hex(payment.to),
+    extra: { layerx: { commitment: "committed", payer: hex(payment.from).slice(2),
+      purposeHash: hex(payment.paymentReference).slice(2) } } };
+  const commitments = new CommitmentEvidenceRepository(resolver);
   const txHash = hex(keccak256(bytes(proof.rawTransaction)));
   commitments.records.set(`eip155:125/${txHash}`, evidence);
-  const committed = sellerFixture(proof, terms, commitments);
+  const committed = await sellerFixture(proof, terms, commitments, [committedPin]);
   const committedDecision = await committed.seller.handle("merchant", committed.header, committed.release);
   const committedPortable = response(committedDecision).extensions.layerx;
   assert.equal(committedPortable.verificationLevel, "committed");
@@ -305,9 +286,9 @@ async function settlementResponseCarriesPortableReceipt() {
   assert.equal(committedPortable.receiptInclusion.transactionHash, txHash);
   assert.equal(committedPortable.receiptInclusion.receiptDigest, hex(signed.receiptDigest));
   assert.equal(committedPortable.receiptDigest, proof.receiptDigest);
-  assert.equal(committedPortable.receiptDigest, hex(keccak256(bytes(committedPortable.signedReceipt))));
-  assert.equal(committedPortable.commit.signatures.length, 3);
-  assert.equal(committedPortable.validatorSet.length, 4);
+  assert.equal(committedPortable.receiptDigest, hex(signed.receiptDigest));
+  assert.equal(committedPortable.commit.signatures.length, evidence.commit.signatures.length);
+  assert.equal(committedPortable.validatorSet.length, evidence.validatorSet.length);
 
   commitments.records.clear();
   const replay = await new SellerMiddleware(committed.config).handle("merchant", committed.header, committed.release);
@@ -315,18 +296,18 @@ async function settlementResponseCarriesPortableReceipt() {
   assert.equal(committed.authority.settleCount, 1);
   assert.equal(committed.releaseCount(), 1);
 
-  const unproven = sellerFixture(proof, terms, commitments);
+  const unproven = await sellerFixture(proof, terms, commitments, [committedPin]);
   await assert.rejects(unproven.seller.handle("merchant", unproven.header, unproven.release),
     (error) => error instanceof MiddlewareError && error.code === "verification-failure");
   assert.equal(unproven.releaseCount(), 0);
-  const downgraded = sellerFixture({ ...proof, verificationLevel: "receipted" }, terms, commitments);
+  const downgraded = await sellerFixture({ ...proof, verificationLevel: "receipted" }, terms, commitments, [committedPin]);
   await assert.rejects(downgraded.seller.handle("merchant", downgraded.header, downgraded.release),
     (error) => error instanceof MiddlewareError && error.code === "verification-failure");
   assert.equal(downgraded.releaseCount(), 0);
 }
 
 async function replayedSettlementAnswersStoredTransaction() {
-  const fixture = sellerFixture();
+  const fixture = await sellerFixture();
   const first = await fixture.seller.handle("merchant", fixture.header, fixture.release);
   const second = await fixture.seller.handle("merchant", fixture.header, fixture.release);
   const restarted = new SellerMiddleware(fixture.config);
