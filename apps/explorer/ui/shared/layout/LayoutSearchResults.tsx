@@ -9,7 +9,6 @@ const LayoutSearchResults = ({ children }: Props) => {
   return (
     <Layout.Root content={ children }>
       <Layout.Container>
-        <Layout.TopRow/>
         <Layout.NavBar/>
         { children }
       </Layout.Container>

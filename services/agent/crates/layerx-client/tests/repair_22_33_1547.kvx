@@ -1,0 +1,39 @@
+[repair.22.33.1547]
+audit = "22.30.96"
+criterion = "22998.1"
+revision = "The private hf-build/hf-done ledger records the exact candidate and qualification result; no unrun gate or closure is claimed."
+f46 = "receipt::lookup_authenticated_reaches_committed_from_the_transaction_receipt; receipt::committed_receipt_refuses_wrong_hash_missing_commit_foreign_authority_and_uncovered_sequence"
+f38 = "sequencer::receipted_and_committed_receipts_decode_every_field; sequencer::producer_receipts_refuse_missing_payment_denom_invalid_asset_and_truncated_bytes"
+f45 = "sequencer_reads::history_sends_px_get_history_with_a_32_hex_cursor_and_refuses_other_forms; sequencer_reads::history_preserves_the_served_envelope_and_keeps_a_separately_sampled_head"
+f43 = "withdrawal::withdrawal_registry_reads_the_fee_schedule_and_asset_through_json_rpc; withdrawal::withdrawal_registry_refuses_missing_assets_malformed_metadata_and_rpc_failures; withdrawal::withdrawal_registry_compares_asset_bytes_and_requires_authoritative_configuration"
+baseline = "The supplied attempt-4 evidence reports verify exit 101 (26 passed, 3 failed): sequencer::receipted_and_committed_receipts_decode_every_field, sequencer::producer_receipts_refuse_missing_payment_denom_invalid_asset_and_truncated_bytes, withdrawal::withdrawal_registry_reads_the_fee_schedule_and_asset_through_json_rpc. Its revision is be2ffe5ac1262956c8752ff06b3be2884b58f2c1; no unchanged gate is repeated here."
+producer_receipts = "Unchanged rpc/sequencer_receipt_vectors_test.go corpus covers every producer case, all ExecutedReceipt fields for V1, every execution/log binding through public authentication, and separate missing denomination, invalid asset and truncated byte refusals."
+producer_commit = "Production Rust receipt encoder, Ed25519 receipt/batch signers, SequenceBatch codec and chain header/vote/validator codecs produce evidence transported over real loopback HTTP into lookup_authenticated_with_commit. Valid later covering blocks preserve execution coordinates; invalid block hashes, absent commit, foreign authority, uncovered sequence and foreign state root refuse."
+producer_history = "The committed gateway plain-route transcript proven by history.rs::answer_tags_every_unified_history_row_with_side_and_no_plain_history_row crosses real HTTP with every item, readiness field and returned height retained; a later sampled eth_blockNumber cannot overwrite page coordinates."
+producer_assets = "The exact flat px_listAssets result asserted by gateway/tests/one_source_reads.rs is transported unchanged; eligible registration assertions are retained instead of replacing success with Unsupported or inventing custody fields."
+wiring_gateway = "Gateway domain: services/platform/hosted/gateway/src/paxeer.rs must expose a separately authenticated withdrawal custody configuration producer; the flat asset table has no withdrawal pointer, enablement, custody cap or authority."
+custody_contract = "The current base already consumes native getAsset(bytes32) at the flat table height. Tests replay src/rpc/withdrawal_get_asset.json, the committed producer ABI contract vectors, to preserve successful registration and explicit disabled/paused/zero-pointer/wrong-asset/malformed/unavailable/retired refusals; they do not claim a live eligible merged custody producer."
+
+[gotcha.rungs]
+observed = "lookup_authenticated and resolve_unknown cannot establish Committed from an Ethereum landing alone; unavailable landing transport leaves the signed receipt authenticated at Receipted."
+resolution = "Use lookup_authenticated_with_commit for success, preserve Committed assertions there, and assert Receipted with no verified header for evidence-free recovery."
+
+[gotcha.history]
+observed = "The prerequisite already migrated the basic history test to account/chainHeight/freshness."
+resolution = "Preserve that work, add an exact producer transcript and true malformed metadata cases, and retain the separately sampled head."
+
+[qualification.repair_1]
+revision = "31d095ad8c6286731d8dd2c56a47d3c0beecb4f2"
+command = "cargo build --locked --manifest-path services/agent/crates/layerx-client/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The generic receipt-key conversion accepts a SequencerAuthorization slice, not a reference to Vec."
+repair = "Pass authorizations.as_slice() without changing the keys or signature assertion."
+
+[continuation.attempt_5]
+base = "8a0f29c117b469cdf57fe085a275b5e474a1f942"
+receipt_fields = "sequencer.rs derives every ExecutedReceipt field, including timestamp, logs and fee amount, independently from the Go vector JSON and compares all accepted corpus cases without copied literals."
+refusal_cases = "The corpus success path requires verifier accepts and no refusedAt; all V3 entries assert recorded R2 decode, R3 signature authority, R4 raw transaction identity, R5 log data, or R6 predecessor-chain refusal through the production decoders, authentication, hash and proof verifier."
+asset_identity = "withdrawal.rs compares decoded 32-byte IDs instead of presentation strings; prefixed and bare encodings retain eligibility while malformed widths/digits and missing assets refuse. Existing native configuration authority and refusals are preserved."
+withdrawal_transport = "withdrawal_rpc.rs now serves the committed native custody ABI vector as the third RPC exchange and checks getAsset selector, custody address, exact asset bytes and explicit table height; all module and activity eligibility assertions remain."
+evidence = "Exact final candidate revision, build command, verify command, exit codes and private log paths are recorded by hf-build/hf-done, outside the candidate to preserve identical build and verification revisions."

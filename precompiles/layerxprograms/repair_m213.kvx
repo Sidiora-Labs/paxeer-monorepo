@@ -1,0 +1,146 @@
+[repair.22.33.213]
+audit = "22.30.121"
+base_revision = "8c4a3e7e0bd8b236f61b0f9e0dd18f3cfc360fce"
+qualification = "The runner records the exact candidate revision, command, exit and private log in the hf-build/hf-done ledger; no qualification is claimed before those gates pass."
+baseline = "Not run: the explicit gate order prohibits testing before full implementation or invoking verify_cmd by hand; no TestRepairM_213_* existed at the base and no earlier gate ledger was present."
+prior_failures = "No baseline failures are claimed. Inspection found custody injection and response equality without an independent guest oracle; prerequisite 22.31.251 already corrected frozen semantics and feeAsset."
+
+[finding.storage-environment-response-coverage]
+audit_id = "storage environment-response-coverage (the audit record spells this sandbox-response-coverage)"
+test = "TestRepairM_213_StorageEnvironmentResponse"
+repair = "Decode real ordinary and sandbox ABI-v3 execution terminal frames with the production Go consumer and independently known empty guest output; retain funded escrow, fee-limit refusals, snapshot rollback, payer sequence advancement and usage receipt assertions."
+recorded_consumer_test = "TestRepairM_213_StorageEnvironmentRecordedConsumer decodes the committed native EVM result through sdk.TxMsgData and MsgEVMTransactionResponse, authenticates its sandbox receipt digest and transfer context against the independently committed kind-2 ledger, and refuses malformed receipt/root attachments."
+
+[finding.simulation-test-response-oracle]
+test = "TestRepairM_213_SimulationResponseOracle"
+repair = "Execute a Wasm responder publishing the independently specified bytes 0 through 63 and a real seven-unit transfer, decode static simulation and execution with trusted cached-receipt transfer context, and retain the original equality and all-store/event/sequence no-write assertions."
+
+[finding.public-proof-pins-defects]
+test = "TestRepairM_213_PublicProof"
+repair = "Use the production Go execution consumer on real EVM returns with receipt-bound transfer roots, independent guest bytes, malformed-frame refusals, independent cached state comparison, schedule-asset equality and host reopen."
+python_wiring = "Domain 9 agent SDK: services/agent/sdk/python/layerx_sdk/ai_market.py and tests/agent/sdk/python/test_evm_transaction.py must decode terminal/execution/authority wrappers at guest-only capacity with verified transfer context and change the observer to successful SDK decoding."
+typescript_wiring = "Domain 9 agent SDK: services/agent/sdk/typescript/src/ai_market.ts and test/ai-market.test.ts must decode transfer-authority wrappers with independently verified transfer context and assert successful SDK decoding of the real producer frames."
+scope_boundary = "The no-subprocess Go gate exercises the existing production Go consumer; Python/TypeScript SDK closure remains an external wiring request. The historical external SDK/evaluator proof retains its checks and is not claimed to pass."
+
+[finding.simulation-parity-common-defect]
+test = "TestRepairM_213_SimulationParity"
+repair = "Retain the original entrypoint/calldata parity matrix and no-write checks, decode both terminal frames using independent local receipt evidence and known empty ABI-1 guest output, and add a nonempty independently specified guest-response matrix with verified transfer roots."
+
+[finding.frozen-test-exists]
+test = "TestRepairM_213_Frozen"
+repair = "Compare each decoded boolean with the actual host ReadValueAccount Frozen field for zero, funded, uint128 and frozen records, retaining absence, wrong-program, closed-host and snapshot immutability refusals."
+
+[finding.retired-custody-denom-fallback]
+test = "TestRepairM_213_NativeAssetResolver"
+repair = "Remove assetDenoms, custody constructor injection and the fallback; resolve a real host asset through validated xweb genesis denomination bindings and the current governed allowlist, refuse unknown/unmapped/disallowed assets, and prove the same bank denom and balances after host and committed-store reopen."
+native_mapping_wiring = "Domain 14 xweb and domain 17 node genesis: modules/xweb/types/genesis.go ProgramFeeDenoms must carry each supported host asset and native bank denomination at merge genesis; new assets require an owning-domain governed binding interface, never custody registration."
+
+[finding.custody-fixture-dependency]
+test = "TestRepairM_213_NativeWebFixture"
+repair = "Remove the custody store/keeper from the harness, load native fee mappings through real validated xweb genesis, retain applied fee-leg and atomic pause-refusal checks, and prove signed two-attestor fee distribution and answer persistence through committed-store reopen with an insufficient-signature rollback refusal."
+
+[gotcha.scoped-consumer]
+observed = "The only installed Python terminal consumer still applies responseCapacity to the entire frame; invoking it requires a subprocess forbidden by this task gate."
+action = "Keep the scoped Go consumer proof and explicit owning-domain SDK wiring requests; never claim actual Python/TypeScript consumer closure from a Go-only gate."
+
+[qualification.build]
+revision = "fcd3b8bf278dc055ccff613fc8d34e08c9119414"
+command = "make -s paxd-native-libs && CGO_ENABLED=1 go build ./precompiles/layerxprograms/..."
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "Pre-existing sdk/x/staking/client/cli/tx.go:62 and sdk/x/auth/client/cli/tx_multisign.go:84,260, tx_sign.go:69, validate_sigs.go:216 expect one value from tx.NewFactoryCLI, which returns two; the task implementation is not qualified and verification never ran."
+assumption = "SDK owning domain must reconcile sdk/client/tx.NewFactoryCLI callers outside this scope; hf-done refuses verification without a passing hf-build, and the unrelated build failure must not be rerun or repaired here."
+
+[qualification.continuation]
+revision = "5a0945b48fe00bb708f9354bba20b0654feab676"
+command = "cg spec done 22.33.213 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The prerequisite caller repair allows hf-build to pass; test compilation exposed the restart helper calling Commit without the required version-advance boolean."
+assumption = "Use Commit(true), matching the production store API and existing package persistence tests, then rebuild and verify the same candidate."
+
+[gotcha.commit-version]
+observed = "CommitMultiStore.Commit requires a boolean controlling version advancement."
+action = "Restart-recovery fixtures call Commit(true) before reopening the store from its database."
+
+[qualification.attempt3-input]
+revision = "8d343183c0e4380323166b7b998f97f41221d046"
+observed = "The supplied attempt-2 verification failed StorageEnvironmentResponse, SimulationResponseOracle and SimulationParity; this continuation uses that recorded baseline and does not rerun it."
+repair = "Compare decoded calldata by byte content; encode requested leases with the production Go v3 lease codec and drive funding and activation through native handlers; preserve the current host-asset mirror resolver alongside governed xweb fee bindings."
+lease_codec_wiring = "Programs runtime owner: programs/crates/layerx-programs-sandbox/src/lease.rs exposes the Rust v3 encoder only as a Rust API; the scoped Go request encoder supplies its wire format to the real native Rust decoder through sandboxFund."
+
+[qualification.attempt3-repair]
+revision = "e8e1be73ce8c2db2bbc0043731854ee83685a3a0"
+command = "cg spec done 22.33.213 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Six cases passed; StorageEnvironmentResponse still refused native sandbox execution after successful production funding, activation and ordinary ABI-v3 execution."
+repair = "Bind the request encoder byte for byte to the committed native sandboxFund submission from programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxFund.payload.hex, carrying its lease, program and request receipt evidence as an in-scope recorded transcript."
+
+[qualification.continued-tree]
+base_revision = "b664b08b724ec5b190920b99ba70b283c8a796c9"
+baseline = "The supplied earlier attempt reported StorageEnvironmentResponse, SimulationResponseOracle and SimulationParity failures; this continuation preserves that evidence instead of running an extra baseline gate."
+repair = "Preserve byte-content comparisons for decoded ABI byte arguments and the v3 request encoder; derive transcript lease and program offsets from the full 39-byte domain before funding and activation through production handlers."
+
+[gotcha.lease-domain-length]
+observed = "The carried transcript reader sliced a 39-byte lease-state domain at byte 37, misreading the lease and program IDs before its native codec round trip."
+action = "Use len(sandboxLeaseStateDomain) for the domain assertion and both identity offsets; retain exact transcript equality and every execution assertion."
+
+[qualification.continued-first-verify]
+revision = "bc8b7b6013d68a03ea9aa19b822b21cfe4244610"
+command = "cg spec done 22.33.213 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Six repair cases pass; the live sandbox case still refuses execution after native funding, activation and successful ordinary ABI-v3 execution."
+native_wiring = "Programs runtime domain 13: reconcile programs/crates/layerx-programs-sandbox/src/host_ffi.rs publish_settlement, which appends the receipt digest, with programs/crates/layerx-programs-runtime/src/ffi_call.rs execution_with_sandbox_receipt and terminal/sandbox.rs SandboxSettlement::read, which currently passes the full framed receipt to a canonical-only decoder; preserve digest authentication and the LXUR contract."
+
+[gotcha.native-sandbox-receipt-frame]
+observed = "The committed native result and usage ledger both carry canonical usage bytes followed by their SHA-256 digest; the Go terminal consumer did not unwrap sandbox settlements."
+action = "Decode and authenticate the exact native receipt-plus-digest frame, bind it to the independent transfer root, applied fee leg and inner execution fields, and keep the failing live producer assertion until the out-of-scope runtime framing mismatch is repaired."
+
+[qualification.attempt5-input]
+revision = "017145b3ae3bcb590ac53f5577802a6d5cd4394d"
+baseline = "The supplied attempt-4 evidence reports six passing cases and failures in StorageEnvironmentResponse and StorageEnvironmentRecordedConsumer; no extra baseline gate is run."
+repair = "Round-trip the recorded native return through the production ABI output encoder; authenticate an empty occupancy attachment only with a sandbox receipt proving zero occupancy units and fees. Compare the native submission byte for byte with ABI-decoded handler arguments and with the active reference-context lease digest, escrow, asset, destination and fee schedule."
+
+[gotcha.empty-sandbox-occupancy]
+observed = "The production runtime wraps sandbox execution in occupancy evidence even when the attachment is empty; the recorded canonical ABI tuple and native receipt independently show zero occupancy units and fees."
+action = "Retain bounds, framing, accounting and digest validation; accept that empty attachment only when the authenticated sandbox receipt proves zero occupancy, and refuse rehashed mutations of both occupancy accounting fields."
+
+[qualification.attempt6-input]
+base_revision = "f54f0086e13b348e236ca71fe67cf82d702d3951"
+baseline = "The supplied attempt-5 result reports seven passing repair cases and StorageEnvironmentResponse refusing its independent native Submit; this continuation retains the recorded-consumer repair and does not repeat a baseline gate."
+repair = "Obtain the native reference through the real Precompile.Prepare path, apply registered dispatch event/delegate context, retain the transaction hash and mounted EVM transient store, and assert the exact ordinal assigned by production Submit before checking its result; keep the handler payload and all existing assertions unchanged."
+
+[gotcha.native-reference-context]
+observed = "Programs Submit assigns its ordinal through layerxprograms/ordinal/v1/ and calls the native host directly; layerxpay budget keeper ordinals are a separate path."
+action = "Prove the actual registered precompile context and the production Submit ordinal rather than writing a pay-keeper counter or changing the accepted payload."
+
+[qualification.attempt6-result]
+revision = "6a3e78f518e4e6b364a5e13bd77686d70c14a710"
+command = "cg spec done 22.33.213 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "hf-build passed at the same revision; seven repair cases passed, including StorageEnvironmentRecordedConsumer, while StorageEnvironmentResponse still returned LXP_ERR_NON_CANONICAL after proving nonzero EVM transaction 0x123456789abcdef, mounted evm_transient and production-assigned call ordinal 4 (/tmp/repair-m213.log:47-53); the missing-context explanation does not apply."
+
+[finding.storage-environment-response-coverage.attempt6-wiring]
+owner = "Programs native runtime domain 13"
+request = "Reconcile programs/crates/layerx-programs-sandbox/src/host_ffi.rs:850, which appends the receipt digest, with programs/crates/layerx-programs-runtime/src/terminal/sandbox.rs:262, which passes the framed receipt to canonical-only SandboxSettlement::read and its c.end() at :185, and ffi_call.rs:2443-2444, which maps that refusal to NON_CANONICAL; preserve digest authentication and the LXUR contract."
+status = "Implemented, not qualified; this is the already recorded native receipt-framing interface mismatch, outside the permitted precompiles/layerxprograms paths. Keep the live submission assertion and the passing recorded-consumer proof unchanged; no unchanged gate is rerun."
+
+[qualification.attempt8-input]
+base_revision = "0c9ea2c53e7997cef4beea00fb2fe79e1f915465"
+baseline = "The supplied attempt-7 gate failed StorageEnvironmentResponse in the terminal consumer; preserve all eight cases and the fee-limit subtest without repeating the full baseline gate."
+repair = "Match 22.31.488 attach_sandbox_settlement: the terminal carries the canonical receipt body after native digest authentication, while LXUR and the usage ledger retain body plus digest; parse authority before settlement as terminal.rs unwrap does, and preserve accounting, program, usage and transfer-root checks."
+recording = "Re-record execute_result and usage_ledger from TestRepairM_213_StorageEnvironmentResponse: actual native Submit and registered EVM sandboxExecute, production ABI tuple packing, MsgEVMTransactionResponse.Marshal and TxMsgData.Marshal; the focused continuation command requested by do_21 captures the bytes before final hf-build/hf-done."
+
+[gotcha.canonical-terminal-settlement]
+observed = "Native LXUR events and kind-2 ledger retain the receipt digest, but 22.31.488 attaches only the authenticated canonical body to the terminal, and an authority wrapper precedes a settlement wrapper."
+action = "Decode the production wrapper order and canonical body strictly; reconstruct the LXUR frame only for comparison with independent ledger and event evidence, never accept a redundant digest inside the terminal attachment."
+
+[qualification.attempt8-recording]
+source_base = "0c9ea2c53e7997cef4beea00fb2fe79e1f915465"
+command = "CGO_ENABLED=1 go test -count=1 -v -run '^TestRepairM_213_StorageEnvironmentResponse$' ./precompiles/layerxprograms/"
+exit = 0
+log = "/tmp/repair-m213-recording.log"
+observed = "The requested focused producer recording passed with fee-limit and zero-asset refusals intact; execute_result is 1366 bytes and usage_ledger is 763 bytes, and the final live test binds both committed recordings byte for byte to the actual EVM result and host ledger."

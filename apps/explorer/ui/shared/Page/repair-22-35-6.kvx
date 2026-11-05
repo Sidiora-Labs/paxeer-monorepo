@@ -1,0 +1,66 @@
+[repair.22.35.6]
+decision = "2587"
+continuation_decision = "2605 (gotcha 3148): preserve attempt 1 and independently assert entity tab labels and the API transfer count; leave the other eight proofs unchanged."
+navigation_decision = "2619 (gotcha 3165): preserve attempt 2, wait for the History trigger to report enabled, await the exact shallow router push and run that proof by name before the declared gates."
+brief = "spec/layerx-merge/programme/docs/explorer-ui/design-brief.md sections 5 and 6"
+base_revision = "d833a6274d362a720d5c0faf8b20f8a0b25e5348"
+continuation_base_revision = "934c4543c0da2ea3489d79e7f7f1cea0ede0cdf1"
+implementation = "Shared entity header with kind, h1, mono identifier, copy and QR controls and pill tags; labelled responsive 220px key grids; scrolling entity tabs; Transaction overview groups; Block information; Address Overview, History, Transfers, Portfolio, Analytics, Contract and More; Token Markets, History, Holders, Metadata and NFT Inventory."
+routes = "Existing ids and nested ids remain the query values; parent groups recognize descendant aliases. The block index route remains Details, with Transactions the default. Token contract and widget routes live under Metadata."
+market_data = "Render exchange_rate, circulating_market_cap, volume_24h and holders_count independently. Missing fields are em dashes, zero is retained, and no onchain market cap is derived. The existing API exposes no token price series, so Markets draws no chart."
+proof = "Named jsdom tests render real shared components and entity pages with committed API fixtures, assert Address legacy route selection, missing and zero market values, labelled transaction and block groups, and colour roles in both modes."
+existing_tests = "Update layout expectations to the requested entity names and grouped tabs; keep supply precision, socket buffering, count values, row ordering and control assertions on their real new surfaces."
+visual_stories = "Transaction, Block, Address, Token, TokenInstance and touched component stories run in default light and dark-color-mode; screenshot gates are outside this task's declared gates."
+
+[gotchas]
+legacy_nft_aliases = "Address NFT collection/list aliases previously selected the NFT view without enabling its query; classify all existing NFT aliases consistently, preserve explicit list/collection selection and leave the alias when the user changes the display preference."
+section_wrapper = "Changing a grid into a labelled group requires moving the matching closing tag with it; keep parent-hash rows in BLOCK INFO while preserving their existing copy and link controls."
+formatter = "The app formatter is ESLint with layout fixes. Install the locked app dependencies to make it available, then format only task-touched TypeScript before the declared build."
+gotcha_2962 = "The repair proof runs in jsdom against the actual React and query code with the committed API fixtures; no credentials, live RPC, external services, subprocess tests or browser gate."
+state_pagination = "The transaction state-change API requires a next_page_params object even for an empty story response; retain items_count and state_changes instead of using null."
+tab_counters = "The entity tab markup lives in toolkit/components/RoutedTabs/RoutedTabs.tsx; ui/shared/RoutedTabs/EntityTabs.tsx supplies grouping helpers. Labels expose data-tab-label and muted mono counters expose data-tab-count. The Address proof waits for and asserts the exact API count independently of the seven labels."
+dependency_install = "The pre-format locked install timed out downloading @tabler/icons 3.35.0 from the registry; retry installation with a longer network timeout while preserving the lockfile and the declared gate commands."
+named_registration_lint = "The layout formatter applied its fixes but ESLint exited 1 on the existing nine test(function.name, function) registrations (vitest/expect-expect and vitest/valid-title); preserve the required named proofs and use only hf-build and hf-done for qualification."
+dependency_scan = "The candidate wrapper walks ignored dependency files; moving dependencies during that walk raced with an open and aborted preparation before a build command or ledger row. Keep installed dependencies outside the repository behind an ignored node_modules symlink before restarting qualification."
+dependency_resolution = "An external dependency root must itself be named node_modules so transitive package imports resolve. Correct the external layout to /tmp/explorer-22-35-6-dependencies/node_modules while retaining the app's ignored node_modules symlink."
+navigation_timing = "The tab-counter response is not a barrier for every query that disables Address tabs, and tab navigation may complete asynchronously. Assert that History is enabled before clicking and await the unchanged exact router query assertion under the existing waitFor timeout."
+continuation_formatter = "ESLint applied layout fixes to the 53 task TypeScript files and exited 1 on the existing named-test registration rules, the existing snake-case transaction proof and conflicting function-parenthesis rules in repair-22-33-314/315; preserve the named proofs and assertions. Exact output is /out/logs/task-format.log; the declared build and verify remain the only qualification gates."
+
+[qualification]
+policy = "Only hf-build followed by hf-done qualify this task. Authoritative results are recorded privately so inserting a result cannot change the revision it qualifies."
+verified_revision = "revision field of the final verify row in /out/run/gates.jsonl, copied verbatim into the final response"
+gate_results = "exit fields of the build and verify rows in /out/run/gates.jsonl; this source record claims no gate before it runs"
+ledger = "/out/run/gates.jsonl"
+build_command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_command = "cg spec done 22.35.6 -f layerx-merge --root /work/paxeer-monorepo"
+verify_target = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run apps/explorer/ui/shared/Page/repair-22-35-6.spec.tsx"
+logs = "/out/logs/build-N.log and /out/logs/verify-N.log, with exact locations in the private ledger"
+continuation_build_1_revision = "e4b767ed4c90e8762001d08e004de6763e1388a7"
+continuation_build_1_command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+continuation_build_1_exit = 2
+continuation_build_1_log = "/out/logs/build-1.log"
+continuation_build_1_observed = "The external dependency root's nonstandard name prevented transitive type imports; repair the sandbox dependency layout and rebuild without changing source types or checks."
+continuation_verify_1_revision = "ef0a0fe2e475ec12e86703510e5e749b9ed2cd87"
+continuation_verify_1_command = "cg spec done 22.35.6 -f layerx-merge --root /work/paxeer-monorepo"
+continuation_verify_1_exit = 1
+continuation_verify_1_log = "/out/logs/verify-1.log"
+continuation_verify_1_observed = "TypeScript and eight proofs passed; the Address proof passed its separate label and exact API counter assertions, then observed no router call after clicking History. Retain the exact navigation assertion and await the tab's enabled state and navigation completion."
+continuation_budget = "The wrapper charges each extra build and each extra verify separately. One rerun remains after the environment repair; the required rebuild of the navigation proof consumes it, so a subsequent verification may be refused. Only a successful hf-done at the rebuilt revision qualifies."
+first_build_revision = "7bcb7bab028b80ccaecd2583911bf68e2b84fef2"
+first_build_exit = 2
+first_build_log = "/out/logs/build-1.log"
+first_build_observed = "TypeScript rejected the new Transaction story's null state-change pagination; correct the fixture to the declared API shape and rebuild."
+first_verify_revision = "7ae8e143859dfa103744cadb874d17568417d84a"
+first_verify_command = "cg spec done 22.35.6 -f layerx-merge --root /work/paxeer-monorepo"
+first_verify_exit = 1
+first_verify_log = "/out/logs/verify-1.log"
+first_verify_observed = "Eight of nine proofs passed; Address tab names omitted the rendered transfer counter. Keep exact equality and wait for the fixture count in both affected Address specs."
+
+[continuation.3]
+base_revision = "5d90e0ff19fda222c1f098bb61f09077d892bc1d"
+integration = "The runner applied the complete attempt-2 tree onto current main without conflicts; retain all implementation and the other eight proofs unchanged."
+focused_command = "cd apps/explorer && yarn vitest run ui/shared/Page/repair-22-35-6.spec.tsx -t addressPageRendersEntityTabSetAndOverview"
+focused_exit = 0
+focused_log = "/out/logs/address-proof-before-gates.log"
+focused_observed = "The enabled History trigger navigates with pathname /address/[hash], the existing address hash and tab history, undefined as, and shallow true; one named proof passed."
+gate_results = "The final build and verify rows in /out/run/gates.jsonl name this continuation's candidate revision, exact commands, exit codes and private logs; the final response copies the final gate evidence verbatim."

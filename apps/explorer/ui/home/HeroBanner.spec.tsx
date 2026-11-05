@@ -4,6 +4,7 @@ import React from 'react';
 
 import { render, routerState } from 'ui/shared/layout/testWrapper';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { fireEvent } from 'vitest/lib';
 
 vi.hoisted(() => {
   window.__envs = {
@@ -36,37 +37,33 @@ describe('HeroBanner', () => {
     expect(title.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('carries the search field and its submit button in the band', () => {
+  it('carries the prompt search form in the band', () => {
     const { container } = render(<HeroBanner/>);
 
     const search = container.querySelector('[data-label="hero-search"]') as HTMLElement;
 
     expect(search.querySelector('form')).not.toBeNull();
     expect(search.querySelector('input')).not.toBeNull();
-    expect(container.querySelector('[data-label="hero-search-submit"]')).not.toBeNull();
+    expect(search.querySelector('input')?.getAttribute('enterKeyHint')).toBe('search');
   });
 
-  it('puts the filter dropdown on the left of the search field, starting on all filters', () => {
+  it('offers the prompt and keyboard shortcut in the desktop search field', () => {
     const { container } = render(<HeroBanner/>);
-
-    const filter = container.querySelector('[data-label="hero-search-filter"]') as HTMLElement;
     const search = container.querySelector('[data-label="hero-search-desktop"]') as HTMLElement;
-    const submit = container.querySelector('[data-label="hero-search-submit"]') as HTMLElement;
 
-    expect(filter.textContent).toContain('All filters');
-    expect(filter.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(search.compareDocumentPosition(submit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(search.querySelector('input')?.getAttribute('placeholder')).toBe('Search or ask: a transaction, address, block or token');
+    expect(search.querySelector('kbd')?.textContent).toBe('Ctrl K');
+    expect(search.querySelector('input')?.getAttribute('aria-label')).toBe('Search');
   });
 
-  it('submits the search form from the submit button', () => {
+  it('submits the search form from its keyboard-ready field', () => {
     const { container } = render(<HeroBanner/>);
 
     const form = container.querySelector('[data-label="hero-search-desktop"] form') as HTMLFormElement;
-    const submit = container.querySelector('[data-label="hero-search-submit"]') as HTMLElement;
     const onSubmit = vi.fn((event: Event) => event.preventDefault());
 
     form.addEventListener('submit', onSubmit);
-    submit.click();
+    fireEvent.submit(form);
 
     expect(onSubmit).toHaveBeenCalledTimes(1);
   });

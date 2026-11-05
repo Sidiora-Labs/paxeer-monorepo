@@ -1002,3 +1002,11 @@ fn human_primary_rotation_uses_the_same_protocol_challenge_path_without_agent_au
     assert!(human_session.is_none());
     let _ = fs::remove_dir_all(root);
 }
+
+#[path = "support/repair_22_33_63_rotation.rs"]
+mod current_rotation_path;
+
+#[test]
+fn current_rotation_uses_production_preparation_and_custody() {
+    current_rotation_path::current_rotation_reaches_custody("session-keys-current-rotation");
+}

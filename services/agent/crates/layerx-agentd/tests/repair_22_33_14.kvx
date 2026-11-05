@@ -1,0 +1,30 @@
+[repair]
+task = "22.33.14"
+audit = "22.30.100"
+base_revision = "f41d484302c119642805b0c195dc7891c8614547"
+verification = "hf-done runs cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test repair_22_33_14; exact candidate revision and private evidence are recorded by the gate ledger."
+baseline = "The supplied previous-attempt evidence reports eleven passing cases and three failures: emitted_receipts_keep_exact_bytes_and_positions_through_backpressure_and_restart (next_expected 0 versus 40), logs_are_ingested_in_block_position_order (ReceiptEvidenceMismatch), receipted_logs_recover_committed_without_duplicate_delivery (CorruptEvent). No additional unchanged-tree verification was run because the explicit gate order reserves verification for hf-done after implementation and hf-build."
+
+[finding.ingest-producer-coverage]
+test = "producer_ingestion::gap_integration::ingest_integration::emitted_receipts_keep_exact_bytes_and_positions_through_backpressure_and_restart"
+additional_tests = ["producer_ingestion::logs_are_ingested_in_block_position_order", "producer_ingestion::missing_block_range_is_backfilled_from_history", "producer_ingestion::receipted_logs_recover_committed_without_duplicate_delivery"]
+proof = "Recorded rpc/filter.go receipted output traverses loopback WebSocket transport, the production subscription and log decoder, the bounded ingestor and durable store. A production ApprovalEvents emission persists sequence 39 before pending logs; reopening with initial_sequence 0 must recover next_expected 40, then exact receipt bytes at sequences 40 and 41 and the final watermark survive another restart. Existing storage, ordering, backpressure and rejection assertions remain."
+fixture_evidence = "Receipt bytes round-trip through CoreEvent::from_log and CoreEvent::from_log_bytes; the closing log's height and block hash must match the supplied checkpoint."
+wiring_request = "services/agent/crates/layerx-agentd/src/events/ingest.rs (owning domain 9): commit_block writes retired CHECKPOINT_FINALISED metadata although VerificationLevel::rung returns None for that label; migrate promotion and its metadata codec to current committed evidence without weakening the integration assertions."
+
+[continuation.attempt_5]
+prerequisite_revision = "f96276910783698be6351c0973710f2b4b1be32a"
+inherited_repairs = "Retain the production ApprovalEvents encoder seed and persisted watermark recovery, the checkpoint-matching closing log, and both production log-decoder round-trip assertions from the previous attempt."
+remaining_interface = "Production commit_block still assigns CHECKPOINT_FINALISED to pending and retained logs; that retired level has no rung, so a promoted log fails validation and its persisted pending record cannot reopen. The existing Committed assertions remain unchanged; the owning-domain wiring request above is required."
+qualification = "Run hf-build followed by hf-done on the same candidate; the wrappers retain the exact candidate revision, command, exit code and private log location in /out/run/gates.jsonl."
+
+[gotcha.restart_initial_sequence]
+observed = "EventIngestor::open uses initial_sequence only when no durable watermark exists; pending logs alone do not persist that initial sequence."
+repair = "Seed the watermark through a real production ApprovalEvents emission and assert recovery with a deliberately different initial_sequence."
+
+[qualification.build]
+revision = "6cd5a35daf74461f5ccb120b429d821dbd695f69"
+command = "cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "Unrelated human_projection_facts target fails with seven errors in services/platform/hosted/authority/src/human/budget_state.rs and budget_state/native.rs: unresolved crate::committed and crate::loopback_http, missing super::Human and super::Policy, and missing Config.human; wiring request to the authority domain and human_projection_facts test owner, with hf-done held until the declared build passes."

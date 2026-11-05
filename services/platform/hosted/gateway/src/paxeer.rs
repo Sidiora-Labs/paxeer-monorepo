@@ -12,8 +12,11 @@ use layerx_platform_gateway::evm;
 use layerx_platform_gateway::http::OutboundRequest;
 use serde_json::{json, Map, Value};
 
+#[path = "../../../../../tools/platform/cli/src/wallet_gateway.rs"]
+mod wallet_contract;
+
 /// Assets joined per `px_listAssets` answer.
-const MAX_JOINED_ASSETS: usize = 16;
+const MAX_JOINED_ASSETS: usize = wallet_contract::ASSET_PAGE_LIMIT;
 
 /// Paxeer RPC names the relay may fail over across.
 const MIN_ENDPOINTS: usize = 2;
@@ -294,13 +297,12 @@ struct Resolution {
 
 impl Resolution {
     fn document(&self) -> Value {
-        json!({
-            "evm_address": self.evm.as_ref().map(evm::address_hex),
-            "pax_address": self.pax_address,
-            "layerx_did": self.did_public_key.map(|key| format!("did:layerx:{}", hex32(&key))),
-            "layerx_account": self.layerx_account.as_ref().map(hex32),
-            "bound": self.evm.is_some() && self.did_public_key.is_some()
-        })
+        wallet_contract::account_document(
+            self.evm,
+            self.pax_address.clone(),
+            self.did_public_key,
+            self.layerx_account,
+        )
     }
 
     fn did(&self) -> Option<String> {
@@ -603,6 +605,33 @@ fn resolved_at_height(
 }
 
 fn get_account(config: &Config, id: &Value, params: Option<&Value>) -> Value {
+    if let Some([Value::String(did), Value::String(asset)]) =
+        params.and_then(Value::as_array).map(Vec::as_slice)
+    {
+        if wallet_contract::key(asset).is_err()
+            || did
+                .strip_prefix("did:layerx:")
+                .is_none_or(|key| wallet_contract::key(key).is_err())
+        {
+            return super::rpc::error(id, -32602, "Invalid params");
+        }
+        let height = match block_number(&mut |request| node(config, request)) {
+            Ok(height) => height,
+            Err(code) => return unavailable(id, code),
+        };
+        return match wallet_contract::ledger_account(did, asset, height, &mut |data| {
+            call(
+                &mut |request| {
+                    node_at_height(&mut |request| node(config, request), height, request)
+                },
+                &evm::LEDGER_PRECOMPILE,
+                data,
+            )
+        }) {
+            Ok(result) => json!({"jsonrpc":"2.0","id":id,"result":result}),
+            Err(code) => unavailable(id, code),
+        };
+    }
     let (resolution, height) = match resolved_at_height(config, id, params) {
         Ok(snapshot) => snapshot,
         Err(refusal) => return refusal,
@@ -640,29 +669,12 @@ fn get_account(config: &Config, id: &Value, params: Option<&Value>) -> Value {
 
 const ASSET_LIST_DEADLINE: std::time::Duration = std::time::Duration::from_secs(10);
 
-fn asset_cursor(params: Option<&Value>) -> Result<Option<u64>, ()> {
-    match params {
-        None | Some(Value::Null) => Ok(None),
-        Some(Value::Array(args)) if args.is_empty() => Ok(None),
-        Some(Value::Array(args)) => match args.as_slice() {
-            [Value::String(cursor)] => cursor
-                .parse::<u64>()
-                .ok()
-                .filter(|cursor| *cursor > 0 && i64::try_from(*cursor).is_ok())
-                .filter(|parsed| parsed.to_string() == *cursor)
-                .map(Some)
-                .ok_or(()),
-            _ => Err(()),
-        },
-        _ => Err(()),
-    }
-}
-
 fn layerx_assets(
     config: &Config,
     id: &Value,
     cursor: Option<u64>,
-) -> Result<(Vec<Value>, Value), Value> {
+    limit: usize,
+) -> Result<(Vec<Value>, Option<u64>), Value> {
     let indexer = config
         .indexer
         .as_ref()
@@ -673,8 +685,8 @@ fn layerx_assets(
     // The indexer's keyset contract is registration order, not lexical asset order.
     // Request exactly one bounded page; never walk its continuation here.
     let query = cursor.map_or_else(
-        || format!("limit={MAX_JOINED_ASSETS}"),
-        |cursor| format!("limit={MAX_JOINED_ASSETS}&cursor={cursor}"),
+        || format!("limit={limit}"),
+        |cursor| format!("limit={limit}&cursor={cursor}"),
     );
     let answer = match indexer {
         super::history::Indexer::Tls(endpoint) => {
@@ -700,21 +712,21 @@ fn layerx_assets(
     let rows = document
         .get("items")
         .and_then(Value::as_array)
-        .filter(|rows| rows.len() <= MAX_JOINED_ASSETS)
+        .filter(|rows| rows.len() <= limit)
         .ok_or_else(|| unavailable(id, "invalid_indexer_response"))?;
     if document["version"] != 1 {
         return Err(unavailable(id, "invalid_indexer_response"));
     }
     let next = match document.get("next_cursor") {
-        Some(Value::Null) => Value::Null,
-        Some(Value::String(next)) if rows.len() == MAX_JOINED_ASSETS => {
+        Some(Value::Null) => None,
+        Some(Value::String(next)) if rows.len() == limit => {
             let parsed = next
                 .parse::<u64>()
                 .ok()
                 .filter(|next| *next > cursor.unwrap_or(0) && i64::try_from(*next).is_ok())
                 .filter(|parsed| parsed.to_string() == *next)
                 .ok_or_else(|| unavailable(id, "invalid_indexer_response"))?;
-            json!(parsed.to_string())
+            Some(parsed)
         }
         _ => return Err(unavailable(id, "invalid_indexer_response")),
     };
@@ -761,11 +773,7 @@ fn custody_asset(node: &mut Node<'_>, record: &Value, height: u64) -> Result<Val
                 &evm::LEDGER_PRECOMPILE,
                 &evm::calldata_word(evm::SELECTOR_GET_ASSET, &id),
             )?;
-            let asset = evm::decode_ledger_asset(&answer).map_err(|_| "invalid_ledger_asset")?;
-            if asset.asset_id != id {
-                return Err("invalid_ledger_asset");
-            }
-            return Ok(layerx_asset_metadata(&asset));
+            return wallet_contract::ledger_asset_metadata(&answer, id);
         }
         let denom = record["denom"]
             .as_str()
@@ -805,12 +813,12 @@ fn list_assets(config: &Config, id: &Value, params: Option<&Value>) -> Value {
     if config.paxeer.is_none() {
         return unconfigured(id);
     }
-    let cursor = match asset_cursor(params) {
-        Ok(cursor) => cursor,
-        Err(()) => return super::rpc::error(id, -32602, "Invalid params"),
+    let (cursor, limit) = match wallet_contract::page_params(params) {
+        Ok(page) if page.1 <= MAX_JOINED_ASSETS => page,
+        _ => return super::rpc::error(id, -32602, "Invalid params"),
     };
     let started = std::time::Instant::now();
-    let (records, next_cursor) = match layerx_assets(config, id, cursor) {
+    let (records, next_cursor) = match layerx_assets(config, id, cursor, limit) {
         Ok(records) => records,
         Err(refusal) => return refusal,
     };
@@ -831,10 +839,18 @@ fn list_assets(config: &Config, id: &Value, params: Option<&Value>) -> Value {
         Ok(height) => height,
         Err(code) => return unavailable(id, code),
     };
-    let mut joined = Vec::with_capacity(records.len());
-    for mut record in records {
-        let metadata = match custody_asset(&mut node, &record, height) {
-            Ok(metadata) => metadata,
+    // Page before joining: a small requested page bounds native metadata reads.
+    let page = match wallet_contract::assets_page(records, height, cursor, limit, next_cursor) {
+        Ok(page) => page,
+        Err(code) => return unavailable(id, code),
+    };
+    let mut result = page;
+    let Some(records) = result["assets"].as_array_mut() else {
+        return unavailable(id, "invalid_asset_page");
+    };
+    for record in records {
+        let metadata = match custody_asset(&mut node, record, height) {
+            Ok(value) => value,
             Err(code) => return unavailable(id, code),
         };
         record
@@ -846,13 +862,8 @@ fn list_assets(config: &Config, id: &Value, params: Option<&Value>) -> Value {
                     .expect("asset metadata is an object")
                     .clone(),
             );
-        joined.push(record);
     }
-    json!({
-        "jsonrpc": "2.0",
-        "id": id,
-        "result": {"height": height, "assets": joined, "joined_limit": MAX_JOINED_ASSETS, "next_cursor": next_cursor, "order": "registration"}
-    })
+    json!({"jsonrpc":"2.0","id":id,"result":result})
 }
 
 fn decode_coins(answer: &[u8]) -> Result<Vec<Value>, &'static str> {
@@ -891,11 +902,7 @@ fn get_balances(config: &Config, id: &Value, params: Option<&Value>) -> Value {
     json!({
         "jsonrpc": "2.0",
         "id": id,
-        "result": {
-            "account": resolution.document(),
-            "height": height,
-            "balances": balances
-        }
+        "result": wallet_contract::balances(resolution.document(), height, balances)
     })
 }
 

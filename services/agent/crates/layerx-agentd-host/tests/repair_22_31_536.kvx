@@ -1,0 +1,16 @@
+[repair.22.31.536]
+acceptance = "22998.1"
+gotcha = "3136"
+decision = "2595"
+site = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs: draw_call, GrantTerms construction"
+receiver_did_key = "[0x63; 32], a fixed 32-byte DID key distinct from recipient [0x42; 32]."
+basis = "draw_call prepares the draw call shape with explicit receiver sequence 19; the node does not answer a receiver sequence view, and GrantTerms::prepare_draw does not encode receiver_did_key."
+preserved = "All five existing tests and their assertions remain unchanged; preparation, shared-store recovery, exact-byte submission, unavailable defaults and owner-checked views use the existing real code paths and in-process fixtures."
+dependencies = "No credential, environment variable or live endpoint is required by the repair tests."
+
+[gates]
+build = "hf-build"
+build_command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --tests"
+verify = "hf-done"
+verify_command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --test repair_22_31_532"
+results = "The bounded runner records exact candidate revision, command, exit code and private log for each gate in /out/run/gates.jsonl. The build and verify rows name the verified revision of this repair; the final response copies the terminal gate evidence. This record is fixed before qualification so both gates run on the same candidate."

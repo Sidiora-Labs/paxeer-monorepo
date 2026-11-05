@@ -162,19 +162,20 @@ impl RetainedNativeCall {
         }
     }
 
-    pub fn held_digest(&self) -> Result<[u8; 32], CallApprovalError> {
+    pub fn immutable_bytes(&self) -> Result<Vec<u8>, CallApprovalError> {
         let mut immutable = self.clone();
         immutable.decision = None;
         immutable.signed = None;
         immutable.queued = false;
         immutable.settlement = None;
         immutable.debit_settlement = false;
-        let bytes = serde_json::to_vec(&immutable).map_err(|_| CallApprovalError::Corrupt)?;
-        Ok(Sha256::new()
-            .chain_update(b"layerx/native-call-approval/v1\0")
-            .chain_update(bytes)
-            .finalize()
-            .into())
+        let mut bytes = b"layerx/native-call-approval/v1\0".to_vec();
+        bytes.extend(serde_json::to_vec(&immutable).map_err(|_| CallApprovalError::Corrupt)?);
+        Ok(bytes)
+    }
+
+    pub fn held_digest(&self) -> Result<[u8; 32], CallApprovalError> {
+        Ok(Sha256::digest(self.immutable_bytes()?).into())
     }
 
     fn receipt(&self, bytes: &[u8]) -> Result<layerx_wire::receipt::Receipt, CallApprovalError> {
@@ -406,6 +407,9 @@ fn write<C: CallCarrier>(
     mut updates: Vec<(TenantKey, Vec<u8>)>,
 ) -> Result<(), CallApprovalError> {
     let call = carrier.call().ok_or(CallApprovalError::Version)?;
+    if C::PROGRAM {
+        updates.push(super::program_requirement::call_companion(call)?);
+    }
     updates.push((
         key::<C>(
             TenantId::new(call.tenant.clone()).map_err(|_| CallApprovalError::Binding)?,
@@ -449,6 +453,9 @@ pub(crate) fn read<C: CallCarrier>(
         .ok_or(CallApprovalError::Missing)?;
     if binding.class() != StorageClass::LocalOnly || binding.bytes() != call.held_digest()? {
         return Err(CallApprovalError::Binding);
+    }
+    if C::PROGRAM {
+        super::program_requirement::check_call(store, call)?;
     }
     if call.debit_settlement
         && !crate::budget::program_settlement_recorded(store, &tenant, id)
@@ -517,15 +524,17 @@ pub(crate) fn hold<C: CallCarrier>(
         .ok_or(CallApprovalError::Version)?
         .held_digest()?
         .to_vec();
+    let mut inserts = vec![
+        (key::<C>(tenant.clone(), preparation)?, bytes),
+        (binding_key::<C>(tenant, preparation)?, binding),
+    ];
+    if C::PROGRAM {
+        inserts.push(super::program_requirement::call_companion(
+            carrier.call().ok_or(CallApprovalError::Version)?,
+        )?);
+    }
     store
-        .apply_program_approval_batch(
-            Vec::new(),
-            vec![
-                (key::<C>(tenant.clone(), preparation)?, bytes),
-                (binding_key::<C>(tenant, preparation)?, binding),
-            ],
-            Vec::new(),
-        )
+        .apply_program_approval_batch(Vec::new(), inserts, Vec::new())
         .map_err(|_| CallApprovalError::Store)?;
     let _ = staged.publish();
     Ok(carrier)

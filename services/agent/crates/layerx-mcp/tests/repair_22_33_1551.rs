@@ -85,7 +85,11 @@ fn restart_hold_approval_and_exact_retry_through_served_route() {
     let call = decode_unsigned(prepared.unsigned_canonical_bytes.as_bytes())
         .expect("held bytes are unsigned EIP-1559");
     pay_exact_codec_checks(&call, &prepared);
-    assert_eq!(prepared.disclosure.actor.as_str(), hex(&[0xab; 20]));
+    assert_eq!(
+        prepared.disclosure.actor.as_str(),
+        hex(&[0xab; 20]),
+        "held disclosure actor must retain the sender address"
+    );
     assert_eq!(
         prepared.disclosure.canonical_digest,
         <[u8; 32]>::from(Sha256::digest(call.encode_unsigned()))

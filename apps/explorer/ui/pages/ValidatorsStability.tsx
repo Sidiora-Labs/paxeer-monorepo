@@ -138,7 +138,7 @@ const ValidatorsStability = () => {
       <Box hideFrom="lg">
         <ValidatorsList data={ data.items } isLoading={ isPlaceholderData }/>
       </Box>
-      <Box hideBelow="lg">
+      <Box hideBelow="lg" overflowX="auto">
         <ValidatorsTable data={ data.items } sort={ sort } setSorting={ handleSortChange } isLoading={ isPlaceholderData }/>
       </Box>
     </>

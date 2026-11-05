@@ -1,4 +1,5 @@
 //! Canonical decoding for the terminal availability bytes produced by the Programs call bridge.
+#![doc = include_str!("runtime_contract.md")]
 
 mod failure;
 mod sandbox;
