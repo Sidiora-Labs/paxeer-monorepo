@@ -147685,7 +147685,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.517]
 title = "Keep wallet gateway routes from awaiting pool queries while they hold a transaction client"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.520"]
