@@ -43,6 +43,10 @@ use zeroize::Zeroizing;
 use crate::encoding::{fixed_hex, hex_decode, hex_encode};
 use crate::http::{validate_idempotency_key, validate_resource_id, Client};
 
+const PROGRAMS_PRECOMPILE: [u8; 20] = [
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x1d,
+];
+
 const DESCRIPTOR: &str = "layerx-program.json";
 
 pub struct BindingRequest<'a> {
@@ -308,6 +312,7 @@ pub fn inspect_artifact(path: &Path) -> Result<Value, String> {
 }
 
 pub struct EvmLifecycleRequest<'a> {
+    pub policy: &'a layerx_sdk::rpc_verification::ReceiptPolicy,
     pub program_id: &'a str,
     pub fee_limit: &'a str,
     pub key_file: &'a Path,
@@ -624,7 +629,7 @@ fn submit_lifecycle(
 ) -> Result<Value, String> {
     let data = lifecycle_calldata(ordinal, payload, request.fee_limit)?;
     let raw = prepare_program_transaction(client, data, request.key_file)?;
-    submit_lifecycle_transaction(client, &raw)
+    submit_lifecycle_transaction_verified(client, &raw, request.policy)
 }
 
 pub(crate) fn submit_lifecycle_transaction(client: &Client, raw: &[u8]) -> Result<Value, String> {
@@ -638,19 +643,185 @@ pub(crate) fn submit_lifecycle_transaction(client: &Client, raw: &[u8]) -> Resul
     lifecycle_receipt_result(hash, &receipt)
 }
 
+/// Pending submission is not evidence of execution. Terminal results require a policy.
 pub(crate) fn lifecycle_receipt_result(hash: &str, receipt: &Value) -> Result<Value, String> {
-    let expected = transaction_hash(hash)?;
-    let returned = receipt["txHash"]
-        .as_str()
-        .ok_or_else(|| format!("transaction {hash}: sequencer receipt omitted txHash"))?;
-    if transaction_hash(returned)? != expected {
+    transaction_hash(hash)?;
+    if receipt["txHash"] != hash {
         return Err("sequencer receipt names another transaction".into());
     }
-    let rung = receipt["rung"]
+    if receipt["rung"] == "submitted" {
+        let fields = receipt.as_object().ok_or("invalid submitted response")?;
+        if fields.len() == 2 {
+            return Ok(json!({"txHash":hash,"rung":"submitted","state":"pending"}));
+        }
+        if fields.len() == 3 {
+            let nonce = receipt["nonce"]
+                .as_str()
+                .and_then(|nonce| nonce.strip_prefix("0x"))
+                .filter(|digits| {
+                    !digits.is_empty()
+                        && (digits.len() == 1 || !digits.starts_with('0'))
+                        && digits
+                            .bytes()
+                            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+                })
+                .and_then(|digits| u64::from_str_radix(digits, 16).ok())
+                .ok_or("submitted response omitted a canonical transaction nonce")?;
+            return Ok(
+                json!({"txHash":hash,"rung":"submitted","state":"pending","nonce":format!("0x{nonce:x}")}),
+            );
+        }
+    }
+    Err("terminal lifecycle evidence requires an independently declared receipt policy".into())
+}
+
+pub fn lifecycle_receipt_result_verified(
+    hash: &str,
+    value: &Value,
+    policy: &layerx_sdk::rpc_verification::ReceiptPolicy,
+) -> Result<Value, String> {
+    let expected = transaction_hash(hash)?;
+    if policy.protocol_version != 2 || policy.network_id != 125 {
+        return Err("program lifecycle requires protocol 2 on chain 125".into());
+    }
+    if value.is_null() {
+        return Ok(json!({"txHash":hash,"rung":"submitted","state":"pending"}));
+    }
+    if value["rung"] == "submitted" {
+        return lifecycle_receipt_result(hash, value);
+    }
+    let (receipt, _) =
+        layerx_sdk::rpc_verification::verify_node_receipt(value, expected, policy)
+            .map_err(|error| format!("lifecycle receipt verification failed: {error:?}"))?;
+    let protocol = receipt
+        .protocol()
+        .ok_or("missing lifecycle protocol facts")?;
+    let mut target = [0; 32];
+    target[12..].copy_from_slice(&PROGRAMS_PRECOMPILE);
+    if protocol.to() != target || protocol.module_id() != 12 || protocol.operation() != 2 {
+        return Err("receipt is outside the Programs execution scope".into());
+    }
+    let failed = protocol.result_code() != 0;
+    Ok(
+        json!({"txHash":hash,"rung":value["rung"],"state":if failed {"failed"} else {"completed"},
+        "result_code":protocol.result_code(),"return_data":value["returnData"],"vm_error":value["vmError"],"sequencer_receipt":value}),
+    )
+}
+
+pub fn submit_lifecycle_transaction_verified(
+    client: &Client,
+    raw: &[u8],
+    policy: &layerx_sdk::rpc_verification::ReceiptPolicy,
+) -> Result<Value, String> {
+    if policy.protocol_version != 2 || policy.network_id != 125 {
+        return Err("program lifecycle requires protocol 2 on chain 125".into());
+    }
+    let (call, signature) =
+        layerx_crypto::evm_transaction::decode_signed(raw).map_err(|e| e.to_string())?;
+    let sender = layerx_crypto::evm_transaction::recover_sender(&call, &signature)
+        .map_err(|e| e.to_string())?;
+    let topic = lifecycle_event_topic(&call.data)?;
+    if call.chain_id != u64::from(policy.network_id) || call.to != PROGRAMS_PRECOMPILE {
+        return Err("lifecycle transaction does not match chain policy and Programs target".into());
+    }
+    let submitted = submit_program_transaction(client, raw)?;
+    let hash = submitted["tx_hash"]
         .as_str()
-        .and_then(layerx_types::rung::Rung::from_name)
-        .ok_or("sequencer receipt omitted a valid rung")?;
-    Ok(json!({"txHash":returned, "rung":rung.name(), "sequencer_receipt":receipt}))
+        .ok_or("submission omitted transaction hash")?;
+    let value = sequencer_receipt(client, hash)
+        .map_err(|error| format!("transaction {hash} submitted; receipt unavailable: {error}"))?;
+    let result = lifecycle_receipt_result_verified(hash, &value, policy)?;
+    if value["rung"] == "submitted"
+        && value.get("nonce").is_some()
+        && value["nonce"] != format!("0x{:x}", call.nonce)
+    {
+        return Err("submitted lifecycle response contradicts the signed transaction nonce".into());
+    }
+    if result["state"] != "pending" {
+        if value["from"] != format!("0x{}", hex_encode(&sender))
+            || value["nonce"] != format!("0x{:x}", call.nonce)
+        {
+            return Err("lifecycle receipt contradicts the submitted sender or nonce".into());
+        }
+        if result["state"] == "completed"
+            && !value["logs"].as_array().is_some_and(|logs| {
+                logs.iter().any(|log| {
+                    log["address"] == format!("0x{}", hex_encode(&PROGRAMS_PRECOMPILE))
+                        && log["topics"].as_array().map(Vec::len) == Some(2)
+                        && log["topics"][0] == format!("0x{topic}")
+                        && log["topics"][1] == format!("0x{}", hex_encode(&call.data[4..36]))
+                })
+            })
+        {
+            return Err("lifecycle receipt omitted the requested program lifecycle event".into());
+        }
+    }
+    Ok(result)
+}
+
+pub(crate) fn lifecycle_event_topic(data: &[u8]) -> Result<&'static str, String> {
+    if data.len() < 36 {
+        return Err("lifecycle calldata omitted the program identity".into());
+    }
+    match &data[..4] {
+        [0xbd, 0xe3, 0xff, 0x66] => {
+            Ok("2765c1020c93cab47e389edaa5b5c68834bdd76f7a5d384adb460fc86e688709")
+        }
+        [0xa8, 0x60, 0x92, 0x9f] => {
+            Ok("36b27ad7ada15e27c12e726d56c3dbd2aaa084a9250e5282c7cd38eb78a1a8ab")
+        }
+        [0x23, 0x33, 0x0d, 0xd5] => {
+            Ok("6b9aceca11d63f8d54de57f0d38646082c9375dc119465a34e7099ec6f92ac57")
+        }
+        [0x86, 0xba, 0x1a, 0x99] => {
+            Ok("769e024ff1115e1c26a069148f332c81f2578f4ea67dde7d5076a9e9fd5e1eb8")
+        }
+        [0xa5, 0x12, 0xf1, 0xa9] => {
+            Ok("47fc53b89ce902506c8f3a0424a87f764a54dcb5ccb9c985639991a3a55b410c")
+        }
+        [0x4d, 0xc5, 0x07, 0x30] | [0xad, 0xe5, 0xd9, 0xe6] => {
+            Ok("f07e690dd4cedc62197bec125b1418cfee68758e9c183deac3b50902e52f59ca")
+        }
+        _ => Err("unsupported lifecycle transaction selector".into()),
+    }
+}
+
+/// Reads caller-pinned key identity and height bounds, never trust from an RPC reply.
+pub fn read_lifecycle_policy(
+    path: &Path,
+) -> Result<layerx_sdk::rpc_verification::ReceiptPolicy, String> {
+    #[derive(serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Policy {
+        protocol_version: u16,
+        network_id: u32,
+        sequencer_id: String,
+        sequencer_key: String,
+        first_batch: u64,
+        last_batch: u64,
+    }
+    let policy: Policy = serde_json::from_slice(
+        &fs::read(path).map_err(|e| format!("cannot read receipt policy: {e}"))?,
+    )
+    .map_err(|e| format!("invalid receipt policy: {e}"))?;
+    if policy.protocol_version != 2
+        || policy.network_id != 125
+        || policy.first_batch == 0
+        || policy.first_batch > policy.last_batch
+    {
+        return Err("invalid lifecycle receipt policy scope or height range".into());
+    }
+    Ok(layerx_sdk::rpc_verification::ReceiptPolicy {
+        protocol_version: policy.protocol_version,
+        network_id: policy.network_id,
+        sequencer: layerx_proof::inclusion::SequencerAuthorization::new(
+            fixed_hex("sequencer id", &policy.sequencer_id)?,
+            fixed_hex("sequencer key", &policy.sequencer_key)?,
+            policy.first_batch,
+            policy.last_batch,
+        ),
+        trusted_checkpoint_context_digest: None,
+    })
 }
 
 fn verify_lifecycle_result(
@@ -1383,7 +1554,7 @@ pub struct EvmCallRequest<'a> {
 
 pub fn rpc_call(client: &Client, method: &str, params: Value) -> Result<Value, String> {
     let response = client.post(
-        "/rpc",
+        "/",
         &json!({"jsonrpc":"2.0", "id":1, "method":method, "params":params}),
         None,
     )?;
