@@ -8733,6 +8733,12 @@ value = "The handoff through a temp-dir corpus keyed by the producer sources (te
 basis = "Gotcha 3146: the consumer run alone fails on a missing file with no pointer to the producer, which cost one attempt of 22.31.541."
 affects = ["22.31.535", "22.31.541"]
 
+[decision.2604]
+title = "The explorer search field is one component under apps/explorer/ui/snippets/searchBar that serves both the hero prompt and the compact top-bar variant; 22.35.3 owns that directory and follows 22.35.2"
+value = "The hero search-as-prompt field of the home page and the compact 320 px pill of the top bar are the same SearchBarInput component with a variant, both opening the grouped results panel and both focused by Cmd K and Ctrl K. The directory apps/explorer/ui/snippets/searchBar belongs to 22.35.3; a later restyle task that needs a change there requires 22.35.3 and names the directory among its paths instead of editing it in passing. 22.35.3 requires 22.35.2 so its result merges onto the app shell. Decisions 2587 and 2602 stand."
+basis = "Gotcha 3147: two sibling tasks edited the one search component from different bases and the second result could not be merged, which cost a passed attempt."
+affects = ["22.35.2", "22.35.3"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -148037,7 +148043,7 @@ title = "Explorer search as a prompt: hero field, grouped suggestions and the ke
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.35.1"]
+requires = ["22.35.1", "22.35.2"]
 reqs = ["22998.1"]
 capabilities = ["22.35.3"]
 interfaces = []
@@ -148061,6 +148067,7 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 3147, decision 2604): the attempt-1 tree stands (hero and compact search field, grouped results panel, Cmd and Ctrl K focus, light and dark stories, seven tests). Rebase it onto the current integration, which carries 22.35.2; in SearchBarInput.tsx keep the compact top-bar variant 22.35.2 introduced together with the prompt behaviour of this task, so one component serves both the hero and the top bar as the design brief says, and adjust the stories and tests so both variants render in both colour modes. Run the declared build and verify once at the final revision, record the gates by reference to the gate ledger and amend no file after they run."
 
 [task.22.35.2]
 title = "Explorer app shell: single top bar with grouped navigation, prompt-like search field and condensed footer"

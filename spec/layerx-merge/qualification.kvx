@@ -31187,3 +31187,11 @@ symbol = "repair_22_31_535.rs"
 observed = "Attempt 1: build exit 0; verify exit 101 at 807b7e1eb8 in repair_22_31_535_remote_consumers_require_committed_producer_documents with Os NotFound at line 25, because the corpus under the temp dir is written only by the authority producer test, which the attempt-1 verify command did not run."
 assumption = "The task work is complete and correct; the gate shape was the defect."
 severity = "low"
+
+[finding.22.35.3.1]
+task = "22.35.3"
+file = "apps/explorer/ui/snippets/searchBar/repair-22-35-3.spec.tsx"
+symbol = "repair-22-35-3.spec.tsx"
+observed = "Attempt 1: build exit 0 and verify exit 0 at 01d282f156, then held at publication with a three-way merge conflict in apps/explorer/ui/snippets/searchBar/SearchBarInput.tsx against the integration that carries 22.35.2 (6affbc654e)."
+assumption = "The attempt is complete and correct against its base; only the merge with the sibling task is outstanding."
+severity = "low"
