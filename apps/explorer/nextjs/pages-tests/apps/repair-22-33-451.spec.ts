@@ -65,7 +65,7 @@ vi.stubEnv('NEXT_PUBLIC_NETWORK_RPC_URL', 'https://rpc.example');
 vi.stubEnv('NEXT_PUBLIC_OG_ENHANCED_DATA_ENABLED', 'true');
 
 const appConfig = (await import('configs/app')).default;
-const { getServerSideProps } = await import('./[id]');
+const { getServerSideProps } = await import('../../../pages/apps/[id]');
 const generateMetadata = (await import('lib/metadata/generate')).default;
 
 test('marketplacePreviewLoadsGeneratedCatalogueFromTrustedOrigin', async function marketplacePreviewLoadsGeneratedCatalogueFromTrustedOrigin() {
