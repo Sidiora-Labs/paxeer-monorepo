@@ -533,3 +533,25 @@ def test_retired_inventory_and_source_revision_are_refused(tmp_path):
         for retired in ('/rpc', '/v1/programs/call'):
             with pytest.raises(ValueError, match='supported root JSON-RPC'):
                 producer.ProducerRpc(endpoints['gateway']['endpoint'].rstrip('/') + retired, {})
+
+
+def test_preexecution_refusal_retains_authenticated_kernel_outcome(tmp_path):
+    producer = component('program-http-producer')
+    case = recording('V2-pax-transfer-insufficient-funds')
+    with RecordedChain(case).serving(tmp_path) as endpoints:
+        record = producer.ProgramHttpProducer(endpoints, pins(case), SOURCE, REVISION).observe(
+            producer.rpc_bytes(case['rawTransaction']))
+    for receipt in record['receipts'].values():
+        assert receipt == case['receiptJson']
+        assert receipt['status'] == '0x0'
+        assert receipt['returnData'] == '0x'
+        assert receipt['logs'] == []
+        assert receipt['vmError'] == 'insufficient balance for transfer'
+        assert 'ledgerResultCode' not in receipt and 'lxpCode' not in receipt
+    verified = producer.verified_receipt(case['receiptJson'],
+        producer.rpc_bytes(case['rawTransaction']), producer.decode_receipt_keys(pins(case)))
+    assert verified.canonical_bytes.hex() == case['signedReceipt'][2:]
+    assert verified.receipt_digest.hex() == case['receiptDigest'][2:]
+    assert verified.receipt.result_code == 1
+    assert verified.receipt.amount > verified.receipt.from_balance_before > 0
+    assert verified.receipt.from_balance_before == verified.receipt.from_balance_after
