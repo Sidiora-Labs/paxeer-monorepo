@@ -31827,3 +31827,11 @@ symbol = "compile.rs"
 observed = "Attempt 1 at daf8912bcf457658e0801c8142af7268e260de2d: build exit 0; dependent-crate check exit 101 on E0609 no field owner_public_key on type NativeSendPurposeV2 at services/human/crates/layerx-human-service/tests/native_send_producer.rs line 659; verify did not run."
 assumption = "A stale site outside the task paths, repaired by 22.31.558."
 severity = "medium"
+
+[finding.22.31.558.1]
+task = "22.31.558"
+file = "services/human/crates/layerx-human-service/tests/native_send_producer.rs"
+symbol = "native_send_producer.rs"
+observed = "Attempt 1 at 4e358d8cfb3e0fb452f2105e4323eba24aafd0a3: build exit 0, dependent-crate check exit 0, verify exit 1: genuine_human_owner_session_consent_preview_and_reopen panicked at native_send_producer.rs line 574 on the absent fixture environment variable; 0 passed, 1 failed."
+assumption = "The verify command named a case that needs a recorded fixture; the repair itself is complete."
+severity = "medium"

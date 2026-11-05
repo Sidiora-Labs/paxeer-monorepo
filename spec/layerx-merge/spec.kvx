@@ -8889,6 +8889,12 @@ value = "A task whose attempt was already running when decision 2628 added the r
 basis = "Gotcha 3185: 22.31.557 attempt 1 was in flight when batch 506 landed."
 affects = ["22.31.558", "22.31.557"]
 
+[decision.2630]
+title = "A compile-only port of a test site whose case needs a recorded fixture is verified with --no-run"
+value = "When a task only ports a test site to a renamed field and the case at that site needs a recorded fixture file or a live endpoint the qualification environment does not carry (here PAXEER_X_HUMAN_NATIVE_SEND_PRODUCER_FIXTURE), its verify command compiles the test target with cargo test --no-run instead of running the case; the build and the dependent-crate check prove the repair. Before a verify command names a single case, the case body is read for environment variables and fixture paths (gotcha 2962)."
+basis = "Gotcha 3186: 22.31.558 attempt 1 failed only because the verify named a case that reads a fixture path from the environment."
+affects = ["22.31.558"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -37785,7 +37791,7 @@ title = "Port the Human service native send producer test to the V2 consent publ
 reqs = ["22998.1"]
 touches = ["services/human/crates/layerx-human-service/tests/native_send_producer.rs", "services/human/crates/layerx-human-service/tests/repair_22_31_558.kvx"]
 tests = []
-verification_contract = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test native_send_producer -- genuine_human_owner_session_consent_preview_and_reopen"
+verification_contract = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test native_send_producer --no-run"
 do_1 = "do_1 Gotcha 3180, decision 2627. In services/human/crates/layerx-human-service/tests/native_send_producer.rs the assertion at line 659 (case genuine_human_owner_session_consent_preview_and_reopen) compares first.purpose.consent_public_key with the session owner public key: NativeSendPurposeV2 in services/agent/crates/layerx-agent-api/src/native_send.rs carries consent_public_key and evm_sender since 22.31.545. Check every other test target of layerx-human-service and layerx-human-kms for a purpose field that NativeSendPurposeV2 no longer has (owner_public_key, protocol_version, network_id, the version 1 names) and port each the same way; change no production file."
 symbols = []
 
@@ -175524,7 +175530,7 @@ touches = ["services/human/crates/layerx-human-service/tests/native_send_produce
 tests = []
 planned_paths = ["services/human/crates/layerx-human-service/tests", "services/human/crates/layerx-human-kms/tests"]
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --tests"
-verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test native_send_producer -- genuine_human_owner_session_consent_preview_and_reopen"
+verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test native_send_producer --no-run"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -175536,6 +175542,7 @@ time_limit_minutes = 60
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (requalify with the corrected verify, gotcha 3186, decision 2630): the attempt-1 tree stands (the assertion at native_send_producer.rs line 659 reads consent_public_key, every Human service test target builds, the dependent-crate check passes). The verify now compiles the producer test target with --no-run because the case reads its recorded fixture path from PAXEER_X_HUMAN_NATIVE_SEND_PRODUCER_FIXTURE and the qualification environment carries none. Re-run the gates once at the committed revision."
 
 [task.22.31.557]
 title = "Admit protocol 3 key rotation in the intent compiler with the length-prefixed DID identifier"
