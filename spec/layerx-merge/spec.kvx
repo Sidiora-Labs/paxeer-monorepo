@@ -174868,7 +174868,7 @@ do_5 = "Attempt 2 (continue after 22.31.519): attempt 1 did the task's work (the
 
 [task.22.31.515]
 title = "Carry the explicit decision time into the Human service and MCP consumers of the daemon approval service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.527"]
