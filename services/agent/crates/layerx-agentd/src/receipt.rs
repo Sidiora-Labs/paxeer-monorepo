@@ -507,8 +507,9 @@ fn serve_kernel_evidence(
 ///
 /// # Errors
 ///
-/// Returns `Corrupt` when an idempotency index or evidence record does not
-/// decode, and the store failure otherwise.
+/// Returns `EvidenceVersion` for stale persisted evidence, `Corrupt` when an
+/// idempotency index or evidence record does not decode, and the store failure
+/// otherwise.
 pub fn evidence_inventory(
     durable: &Store,
     tenant: &TenantId,
@@ -525,6 +526,9 @@ pub fn evidence_inventory(
             .is_some()
         {
             return Err(ReceiptStoreError::EvidenceVersion);
+        }
+        if let Some(value) = durable.get(&evidence_key(tenant.clone(), idempotency_key)?) {
+            check_evidence_version(value.bytes())?;
         }
         let served = serve(
             durable,
