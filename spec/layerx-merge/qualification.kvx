@@ -31259,3 +31259,11 @@ symbol = "repair_22_31_216.rs"
 observed = "Attempt 1: build exit 0 and dependent-crate check exit 0 at a619f7302b24; verify failed 4 of 4 cases at repair_22_31_216.rs line 40 with store root is not a canonical owned private directory before any ported call ran."
 assumption = "A fixture permissions defect predating the store privacy check (gotcha 3156), not a defect of the port."
 severity = "low"
+
+[finding.22.31.516.8]
+task = "22.31.516"
+file = "services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs"
+symbol = "human_approval_budget_actor.rs"
+observed = "Attempt 8: build exit 0 and dependent-crate check exit 0 at 533c08cdf4133b226683dd97bd8cd7d78528917a; human_approval_budget_actor passed; human_projection_facts failed only at line 231, operation 47 on the legacy approval returned facts instead of status byte 2."
+assumption = "The port changed the modelled hold from a pre-clock record to a timed record (gotcha 3157); the daemon behaviour is correct and the fixture is corrected to model the pre-clock record directly."
+severity = "low"
