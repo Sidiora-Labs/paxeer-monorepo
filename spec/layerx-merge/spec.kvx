@@ -153586,7 +153586,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.338]
 title = "Repair audit record 22.30.138 medium findings in apps/web/e2e (part 2 of 2): retired-reference, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.268", "22.31.456", "22.31.469", "22.31.486"]
@@ -155494,7 +155494,7 @@ do_17 = "Attempt 5 (continue): merge current main first (22.31.480 removed the t
 
 [task.22.33.210]
 title = "Repair audit record 22.30.120 medium findings in services/wallet/gateway/test/support (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.249", "22.31.250", "22.31.447", "22.31.486"]
