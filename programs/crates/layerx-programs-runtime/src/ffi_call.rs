@@ -2440,8 +2440,10 @@ fn execution_with_sandbox_receipt(
     if execution.len().checked_add(added).ok_or(LENGTH_LIMIT)? > execution.capacity() {
         return Err(FATAL_INVARIANT);
     }
-    crate::terminal::attach_sandbox_settlement(execution, receipt, transfer_root)
-        .map_err(|_| NON_CANONICAL)
+    crate::terminal::attach_sandbox_settlement(execution, receipt, transfer_root).map_err(|error| {
+        eprintln!("Programs sandbox settlement: {error}");
+        error.result_code()
+    })
 }
 
 #[no_mangle]
