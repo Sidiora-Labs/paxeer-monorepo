@@ -18,6 +18,9 @@ pub struct RegisterArgs {
     /// Local key whose Ed25519 public key authorises the new principal.
     #[arg(long)]
     key: Option<String>,
+    /// Full hosted registration service URL, configured independently of the node.
+    #[arg(long)]
+    gateway_endpoint: String,
 }
 
 fn tagged(domain: &[u8], tenant: &str, signer_public_key: &[u8; 32]) -> [u8; 32] {
@@ -89,7 +92,8 @@ fn decode(response: &Value, sub: &str, signer: &str) -> Result<Value, String> {
 
 pub fn run(arguments: &RegisterArgs) -> Result<CommandOutput, String> {
     let configuration = Configuration::load()?;
-    let (environment, client) = crate::active_client(&configuration)?;
+    let (environment, _) = configuration.active_environment()?;
+    let token = credential::token(environment)?;
     let name = arguments
         .key
         .clone()
@@ -110,13 +114,9 @@ pub fn run(arguments: &RegisterArgs) -> Result<CommandOutput, String> {
             "stored key {name} does not match the public key recorded for it"
         ));
     }
-    let signature = signing
-        .sign(&binding(TENANT, &signer_public_key))
-        .to_bytes();
-    drop(signing);
     let sub = subject(TENANT, &signer_public_key);
-    let response = client.post("/rpc", &request(&signer_public_key, &signature), None)?;
-    let principal = decode(&response, &sub, &signer)?;
+    let principal = register_principal(&arguments.gateway_endpoint, token, &signing)?;
+    drop(signing);
     Ok(CommandOutput::new(
         "principal.registered",
         format!("Registered principal {sub} on {environment}"),
@@ -127,6 +127,24 @@ pub fn run(arguments: &RegisterArgs) -> Result<CommandOutput, String> {
             "principal": principal,
         }),
     ))
+}
+
+/// Register on the explicitly selected hosted service, preserving the identity session.
+pub fn register_principal(
+    endpoint: &str,
+    session: Option<zeroize::Zeroizing<String>>,
+    signing: &SigningKey,
+) -> Result<Value, String> {
+    let (origin, path) = layerx_platform_cli::rpc::endpoint_parts(endpoint)?;
+    let client = crate::http::Client::new(&origin, session)?;
+    let public_key = signing.verifying_key().to_bytes();
+    let signature = signing.sign(&binding(TENANT, &public_key)).to_bytes();
+    let response = client.post(&path, &request(&public_key, &signature), None)?;
+    decode(
+        &response,
+        &subject(TENANT, &public_key),
+        &hex_encode(&public_key),
+    )
 }
 
 #[cfg(test)]
@@ -178,7 +196,7 @@ mod tests {
         assert_eq!(
             envelope["params"].as_array().map(Vec::len),
             Some(2),
-            "px_register takes exactly two positional arguments"
+            "direct registration omits the optional email or verification token"
         );
         layerx_crypto::ed25519::verify_digest(
             &signer_public_key,
@@ -210,16 +228,41 @@ mod tests {
             .unwrap_or_else(|| panic!("gateway does not serve {}", envelope["method"]));
         assert!(!methods.iter().any(|entry| entry["name"] == "lx_register"));
         assert_eq!(served["paramStructure"], "by-position");
-        let names: Vec<&str> = served["params"]
+        let params = served["params"]
             .as_array()
-            .unwrap_or_else(|| panic!("served method lists no params"))
+            .unwrap_or_else(|| panic!("served method lists no params"));
+        assert_eq!(params.len(), 3);
+        let required_names: Vec<&str> = params
             .iter()
-            .filter_map(|param| param["name"].as_str())
+            .filter(|param| param["required"] == true)
+            .map(|param| param["name"].as_str().expect("parameter has a name"))
             .collect();
-        assert_eq!(names, ["signer_public_key", "registration_signature"]);
         assert_eq!(
-            envelope["params"].as_array().map(Vec::len),
-            Some(names.len())
+            required_names,
+            ["signer_public_key", "registration_signature"]
+        );
+        assert_eq!(params[0]["name"], "signer_public_key");
+        assert_eq!(params[0]["required"], true);
+        assert_eq!(params[1]["name"], "registration_signature");
+        assert_eq!(params[1]["required"], true);
+        assert_eq!(params[2]["name"], "email_or_verification_token");
+        assert_eq!(params[2]["required"], false);
+        let supplied = envelope["params"]
+            .as_array()
+            .expect("request supplies positional parameters");
+        for (position, param) in params.iter().enumerate() {
+            if param["required"] == true {
+                assert!(
+                    supplied.get(position).is_some_and(Value::is_string),
+                    "request omits required parameter {}",
+                    param["name"]
+                );
+            }
+        }
+        assert_eq!(
+            supplied.len(),
+            required_names.len(),
+            "direct registration carries no email or verification token"
         );
         layerx_platform_cli::rpc::request(
             envelope["method"].as_str().unwrap_or_default(),

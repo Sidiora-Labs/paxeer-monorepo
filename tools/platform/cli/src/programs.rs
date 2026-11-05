@@ -629,6 +629,9 @@ fn submit_lifecycle(
 
 pub(crate) fn submit_lifecycle_transaction(client: &Client, raw: &[u8]) -> Result<Value, String> {
     let submitted = submit_program_transaction(client, raw)?;
+    if submitted["rung"] == "unknown" {
+        return Ok(submitted);
+    }
     let hash = submitted["tx_hash"]
         .as_str()
         .ok_or("submission omitted transaction hash")?;
@@ -1383,7 +1386,7 @@ pub struct EvmCallRequest<'a> {
 
 pub fn rpc_call(client: &Client, method: &str, params: Value) -> Result<Value, String> {
     let response = client.post(
-        "/rpc",
+        "/",
         &json!({"jsonrpc":"2.0", "id":1, "method":method, "params":params}),
         None,
     )?;
@@ -1601,12 +1604,14 @@ pub(crate) fn sign_program_transaction(
 }
 
 pub(crate) fn submit_program_transaction(client: &Client, raw: &[u8]) -> Result<Value, String> {
-    let result = rpc_call(
-        client,
-        "eth_sendRawTransaction",
-        json!([format!("0x{}", hex_encode(raw))]),
-    )?;
-    submitted_program_result(raw, &result)
+    let submission = (|| {
+        let prepared = layerx_platform_cli::rpc::prepare_submission(raw, None)?;
+        let response = client.post("/", prepared.request(), None);
+        prepared.resolve(response)
+    })();
+    let mut outcome = layerx_platform_cli::rpc::submission_outcome(submission)?;
+    outcome["tx_hash"] = outcome["txHash"].clone();
+    Ok(outcome)
 }
 
 pub(crate) fn submitted_program_result(raw: &[u8], result: &Value) -> Result<Value, String> {
