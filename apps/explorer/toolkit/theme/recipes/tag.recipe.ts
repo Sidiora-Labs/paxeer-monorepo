@@ -22,10 +22,10 @@ export const recipe = defineSlotRecipe({
       height: 'auto',
       overflow: 'hidden',
       userSelect: 'text',
-      borderRadius: 'sm',
+      borderRadius: 'full',
       focusVisibleRing: 'outside',
       _loading: {
-        borderRadius: 'sm',
+        borderRadius: 'full',
       },
       _disabled: {
         opacity: 'control.disabled',
@@ -82,6 +82,14 @@ export const recipe = defineSlotRecipe({
   },
 
   variants: {
+    colorPalette: {
+      gray: { root: { bgColor: 'badge.gray.bg', color: 'badge.gray.fg' } },
+      green: { root: { bgColor: 'badge.green.bg', color: 'badge.green.fg' } },
+      red: { root: { bgColor: 'badge.red.bg', color: 'badge.red.fg' } },
+      orange: { root: { bgColor: 'badge.orange.bg', color: 'badge.orange.fg' } },
+      yellow: { root: { bgColor: 'badge.yellow.bg', color: 'badge.yellow.fg' } },
+      blue: { root: { bgColor: 'badge.blue.bg', color: 'badge.blue.fg' } },
+    },
     size: {
       md: {
         root: {
@@ -160,9 +168,9 @@ export const recipe = defineSlotRecipe({
           },
           _selected: {
             bgColor: 'selected.option.bg',
-            color: 'whiteAlpha.800',
+            color: 'accent',
             _hover: {
-              color: 'whiteAlpha.800',
+              color: 'accent',
               opacity: 0.76,
             },
           },
@@ -171,6 +179,14 @@ export const recipe = defineSlotRecipe({
     },
   },
 
+  compoundVariants: [
+    { colorPalette: 'gray', variant: [ 'subtle', 'clickable', 'filter', 'select' ], css: { root: { bgColor: 'badge.gray.bg', color: 'badge.gray.fg' } } },
+    { colorPalette: 'green', variant: [ 'subtle', 'clickable', 'filter', 'select' ], css: { root: { bgColor: 'badge.green.bg', color: 'badge.green.fg' } } },
+    { colorPalette: 'red', variant: [ 'subtle', 'clickable', 'filter', 'select' ], css: { root: { bgColor: 'badge.red.bg', color: 'badge.red.fg' } } },
+    { colorPalette: 'orange', variant: [ 'subtle', 'clickable', 'filter', 'select' ], css: { root: { bgColor: 'badge.orange.bg', color: 'badge.orange.fg' } } },
+    { colorPalette: 'yellow', variant: [ 'subtle', 'clickable', 'filter', 'select' ], css: { root: { bgColor: 'badge.yellow.bg', color: 'badge.yellow.fg' } } },
+    { colorPalette: 'blue', variant: [ 'subtle', 'clickable', 'filter', 'select' ], css: { root: { bgColor: 'badge.blue.bg', color: 'badge.blue.fg' } } },
+  ],
   defaultVariants: {
     size: 'md',
     variant: 'subtle',
