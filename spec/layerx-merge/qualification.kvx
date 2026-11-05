@@ -31195,3 +31195,27 @@ symbol = "repair-22-35-3.spec.tsx"
 observed = "Attempt 1: build exit 0 and verify exit 0 at 01d282f156, then held at publication with a three-way merge conflict in apps/explorer/ui/snippets/searchBar/SearchBarInput.tsx against the integration that carries 22.35.2 (6affbc654e)."
 assumption = "The attempt is complete and correct against its base; only the merge with the sibling task is outstanding."
 severity = "low"
+
+[finding.22.35.6.1]
+task = "22.35.6"
+file = "apps/explorer/ui/shared/Page/repair-22-35-6.spec.tsx"
+symbol = "repair-22-35-6.spec.tsx"
+observed = "Attempt 1: three builds exit 0 at 7ae8e143859d; verify exit 1 with eight of nine proofs passed; addressPageRendersEntityTabSetAndOverview expected Transfers and received Transfers(10) because the tab renders its counter inside the tab; the expectation was amended in the tree but no verify run remained."
+assumption = "The product code is correct and the only defect was the proof reading the counter as part of the label; one more gate run at the final revision qualifies the attempt."
+severity = "low"
+
+[finding.16.90.1.5]
+task = "16.90.1"
+file = "tools/paxeer-x/tests/test_retired_catalogue_deleted.py::RetiredCatalogueDeletedTest.test_deleted_trees_absent_and_catalogue_valid"
+symbol = "test_retired_catalogue_deleted.py::RetiredCatalogueDeletedTest.test_deleted_trees_absent_and_catalogue_valid"
+observed = "Attempt 9: build exit 0 at 25e688840ff6; the dependent-crate check exited 101 on layerx-mcp tests/repair_22_33_1551.rs line 668 and layerx-human-service tests/decide.rs lines 361, 387, 466, 491 and 498 (missing current_time and the fourth TimestampSeconds argument), so verify did not run; attempt 8 had failed the retired-callers scan on services/agent/tools/boundary-check/src/main.rs lines 99, 100 and 166 besides the three doc lines attempt 9 renamed."
+assumption = "22.31.515 (ba398e5457) and 22.31.521 repaired those consumers on main after the attempt; with the catalogue allowance for the agent boundary checker the retired-name scan has no remaining hit in cmd or services/agent."
+severity = "medium"
+
+[finding.22.31.516.6]
+task = "22.31.516"
+file = "services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs"
+symbol = "human_approval_budget_actor.rs"
+observed = "Attempt 6: build exit 0 and dependent-crate check exit 0 at 128c6e20821b; verify exit 101 at tests/human_approval_budget_actor.rs line 1047, expected the nine-byte refusal frame, received the frame with length 17 and the bytes operation.refused; the second suite did not run."
+assumption = "The product change of the task is complete; the failing assertions predate the reason field of 22.31.219 and the test target only now compiles again, so amending them to the frame the encoder writes qualifies the attempt."
+severity = "medium"

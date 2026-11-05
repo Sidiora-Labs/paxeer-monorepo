@@ -8739,6 +8739,24 @@ value = "The hero search-as-prompt field of the home page and the compact 320 px
 basis = "Gotcha 3147: two sibling tasks edited the one search component from different bases and the second result could not be merged, which cost a passed attempt."
 affects = ["22.35.2", "22.35.3"]
 
+[decision.2605]
+title = "An explorer entity tab renders its label and its optional counter as two elements with stable data attributes, and page proofs read the label element rather than the whole tab text"
+value = "The entity tab row of the explorer (apps/explorer/ui/shared/RoutedTabs/EntityTabs.tsx) renders every tab as a label element carrying data-tab-label and, when the counters endpoint returns a count, a separate muted mono element carrying data-tab-count with the count in parentheses; the design brief places counts in muted text beside the label. A proof that checks the tab set compares the text of the label elements, and checks a counter through its own element, never through the concatenated text of the tab. Decisions 2587 and 2604 stand."
+basis = "Gotcha 3148: a proof compared whole tab texts with bare names and failed on a tab that carried a counter, which cost the one verify run of a complete attempt."
+affects = ["22.35.6"]
+
+[decision.2606]
+title = "The retired-callers catalogue allows the lines of an enforcement tool that name the retired symbol it refuses, by an allowed-reference entry with a citation, and a scan never forces that tool to obscure the literal"
+value = "tools/paxeer-x/retired_callers.json already allows the three lines of services/human/tools/boundary-check/src/lib.rs that test for the retired lni transport imports. The agent boundary checker services/agent/tools/boundary-check/src/main.rs is the same kind of tool: its lni_reference function and its layerx_client::lni literal exist to refuse the retired module in agent sources, so 16.90.1 adds an allowed-reference entry for those lines (the function header, the contains test and the call site) citing this task, and renames nothing in the checker. A later component retirement follows the same rule: the catalogue entry carries the enforcement lines, and the retired-name scan stays strict for every other file. Decisions 2194, 2198, 2294 and 2378 stand."
+basis = "Gotcha 3149: the scan of 16.90.1 flagged the agent boundary checker for naming the module it is built to refuse; building the literal from fragments would hide the reference from the scan without removing it."
+affects = ["16.90.1", "22.31.515", "22.31.521"]
+
+[decision.2607]
+title = "A human-protocol refusal frame is the magic, status byte 1, a big-endian u32 length and the reason bytes (the stale-nonce refusal appends the expected and pending nonces), and every daemon test asserts that whole frame, never the bare nine bytes"
+value = "encode_response in services/agent/crates/layerx-agentd/src/human.rs writes the reason of every refusal after the status byte since 22.31.219: a typed refusal writes HumanRefusal::reason(), a capability refusal writes its dimension reason, the untyped refusal writes operation.refused, and only the unavailable outcome is a bare frame with status byte 2. A test that expects a refusal builds the expected frame from the reason the refused path returns, through a helper like the field function of tests/human_peer_rungs.rs, so the proof names the reason the caller sees. 22.31.516 amends tests/human_approval_budget_actor.rs and tests/human_projection_facts.rs; 22.31.543 amends tests/human_peer_retired.rs and tests/native_send_preview_evm.rs. Decisions 2602 and 2603 stand."
+basis = "Gotcha 3150: the daemon test targets did not compile for a week, so the reason field of 22.31.219 reached the tests only now and the first one to compile failed on it."
+affects = ["22.31.219", "22.31.516"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -37629,6 +37647,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.31.543]
+title = "Assert the reason-bearing human refusal frame in the retired-rung and native preview daemon tests"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/tests/human_peer_retired.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_543.kvx"]
+tests = ["services/agent/crates/layerx-agentd/tests/human_peer_retired.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test human_peer_retired --test native_send_preview_evm"
+do_1 = "do_1 Gotcha 3150, decision 2607. In services/agent/crates/layerx-agentd/tests/human_peer_retired.rs line 18 the expected response to the ExportLevelUnattainable refusal becomes the magic LXHAGT01, status byte 1, the big-endian u32 length and the bytes of refusal.reason() (export.rung_unattainable), built with a field helper like the one in tests/human_peer_rungs.rs; the include_str assertions of that test stay."
+symbols = []
 
 [capability.22.31.542]
 title = "Remove the remaining by-path includes of library source from the agent daemon integration tests"
@@ -147961,7 +147988,7 @@ do_1 = "do_1 Decision 2587. Implement the entity header and section group of sec
 do_2 = "do_2 Apply them per section 6 of the brief: Transaction (ui/pages/Transaction.tsx, ui/tx) with the kind TRANSACTION, tabs Overview, Token transfers, Internal, Logs, State and Raw, and Overview groups SUMMARY, TRANSFERS, BALANCE CHANGES and DETAILS; Block (ui/pages/Block.tsx, ui/block) with BLOCK, tabs Transactions, Withdrawals when present and Details, and the BLOCK INFO group; Address (ui/pages/Address.tsx, ui/address) with ADDRESS or CONTRACT, tabs Overview, History, Transfers, Portfolio, Analytics, Contract for contracts and More, mapping every existing tab onto these (History holds transactions and internal transactions as sub-tabs, Portfolio holds tokens, NFTs and the coin balance history, Analytics holds the existing counters and charts as stat tiles, More holds the remaining tabs); Token (ui/pages/Token.tsx, ui/token) with TOKEN, tabs Markets (price, market cap, volume and holders tiles from the API fields only; a chart only when the stats service exposes a series), History, Holders, Metadata and Inventory for NFT collections. Every existing tab id and route query stays valid so deep links keep working."
 do_3 = "do_3 Prove it in apps/explorer/ui/shared/Page/repair-22-35-6.spec.tsx (vitest, jsdom): the entity header renders kind, title, identifier and tags; the section group renders label and rows; the Address page with a mocked address renders the tab set with the existing tab ids reachable; the Token page with a mocked token without exchange_rate renders dashes in the Markets tiles. Update the existing tx, block, address and token specs whose expectations change and give the touched Playwright stories (Transaction, Block, Address, Token) both colour-mode variants. Write apps/explorer/ui/shared/Page/repair-22-35-6.kvx naming decision 2587 and the gate results. Gate: the declared build and verify only (gotcha 2962)."
 symbols = []
-touches = ["apps/explorer/ui/shared/Page", "apps/explorer/ui/shared/DetailedInfo", "apps/explorer/ui/shared/entities", "apps/explorer/ui/pages/Transaction.tsx", "apps/explorer/ui/pages/Block.tsx", "apps/explorer/ui/pages/Address.tsx", "apps/explorer/ui/pages/Token.tsx", "apps/explorer/ui/pages/TokenInstance.tsx", "apps/explorer/ui/tx", "apps/explorer/ui/block", "apps/explorer/ui/address", "apps/explorer/ui/token", "apps/explorer/ui/shared/RoutedTabs", "apps/explorer/toolkit/components/RoutedTabs"]
+touches = ["apps/explorer/ui/shared/Page", "apps/explorer/ui/shared/DetailedInfo", "apps/explorer/ui/shared/entities", "apps/explorer/ui/pages/Transaction.tsx", "apps/explorer/ui/pages/Block.tsx", "apps/explorer/ui/pages/Address.tsx", "apps/explorer/ui/pages/Token.tsx", "apps/explorer/ui/pages/TokenInstance.tsx", "apps/explorer/ui/tx", "apps/explorer/ui/block", "apps/explorer/ui/address", "apps/explorer/ui/token", "apps/explorer/ui/shared/RoutedTabs", "apps/explorer/toolkit/components/RoutedTabs", "apps/explorer/toolkit/components/RoutedTabs/RoutedTabs.tsx", "apps/explorer/toolkit/components/RoutedTabs/useActiveTabFromQuery.tsx", "apps/explorer/types/api/token.ts", "apps/explorer/ui/pages/repair-22-33-314.spec.ts", "apps/explorer/ui/pages/repair-22-33-315.spec.ts", "apps/explorer/ui/shared/Page/repair-22-35-6.kvx", "apps/explorer/ui/shared/Page/repair-22-35-6.spec.tsx"]
 tests = ["apps/explorer/ui/shared/Page/repair-22-35-6.spec.tsx"]
 planned_paths = ["apps/explorer"]
 build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
@@ -147977,6 +148004,7 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 3148, decision 2605): the attempt-1 tree stands (entity header with kind label, identifier line and pills; tab rows with accent underline; labelled key and value section groups; Markets tiles; the amended proof). In EntityTabs.tsx give the tab label its own element with data-tab-label and the counter its own element with data-tab-count, and in addressPageRendersEntityTabSetAndOverview read the tab set from the data-tab-label elements (Overview, History, Transfers, Portfolio, Analytics, Contract, More) and the Transfers counter from its data-tab-count element, so the proof no longer depends on the concatenated text. Keep the other eight proofs unchanged, rebase onto the current explorer integration if it moved, run the declared build and verify once at the final revision, record the gates by reference to the gate ledger and amend no file after they run."
 
 [task.22.35.5]
 title = "Explorer list pages: dense tables for blocks, transactions, accounts and the tokens markets view"
@@ -175207,6 +175235,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.543]
+title = "Assert the reason-bearing human refusal frame in the retired-rung and native preview daemon tests"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.31.219"]
+reqs = ["22998.1"]
+capabilities = ["22.31.543"]
+interfaces = []
+do_1 = "do_1 Gotcha 3150, decision 2607. In services/agent/crates/layerx-agentd/tests/human_peer_retired.rs line 18 the expected response to the ExportLevelUnattainable refusal becomes the magic LXHAGT01, status byte 1, the big-endian u32 length and the bytes of refusal.reason() (export.rung_unattainable), built with a field helper like the one in tests/human_peer_rungs.rs; the include_str assertions of that test stay."
+do_2 = "do_2 In services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs line 1026 the refusal returned by post_preview(5, [12; 32]) is asserted as the whole frame: find the refusal variant that preview path returns in src/human.rs and src/human_runtime.rs, build the expected frame from its reason() (or operation.refused for the untyped refusal) with the same helper, and assert the full byte vector; record the reason in tests/repair_22_31_543.kvx."
+do_3 = "do_3 Nothing under src changes; the encoder of src/human.rs is the producer and the two tests are its consumers. Build and verify run once at the final revision, the record lists the gate commands by reference to the gate ledger and no file is amended after the gates run (gotcha 3142)."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/tests/human_peer_retired.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_543.kvx"]
+tests = ["services/agent/crates/layerx-agentd/tests/human_peer_retired.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs"]
+planned_paths = ["services/agent/crates/layerx-agentd/tests/human_peer_retired.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_543.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test human_peer_retired --test native_send_preview_evm"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test human_peer_retired --test native_send_preview_evm"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.542]
 title = "Remove the remaining by-path includes of library source from the agent daemon integration tests"
 status = "pending"
@@ -175238,7 +175296,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.541]
 title = "Remove the by-path include of the budget proof source from the 535 integration test and run the in-crate proof tests through the library target"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.538"]
@@ -175808,6 +175866,7 @@ do_6 = "Attempt 3 (continue after 22.31.535, gotcha 3134, decision 2593): attemp
 do_7 = "Attempt 4 (continue, gotcha 3136): attempt 3 stands in full (the authority library, both fixtures and assertions at COMMITTED.wire_rank(), the record). Rebase on main, which now carries 22.31.536 at 0935120943 with the receiver_did_key construction in the host repair test, change nothing, run the declared build and verify once and record the result."
 do_8 = "Attempt 5 (continue, gotcha 3141, decision 2600): attempt 4 stands in full, including the recorded authority responses and the assertions at VerificationLevel::COMMITTED.wire_rank(). Once 22.31.538 is on main, rebase once, change nothing, run the declared build and verify once and record the result."
 do_9 = "Attempt 6 (continue, gotcha 3144, decision 2602): the attempt-5 tree stands, including its replacement of the path-included authority human module in the daemon tests by the authority library as a dev-dependency and its rebase onto 22.31.538. Rebase once more when 22.31.541 is on main (it removes the by-path include of budget_proof.rs from the 535 test, which is the only reason the attempt-5 build failed), then run the declared build and verify once and change nothing else; record the gates by reference to the gate ledger and amend no file after they run."
+do_10 = "Attempt 7 (continue, gotcha 3150, decision 2607): the attempt-6 tree stands in full (the authority library as a dev-dependency, the stand-in removal, the recorded authority responses, the assertions at COMMITTED.wire_rank()). Amend only the five refusal expectations: in tests/human_approval_budget_actor.rs lines 1052 and 1058 and in tests/human_projection_facts.rs lines 214, 266 and 271 the expected response becomes the whole frame the encoder writes, the magic LXHAGT01, status byte 1, the big-endian u32 length and the reason bytes, built with a field helper like the one in tests/human_peer_rungs.rs from the reason of the refusal each path returns (the stale-sequence operation returned operation.refused in the attempt-6 output; read the others from the refusal variant in src/human.rs and src/human_runtime.rs rather than guessing). Change nothing under src. Rebase onto the current main, run the declared build and verify once at the final revision, record the gates by reference to the gate ledger and amend no file after they run."
 
 [task.22.31.515]
 title = "Carry the explicit decision time into the Human service and MCP consumers of the daemon approval service"
@@ -362025,14 +362084,14 @@ title = "Write the two tooling acceptance tests the merged spec names"
 status = "pending"
 mode = "BUILD"
 wave = 47
-requires = ["16.9.4", "16.97.2", "5.54.9", "5.51.1", "5.51.4", "5.50.7", "1.19.3", "6.60.2", "9.24.7"]
+requires = ["16.9.4", "16.97.2", "5.54.9", "5.51.1", "5.51.4", "5.50.7", "1.19.3", "6.60.2", "9.24.7", "22.31.515", "22.31.521"]
 reqs = ["16044.1", "16966.4"]
 capabilities = ["16.90.1"]
 interfaces = []
 do_1 = "Finding 17.4.5.2 and decision 2194: the merged spec names this test and its owning task passed a verify command that matched nothing, so the test was never written. Add test_deleted_trees_absent_and_catalogue_valid to RetiredCatalogueDeletedTest in tools/paxeer-x/tests/test_retired_catalogue_deleted.py: with the catalogue listing the deleted daemon trees, the scanner run with --self-test and then with --deleted for those components exits 0 both times (acceptance 16.44.1), beside test_catalogue_valid_and_self_test_passes. Add test_bridge_credit_suites_absent to tests/ci/test_requested_suites_absent.py: the three bridge credit suite paths are absent from the tree and make -n build test exits 0 (16.966.4), in the form of test_arbiter_native_authority_absent."
 do_2 = "No production file changes; pytest refuses an unknown node id, so the verify command fails when either test is missing."
 symbols = ["test_deleted_trees_absent_and_catalogue_valid", "test_bridge_credit_suites_absent"]
-touches = ["tools/paxeer-x/tests/test_retired_catalogue_deleted.py", "tests/ci/test_requested_suites_absent.py", "services/agent/README.md", "services/agent/crates/layerx-agentd/host-tests", "services/agent/crates/layerx-agentd/src"]
+touches = ["tools/paxeer-x/tests/test_retired_catalogue_deleted.py", "tests/ci/test_requested_suites_absent.py", "services/agent/README.md", "services/agent/crates/layerx-agentd/host-tests", "services/agent/crates/layerx-agentd/src", "tools/paxeer-x/retired_callers.json", "services/agent/crates/layerx-agentd/host-tests/node_integration.rs", "services/agent/crates/layerx-agentd/host-tests/runtime_mode.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/protocol_evidence.rs"]
 tests = ["tools/paxeer-x/tests/test_retired_catalogue_deleted.py::RetiredCatalogueDeletedTest.test_deleted_trees_absent_and_catalogue_valid", "tests/ci/test_requested_suites_absent.py::test_bridge_credit_suites_absent"]
 planned_paths = []
 build_cmd = "python3 -m py_compile tools/paxeer-x/tests/test_retired_catalogue_deleted.py tests/ci/test_requested_suites_absent.py"
@@ -362056,6 +362115,7 @@ do_7 = "Attempt 5: the retired-catalogue checker subprocess was killed at the 60
 do_8 = "Attempt 6 (continue): the retired-catalogue test flags services/agent/README.md lines 9 and 25, which still describe the deleted lni tree. Rewrite those README lines to name the component that replaced it (the agent service and its network interface), do not loosen the test; the README is in scope now."
 do_9 = "Attempt 7 (continue): the two acceptance tests are in place and the retired-catalogue check fails on one remaining reference outside the task's files: the integration test function at line 178 of services/agent/crates/layerx-agentd/host-tests/node_integration.rs carries the retired LNI name in its identifier. Rename that test (and any variable or message it reads under the retired name) to the network-era wording of what it checks, the node JSON-RPC startup check against the human service variable, with the host-tests directory now in touches; do not add an allowance to the catalogue check and do not weaken it. Re-run the verify command and finish on one commit."
 do_10 = "Attempt 9 (continue): the attempt-6 ruling stands (rename the LNI identifiers); the remaining references in services/agent/crates/layerx-agentd/src (human_runtime.rs line 1535, protocol_evidence.rs and the boundary checker) are now in this task's paths for the renames only; change nothing else in that crate."
+do_11 = "Attempt 10 (continue, gotcha 3149, decision 2606): the attempt-9 tree stands (both acceptance tests, the README and host-test renames, the three doc renames in human_runtime.rs and protocol_evidence.rs). Rebase it onto the current main, which carries 22.31.515 and 22.31.521 so the MCP and Human service test targets compile again. In tools/paxeer-x/retired_callers.json add an allowed_references entry for services/agent/tools/boundary-check/src/main.rs with the three lines of the lni_reference function header, its layerx_client::lni contains test and the call site at line 166, and a one-line citation naming this task and decision 2606, in the shape of the existing entry for services/human/tools/boundary-check/src/lib.rs; rename nothing in the agent boundary checker and change nothing else in the daemon crate. Run the declared build and verify once at the final revision, record the gates by reference to the gate ledger and amend no file after they run."
 
 [task.19.0.1]
 title = "Refuse the name-system closure while any name task is not done"
