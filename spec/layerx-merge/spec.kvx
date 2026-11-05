@@ -175602,7 +175602,7 @@ do_4 = "Attempt 2 (continue, gotcha 3156, decision 2612): the attempt-1 tree at 
 
 [task.22.31.543]
 title = "Assert the reason-bearing human refusal frame in the retired-rung and native preview daemon tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.219", "22.31.545"]
