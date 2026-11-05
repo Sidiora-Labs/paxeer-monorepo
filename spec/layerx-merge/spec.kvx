@@ -148058,7 +148058,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.35.2]
 title = "Explorer app shell: single top bar with grouped navigation, prompt-like search field and condensed footer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.35.1"]
