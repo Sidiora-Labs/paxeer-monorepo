@@ -21,12 +21,6 @@ use std::time::{Duration, Instant};
 #[path = "support/committed_authority_documents.rs"]
 mod committed_documents;
 
-// Execute the in-crate proof verifier tests in this declared integration gate too.
-pub use layerx_agentd::budget::ProtocolBudgetState;
-pub use layerx_agentd::read;
-#[path = "../src/budget/budget_proof.rs"]
-mod budget_proof;
-
 fn must<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
     result.unwrap_or_else(|error| panic!("{error:?}"))
 }
@@ -90,10 +84,11 @@ fn certificate(issuer: Option<(&X509, &PKey<Private>)>) -> (X509, PKey<Private>)
 fn documents() -> Value {
     let repository = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../..");
     let path = committed_documents::corpus_path(&repository);
-    let metadata = must(std::fs::metadata(&path));
+    let metadata = std::fs::metadata(&path).expect(committed_documents::CORPUS_READ_EXPECTATION);
     assert!(metadata.is_file());
     assert_eq!(metadata.permissions().mode() & 0o077, 0);
-    must(serde_json::from_slice(&must(std::fs::read(path))))
+    let bytes = std::fs::read(path).expect(committed_documents::CORPUS_READ_EXPECTATION);
+    must(serde_json::from_slice(&bytes))
 }
 
 #[test]

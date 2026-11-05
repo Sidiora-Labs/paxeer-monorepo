@@ -1,6 +1,8 @@
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 
+pub const CORPUS_READ_EXPECTATION: &str = "committed authority corpus must be readable; first run the producer test: cargo test --locked --manifest-path services/platform/hosted/authority/Cargo.toml --test repair_22_31_535 repair_22_31_535_producers_emit_committed_documents";
+
 pub fn corpus_path(repository: &Path) -> PathBuf {
     let repository = repository.canonicalize().expect("repository root");
     let mut identity = Sha256::new();

@@ -1,0 +1,31 @@
+[repair.22.31.541]
+acceptance = "22998.1"
+gotchas = [3142, 3144, 3146]
+decisions = [2602, 2603]
+change = "Remove the by-path budget_proof.rs include and its ProtocolBudgetState and read re-exports from repair_22_31_535.rs; preserve the integration test and every assertion."
+library = "The existing proof tests execute in the layerx-agentd library crate, where their crate:: paths resolve to the library. Nothing under src changes."
+
+[tests.library]
+target = "layerx-agentd --lib"
+filter = "budget_proof::tests"
+names = ["budget::budget_proof::tests::budget_proof_v2_node_answers_fixture_is_current", "budget::budget_proof::tests::budget_proof_v2_verifies_the_fixture_export_and_refuses_tampering", "budget::budget_proof::tests::repair_22_31_535_budget_verification_requires_committed", "budget::budget_proof::tests::repair_22_31_538_program_presentation_binds_committed_proof_and_sequence"]
+output = "The final verify row in /out/run/gates.jsonl names the private log containing the executed test names and results; its budget_proof::tests output is the execution evidence for this inventory."
+
+[tests.integration]
+target = "repair_22_31_535"
+names = ["repair_22_31_535_remote_consumers_require_committed_producer_documents"]
+criterion = "The existing served-authority integration test accepts COMMITTED producer documents and refuses every other verification rank for budget state, key policy and capability scope."
+
+[tests.producer_handoff]
+producer = "repair_22_31_535_producers_emit_committed_documents"
+command = "cargo test --locked --manifest-path services/platform/hosted/authority/Cargo.toml --test repair_22_31_535 repair_22_31_535_producers_emit_committed_documents"
+handoff = "The hosted authority producer writes documents.json under the OS temp directory using committed_documents::corpus_path; the daemon consumer resolves the same repository and producer-source digest to read that corpus. The declared verify command runs the producer target before the consumer target."
+diagnostic = "Both corpus metadata and file reads use expect with the shared CORPUS_READ_EXPECTATION message naming the producer test command; missing or unreadable corpus errors retain their underlying cause. All file-kind, private-permission, verification-rank and producer-document assertions remain intact."
+
+[qualification]
+ledger = "/out/run/gates.jsonl"
+build = "The build row records hf-build running cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test repair_22_31_535."
+verify = "The verify row records hf-done running cg spec done 22.31.541 -f layerx-merge --root /work/paxeer-monorepo, including graph checks and the declared verify_cmd."
+verify_cmd = "cargo test --locked --manifest-path services/platform/hosted/authority/Cargo.toml --test repair_22_31_535 && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- budget_proof::tests && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_535"
+evidence = "Read exact revision, command, exit and private log location from the final gate ledger rows; successful build and verify must name the same candidate revision. No passing result is asserted before execution."
+candidate = "This record is part of the candidate before qualification; no source or record is amended after the final gates. The runner owns commit and publication."
