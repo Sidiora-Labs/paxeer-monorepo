@@ -178593,7 +178593,7 @@ do_15 = "Attempt 5 (continue after 22.31.550, gotcha 3166, decision 2620): the a
 
 [task.22.33.1537]
 title = "Repair audit record 22.30.95 medium findings in services/agent/crates/layerx-agentd/tests (part 2 of 3): retired-reference, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.368", "22.31.443", "22.31.483", "22.31.497", "22.31.559"]
