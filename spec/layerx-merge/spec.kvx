@@ -156591,7 +156591,7 @@ do_14 = "Attempt 5 (continue after 22.31.517): 2 of 5 cases pass. (1) walletSend
 
 [task.22.33.207]
 title = "Repair audit record 22.30.120 medium findings in services/wallet/gateway/test (part 1 of 2): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.249", "22.31.250", "22.31.447"]
@@ -176147,7 +176147,7 @@ do_4 = "Attempt 3 (continue, gotchas 3122 and 3123): attempt 2 stands (the decis
 
 [task.22.31.516]
 title = "Replace the path-included authority human module in the daemon tests with the authority library as a dev-dependency"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.519", "22.31.535", "22.31.538", "22.31.541"]
