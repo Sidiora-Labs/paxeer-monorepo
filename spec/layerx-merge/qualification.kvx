@@ -31099,3 +31099,11 @@ symbol = "recipe"
 observed = "Attempt 1: build exit 0; verify exit 1: 92 of 93 cases across ten spec files passed; recipesResolveToTheVisualSystem failed at repair-22-35-1.spec.ts line 214 because the scan stat valueText resolved to fontWeight 500 (fontSize 24px, lineHeight 28px and the mono family were as expected); both repair cycles had been spent on earlier failures."
 assumption = "The slot carries two text styles and the resolution keeps the weight of the wrong one; the brief wants the stat value at weight 600 and the spec is right."
 severity = "low"
+
+[finding.22.31.529.2]
+task = "22.31.529"
+file = "services/agent/crates/layerx-mcp/tests/web.rs"
+symbol = "web.rs"
+observed = "Attempt 2: build exit 0; the dependent-crate check stopped on services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs line 590, a GrantTerms construction without receiver_did_key that landed with 22.31.532 attempt 3 beside the field 22.31.531 attempt 3 added; verify never ran."
+assumption = "The red target is outside the task's paths and is one missing field; the attempt's own work is not in question."
+severity = "low"
