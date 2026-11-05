@@ -2056,6 +2056,15 @@ fn exchange<S: ws::Connection>(
             }
             Err(_) => return Ok(()),
         };
+        if request.method == "GET"
+            && request.path == "/"
+            && request
+                .headers
+                .get("upgrade")
+                .is_some_and(|value| value.eq_ignore_ascii_case("websocket"))
+        {
+            return ws::serve(config, &request, stream);
+        }
         if let Some(result) = explorer_proxy::websocket(&request, stream) {
             return result;
         }

@@ -1,0 +1,30 @@
+{
+  "name": "hyperfide-plugin-slack-bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "hyperfide": ">=0.0",
+    "hyperfidePluginSdk": ">=0.4.3"
+  },
+  "hyperfide": {
+    "name": "Slack bot",
+    "description": "Demonstrate a signed webhook bot backed by HYPERFIDE agent threads.",
+    "branding": {
+      "icon": "Zap"
+    },
+    "server": "./server.ts"
+  },
+  "keywords": [
+    "hyperfide-plugin"
+  ],
+  "scripts": {
+    "test": "vitest run --config vitest.config.ts"
+  },
+  "devDependencies": {
+    "@hyperfide/plugin-sdk": "workspace:*",
+    "@types/node": "^22.0.0",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "vitest": "^4.1.1"
+  }
+}

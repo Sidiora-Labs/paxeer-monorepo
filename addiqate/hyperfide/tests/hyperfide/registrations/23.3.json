@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "variant": "task:23.3",
+  "task": "23.3",
+  "scope": "task-component",
+  "cases": [
+    "V-011",
+    "V-048"
+  ],
+  "assertion_ids": [
+    "observability.metrics.registered",
+    "observability.metrics.server-derived-unknown-absent",
+    "observability.metrics.server-derived-lifecycle",
+    "observability.metrics.server-derived-event-lag",
+    "observability.metrics.derived-cardinality-bounded",
+    "observability.metrics.lock-pressure-identified",
+    "observability.metrics.deadlock-identified",
+    "observability.metrics.actual-pool-pressure",
+    "observability.metrics.queue-wait-separate-under-pressure",
+    "observability.metrics.baseline-recorded",
+    "observability.metrics.current-recorded",
+    "observability.metrics.histogram-observed",
+    "observability.metrics.replay-origin-retained",
+    "observability.metrics.receipt-replay",
+    "observability.metrics.replay-no-inflation",
+    "observability.metrics.receipt-conflict",
+    "observability.metrics.matched-comparison",
+    "observability.metrics.provenance-mismatch",
+    "observability.metrics.unknown-not-zero",
+    "observability.metrics.cost-denominator-not-fabricated",
+    "observability.metrics.high-cardinality-name-denied",
+    "observability.metrics.phase-denied",
+    "observability.metrics.histogram-order-denied",
+    "observability.metrics.histogram-bound",
+    "observability.metrics.batch-bound",
+    "observability.metrics.retention-window",
+    "observability.metrics.future-time",
+    "observability.metrics.untrusted-producer-denied",
+    "observability.metrics.no-unrelated-artifact",
+    "observability.metrics.queue-is-not-api-latency",
+    "observability.metrics.real-service-latency",
+    "observability.metrics.72h-equivalent-bounded",
+    "observability.metrics.no-causal-win-claim",
+    "observability.metrics.cross-run-denied"
+  ],
+  "argv": [
+    "python3",
+    "tests/hyperfide/cases/tasks/23_3.py"
+  ],
+  "timeout_seconds": 600,
+  "required_env": [
+    "DATABASE_URL",
+    "PGHOST",
+    "PGPORT",
+    "PGUSER"
+  ],
+  "fixtures": [
+    "core/control-plane/dist/control.js",
+    "core/control-plane/dist/transport/protocol.js",
+    "core/control-plane/dist/observability/metrics.js"
+  ],
+  "resources": [
+    {
+      "id": "hf-task-23.3-database",
+      "kind": "postgresql-database",
+      "scope": "task23.3-disposable"
+    }
+  ],
+  "cleanup_argv": [
+    "python3",
+    "tests/hyperfide/cases/tasks/23_3.py",
+    "--cleanup"
+  ],
+  "cleanup_timeout_seconds": 60,
+  "required_artifacts": [
+    "observability/database-absence.json",
+    "observability/observations.json",
+    "observability/assertion-inventory.json"
+  ],
+  "source_files": [
+    "core/control-plane/components/23.3.json",
+    "core/control-plane/migrations/0023-observability.sql",
+    "core/control-plane/package-lock.json",
+    "core/control-plane/package.json",
+    "core/control-plane/src/observability/metrics.ts",
+    "core/control-plane/tsconfig.json",
+    "tests/hyperfide/cases/tasks/23_1.py",
+    "tests/hyperfide/cases/tasks/23_3.py",
+    "tests/hyperfide/check-evidence.py",
+    "tests/hyperfide/manifest.schema.json",
+    "tests/hyperfide/qualify.py",
+    "tests/hyperfide/registrations/23.3.json",
+    "tests/hyperfide/support/identity_fixture.py"
+  ],
+  "source_roots": [
+    "core/control-plane/src",
+    "core/control-plane/dist",
+    "core/control-plane/components",
+    "core/control-plane/migrations"
+  ],
+  "actions": [
+    "postgresql.fixture.create",
+    "postgresql.fixture.drop",
+    "https.fixture.listen"
+  ]
+}

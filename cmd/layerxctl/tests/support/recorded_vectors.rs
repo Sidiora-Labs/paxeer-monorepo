@@ -114,3 +114,21 @@ receipt: REFUSALS[999..4398].to_owned(),
 },
 ]
 }
+
+const COMMITTED: &str =
+    include_str!("../../../../daemon/committed-fixture/vectors/vector-v4-committed.json");
+pub(super) fn committed() -> Vec<RecordedSubmit> {
+    assert_eq!(
+        super::hex(&Sha256::digest(COMMITTED.as_bytes())),
+        "5013cd232ee94ece8d25fca4c802ca60c892f3a5f637a70962d9909dc71c4e7b",
+        "committed producer recording changed: regenerate receipt spans"
+    );
+    vec![RecordedSubmit {
+  name: "vector-v4-committed".to_owned(),
+  expected: "receipted".to_owned(),
+  raw: r#"0x02f9012c7d0680843fff5ca0831e848094000000000000000000000000000000000000101a80b8c478ea11db12f41dad0d238ef976e73ff15f42ec996f5abe9f61383994d59a01f5c8d5df646edca26bddb1fd41430c75342c50c8271a15eb33f801b945e94b7a27a109ee21ab38824ca750fc22389cae51e9607d1cde32e03dbba4661e4d9b007614d2d3450000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000001a1a7f67e891082116f9bb3affecc3336ed67c7f4bec9709a81a8c7bddeb912f2d0c845b3b2c001a05014259c5b545b7f1c5d9d683bf8f208cf2438223fb8e853d5a4146cec1821d8a0024de6f50843e0a2290b84200c5c87d0d4638985bfcee1bcdfc75d8a6b7ace55"#.to_owned(),
+  hash: "0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2".to_owned(),
+  keys: r#"{"keys":[{"keyId":"0x9fe7d4491a2dfba1b61b8b5283b486fa92b3e90b8a29d7e4ff7f0ed89e389d9b","publicKey":"0x98bcc99e26fda009118f88f4a01864c65bd40cb2064c2cde3b156fde2f71804c","firstHeight":10,"lastHeight":10}]}"#.to_owned(),
+  receipt: COMMITTED[13998..18815].to_owned(),
+ }]
+}

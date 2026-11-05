@@ -1,0 +1,313 @@
+#!/usr/bin/env python3
+"""Registered recovery-process tests against isolated real PostgreSQL state.
+
+These component checks do not establish live provider fencing, production HA,
+connector cleanup, or a complete disaster recovery campaign.
+"""
+from pathlib import Path
+import hashlib,json,os,select,subprocess,sys,tempfile,uuid
+from urllib.parse import urlsplit,urlunsplit
+ROOT=Path(__file__).resolve().parents[4]
+TASK="24.1"
+FAILED=[]
+IDS=[]
+DB=None
+RESOURCE=None
+def uid(n):return "00000000-0000-4000-8000-"+format(n,"012x")
+ORG=uid(1);RUN=uid(5);EPOCH=uid(99);ATTEMPT=uid(20)
+SCOPE={"organisation_id":ORG,"run_id":RUN,"authority_epoch":EPOCH}
+D="sha256:"+"a"*64
+def expect(condition,message="unexpected result"):
+ if not condition:raise AssertionError(message)
+def check(identity,fn):
+ IDS.append(identity)
+ try:fn();actual="observed"
+ except Exception as e:FAILED.append(identity);actual=type(e).__name__+": "+str(e)
+ print(json.dumps({"type":"assertion","id":identity,"expected":"observed","actual":actual}),flush=True)
+def env_for(db):
+ env=os.environ.copy();env["PGDATABASE"]=db
+ env["HYPERFIDE_OFFLINE_POLICY"]="BOUNDED_LOCAL";env["HYPERFIDE_MAX_OFFLINE_MS"]="60000"
+ p=urlsplit(env["DATABASE_URL"])
+ env["DATABASE_URL"]=urlunsplit((p.scheme,p.netloc,"/"+db,p.query,p.fragment))
+ return env
+def sql(text,db=None):
+ # psql reads no DATABASE_URL: the URL itself is the conninfo, so its host (a socket directory under withpg.py) is honoured.
+ env=env_for(db or DB)
+ p=subprocess.run(["psql","-X","-q","-A","-t","-v","ON_ERROR_STOP=1","-d",env["DATABASE_URL"]],
+ input=text,text=True,capture_output=True,env=env,timeout=30)
+ expect(p.returncode==0,"Disposable PostgreSQL fixture failed: "+" | ".join(x for x in p.stderr.splitlines() if x.startswith(("ERROR:","DETAIL:")))[:500])
+ return p.stdout.strip()
+def seed():
+ sql("""BEGIN;
+INSERT INTO hyperfide.organisations(id,name) VALUES('%s','recovery-fixture');
+INSERT INTO hyperfide.projects(organisation_id,id,name) VALUES('%s','%s','fixture');
+INSERT INTO hyperfide.repositories(organisation_id,id,project_id,name,url) VALUES('%s','%s','%s','repo','https://example.invalid/repo');
+INSERT INTO hyperfide.source_objects(organisation_id,repository_id,object_id) VALUES('%s','%s',repeat('a',40));
+INSERT INTO hyperfide.spec_revisions(organisation_id,id,project_id,source_digest,source_content,document,schema_version) VALUES('%s','%s','%s','sha256:'||encode(sha256(convert_to('fixture','UTF8')),'hex'),'fixture','{}',1);
+INSERT INTO hyperfide.runs(organisation_id,id,project_id,spec_revision_id,policy_digest,authority_epoch,state) VALUES('%s','%s','%s','%s','%s','%s','RUNNING');
+INSERT INTO hyperfide.run_repositories(organisation_id,run_id,repository_id,source_object_id,integration_ref) VALUES('%s','%s','%s',repeat('a',40),'refs/heads/main');
+INSERT INTO hyperfide.feature_packages(organisation_id,run_id,id,package_key,wave) VALUES('%s','%s','%s','package',1);
+INSERT INTO hyperfide.tasks(organisation_id,run_id,id,task_key,feature_package_id,spec_revision_id,criteria_digest,definition,wave) VALUES('%s','%s','%s','1.1','%s','%s','%s','{}',1);
+INSERT INTO hyperfide.provider_pools(organisation_id,id,provider,account_key,environment_key,region) VALUES('%s','%s','railway','fixture','fixture','fixture');
+INSERT INTO hyperfide.sandboxes(organisation_id,id,pool_id,observed_state) VALUES('%s','%s','%s','RUNNING');
+INSERT INTO hyperfide.worker_slots(organisation_id,id,sandbox_id,slot_key,boot_generation,capacity_kind) VALUES('%s','%s','%s','worker',1,'AGENT');
+INSERT INTO hyperfide.attempts(organisation_id,run_id,id,task_id,generation,authority_epoch,input_packet_digest,execution_state,compute_authority,sandbox_id,slot_id,sandbox_boot_generation,lease_expires_at) VALUES('%s','%s','%s','%s',1,'%s','%s','RUNNING','CURRENT','%s','%s',1,clock_timestamp()+interval '30 minutes');
+UPDATE hyperfide.tasks SET generation=1,current_attempt_id='%s',state='RUNNING',state_version=state_version+1 WHERE organisation_id='%s' AND run_id='%s';
+INSERT INTO hyperfide.compute_leases(organisation_id,run_id,id,attempt_id,attempt_generation,authority_epoch,sandbox_boot_generation,expires_at) VALUES('%s','%s','%s','%s',1,'%s',1,clock_timestamp()+interval '30 minutes');
+INSERT INTO hyperfide.agent_sessions(organisation_id,run_id,id,role,connector,account_key,native_session_id,attempt_id,sandbox_id,slot_id,sandbox_boot_generation,state) VALUES('%s','%s','%s','WORKER','codex','fixture','worker','%s','%s','%s',1,'RUNNING');
+INSERT INTO hyperfide.agent_sessions(organisation_id,run_id,id,role,connector,account_key,native_session_id,state) VALUES('%s','%s','%s','LEADER','claude','fixture','leader','RUNNING');
+INSERT INTO hyperfide.tasks(organisation_id,run_id,id,task_key,feature_package_id,spec_revision_id,criteria_digest,definition,wave) VALUES('00000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000005','00000000-0000-4000-8000-00000000001b','1.2','00000000-0000-4000-8000-000000000006','00000000-0000-4000-8000-000000000004','sha256:'||repeat('a',64),'{}',1);
+INSERT INTO hyperfide.attempts(organisation_id,run_id,id,task_id,generation,authority_epoch,input_packet_digest,execution_state,compute_authority,sandbox_id,slot_id,sandbox_boot_generation) VALUES('00000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000005','00000000-0000-4000-8000-00000000001c','00000000-0000-4000-8000-00000000001b',1,'00000000-0000-4000-8000-000000000063','sha256:'||repeat('a',64),'SUBMITTED','RELEASED','00000000-0000-4000-8000-000000000009','00000000-0000-4000-8000-00000000000a',1);
+UPDATE hyperfide.tasks SET generation=1,current_attempt_id='00000000-0000-4000-8000-00000000001c',state='SUBMITTED',state_version=state_version+1 WHERE id='00000000-0000-4000-8000-00000000001b';
+INSERT INTO hyperfide.submission_custodies(organisation_id,run_id,id,task_id,source_attempt_id,source_generation,custody_generation,authority_epoch,repository_id,source_object_id,source_manifest_digest,evidence_manifest_digest,criteria_digest) VALUES('%s','%s','%s','%s','%s',1,1,'%s','%s',repeat('a',40),'%s','%s','%s');
+INSERT INTO hyperfide.qualification_jobs(organisation_id,run_id,id,custody_id,custody_generation,rubric_digest,state,lease_generation,lease_owner,lease_expires_at) VALUES('%s','%s','%s','%s',1,'%s','RUNNING',1,'%s',clock_timestamp()-interval '1 minute');
+COMMIT;
+""".replace(uid(99),EPOCH)%(ORG,ORG,uid(2),ORG,uid(3),uid(2),ORG,uid(3),ORG,uid(4),uid(2),ORG,RUN,uid(2),uid(4),D,EPOCH,ORG,RUN,uid(3),ORG,RUN,uid(6),ORG,RUN,uid(7),uid(6),uid(4),D,ORG,uid(8),ORG,uid(9),uid(8),ORG,uid(10),uid(9),ORG,RUN,ATTEMPT,uid(7),EPOCH,D,uid(9),uid(10),ATTEMPT,ORG,RUN,ORG,RUN,uid(21),ATTEMPT,EPOCH,ORG,RUN,uid(22),ATTEMPT,uid(9),uid(10),ORG,RUN,uid(23),ORG,RUN,uid(24),uid(27),uid(28),EPOCH,uid(3),D,D,D,ORG,RUN,uid(25),uid(24),D,uid(26)))
+def component_dependencies(names):
+ fragments={}
+ for file in (ROOT/"core/control-plane/components").glob("*.json"):
+  value=json.loads(file.read_text())
+  if "id" in value:fragments[value["id"]]=(file.stem,value)
+ result=[];visited=set()
+ def visit(name):
+  if name in visited:return
+  expect(name in fragments,"Actual component dependency is unavailable: "+name)
+  stem,value=fragments[name];visited.add(name)
+  for prerequisite in value["requires"]:visit(prerequisite)
+  result.append(stem)
+ for name in names:visit(name)
+ return result
+class Fixture:
+ def __init__(self,task):
+  global DB,RESOURCE
+  import importlib.util
+  spec=importlib.util.spec_from_file_location("actual_identity_fixture",ROOT/"tests/hyperfide/support/identity_fixture.py")
+  module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+  self.task=task
+  def prepare(identity):
+   global DB,RESOURCE,EPOCH,SCOPE
+   EPOCH=identity.ids["epoch"];SCOPE={"organisation_id":ORG,"run_id":RUN,"authority_epoch":EPOCH}
+   DB=identity.database;RESOURCE="hf-task-"+task+"-database"
+   observation_dir().joinpath("fixture.json").write_text(json.dumps({"database":DB,"resource":RESOURCE}))
+   seed()
+   identity.ids["organisation"]=ORG;identity.ids["run"]=RUN;identity.ids["epoch"]=EPOCH
+   config=json.loads(identity.identity_config.read_text())
+   for principal in config["principals"]:
+    name="operator" if principal["role"]=="OPERATOR" else "provisioner"
+    credential=str(uuid.uuid4());identity.ids[name]=credential
+    principal["credential_id"]=credential;principal["actor_id"]=credential
+    principal["organisation_id"]=ORG;principal["run_id"]=RUN;principal["deployment_epoch"]=EPOCH
+    identity.seed_fixture_principal(principal)
+   identity.identity_config.write_text(json.dumps(config))
+  self.identity=module.IdentityFixture(extra_components=component_dependencies(["24."+str(i) for i in range(1,int(task[-1])+1)]),extra_env={"HYPERFIDE_OFFLINE_POLICY":"BOUNDED_LOCAL","HYPERFIDE_MAX_OFFLINE_MS":"60000"},extra_setup=prepare)
+ def request(self,action,payload,component=None):
+  operation=self.identity.operation(component or self.task,action,payload)
+  status,response=self.identity.request(operation)
+  expect(response.get("operation_id")==operation["operation_id"] or response.get("ok") is False,"Lost signed operation identity")
+  return response
+ def ok(self,action,payload,component=None):
+  row=self.request(action,payload,component);expect(row.get("ok") is True,str(row.get("error")));return row["result"]
+ def rejected(self,action,payload,code,component=None):
+  row=self.request(action,payload,component);expect(row.get("ok") is False and row.get("error",{}).get("code")==code,str(row))
+ def close(self):self.identity.close()
+def setup(task):return Fixture(task)
+def observation_dir():
+ path=Path(os.environ.get("HYPERFIDE_CAMPAIGN_DIR","/tmp/hyperfide/task-"+TASK+"-raw"))/"recovery"
+ path.mkdir(parents=True,exist_ok=True)
+ return path
+def cleanup(emit=True):
+ global DB,RESOURCE
+ complete=True
+ try:
+  if not os.environ.get("DATABASE_URL") and DB is None and not observation_dir().joinpath("fixture.json").exists():
+   # No reachable database and no recorded fixture: nothing was created, so nothing is owned.
+   if emit:print(json.dumps({"type":"cleanup","complete":True,"resources":[]}),flush=True)
+   return True
+  if DB is None and observation_dir().joinpath("fixture.json").exists():
+   item=json.loads(observation_dir().joinpath("fixture.json").read_text());DB=item["database"];RESOURCE=item["resource"]
+  if DB:
+   expect(DB.startswith(("hf_recovery_","hf_identity_")) and all(c.isalnum() or c=="_" for c in DB),"Unsafe fixture identity")
+   sql("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='"+DB+"' AND pid<>pg_backend_pid();","postgres")
+   sql('DROP DATABASE IF EXISTS "'+DB+'";',"postgres")
+   expect(sql("SELECT count(*) FROM pg_database WHERE datname='"+DB+"';","postgres")=="0","Fixture database remains")
+  record={"resource":RESOURCE,"database":DB,"observed_absent":True,"observer":"PostgreSQL pg_database query after DROP DATABASE"}
+  observation_dir().joinpath("database-absence.json").write_text(json.dumps(record)+chr(10))
+ except Exception:complete=False
+ resources=[] if RESOURCE is None else [{"id":RESOURCE,"status":"deleted" if complete else "unknown","observed_absent":complete,"evidence_artifact":"recovery/database-absence.json"}]
+ # qualify.py also runs cleanup_argv; only one cleanup event may be observed per campaign.
+ if emit:print(json.dumps({"type":"cleanup","complete":complete,"resources":resources}),flush=True)
+ return complete
+
+ACCEPTED_REBIND_PROBE=r'''
+import {createResourceContainer} from './core/control-plane/dist/storage/runtime.js';
+import {FileExternalAuthorityJournal} from './core/control-plane/dist/storage/authority_journal.js';
+import {lookupAuthorityActivation} from './core/control-plane/dist/storage/durability.js';
+import {FileExternalFenceJournal} from './core/control-plane/dist/recovery/fencing.js';
+import {createAcceptedRunRecoveryVerifier} from './core/control-plane/dist/recovery/control.js';
+import fs from 'node:fs/promises';import os from 'node:os';import path from 'node:path';import {randomUUID} from 'node:crypto';
+const signal=new AbortController().signal,r=createResourceContainer({role:'control',env:process.env,signal});
+const D='sha256:'+'a'.repeat(64),org=process.env.HF_RECOVERY_ORG,run=process.env.HF_RECOVERY_RUN,deployment=process.env.HYPERFIDE_DEPLOYMENT_ID;
+const dir=await fs.mkdtemp(path.join(os.tmpdir(),'hyperfide-rebind-negative-'));await fs.chmod(dir,0o700);let revocations=0;
+try{
+ const current=(await r.observe({preferReplica:false},async tx=>(await tx.query("SELECT a.operation_id::text,a.epoch::text,e.proof_digest FROM hyperfide.authority_activations a JOIN hyperfide.authority_epochs e ON e.deployment_id=a.deployment_id AND e.epoch=a.epoch WHERE a.deployment_id=$1 AND e.state='ACTIVE'",[deployment])).rows[0])).value;
+ const journal=new FileExternalAuthorityJournal(process.env.HYPERFIDE_AUTHORITY_JOURNAL_DIR,input=>lookupAuthorityActivation(r,input));
+ const head=await journal.current({deployment_id:deployment});
+ const topology={schema_version:1,deployment_id:deployment,organisation_id:org,run_id:run,source_epoch:null,evidence_scope:'LIVE_PROVIDER',legacy_topology_digest:D,legacy_pid_namespace:await fs.readlink('/proc/self/ns/pid'),legacy_mount_namespace:await fs.readlink('/proc/self/ns/mnt'),required_writer_ids:['writer'],resources:[{reference_key:'writer-node',topology_digest:D,writer_ids:['writer'],backend:'OWNED_HOST'}]};
+ const factory=createAcceptedRunRecoveryVerifier({resources:r,journal,fenceJournal:new FileExternalFenceJournal(dir),topology,revokeCompute:async()=>{revocations++;throw Error('Missing actual recovery scheduler must never run in this negative probe')}});
+ const input={schema_version:1,organisation_id:org,run_id:run,recovery_operation_id:randomUUID(),activation_operation_id:current.operation_id,deployment_id:deployment,expected_run_epoch:randomUUID(),target_epoch:current.epoch,expected_spec_generation:'1',expected_spec_revision_id:process.env.HF_RECOVERY_SPEC,expected_revision_digest:D,external_previous_epoch:null,database_predecessor_epoch:null,fence_proof_digest:current.proof_digest,external_journal_sequence:head.sequence};
+ const outcome={};
+ try{await factory.prepare({...input,target_epoch:input.expected_run_epoch})}catch(e){outcome['rebind-equal-epoch-refused']=e.code==='RECOVERY_REBIND_SCOPE_DENIED'}
+ try{await factory.prepare({...input,organisation_id:randomUUID()})}catch(e){outcome['rebind-outside-trusted-topology-refused']=e.code==='RECOVERY_REBIND_SCOPE_DENIED'}
+ try{await factory.prepare(input)}catch(e){outcome['committed-global-epoch-without-physical-completion-refused']=['ENOENT','EXTERNAL_FENCE_COMPLETION_UNVERIFIED'].includes(e.code)&&revocations===0}
+ console.log(JSON.stringify(outcome));if(Object.keys(outcome).length!==3||Object.values(outcome).some(v=>v!==true))throw Error('Actual recovery proof negative regression');
+}finally{await r.close();await fs.rm(dir,{recursive:true,force:true})}
+'''
+
+def tests(f):
+ describe=f.ok("recovery.control.describe",{})
+ check("recovery.control.real-registered-process",lambda:expect(describe["supervision_failure_domains"]==1))
+ check("recovery.control.failover-requires-qualified-standby",lambda:expect(describe["uninterrupted_failover"]=="UNQUALIFIED" and describe["standby_qualification"]=="ABSENT" and describe["uninterrupted_failover_requires"]=="SEPARATELY_QUALIFIED_STANDBY"))
+ def present_supervisor():
+  expect(describe["supervisor_capability"]=="PRESENT" and describe["offline_policy"]=="BOUNDED_LOCAL",str(describe))
+  probe=r'''
+import {ComponentRegistry} from './core/control-plane/dist/components/registry.js';
+import fs from 'node:fs/promises';
+const registry=new ComponentRegistry({role:'control',policy:JSON.parse(await fs.readFile(process.argv[1],'utf8')),signal:new AbortController().signal,env:process.env});
+try{
+ await registry.load(process.argv[2],'./core/control-plane/dist');
+ const providers=registry.describe().components.filter(({id})=>{
+  try{return !!registry.resolveCapability(id,'runner.supervisors.v1',v=>['observe','stop','verifyStop'].every(k=>typeof v?.[k]==='function'));}catch{return false;}
+ }).map(({id})=>id);
+ console.log(JSON.stringify(providers));
+}finally{await registry.close();}
+'''
+  result=subprocess.run(["node","--input-type=module","-e",probe,str(f.identity.policy),str(f.identity.components)],cwd=ROOT,env=f.identity.env,capture_output=True,text=True,timeout=40)
+  expect(result.returncode==0,"Real registry resolution failed: "+result.stderr)
+  expect(json.loads(result.stdout)==["12.4"],result.stdout)
+ check("recovery.control.supervisor-capability-present-reported",present_supervisor)
+ probe_env=f.identity.env.copy();probe_env["HF_RECOVERY_ORG"]=ORG;probe_env["HF_RECOVERY_RUN"]=RUN;probe_env["HF_RECOVERY_SPEC"]=uid(4)
+ actual=subprocess.run(["node","--input-type=module","-e",ACCEPTED_REBIND_PROBE],cwd=ROOT,env=probe_env,capture_output=True,text=True,timeout=40)
+ expect(actual.returncode==0,"Accepted recovery proof probe failed: "+actual.stderr[:1000])
+ for name,value in json.loads(actual.stdout).items():check("recovery.control."+name,lambda value=value:expect(value))
+
+ snapshot=f.ok("recovery.control.reconstruct",SCOPE)
+ check("recovery.control.consistent-snapshot",lambda:expect(snapshot["snapshot_consistency"]=="SERIALIZABLE" and len(snapshot["packages"])==1))
+ check("recovery.control.no-duplicate-dispatch",lambda:expect(snapshot["new_work_authorized"] is False and snapshot["adoption_candidates"][0]["authority"]=="NONE"))
+ check("recovery.control.event-state-same-primary",lambda:expect(snapshot["event_recovery"]["source"]=="primary-transaction" and snapshot["event_recovery"]["task_completion_authority"] is False and snapshot["event_recovery"]["counts"]["pending_deliveries"]=="0"))
+ check("recovery.control.custody-independent",lambda:expect(len(snapshot["submission_custody"])==1 and len(snapshot["qualification_jobs"])==1))
+ check("recovery.control.supervision-limit",lambda:expect(snapshot["uninterrupted_leadership_failover"]=="UNQUALIFIED"))
+ check("recovery.control.stale-epoch",lambda:f.rejected("recovery.control.reconstruct",{**SCOPE,"authority_epoch":uid(98)},"RECOVERY_STALE_EPOCH"))
+ check("recovery.control.cross-organisation",lambda:f.rejected("recovery.control.reconstruct",{**SCOPE,"organisation_id":uid(97)},"RECOVERY_SCOPE_DENIED"))
+ from datetime import datetime,timedelta,timezone
+ now=datetime.now(timezone.utc)
+ stamp=lambda d:d.isoformat(timespec="milliseconds").replace("+00:00","Z")
+ base={"scope":SCOPE,"attempt_id":ATTEMPT,"generation":"1","boot_generation":"1","lease_expires_at":stamp(now+timedelta(minutes=10)),"disconnected_at":stamp(now-timedelta(seconds=1)),"max_offline_ms":60000,"policy":"BOUNDED_LOCAL","requested_operation":"LOCAL_TEST"}
+ local=f.ok("recovery.offline.evaluate",base)
+ check("recovery.offline.bounded-local",lambda:expect(local["local_continuation"] is True and local["authority"]=="NONE"))
+ for op in ["CLAIM","RENEW","SUBMIT","PUBLISH","PROVISION","QUALIFY"]:
+  check("recovery.offline.reject-"+op.lower(),lambda op=op:expect(f.ok("recovery.offline.evaluate",{**base,"requested_operation":op})["local_continuation"] is False))
+ check("recovery.offline.trusted-budget-ceiling",lambda:expect(f.ok("recovery.offline.evaluate",{**base,"max_offline_ms":3600000})["deadline_at"]==stamp(now-timedelta(seconds=1)+timedelta(seconds=60))))
+ check("recovery.offline.safe-pause",lambda:expect(f.ok("recovery.offline.evaluate",{**base,"policy":"PAUSE"})["local_continuation"] is False))
+ check("recovery.offline.expired-budget",lambda:expect(f.ok("recovery.offline.evaluate",{**base,"max_offline_ms":0})["local_continuation"] is False))
+ check("recovery.offline.malformed-time",lambda:f.rejected("recovery.offline.evaluate",{**base,"disconnected_at":"2026-02-30T12:00:00.000Z"},"RECOVERY_INPUT_INVALID"))
+ check("recovery.offline.unknown-field",lambda:f.rejected("recovery.offline.evaluate",{**base,"authority":True},"RECOVERY_INPUT_INVALID"))
+ control_loss(f,snapshot,base)
+ def unproven_supervisor():
+  row=f.request("recovery.control.adopt",{"scope":SCOPE,"operation_id":uid(51),"session_id":uid(22)})
+  expect(row.get("ok") is False and row["error"]["code"]!="RECOVERY_DEPENDENCY_UNAVAILABLE" and row["error"]["code"]=="RECOVERY_ADOPTION_REFUSED" and row["error"]["message"]=="Exact current supervisor identity was not freshly observed",str(row))
+ check("recovery.control.adopt-unproven-supervisor",unproven_supervisor)
+ session_liveness(f)
+ check("recovery.control.active-run-cannot-resume",lambda:f.rejected("recovery.control.resume",{"scope":SCOPE,"operation_id":uid(50)},"RECOVERY_RUN_STATE_INVALID"))
+ sql("UPDATE hyperfide.tasks SET current_attempt_id=NULL,generation=generation+1,state_version=state_version+1 WHERE id='"+uid(7)+"';")
+ stale=f.ok("recovery.control.reconstruct",SCOPE)
+ check("recovery.control.task-pointer-fences-adoption",lambda:expect(stale["attempts"][0]["compute_token_current"] is False and len(stale["adoption_candidates"])==0))
+ sql("UPDATE hyperfide.runs SET state='CANCELLING',state_version=state_version+1 WHERE organisation_id='"+ORG+"' AND id='"+RUN+"';")
+ check("recovery.control.cancellation-is-terminal",lambda:f.rejected("recovery.control.resume",{"scope":SCOPE,"operation_id":uid(52)},"RECOVERY_TERMINAL_CONTROL"))
+ sql("UPDATE hyperfide.schema_migrations SET checksum='sha256:'||repeat('b',64) WHERE version=24;")
+ check("recovery.control.schema-drift-refusal",lambda:f.rejected("recovery.control.reconstruct",SCOPE,"RECOVERY_SCHEMA_NOT_READY"))
+def count_attempts():return sql("SELECT count(*) FROM hyperfide.attempts WHERE organisation_id='"+ORG+"' AND run_id='"+RUN+"';")
+def session(snapshot,identity):
+ found=[item for item in snapshot["session_recovery"] if item["session_id"]==identity];expect(len(found)==1,"session missing from recovery report");return found[0]
+def control_loss(f,initial,base):
+ """V-008: kill control while remote work is active, restart on the same database."""
+ sql("""BEGIN;
+INSERT INTO hyperfide.agent_sessions(organisation_id,run_id,id,role,connector,account_key,native_session_id,state) VALUES('%s','%s','%s','FEATURE_MANAGER','claude','fixture','manager','RUNNING');
+UPDATE hyperfide.feature_packages SET manager_session_id='%s',state_version=state_version+1 WHERE organisation_id='%s' AND run_id='%s' AND id='%s';
+INSERT INTO hyperfide.event_consumers(organisation_id,run_id,id,consumer_key) VALUES('%s','%s','%s','recovery-fixture');
+INSERT INTO hyperfide.outbox_events(organisation_id,run_id,id,aggregate_type,aggregate_id,aggregate_version,event_type,payload) VALUES('%s','%s','%s','task','%s',1,'task.instruction','{}');
+INSERT INTO hyperfide.event_deliveries(organisation_id,run_id,event_id,consumer_id) VALUES('%s','%s','%s','%s');
+COMMIT;"""%(ORG,RUN,uid(29),uid(29),ORG,RUN,uid(6),ORG,RUN,uid(31),ORG,RUN,uid(32),uid(7),ORG,RUN,uid(32),uid(31)))
+ before=f.ok("recovery.control.reconstruct",SCOPE);attempts=count_attempts();offline=f.ok("recovery.offline.evaluate",base)
+ expect(before["event_recovery"]["counts"]["pending_deliveries"]=="1" and len(before["adoption_candidates"])==1,"active remote work fixture not observed")
+ child=f.identity.child;child.kill();child.communicate(timeout=10);f.identity.child=None
+ check("recovery.control.restart-control-process-lost",lambda:expect(child.returncode==-9))
+ f.identity.start()
+ after=f.ok("recovery.control.reconstruct",SCOPE)
+ keys=("packages","sessions","attempts","submission_custody","qualification_jobs","worker_restoration_requests","controls","unreachable_resource_debt","adoption_candidates","session_recovery")
+ check("recovery.control.restart-reconstructs-durable-state",lambda:expect(all(after[k]==before[k] for k in keys) and after["run"]["state_version"]==before["run"]["state_version"],str([k for k in keys if after[k]!=before[k]])))
+ check("recovery.control.restart-pending-messages-reconstructed",lambda:expect(after["event_recovery"]["counts"]==before["event_recovery"]["counts"] and [d["event_id"] for d in after["event_recovery"]["pending_deliveries"]]==[uid(32)]))
+ check("recovery.control.restart-no-duplicate-dispatch",lambda:expect(count_attempts()==attempts and after["new_work_authorized"] is False and [c["attempt_id"] for c in after["adoption_candidates"]]==[ATTEMPT] and all(c["authority"]=="NONE" for c in after["adoption_candidates"])))
+ check("recovery.offline.restart-policy-unchanged",lambda:expect(f.ok("recovery.offline.evaluate",base)==offline and offline["local_continuation"] is True))
+ check("recovery.control.restart-supervision-limit",lambda:expect(after["supervision_failure_domains"]==1 and after["uninterrupted_leadership_failover"]=="UNQUALIFIED"))
+ sql("UPDATE hyperfide.agent_sessions SET state='DISCONNECTED',state_version=state_version+1 WHERE organisation_id='"+ORG+"' AND run_id='"+RUN+"' AND id IN ('"+uid(23)+"','"+uid(29)+"');")
+ lost=f.ok("recovery.control.reconstruct",SCOPE)
+ def leader_manager_loss():
+  for identity in (uid(23),uid(29)):
+   item=session(lost,identity);expect(item["recorded_state"]=="DISCONNECTED" and item["live_progress"] is False and item["recovery_mode"]=="FRESH_SESSION_WITH_RECOVERY_PACKET")
+  expect(lost["packages"][0]["manager_session_id"]==uid(29) and lost["adoption_candidates"]==before["adoption_candidates"] and count_attempts()==attempts)
+ check("recovery.control.leader-manager-loss-keeps-healthy-work",leader_manager_loss)
+def session_liveness(f):
+ """V-043: recorded PIDs, dead pipes and native resume claims are not live progress."""
+ boot=sql("SELECT boot_id FROM hyperfide.sandbox_boots WHERE organisation_id='"+ORG+"' AND sandbox_id='"+uid(9)+"' AND boot_generation=1;")
+ sql("""BEGIN;
+INSERT INTO hyperfide.agent_sessions(organisation_id,run_id,id,role,connector,account_key,native_session_id,attempt_id,sandbox_id,slot_id,sandbox_boot_generation,state) VALUES('%s','%s','%s','WORKER','codex','fixture','worker-pipe','%s','%s','%s',1,'RUNNING');
+INSERT INTO hyperfide.native_session_bindings(organisation_id,run_id,session_id,connector_version,auth_profile,configuration_digest,source_manifest_digest,process_id,process_start_time,boot_id) VALUES('%s','%s','%s','1.0.0','fixture','%s','%s',4242,'1000','%s');
+COMMIT;"""%(ORG,RUN,uid(30),ATTEMPT,uid(9),uid(10),ORG,RUN,uid(30),D,D,boot))
+ recorded=f.ok("recovery.control.reconstruct",SCOPE)
+ check("recovery.control.recorded-pid-not-progress",lambda:expect(session(recorded,uid(30))["process_identity_recorded"] is True and session(recorded,uid(30))["liveness"]=="UNPROVEN" and all(item["live_progress"] is False for item in recorded["session_recovery"]) and recorded["adoption_candidates"][0]["requires"]=="EXACT_SUPERVISOR_IDENTITY_OBSERVATION"))
+ sql("UPDATE hyperfide.native_session_bindings SET process_exited=true WHERE organisation_id='"+ORG+"' AND run_id='"+RUN+"' AND session_id='"+uid(30)+"';")
+ dead=f.ok("recovery.control.reconstruct",SCOPE)
+ check("recovery.control.dead-pipe-not-progress",lambda:expect(session(dead,uid(30))["liveness"]=="PROCESS_EXITED" and session(dead,uid(30))["recorded_state"]=="RUNNING" and len(dead["adoption_candidates"])==0))
+ check("recovery.control.dead-pipe-adoption-refused",lambda:f.rejected("recovery.control.adopt",{"scope":SCOPE,"operation_id":uid(53),"session_id":uid(30)},"RECOVERY_ADOPTION_REFUSED"))
+ # Same PID recorded under a previous boot: the live session's PID may now name an unrelated process.
+ sql("INSERT INTO hyperfide.native_session_bindings(organisation_id,run_id,session_id,connector_version,auth_profile,configuration_digest,source_manifest_digest,process_id,process_start_time,boot_id) VALUES('"+ORG+"','"+RUN+"','"+uid(22)+"','1.0.0','fixture','"+D+"','"+D+"',4242,'1000',gen_random_uuid());")
+ reused=f.ok("recovery.control.reconstruct",SCOPE)
+ check("recovery.control.reused-pid-not-live",lambda:expect(session(reused,uid(22))["liveness"]=="BOOT_IDENTITY_CHANGED" and session(reused,uid(22))["live_progress"] is False))
+ check("recovery.control.reused-pid-adoption-refused",lambda:f.rejected("recovery.control.adopt",{"scope":SCOPE,"operation_id":uid(54),"session_id":uid(22)},"RECOVERY_ADOPTION_REFUSED"))
+ sql("""BEGIN;
+INSERT INTO hyperfide.artifacts(organisation_id,run_id,id,digest,size_bytes,storage_backend,storage_key,status) VALUES('%s','%s','%s','%s',64,'fixture','checkpoint','COMPLETE');
+INSERT INTO hyperfide.checkpoints(organisation_id,run_id,id,attempt_id,attempt_generation,agent_session_id,artifact_id,repository_id,source_object_id,input_packet_digest,support_level) VALUES('%s','%s','%s','%s',1,'%s','%s','%s',repeat('a',40),'%s','NATIVE_RESUME'),('%s','%s','%s','%s',1,'%s','%s','%s',repeat('a',40),'%s','NATIVE_RESUME');
+INSERT INTO hyperfide.native_session_checkpoints(organisation_id,run_id,session_id,checkpoint_id,checkpoint_digest,manifest_digest,source_manifest_digest,configuration_digest,native_session_id) VALUES('%s','%s','%s','%s','%s','%s','%s','%s','worker'),('%s','%s','%s','%s','%s','%s','sha256:%s','%s','worker-pipe');
+COMMIT;"""%(ORG,RUN,uid(40),D,ORG,RUN,uid(41),ATTEMPT,uid(22),uid(40),uid(3),D,ORG,RUN,uid(42),ATTEMPT,uid(30),uid(40),uid(3),D,ORG,RUN,uid(22),uid(41),D,D,D,D,ORG,RUN,uid(30),uid(42),D,D,"b"*64,D))
+ resumed=f.ok("recovery.control.reconstruct",SCOPE)
+ def consistent_checkpoint():
+  item=session(resumed,uid(22))
+  expect(item["checkpoint_id"]==uid(41) and item["checkpoint_consistent"] is True and item["recovery_mode"]=="NATIVE_RESUME_FROM_CHECKPOINT")
+ check("recovery.control.native-resume-consistent-checkpoint",consistent_checkpoint)
+ def diverged_source():
+  item=session(resumed,uid(30))
+  expect(item["checkpoint_consistent"] is False and item["recovery_mode"]=="FRESH_SESSION_WITH_RECOVERY_PACKET" and item["native_resume_limitation"]=="NATIVE_CHECKPOINT_SESSION_OR_SOURCE_INCONSISTENT")
+ check("recovery.control.inconsistent-source-starts-fresh-session",diverged_source)
+ def limitation_reported():
+  expect(all(item["native_resume_verified"] is False for item in resumed["session_recovery"]))
+  expect(session(resumed,uid(22))["native_resume_limitation"]=="NATIVE_RESUME_UNVERIFIED_WITHOUT_SUPERVISOR" and session(resumed,uid(23))["native_resume_limitation"]=="NO_CHECKPOINT")
+ check("recovery.control.native-resume-limitation-reported",limitation_reported)
+def run(task,callback):
+ global TASK
+ TASK=task
+ if sys.argv[1:] and sys.argv[1:]!=["--cleanup"]:raise SystemExit("unsupported argument")
+ if "--cleanup" in sys.argv:
+  return 0 if cleanup() else 1
+ # tests/run.sh skip contract: the case needs a disposable PostgreSQL (tests/hyperfide/support/withpg.py).
+ if not os.environ.get("DATABASE_URL"):
+  print("SKIP: DATABASE_URL unset; run under tests/hyperfide/support/withpg.py",flush=True);return 77
+ import shutil
+ if not shutil.which("psql"):
+  print("SKIP: psql not on PATH",flush=True);return 77
+ fixture=None
+ try:fixture=setup(task);callback(fixture)
+ finally:
+  if fixture:fixture.close()
+  complete=cleanup(emit=False)
+ return 1 if FAILED or not complete else 0
+if __name__=="__main__":sys.exit(run(TASK,tests))
