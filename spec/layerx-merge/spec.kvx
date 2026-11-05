@@ -175235,7 +175235,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.538]
 title = "Require the committed verification rank in the approval budget guard and the program presentation budget binding"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.535"]
