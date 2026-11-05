@@ -8607,6 +8607,18 @@ value = "As decision 2376 rules for the receipt-digest hint, the transaction has
 basis = "A 409 answered from an unverified hint tells a caller without a valid payment whether a transaction was settled (decision 2376 basis); the recovery property of 22.33.1400 needs the hint only for the identical replay."
 affects = ["22.31.530", "22.31.493", "22.33.1400", "22.8.11"]
 
+[decision.2583]
+title = "An above-threshold metered draw under an existing grant is held and approved on its disclosure; the receiver executes the draw"
+value = "When the metered scheme finds a standing grant for the terms, the web hold path records a durable held spend whose approval binds the disclosure and the spend commitment (amount, asset, receiver, purpose, grant id, expiry) together with the draw call the receiver will execute (GrantTerms::prepare_draw over the grant id and the receiver sequence read through the payer view of next_sequence_call), never a payer transaction: the payer signs and submits nothing for such a hold, before or after approval. Ticket, pending, approved, rejected and expired outcomes, restart recovery from the store and the changed-offer refusals behave exactly as for the exact scheme; after approval the spend settles through the standing grant with no new grant signed. Approval validation re-checks the standing grant (validate_existing_grant), so a grant changed between hold and approval is refused as changed; the sequence word recorded at hold time is not re-validated because the receiver reads it at execution. The Configuration(metered_receiver_approval) refusal is retired. A payer without approval resources still reports unavailable."
+basis = "Gotcha 3119; the pre-22.33.1551 hold held metered spends on their disclosure; the four tests/web.rs cases are the acceptance; the owner ruled that every interface-changing task proves the real producer, transport and consumer path including recovery."
+affects = ["22.31.531", "22.31.529", "22.33.1551"]
+
+[decision.2584]
+title = "The production web payer carries the shared approval store, expiry and budget limit of the daemon and prepares and submits held transactions through its own EIP-1559 path"
+value = "ProductionWebPayer receives the shared Store the daemon opens (services/agent/crates/layerx-agentd/src/main.rs line 756, already passed into publish_mcp_binding), an ApprovalExpiry::from_shared_store over it and a BudgetLimiter holding the MCP limit (mcp_limit, main.rs line 208) with that limit id in limits; WebPayerBoundary implements approval_resources returning them, prepare_transaction through layerx_agentd::prepare::evm::prepare_bound with the pending nonce, base fee and head height read from the node and the EVM address of the signer as sender, and submit_transaction by signing the prepared unsigned bytes with the attestor signer exactly as signed_call does (payer.rs lines 191 to 256) and sending them, with the returned hash checked against the raw bytes. The re-preparing submit path is never used for an approved transaction. A payer built without these resources keeps the trait defaults, so a misconfigured daemon fails closed as unavailable rather than paying unheld."
+basis = "Gotcha 3120; the wiring request 22.33.1551 recorded; tests/support/web_hold.rs RecordedNodePayer lines 409 to 470 is the proven test shape of the same contract."
+affects = ["22.31.532"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -37497,6 +37509,33 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.31.533]
+title = "Re-pin the three committed seller suites to the receipt-signature digest"
+reqs = ["22998.1"]
+touches = ["services/platform/middleware/seller/test/receipt-replay.test.mjs", "services/platform/middleware/seller/test/settlement-response.test.mjs", "services/platform/middleware/seller/test/receipt-verification.test.mjs", "services/platform/middleware/seller/test/repair-22-31-533.kvx"]
+tests = ["services/platform/middleware/seller/test/receipt-replay.test.mjs", "services/platform/middleware/seller/test/settlement-response.test.mjs", "services/platform/middleware/seller/test/receipt-verification.test.mjs"]
+verification_contract = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && npm --prefix services/platform/middleware/seller run build && node --test services/platform/middleware/seller/test/receipt-replay.test.mjs services/platform/middleware/seller/test/settlement-response.test.mjs services/platform/middleware/seller/test/receipt-verification.test.mjs services/platform/middleware/seller/test/repair-22-31-434.test.mjs"
+do_1 = "do_1 Gotcha 3121, decision 2538. In services/platform/middleware/seller/test/receipt-replay.test.mjs (lines 41 and 149), settlement-response.test.mjs (line 108) and receipt-verification.test.mjs (lines 103 and 152) build the portable proof with the receiptDigest that verifySequencerReceipt from the workspace SDK returns for the committed vector (as repair-22-31-434.test.mjs line 55 does), never keccak-256 of the signed receipt bytes. The tampered-receipt cases keep a digest that cannot verify: compute it the documented way over the tampered bytes or keep a deliberately wrong value, and assert the refusal reason they asserted before. Change no assertion that the suites make about settlement, replay, reuse or the settlement header; change no product code."
+symbols = []
+
+[capability.22.31.532]
+title = "Give the production web payer the approval resources and the held-transaction path"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd-host/src/payer.rs", "services/agent/crates/layerx-agentd/src/main.rs", "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs", "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.kvx"]
+tests = ["services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --test repair_22_31_532 --test payer_evm --test payer && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd"
+do_1 = "do_1 Gotcha 3120, decision 2584. In services/agent/crates/layerx-agentd-host/src/payer.rs give ProductionWebPayer an optional approval-resources field set through a constructor or builder that takes the shared Store (Arc of Mutex of layerx_agentd::store::Store), builds ApprovalExpiry::from_shared_store over it and takes the BudgetLimiter and the limit ids; implement on WebPayerBoundary (line 394) approval_resources returning a clone of them, prepare_transaction through layerx_agentd::prepare::evm::prepare_bound with the pending nonce, base fee and head height read from the node and the EVM address of the signer as sender (the same values signed_call at lines 191 to 256 reads today), and submit_transaction that signs the unsigned canonical bytes of the prepared transaction with the attestor signer exactly as signed_call does, sends them through send and checks the returned hash against the raw bytes; the re-preparing submit path is never used for an approved transaction. In services/agent/crates/layerx-agentd/src/main.rs publish_mcp_binding (the payer is built at line 1037) pass Arc::clone of the shared store it already receives and a BudgetLimiter built from mcp_limit (line 208) or the one the MCP binding path already builds from that limit, with that limit id as the only entry of limits. Keep the trait defaults for a payer built without resources."
+symbols = []
+
+[capability.22.31.531]
+title = "Hold an above-threshold metered draw under an existing grant on its disclosure"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-mcp/src/tools/web/approval_state.rs", "services/agent/crates/layerx-mcp/src/tools/web.rs", "services/agent/crates/layerx-mcp/tests/support/web_hold.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_531.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_531.kvx"]
+tests = ["services/agent/crates/layerx-mcp/tests/repair_22_31_531.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --lib --test repair_22_31_531 --test repair_22_33_1551 --test repair_22_31_527"
+do_1 = "do_1 Gotcha 3119, decision 2583. In services/agent/crates/layerx-mcp/src/tools/web/approval_state.rs approval_call (lines 398 to 442) replace the Configuration(metered_receiver_approval) refusal: when standing_grant returns an id, run validate_existing_grant, read the receiver sequence through self.payer.view(terms.next_sequence_call()) and sequence_result (src/tools/web.rs lines 718 and 779 pair them), build terms.prepare_draw(id, sequence) and return it with Some(id). In authorise_held (lines 200 to 258) never call self.payer.prepare_transaction for a metered spend with an existing grant: record the held spend from the draw call itself (sender the actor address of the boundary, bytes the canonical encoding of the call, digest and signing hash derived from those bytes and the spend commitment) and keep every other check, the durable save and the reopen path unchanged. Extend validate_approval_call (lines 464 to 492) for the metered scheme with an existing grant: decode the stored call as the draw of the terms (grant id, recipient, amount, idempotency key and purpose hash equal to the terms; the sequence word is not re-validated) and re-run validate_existing_grant so a grant changed between hold and approval is refused as changed. After approval the spend settles through the existing standing-grant path in src/tools/web.rs authorise with no new grant signed and no payer transaction submitted. The metered path that issues a new grant and the exact scheme are unchanged; a payer without approval_resources still reports unavailable."
+symbols = []
 
 [capability.22.31.530]
 title = "Verify a differing request before the seller refuses it as receipt reuse"
@@ -147577,12 +147616,41 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.533]
+title = "Re-pin the three committed seller suites to the receipt-signature digest"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.533"]
+interfaces = []
+do_1 = "do_1 Gotcha 3121, decision 2538. In services/platform/middleware/seller/test/receipt-replay.test.mjs (lines 41 and 149), settlement-response.test.mjs (line 108) and receipt-verification.test.mjs (lines 103 and 152) build the portable proof with the receiptDigest that verifySequencerReceipt from the workspace SDK returns for the committed vector (as repair-22-31-434.test.mjs line 55 does), never keccak-256 of the signed receipt bytes. The tampered-receipt cases keep a digest that cannot verify: compute it the documented way over the tampered bytes or keep a deliberately wrong value, and assert the refusal reason they asserted before. Change no assertion that the suites make about settlement, replay, reuse or the settlement header; change no product code."
+do_2 = "do_2 Run the declared build and verify once; the three suites and repair-22-31-434.test.mjs must pass. Record in services/platform/middleware/seller/test/repair-22-31-533.kvx the lines re-pinned, the digest definition applied and the gate results. Gate: the declared build and verify only; no credential, no live endpoint (gotcha 2962)."
+symbols = []
+touches = ["services/platform/middleware/seller/test/receipt-replay.test.mjs", "services/platform/middleware/seller/test/settlement-response.test.mjs", "services/platform/middleware/seller/test/receipt-verification.test.mjs", "services/platform/middleware/seller/test/repair-22-31-533.kvx"]
+tests = ["services/platform/middleware/seller/test/receipt-replay.test.mjs", "services/platform/middleware/seller/test/settlement-response.test.mjs", "services/platform/middleware/seller/test/receipt-verification.test.mjs"]
+planned_paths = ["services/platform/middleware/seller/test"]
+build_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && npm --prefix services/platform/middleware/seller run build"
+verify_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && npm --prefix services/platform/middleware/seller run build && node --test services/platform/middleware/seller/test/receipt-replay.test.mjs services/platform/middleware/seller/test/settlement-response.test.mjs services/platform/middleware/seller/test/receipt-verification.test.mjs services/platform/middleware/seller/test/repair-22-31-434.test.mjs"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.530]
 title = "Verify a differing request before the seller refuses it as receipt reuse"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.31.533"]
 reqs = ["22998.1"]
 capabilities = ["22.31.530"]
 interfaces = []
@@ -147606,6 +147674,7 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue after 22.31.533, gotcha 3121): attempt 1 stands in full (the verification before the reuse refusal in src/index.ts, the four cases and the record). Rebase on main once 22.31.533 has landed, change nothing, run the declared build and verify once and record."
 
 [task.22.31.525]
 title = "Leave a paid order unchanged when a later payment attempt is refused"
@@ -147674,7 +147743,7 @@ title = "Add the chain routes to the explorer page type map and commit the regen
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.503"]
+requires = ["22.31.503", "22.31.512"]
 reqs = ["22998.1"]
 capabilities = ["22.31.522"]
 interfaces = []
@@ -147698,6 +147767,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Attempt 2 (continue after 22.31.503): attempt 1 added the two entries, regenerated the route type and wrote the spec and record; the production build failed because the regenerated route type carries the four audit test files under pages as routes (gotcha 3097). 22.31.503 moves them out and now carries the two map entries itself. Rebase on main once 503 is there, keep repair-22-31-522.spec.ts and the record, drop the attempt's own map and route-type edits where 503 already committed them, regenerate nextjs/nextjs-routes.d.ts with the declared build and commit it if it differs, run the declared build and verify once and record."
+do_4 = "Attempt 3 (continue after 22.31.512, gotcha 3078): attempt 2 stands in full (the spec and the record; the map entries and the route type came with 22.31.503). Rebase on main once 22.31.512 has landed, change nothing, run the declared build and verify once and record."
 
 [task.22.31.520]
 title = "Declare the wallet workspace dependency build scripts so pnpm install completes under pnpm 12"
@@ -174616,12 +174686,71 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.532]
+title = "Give the production web payer the approval resources and the held-transaction path"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.532"]
+interfaces = []
+do_1 = "do_1 Gotcha 3120, decision 2584. In services/agent/crates/layerx-agentd-host/src/payer.rs give ProductionWebPayer an optional approval-resources field set through a constructor or builder that takes the shared Store (Arc of Mutex of layerx_agentd::store::Store), builds ApprovalExpiry::from_shared_store over it and takes the BudgetLimiter and the limit ids; implement on WebPayerBoundary (line 394) approval_resources returning a clone of them, prepare_transaction through layerx_agentd::prepare::evm::prepare_bound with the pending nonce, base fee and head height read from the node and the EVM address of the signer as sender (the same values signed_call at lines 191 to 256 reads today), and submit_transaction that signs the unsigned canonical bytes of the prepared transaction with the attestor signer exactly as signed_call does, sends them through send and checks the returned hash against the raw bytes; the re-preparing submit path is never used for an approved transaction. In services/agent/crates/layerx-agentd/src/main.rs publish_mcp_binding (the payer is built at line 1037) pass Arc::clone of the shared store it already receives and a BudgetLimiter built from mcp_limit (line 208) or the one the MCP binding path already builds from that limit, with that limit id as the only entry of limits. Keep the trait defaults for a payer built without resources."
+do_2 = "do_2 Add services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs following tests/payer_evm.rs (which already constructs ProductionWebPayer against a local node) with: (1) a payer built with resources over a temporary Store returns them and the same expiry serves a decision recorded through it after reopening the store; (2) prepare_transaction yields a prepared call whose sender is the signer address, whose chain id is 125 and whose decoded call equals the input; (3) submit_transaction sends exactly the signed form of the prepared bytes (the raw transaction the local node receives decodes to the prepared unsigned fields and recovers the signer) and refuses a prepared transaction whose signing hash does not match its bytes; (4) a payer built without resources returns None. Record in services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.kvx the fields added, the main.rs wiring and the gate results. Gate: the declared build and verify only; no credential, no live endpoint (gotcha 2962)."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd-host/src/payer.rs", "services/agent/crates/layerx-agentd/src/main.rs", "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs", "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.kvx"]
+tests = ["services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"]
+planned_paths = ["services/agent/crates/layerx-agentd-host/src", "services/agent/crates/layerx-agentd-host/tests", "services/agent/crates/layerx-agentd/src"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --tests && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --test repair_22_31_532 --test payer_evm --test payer && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.31.531]
+title = "Hold an above-threshold metered draw under an existing grant on its disclosure"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.531"]
+interfaces = []
+do_1 = "do_1 Gotcha 3119, decision 2583. In services/agent/crates/layerx-mcp/src/tools/web/approval_state.rs approval_call (lines 398 to 442) replace the Configuration(metered_receiver_approval) refusal: when standing_grant returns an id, run validate_existing_grant, read the receiver sequence through self.payer.view(terms.next_sequence_call()) and sequence_result (src/tools/web.rs lines 718 and 779 pair them), build terms.prepare_draw(id, sequence) and return it with Some(id). In authorise_held (lines 200 to 258) never call self.payer.prepare_transaction for a metered spend with an existing grant: record the held spend from the draw call itself (sender the actor address of the boundary, bytes the canonical encoding of the call, digest and signing hash derived from those bytes and the spend commitment) and keep every other check, the durable save and the reopen path unchanged. Extend validate_approval_call (lines 464 to 492) for the metered scheme with an existing grant: decode the stored call as the draw of the terms (grant id, recipient, amount, idempotency key and purpose hash equal to the terms; the sequence word is not re-validated) and re-run validate_existing_grant so a grant changed between hold and approval is refused as changed. After approval the spend settles through the existing standing-grant path in src/tools/web.rs authorise with no new grant signed and no payer transaction submitted. The metered path that issues a new grant and the exact scheme are unchanged; a payer without approval_resources still reports unavailable."
+do_2 = "do_2 Add services/agent/crates/layerx-mcp/tests/repair_22_31_531.rs over the real WebRoute, approval_state and a payer that reports a standing grant (extend tests/support/web_hold.rs RecordedNodePayer with a standing-grant mode, or follow tests/web.rs RecordedPayer, whose standing grant comes from the committed gateway/metered.json recording and whose view goes through tests/support/node_recording.rs) with: (1) an above-threshold metered search under the standing grant is held, the ticket disclosure carries the amount and the hold id, and prepare_transaction, grant and submit are never called; (2) the hold survives a server restart from the same store and is reported pending; (3) approval settles the spend through the standing grant with no new grant signed; (4) rejection refuses without payment; (5) a grant changed between hold and approval (per-draw maximum below the amount) is refused as changed. Cases 1 to 3 must fail on the pre-repair code with the metered_receiver_approval refusal."
+do_3 = "do_3 Record in services/agent/crates/layerx-mcp/tests/repair_22_31_531.kvx the refusal removed, the stored-spend shape for receiver-executed draws, the five cases and the gate results. Gate: the declared build and verify only; no credential, no live endpoint (gotcha 2962)."
+symbols = []
+touches = ["services/agent/crates/layerx-mcp/src/tools/web/approval_state.rs", "services/agent/crates/layerx-mcp/src/tools/web.rs", "services/agent/crates/layerx-mcp/tests/support/web_hold.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_531.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_531.kvx"]
+tests = ["services/agent/crates/layerx-mcp/tests/repair_22_31_531.rs"]
+planned_paths = ["services/agent/crates/layerx-mcp/src/tools/web", "services/agent/crates/layerx-mcp/tests"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --lib --test repair_22_31_531 --test repair_22_33_1551 --test repair_22_31_527"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.529]
 title = "Give the web suite's recorded payer the approval resources the hold path requires"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.527"]
+requires = ["22.31.527", "22.31.531"]
 reqs = ["22998.1"]
 capabilities = ["22.31.529"]
 interfaces = []
@@ -174644,6 +174773,7 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue after 22.31.531, gotcha 3119): attempt 1 stands in full (the web_hold directory and resources on RecordedPayer, approval_resources implemented, every assertion unchanged). Rebase on main once 22.31.531 has landed, change nothing else, run the declared build and verify once and record."
 
 [task.22.31.528]
 title = "Reconcile the web-search payment suite with the exact-only offers"

@@ -30971,3 +30971,27 @@ symbol = "repair_22_31_493.test.mjs"
 observed = "Attempt 1: build exit 0; verify exit 1: the four repair cases and the Express receipt-keys suite pass; integrationSettlesSignedSequencerReceipt in the Next receipt-keys suite failed at line 296 with 409 where 402 is expected."
 assumption = "The Next receipt-keys suite passed at 22.8.11 attempt 15 under decision 2376 and fails only since 22.33.1400 restored the pre-verification refusal."
 severity = "low"
+
+[finding.22.31.529.1]
+task = "22.31.529"
+file = "services/agent/crates/layerx-mcp/tests/web.rs"
+symbol = "web.rs"
+observed = "Attempt 1: build exit 0; verify exit 1: 18 of 22 web cases pass; the four hold cases fail with Configuration(metered_receiver_approval) from approval_call because RecordedPayer reports a standing grant."
+assumption = "A product gap of 22.33.1551 (gotcha 3119), not a fixture gap; 22.31.531 restores the metered hold."
+severity = "low"
+
+[finding.22.31.522.2]
+task = "22.31.522"
+file = "apps/explorer/lib/metadata/getPageOgType.ts"
+symbol = "getPageOgType.ts"
+observed = "Attempt 2: build exit 0; verify exit 2: yarn tsc --noEmit failed with TS2307 for @juggle/resize-observer in toolkit/components/forms/fields/repair-22-33-270.spec.ts line 4; the task spec did not run."
+assumption = "The main-side defect of 22.33.270 (gotcha 3078) that 22.31.512 attempt 2 removes with a local stand-in; nothing in 522 changes."
+severity = "low"
+
+[finding.22.31.530.1]
+task = "22.31.530"
+file = "services/platform/middleware/seller/test/repair-22-31-530.test.mjs"
+symbol = "repair-22-31-530.test.mjs"
+observed = "Attempt 1: build exit 0; verify exit 1: the four repair cases and repair-22-31-434 pass; receiptReplayRefusesChangedRequestAndReplaysOriginal, receiptIdentityIsScopedToMerchant, unverifiedReceiptCannotClaimFulfillment, settlementResponseNamesTransactionHash, settlementResponseCarriesPortableReceipt and replayedSettlementAnswersStoredTransaction fail with verification-failure in verifyReceiptDigest; the Next suite was not reached."
+assumption = "The two suites compute the keccak-256 digest decision 2538 retired and have been red since 22.33.1400; 22.31.533 re-pins them."
+severity = "low"
