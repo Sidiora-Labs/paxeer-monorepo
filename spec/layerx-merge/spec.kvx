@@ -166268,7 +166268,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.486]
 title = "Re-record the committed receipt vector under chain id 125 and refresh every consumer that pins it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.508"]
