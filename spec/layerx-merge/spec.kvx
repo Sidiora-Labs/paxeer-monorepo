@@ -175238,7 +175238,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.541]
 title = "Remove the by-path include of the budget proof source from the 535 integration test and run the in-crate proof tests through the library target"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.538"]
