@@ -24,16 +24,17 @@ describe('TopBar', () => {
     routerState.query = {};
   });
 
-  it('puts the chain stats first and the search box before the controls on a content page', () => {
+  it('keeps the utilities together inside the header', () => {
     routerState.pathname = '/blocks';
 
     const { container } = render(<TopBar/>);
 
-    const bar = container.querySelector('[data-label="utility-bar"]');
+    const bar = container.querySelector('[data-label="header-utilities"]');
 
     expect(bar).toBeTruthy();
     expect(Array.from(bar?.querySelectorAll('[data-label]') ?? []).map((element) => element.getAttribute('data-label')))
-      .toEqual([ 'chain-stats', 'utility-bar-search' ]);
+      .toEqual([]);
+    expect(bar?.querySelector('button[aria-label="User settings"]')).toBeTruthy();
   });
 
   it('carries the settings, the theme toggle and the network controls', () => {
@@ -45,10 +46,10 @@ describe('TopBar', () => {
     expect(screen.getByLabelText(/^Switch to (dark|light) theme$/)).toBeTruthy();
   });
 
-  it('leaves the search box out on the home page', () => {
+  it('keeps the same utilities available on the home page', () => {
     const { container } = render(<TopBar/>);
 
-    expect(container.querySelector('[data-label="utility-bar"]')).toBeTruthy();
+    expect(container.querySelector('[data-label="header-utilities"]')).toBeTruthy();
     expect(container.querySelector('[data-label="utility-bar-search"]')).toBeNull();
     expect(screen.getByLabelText('User settings')).toBeTruthy();
   });

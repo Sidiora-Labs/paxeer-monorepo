@@ -1,6 +1,3 @@
-import config from 'configs/app';
-import NavigationDesktop from 'ui/snippets/navigation/vertical/NavigationDesktop';
+const SideBar = (): null => null;
 
-const EmptyComponent = () => null;
-
-export default config.UI.navigation.layout === 'horizontal' ? EmptyComponent : NavigationDesktop;
+export default SideBar;
