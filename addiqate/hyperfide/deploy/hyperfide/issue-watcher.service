@@ -1,0 +1,31 @@
+# Qualified by the task 26.4 receipt, which tools/repository/release.sh ships as share/hyperfide/qualified/26.4.json only when
+# deployment/releases.ts serviceUnitStatus accepts its pinned digest. The condition below gates start on that file
+# and the preflight drop-in placed by bootstrap-host.mjs refuses (exit 78) unless the same check passes.
+[Unit]
+Description=Hyperfide issue watcher
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+ConditionPathExists=/opt/hyperfide/current/share/hyperfide/qualified/26.4.json
+[Service]
+Type=exec
+User=hyperfide
+Group=hyperfide
+WorkingDirectory=/opt/hyperfide/current
+EnvironmentFile=/etc/hyperfide/issue-watcher.env
+Environment=LD_LIBRARY_PATH=/opt/hyperfide/current/lib/hyperfide
+ExecStart=/opt/hyperfide/current/bin/hyperfide issue-watcher --config /etc/hyperfide/issue-watcher.json
+Restart=on-failure
+RestartSec=10
+RestartPreventExitStatus=78
+KillMode=control-group
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/hyperfide
+UMask=0077
+[Install]
+WantedBy=multi-user.target

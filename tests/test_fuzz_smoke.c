@@ -12,11 +12,85 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 typedef struct activity_seed {
     uint8_t *bytes;
     size_t length;
 } activity_seed;
+
+/* A smoke run must remain bounded even when its command line is mistyped. */
+#define SMOKE_ITERATION_LIMIT UINT64_C(1000000)
+
+static int smoke_iterations(const char *text, uint64_t *iterations)
+{
+    const unsigned char *cursor = (const unsigned char *)text;
+    unsigned long long parsed;
+    char *end;
+    if (text == NULL || *cursor == '\0') return 2;
+    for (; *cursor != '\0'; ++cursor)
+        if (*cursor < (unsigned char)'0' || *cursor > (unsigned char)'9')
+            return 2;
+    errno = 0;
+    parsed = strtoull(text, &end, 10);
+    if (errno != 0 || *end != '\0' || parsed == 0U ||
+        parsed > SMOKE_ITERATION_LIMIT) return 2;
+    *iterations = (uint64_t)parsed;
+    return 0;
+}
+
+static int test_smoke_iteration_bounds(void)
+{
+    static const char *const invalid[] = {
+        "-1", "+1", " 1", "1 ", "", "0", "1x", "1.0", "1e3",
+        "18446744073709551616", "18446744073709551615", "1000001"
+    };
+    uint64_t iterations = 7U;
+    for (size_t i = 0U; i < sizeof(invalid) / sizeof(invalid[0]); ++i)
+        if (smoke_iterations(invalid[i], &iterations) != 2 || iterations != 7U)
+            return 1;
+    return smoke_iterations("1", &iterations) != 0 || iterations != 1U ||
+        smoke_iterations("100000", &iterations) != 0 || iterations != 100000U ||
+        smoke_iterations("1000000", &iterations) != 0 ||
+        iterations != SMOKE_ITERATION_LIMIT;
+}
+
+static int test_smoke_invalid_cli(void)
+{
+    static const char *const invalid[] = {
+        "-1", "18446744073709551616", "1x", " 1", "+1", "0", "1000001"
+    };
+    char directory[] = "/tmp/lxp-smoke-cli-XXXXXX";
+    char corpus[128];
+    if (mkdtemp(directory) == NULL) return 1;
+    int count = snprintf(corpus, sizeof(corpus), "%s/corpus", directory);
+    if (count <= 0 || (size_t)count >= sizeof(corpus)) return 1;
+    for (size_t i = 0U; i < sizeof(invalid) / sizeof(invalid[0]); ++i) {
+        int descriptors[2], status;
+        char output;
+        pid_t child;
+        if (pipe(descriptors) != 0) return 1;
+        child = fork();
+        if (child == 0) {
+            (void)close(descriptors[0]);
+            if (dup2(descriptors[1], STDOUT_FILENO) < 0 ||
+                dup2(descriptors[1], STDERR_FILENO) < 0) _exit(125);
+            (void)close(descriptors[1]);
+            execl("/proc/self/exe", "test_fuzz_smoke", "/nonexistent-fixtures",
+                  corpus, invalid[i], (char *)NULL);
+            _exit(126);
+        }
+        (void)close(descriptors[1]);
+        if (child < 0) { (void)close(descriptors[0]); return 1; }
+        ssize_t produced = read(descriptors[0], &output, 1U);
+        (void)close(descriptors[0]);
+        if (waitpid(child, &status, 0) != child || !WIFEXITED(status) ||
+            WEXITSTATUS(status) != 2 || produced != 0 ||
+            access(corpus, F_OK) == 0) return 1;
+    }
+    return rmdir(directory) != 0;
+}
 
 static uint64_t random_next(uint64_t *state)
 {
@@ -256,6 +330,79 @@ static lxp_result explicit_transfer_suite(uint64_t *executions)
     return LXP_OK;
 }
 
+/* The no-argument gate uses the real signed-envelope producer in memory.
+ * The file-backed qualification CLI below retains its supplied corpus and
+ * exact positive iteration count. */
+static int test_smoke_positive_workload(void)
+{
+    static const uint8_t actor[] = "did:lxp:fuzz-signer";
+    activity_seed seeds[LXP_QUAL_ACTIVITY_TYPE_COUNT] = {{0}};
+    uint64_t activity_executions = 0U, transfer_executions = 0U;
+    uint64_t requested;
+    lxp_result status = LXP_OK;
+    size_t loaded = 0U;
+    uint8_t scratch[LXP_MAX_ACTIVITY_BYTES];
+    for (; status == LXP_OK && loaded < LXP_QUAL_ACTIVITY_TYPE_COUNT; ++loaded) {
+        uint8_t public_key[32], signature[64], payload[2] = {1U, (uint8_t)loaded};
+        lxp_activity activity = {0};
+        lxp_byte_span encoded;
+        lxp_arena arena;
+        activity.protocol_version = LXP_PROTOCOL_VERSION_STATE_COMMITMENT;
+        activity.network_id = 77U;
+        activity.activity_type = UINT32_C(0x00010001) + (uint32_t)loaded;
+        activity.actor_did = (lxp_byte_span){actor, sizeof(actor) - 1U};
+        activity.account_sequence = (uint64_t)loaded;
+        activity.timestamp_bound = (lxp_timestamp_bound){100U, 200U};
+        activity.idempotency_key[0] = (uint8_t)(loaded + 1U);
+        activity.fee_limit.lo = 100U;
+        activity.payload = (lxp_byte_span){payload, sizeof(payload)};
+        activity.authority = (lxp_byte_span){public_key, sizeof(public_key)};
+        activity.signature = (lxp_byte_span){signature, sizeof(signature)};
+        status = lxp_hash_payload(payload, sizeof(payload), activity.payload_hash);
+        if (status == LXP_OK) status = sign_activity(&activity, public_key, signature);
+        if (status == LXP_OK) status = lxp_activity_verify_signature(&activity);
+        if (status == LXP_OK) status = lxp_arena_init(&arena, scratch, sizeof(scratch));
+        if (status == LXP_OK) status = lxp_activity_encode(&activity, &arena, &encoded);
+        if (status == LXP_OK) {
+            seeds[loaded].bytes = malloc(encoded.length);
+            if (seeds[loaded].bytes == NULL) { status = LXP_ERR_IO; break; }
+            seeds[loaded].length = encoded.length;
+            (void)memcpy(seeds[loaded].bytes, encoded.bytes, encoded.length);
+        }
+    }
+    if (status == LXP_OK) status = activity_exhaustive(seeds, &activity_executions);
+    if (status == LXP_OK) status = signature_suite();
+    if (status == LXP_OK) status = explicit_transfer_suite(&transfer_executions);
+    static const char *const counts[] = {"1", "17", "100000"};
+    for (size_t i = 0U; status == LXP_OK && i < sizeof(counts) / sizeof(counts[0]); ++i) {
+        uint64_t activity_before = activity_executions;
+        uint64_t transfer_before = transfer_executions;
+        if (smoke_iterations(counts[i], &requested) != 0) {
+            status = LXP_FATAL_REPLAY_DIVERGENCE;
+            break;
+        }
+        status = random_suite(seeds, requested, &activity_executions, &transfer_executions);
+        if (status == LXP_OK && (activity_executions - activity_before != requested ||
+            transfer_executions - transfer_before != requested))
+            status = LXP_FATAL_REPLAY_DIVERGENCE;
+    }
+    for (size_t i = 0U; i < LXP_QUAL_ACTIVITY_TYPE_COUNT; ++i) {
+        if (seeds[i].bytes != NULL) {
+            lxp_secure_zero(seeds[i].bytes, seeds[i].length);
+            free(seeds[i].bytes);
+        }
+    }
+    if (status != LXP_OK) {
+        (void)fprintf(stderr, "positive smoke workload failed: %d\n", (int)status);
+        return 1;
+    }
+    (void)printf("activity_cases=%llu\ntransfer_cases=%llu\nsignature_mutations=522\n",
+        (unsigned long long)activity_executions, (unsigned long long)transfer_executions);
+    return 0;
+}
+
+#include "lxp_test_harness.c"
+
 int main(int argc, char **argv)
 {
     activity_seed seeds[LXP_QUAL_ACTIVITY_TYPE_COUNT];
@@ -264,15 +411,17 @@ int main(int argc, char **argv)
     uint64_t transfer_executions = 0U;
     size_t loaded = 0U;
     lxp_result status;
+    if (lxp_test_register("fuzz.iteration-bounds", test_smoke_iteration_bounds) != 0 ||
+        lxp_test_register("fuzz.invalid-cli", test_smoke_invalid_cli) != 0 ||
+        lxp_test_register("fuzz.positive-workload", test_smoke_positive_workload) != 0)
+        return 1;
+    if (argc == 1 || (argc >= 2 &&
+        (strcmp(argv[1], "--list") == 0 || strcmp(argv[1], "--run") == 0)))
+        return lxp_test_main(argc, argv);
+    if (argc == 2 && strcmp(argv[1], "--self-test") == 0)
+        return test_smoke_iteration_bounds() || test_smoke_invalid_cli();
     if (argc < 3 || argc > 4) return 2;
-    if (argc == 4) {
-        char *end = NULL;
-        errno = 0;
-        unsigned long long parsed = strtoull(argv[3], &end, 10);
-        if (errno != 0 || end == argv[3] || *end != '\0' || parsed == 0U ||
-            parsed > UINT64_MAX) return 2;
-        iterations = (uint64_t)parsed;
-    }
+    if (argc == 4 && smoke_iterations(argv[3], &iterations) != 0) return 2;
     (void)memset(seeds, 0, sizeof(seeds));
     status = lxp_fuzz_corpus_seed(argv[1], argv[2]);
     for (loaded = 0U; status == LXP_OK &&

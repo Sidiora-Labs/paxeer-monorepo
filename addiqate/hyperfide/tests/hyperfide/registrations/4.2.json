@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "variant": "task:4.2",
+  "task": "4.2",
+  "scope": "task-component",
+  "cases": [
+    "V-002",
+    "V-011"
+  ],
+  "assertion_ids": [
+    "transactions.shared",
+    "transactions.committed",
+    "transactions.facade",
+    "transactions.primary",
+    "transactions.expired",
+    "transactions.brand",
+    "transactions.rollback",
+    "transactions.controls",
+    "transactions.quoted",
+    "transactions.retry",
+    "transactions.guard",
+    "transactions.retry_state",
+    "transactions.overload",
+    "transactions.queue_deadline",
+    "transactions.body_timeout",
+    "transactions.timeout_rollback",
+    "transactions.readonly",
+    "transactions.observer_brand",
+    "transactions.observer_expired",
+    "transactions.observer_write",
+    "transactions.migration_missing",
+    "transactions.copy",
+    "transactions.copy_state",
+    "transactions.copy_unsafe",
+    "transactions.pool_bound",
+    "transactions.external_state",
+    "transactions.shutdown",
+    "transactions.deadlock",
+    "transactions.guard_atomic",
+    "transactions.commit_ambiguous",
+    "transactions.commit_no_replay",
+    "transactions.commit_reconcile",
+    "transactions.commit_external",
+    "transactions.primary_readonly",
+    "transactions.proxy_cleanup",
+    "transactions.observer_escape",
+    "transactions.released_client"
+  ],
+  "argv": [
+    "python3",
+    "tests/hyperfide/cases/tasks/4_2.py"
+  ],
+  "timeout_seconds": 300,
+  "required_env": [
+    "DATABASE_URL",
+    "PGHOST",
+    "PGPORT",
+    "PGUSER"
+  ],
+  "fixtures": [
+    "core/control-plane/dist/control.js",
+    "core/control-plane/dist/components/registry.js",
+    "core/control-plane/dist/components/service.js",
+    "core/control-plane/dist/storage/runtime.js",
+    "core/control-plane/dist/storage/transactions.js",
+    "core/control-plane/dist/storage/schema.js",
+    "core/control-plane/dist/policy/programme.js",
+    "core/control-plane/dist/contracts/records.js"
+  ],
+  "resources": [
+    {
+      "id": "hf-task-4.2-database",
+      "kind": "postgresql-database",
+      "scope": "task4.2-disposable"
+    },
+    {
+      "id": "hf-task-4.2-wire-proxy",
+      "kind": "unix-socket",
+      "scope": "task4.2-disposable"
+    }
+  ],
+  "cleanup_argv": [
+    "python3",
+    "tests/hyperfide/cases/tasks/4_2.py",
+    "--cleanup"
+  ],
+  "cleanup_timeout_seconds": 60,
+  "required_artifacts": [
+    "storage42/observations.json",
+    "storage42/database-absence.json",
+    "storage42/service-stdout.jsonl",
+    "storage42/proxy-service-stdout.jsonl"
+  ],
+  "source_files": [
+    "core/control-plane/package.json",
+    "core/control-plane/package-lock.json",
+    "core/control-plane/tsconfig.json",
+    "core/control-plane/components/4.2.json",
+    "core/control-plane/components/schema.json",
+    "core/control-plane/src/control.ts",
+    "core/control-plane/src/components/registry.ts",
+    "core/control-plane/src/components/service.ts",
+    "core/control-plane/src/storage/runtime.ts",
+    "core/control-plane/src/storage/transactions.ts",
+    "core/control-plane/src/storage/schema.ts",
+    "core/control-plane/src/policy/programme.ts",
+    "core/control-plane/src/contracts/records.ts",
+    "tests/hyperfide/cases/tasks/4_2.py",
+    "tests/hyperfide/qualify.py",
+    "tests/hyperfide/check-evidence.py",
+    "tests/hyperfide/manifest.schema.json"
+  ],
+  "source_roots": [
+    "core/control-plane/src",
+    "core/control-plane/dist",
+    "core/control-plane/components",
+    "core/control-plane/migrations"
+  ],
+  "actions": [
+    "postgresql.fixture.create",
+    "postgresql.fixture.drop",
+    "unix-socket.fixture.create",
+    "unix-socket.fixture.delete"
+  ]
+}
