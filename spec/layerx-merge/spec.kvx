@@ -8727,6 +8727,12 @@ value = "No file under a tests directory of a library crate includes a file unde
 basis = "Gotcha 3144: a by-path include compiles the included file with the test crate as its root, so crate:: paths inside it resolve differently or not at all, and a build gate that names --lib only lands the break on main unseen; the pattern already broke the daemon --tests build twice this round (the 535 test and the human projection facts test)."
 affects = ["22.31.535", "22.31.538", "22.31.516"]
 
+[decision.2603]
+title = "A consumer test that reads a corpus written by a producer test of another crate names that producer test first in every gate that runs it, and its missing-corpus failure names the producer command"
+value = "The handoff through a temp-dir corpus keyed by the producer sources (tests/support/committed_authority_documents.rs) is the accepted transport between the hosted authority producer test and the daemon consumer test, because it proves the real producer output against the real consumer without a dev-dependency on the authority crate. Every verify command that runs the daemon consumer test runs the authority producer test before it, and the consumer, when the corpus is absent, fails with a message that names the producer test command instead of a bare NotFound. Decision 2602 stands."
+basis = "Gotcha 3146: the consumer run alone fails on a missing file with no pointer to the producer, which cost one attempt of 22.31.541."
+affects = ["22.31.535", "22.31.541"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -37632,7 +37638,7 @@ title = "Remove the by-path include of the budget proof source from the 535 inte
 reqs = ["22998.1"]
 touches = ["services/agent/crates/layerx-agentd/tests/repair_22_31_535.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_541.kvx"]
 tests = ["services/agent/crates/layerx-agentd/tests/repair_22_31_535.rs"]
-verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- budget_proof::tests && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_535"
+verification_contract = "cargo test --locked --manifest-path services/platform/hosted/authority/Cargo.toml --test repair_22_31_535 && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- budget_proof::tests && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_535"
 do_1 = "do_1 Gotcha 3144, decision 2602. In services/agent/crates/layerx-agentd/tests/repair_22_31_535.rs remove the by-path include of src/budget/budget_proof.rs (line 27 and the mod line after it) and the two pub use re-exports of layerx_agentd::read and layerx_agentd::budget::ProtocolBudgetState that exist only to serve that include (lines 25 and 26); the integration tests of the file stay as they are. Nothing under src changes."
 symbols = []
 
@@ -148058,7 +148064,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.35.2]
 title = "Explorer app shell: single top bar with grouped navigation, prompt-like search field and condensed footer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.35.1"]
@@ -175236,11 +175242,11 @@ do_1 = "do_1 Gotcha 3144, decision 2602. In services/agent/crates/layerx-agentd/
 do_2 = "do_2 The in-crate tests of budget_proof.rs (repair_22_31_535_budget_verification_requires_committed and repair_22_31_538_program_presentation_binds_committed_proof_and_sequence among them) run through cargo test -p layerx-agentd --lib with the budget_proof::tests filter, which the verify command names; record in tests/repair_22_31_541.kvx the test names that filter runs, taken from the test output."
 do_3 = "do_3 Build and verify run once at the final revision; the record lists the gate commands by reference to the gate ledger and no file is amended after the gates run, so the qualified revision is the candidate (gotcha 3142)."
 symbols = []
-touches = ["services/agent/crates/layerx-agentd/tests/repair_22_31_535.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_541.kvx"]
+touches = ["services/agent/crates/layerx-agentd/tests/repair_22_31_535.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_541.kvx", "services/agent/crates/layerx-agentd/tests/support/committed_authority_documents.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/repair_22_31_535.rs"]
 planned_paths = ["services/agent/crates/layerx-agentd/tests/repair_22_31_535.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_541.kvx"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test repair_22_31_535"
-verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- budget_proof::tests && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_535"
+verify_cmd = "cargo test --locked --manifest-path services/platform/hosted/authority/Cargo.toml --test repair_22_31_535 && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- budget_proof::tests && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_535"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -175252,6 +175258,8 @@ time_limit_minutes = 60
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Gotcha 3146, decision 2603: the verify command runs the hosted authority producer test (repair_22_31_535_producers_emit_committed_documents) before the daemon consumer test, because the consumer reads the corpus that test writes under the temp dir. In tests/repair_22_31_535.rs the corpus read fails, when the file is absent, with a message naming that producer test command instead of the bare NotFound of the must() helper. The record names the handoff and the producer test."
+do_5 = "Attempt 2 (continue, gotcha 3146, decision 2603): the attempt-1 tree stands (include and re-exports removed, record added, four in-crate proof tests passing under --lib). The declared verify command now runs the authority producer test first; in tests/repair_22_31_535.rs replace the bare must() at the corpus read with an expect message that names the producer test command (do_4), extend the record, run the declared build and verify once at the final revision, record the gates by reference to the gate ledger and amend no file after they run."
 
 [task.22.31.540]
 title = "Retire the checkpoint-finalised label in the Human service spend, export and receipt frame producers"
@@ -284298,7 +284306,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.18]
 title = "Repair audit record 22.30.100 medium findings in services/agent/sdk/python/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.147", "22.31.510"]
