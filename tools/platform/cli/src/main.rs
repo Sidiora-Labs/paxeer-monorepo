@@ -198,6 +198,8 @@ enum KeyCommand {
         #[arg(long)]
         did: Option<String>,
     },
+    /// Copy a legacy OS key into this configuration after verifying its public key.
+    MigrateLegacy { name: String },
     /// List public key metadata without opening secret material.
     List,
     /// Show public metadata for one key.
@@ -894,6 +896,14 @@ fn key(command: KeyCommand) -> Result<CommandOutput, String> {
                 "key.imported",
                 format!("Imported key {name} into credential storage"),
                 json!({"name": name, "did": metadata.did, "public_key": metadata.public_key}),
+            ))
+        }
+        KeyCommand::MigrateLegacy { name } => {
+            credential::migrate_legacy_key(&configuration, &name)?;
+            Ok(CommandOutput::new(
+                "key.migrated",
+                "Migrated verified legacy key into this configuration",
+                json!({"name": name}),
             ))
         }
         KeyCommand::List => {
