@@ -1,7 +1,7 @@
 use std::fs;
 use std::os::unix::fs::DirBuilderExt;
 use std::path::{Path, PathBuf};
-use std::sync::Barrier;
+use std::sync::{Arc, Barrier, Mutex};
 use std::thread;
 
 use crate::approval::{
@@ -14,7 +14,7 @@ use crate::policy::approval::{
     hold_at, ApprovalContext, ApprovalRegistry, ApprovalSequence, ApproverId,
 };
 use crate::session::SessionId;
-use crate::store::TenantId;
+use crate::store::{Store, TenantId};
 use layerx_agent_api::TimestampSeconds;
 use layerx_types::ids::Did;
 
@@ -25,10 +25,12 @@ struct Directory(PathBuf);
 
 impl Directory {
     fn new(label: &str) -> Self {
-        let root = std::env::temp_dir().join(format!(
-            "layerx-approval-ordering-{label}-{}",
-            std::process::id()
-        ));
+        let root = fs::canonicalize(std::env::temp_dir())
+            .unwrap_or_else(|error| panic!("temp directory: {error}"))
+            .join(format!(
+                "layerx-approval-ordering-{label}-{}",
+                std::process::id()
+            ));
         let _ = fs::remove_dir_all(&root);
         fs::DirBuilder::new()
             .recursive(true)
@@ -40,6 +42,11 @@ impl Directory {
 
     fn path(&self) -> &Path {
         &self.0
+    }
+
+    fn open_expiry(&self) -> ApprovalExpiry {
+        let store = Store::open(self.path()).unwrap_or_else(|error| panic!("store: {error}"));
+        ApprovalExpiry::from_shared_store(Arc::new(Mutex::new(store)))
     }
 }
 
@@ -104,8 +111,7 @@ fn rejection_between_grant_prepare_and_persist_conflicts_with_durable_grant() {
     let directory = Directory::new("prepare-persist");
     let registry = ApprovalRegistry::default();
     let limiter = limiter();
-    let expiry =
-        ApprovalExpiry::open(directory.path()).unwrap_or_else(|error| panic!("expiry: {error:?}"));
+    let expiry = directory.open_expiry();
     let queue = ApprovalSubmissionQueue::default();
     let held = prepared(14, 40);
     reserve_hold(&limiter, 14, 40);
@@ -178,8 +184,7 @@ fn rejection_between_grant_prepare_and_persist_conflicts_with_durable_grant() {
     assert_eq!(rejection.winning_outcome, Some(ApprovalOutcome::Granted));
     assert_eq!(queue.len(), 1);
     drop(expiry);
-    let reopened =
-        ApprovalExpiry::open(directory.path()).unwrap_or_else(|error| panic!("reopen: {error:?}"));
+    let reopened = directory.open_expiry();
     let durable = reopened
         .recover(&tenant(), [14; 32], 40, 12, &limiter)
         .unwrap_or_else(|error| panic!("recover: {error:?}"));
@@ -192,8 +197,7 @@ fn stale_prepared_grant_cannot_overwrite_durable_rejection() {
     let directory = Directory::new("conditional-put");
     let registry = ApprovalRegistry::default();
     let limiter = limiter();
-    let expiry =
-        ApprovalExpiry::open(directory.path()).unwrap_or_else(|error| panic!("expiry: {error:?}"));
+    let expiry = directory.open_expiry();
     let held = prepared(15, 40);
     reserve_hold(&limiter, 15, 40);
     hold_at(
@@ -206,7 +210,12 @@ fn stale_prepared_grant_cannot_overwrite_durable_rejection() {
     )
     .unwrap_or_else(|error| panic!("hold: {error:?}"));
     let snapshot = registry
-        .get_scoped(&tenant(), [15; 32], 11)
+        .get_scoped_at(
+            &tenant(),
+            [15; 32],
+            ApprovalSequence(11),
+            TimestampSeconds(11),
+        )
         .unwrap_or_else(|error| panic!("snapshot: {error:?}"));
     let super::expiry::DecisionResolution::WinnerPrepared(prepared) = expiry
         .decide(
@@ -237,8 +246,7 @@ fn stale_prepared_grant_cannot_overwrite_durable_rejection() {
         Err(super::ApprovalExpiryError::DecisionConflict)
     );
     drop(expiry);
-    let reopened =
-        ApprovalExpiry::open(directory.path()).unwrap_or_else(|error| panic!("reopen: {error:?}"));
+    let reopened = directory.open_expiry();
     let durable = reopened
         .recover(&tenant(), [15; 32], 40, 12, &limiter)
         .unwrap_or_else(|error| panic!("recover: {error:?}"));
