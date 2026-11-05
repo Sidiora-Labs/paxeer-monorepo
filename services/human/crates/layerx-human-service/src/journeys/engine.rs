@@ -492,6 +492,7 @@ pub struct JourneyStatus {
     receipt_digests: Vec<Option<[u8; 32]>>,
     receipt_material: Vec<Option<Vec<u8>>>,
     receipt_authorities: Vec<Option<AuthorizedBatch>>,
+    receipt_rungs: Vec<Option<Rung>>,
     refusal_codes: Vec<Option<i32>>,
 }
 
@@ -528,6 +529,11 @@ impl JourneyStatus {
     #[must_use]
     pub fn receipt_authorities(&self) -> &[Option<AuthorizedBatch>] {
         &self.receipt_authorities
+    }
+
+    #[must_use]
+    pub fn receipt_rungs(&self) -> &[Option<Rung>] {
+        &self.receipt_rungs
     }
 
     /// Returns the exact protocol result for each refused leg.
@@ -1890,6 +1896,17 @@ impl JourneyEngine {
             receipt_digests,
             receipt_material,
             receipt_authorities,
+            receipt_rungs: self
+                .record
+                .legs
+                .iter()
+                .map(|leg| {
+                    leg.rung_evidence
+                        .as_ref()
+                        .map(|evidence| evidence.rung())
+                        .transpose()
+                })
+                .collect::<Result<Vec<_>, JourneyError>>()?,
             refusal_codes,
         })
     }

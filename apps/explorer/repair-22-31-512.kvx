@@ -1,0 +1,44 @@
+[repair]
+task = "22.31.512"
+requirement = "22998.1"
+base_revision = "1c423688bf5ced46198671e6635f4e51a064f090"
+prerequisite_revision = "9a37491a1b8870a2cb61b07ab582076843b38b78"
+leaking_importer = "pages/apps/repair-22-33-451.spec.ts pulled node-fetch and Node HTTP modules into the route graph before prerequisite 22.31.503 moved it out of pages. nextjs/utils/fetchApi.ts and pages/apps/[id].tsx also statically imported node-fetch; use global fetch so those sources cannot bring Node-only modules into client or edge compilation."
+introduced_by = "2f4196112cab5626eb786442fc0768366334f62f (22.33.451) added the page-local test. Production node-fetch imports were already present at the explorer layout move 9a7c1d9479; 7f57aae8898b61c2f9cc54fae6cda431aa964509 added the fetchApi non-OK response guard retained by this repair."
+fix = "Retain all four route suites at the nextjs/pages-tests paths already published by 22.31.503; remove only the redundant copies carried by attempt 1 under nextjs/tests/pages. Every original case and assertion stays in the prerequisite suites. Use native fetch in pages/apps/[id].tsx and nextjs/utils/fetchApi.ts, retaining trusted-origin catalogue resolution, timeout cancellation, status logging and HTTP 504 classification of AbortError. Retain node-fetch in the Node API proxy, whose Node streams and raw Set-Cookie headers depend on it."
+tests = ["nodeFetchImportsStayServerOnly", "testModulesStayOutOfNextPages"]
+regression = "Walk all explorer JS/TS sources and inspect static imports and re-exports with the TypeScript parser. Permit node-fetch only in API routes, the explicit Node module allowlist and the enumerated existing Node-process tests. Assert no test modules occur under pages so neither Node test dependencies nor test runners enter the production route graph."
+baseline = "No manual baseline build: the ordered gate rules allow production compilation only through hf-done after the entire implementation and hf-build. The source import trace is pages/apps/repair-22-33-451.spec.ts -> node-fetch/src/index.js -> node:buffer, node:events, node:fs, node:http and node:https, matching gotcha 3069."
+
+[qualification]
+verified_revision_evidence = "/out/run/gates.jsonl: the final verify row supplies the exact verified candidate revision, command, exit code and private log; completion requires passing build and verify records at the same revision."
+build_command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run repair-22-31-512.spec.ts && NEXT_TELEMETRY_DISABLED=1 yarn build"
+build_output_summary_evidence = "/out/logs/build-1.log and /out/logs/verify-1.log (or the final repair rerun logs identified in /out/run/gates.jsonl) contain frozen-install, TypeScript, both import-boundary regression tests and the full next build output, including compilation, page generation and final route summary. A nonzero exit remains unqualified."
+private_evidence = "/out/run/gates.jsonl and the exact log paths in its build and verify records. Build and verify must name the same candidate revision."
+memory_policy = "If the environment refuses production compilation for memory, retain the exact refusal in the private qualification evidence and report implemented-not-qualified without lowering the heap or skipping pages."
+
+[qualification.unrelated_typecheck]
+revision = "377f2fdfa3fd83a7fc5dca09c6d1e1227d512dd9"
+command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "toolkit/components/forms/fields/repair-22-33-270.spec.ts(4,32): error TS2307: Cannot find module '@juggle/resize-observer' or its corresponding type declarations."
+resolution = "Attempt 2 step do_5 explicitly authorizes replacing this undeclared import with a local TestResizeObserver class implementing observe, unobserve and disconnect, installed on globalThis for jsdom. No dependency, case, assertion or production observer behavior changes."
+
+[repair.resize-observer]
+path = "toolkit/components/forms/fields/repair-22-33-270.spec.ts"
+implementation = "Replace undeclared @juggle/resize-observer with the requested minimal local TestResizeObserver implementing the DOM ResizeObserver interface; keep every form interaction and validation assertion intact."
+authorization = "Task step do_5, gotcha 3078."
+
+[repair.page-tests]
+prerequisite = "22.31.503 already merged into this branch."
+implementation = "The node-fetch allowlist uses nextjs/pages-tests, verifies every allowlisted test exists outside pages, and retains the assertion that no test modules are routes. No prerequisite page-test move is repeated."
+
+[qualification.continuation-build_1]
+revision = "ded8caf66dc06cce5afe05996cf3cb223ec36d3c"
+command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "The installed dependency directory was relocated behind an ignored symlink to bound candidate preparation, but its nonstandard basename broke sibling package resolution and caused missing re-exported dependency types throughout the type-check."
+repair = "Keep the external dependency directory named node_modules and point the ignored explorer symlink there, preserving standard sibling-package resolution without modifying manifests, installed package contents, source types or assertions."
