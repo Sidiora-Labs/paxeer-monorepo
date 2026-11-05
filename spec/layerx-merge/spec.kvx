@@ -175179,7 +175179,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.537]
 title = "Carry the actor DID in the stored held spend so the ticket names the agent, not the sender address"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
