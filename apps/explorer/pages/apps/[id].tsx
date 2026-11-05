@@ -1,6 +1,5 @@
 import type { GetServerSideProps } from 'next';
 import dynamic from 'next/dynamic';
-import fetch from 'node-fetch';
 import React from 'react';
 
 import type { NextPageWithLayout } from 'nextjs/types';

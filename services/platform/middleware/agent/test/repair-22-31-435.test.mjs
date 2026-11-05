@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash, generateKeyPairSync, sign } from "node:crypto";
 import test from "node:test";
-import { ed25519 } from "@noble/curves/ed25519.js";
 import { secp256k1 } from "@noble/curves/secp256k1.js";
 import { AgentEnvelopeTransport, AgentSessionCredential, LayerXKeyCredential, SecretBytes, ProductionClient, JsonRpcClient, PreparedGrantDraws, decodeRawEip1559, eip1559SigningHash, keccak256, verifySequencerReceipt, PlatformSdkError } from "@sidiora/layerx-sdk";
 import { decodePaymentDrawnLog, encodeLedgerDraw, LAYERX_LEDGER_ADDRESS, ReceiptPayloadAuthority } from "@sidiora/layerx-seller-middleware";
@@ -13,6 +12,7 @@ import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { recordedCommittedFixture } from "../../conformance/pay6/committed-fixture.mjs";
 
 export const REPAIR_TASK_RECORD = Object.freeze({
   task: "22.31.435",
@@ -332,7 +332,15 @@ async function daemonSubmissionShapeUsesDispatchTranscripts(t) {
   assert.deepEqual(pending.transitions, transcript.pending.submission.transitions);
   const committed = await resolveDaemonReceipt(decodeDaemonSubmission(transcript.committed), raw, receiptKeys);
   assert.equal(committed.state, "Committed");
-  assert.equal(committed.portableReceipt.verificationLevel, "committed");
+  assert.equal(committed.portableReceipt.verificationLevel, "receipted");
+  const receiptVerification = await verifyAgentPayment(committed.portableReceipt, input, receiptKeys);
+  assert.equal(receiptVerification.rung, "receipted");
+  assert.equal(committed.portableReceipt.receiptDigest, hex(receiptVerification.receiptDigest));
+  assert.equal(receiptVerification.commitmentEvidence, undefined);
+  const { resolver } = await recordedCommittedFixture();
+  await assert.rejects(verifyAgentPayment(committed.portableReceipt, {
+    ...input, commitment: { network: "eip155:125", level: "committed" },
+  }, receiptKeys, resolver));
   assert.deepEqual(committed.observation, transcript.committed);
   for (const changes of [
     (x) => { x.activity_id = "99".repeat(32); },
@@ -355,114 +363,21 @@ async function daemonSubmissionShapeUsesDispatchTranscripts(t) {
   }
 }
 
-const chainId = "paxeer-125";
-function varint(value) {
-  const result = [];
-  do {
-    const low = Number(value & 127n);
-    value >>= 7n;
-    result.push(low | (value === 0n ? 0 : 128));
-  } while (value !== 0n);
-  return Buffer.from(result);
-}
-
-function protoBytes(field, value) {
-  return Buffer.concat([varint(BigInt(field * 8 + 2)), varint(BigInt(value.length)), value]);
-}
-
-function protoInteger(field, value) {
-  return value === 0n ? Buffer.alloc(0) : Buffer.concat([varint(BigInt(field * 8)), varint(value)]);
-}
-
-function merkleRoot(leaves) {
-  if (leaves.length === 0) return sha256(Buffer.alloc(0));
-  if (leaves.length === 1) return sha256(Buffer.of(0), leaves[0]);
-  let split = 1;
-  while (split * 2 < leaves.length) split *= 2;
-  return sha256(Buffer.of(1), merkleRoot(leaves.slice(0, split)), merkleRoot(leaves.slice(split)));
-}
-
-function validatorSetHash(validators) {
-  return merkleRoot(validators.map((validator) => Buffer.concat([
-    protoBytes(1, protoBytes(1, validator.publicKey)),
-    protoInteger(2, validator.votingPower),
-  ])));
-}
-
-function validator(secret) {
-  const publicKey = ed25519.getPublicKey(secret);
-  return { publicKey, address: Uint8Array.from(sha256(publicKey).subarray(0, 20)), votingPower: 1n };
-}
-
-function blockHeader(verified, rawTransaction, validators) {
-  const height = verified.height;
-  const validatorsHash = validatorSetHash(validators);
-  const receiptRoot = merkleRoot([verified.receiptDigest]);
-  const dataHash = merkleRoot([rawTransaction]);
-  const timestamp = protoInteger(1, 1n);
-  const empty = Buffer.alloc(0);
-  const fields = [
-    Buffer.concat([protoInteger(1, 11n), protoInteger(2, 1n)]),
-    protoBytes(1, Buffer.from(chainId)), protoInteger(1, height), timestamp,
-    protoBytes(2, empty), empty, protoBytes(1, dataHash),
-    protoBytes(1, validatorsHash), protoBytes(1, validatorsHash),
-    protoBytes(1, sha256(Buffer.from("conformance-consensus-parameters"))),
-    protoBytes(1, verified.receipt.resultingStateRoot), protoBytes(1, receiptRoot),
-    protoBytes(1, merkleRoot([])), protoBytes(1, validators[0].address),
-  ];
-  const blockId = {
-    hash: Uint8Array.from(merkleRoot(fields)),
-    partSetHeader: { total: 1, hash: Uint8Array.from(merkleRoot([Buffer.concat(fields)])) },
-  };
-  return { chainId, height, validatorsHash: Uint8Array.from(validatorsHash), receiptRoot, dataHash, blockId };
-}
-
-function commitSignBytes(header) {
-  const height = Buffer.alloc(9);
-  height[0] = 17;
-  height.writeBigInt64LE(header.height, 1);
-  const partSet = Buffer.concat([
-    protoInteger(1, BigInt(header.blockId.partSetHeader.total)),
-    protoBytes(2, header.blockId.partSetHeader.hash),
-  ]);
-  const block = Buffer.concat([protoBytes(1, header.blockId.hash), protoBytes(2, partSet)]);
-  const vote = Buffer.concat([
-    protoInteger(1, 2n), height, protoBytes(4, block),
-    protoBytes(5, protoInteger(1, 1n)), protoBytes(6, Buffer.from(header.chainId)),
-  ]);
-  return Buffer.concat([varint(BigInt(vote.length)), vote]);
-}
-
-async function signedCommitmentResolver(transcript, receiptKeys) {
-  const raw = Buffer.from(transcript.raw_transaction, "hex");
-  const verified = await verifySequencerReceipt(Buffer.from(transcript.submit.signed_receipt, "hex"), raw, receiptKeys);
-  const keys = [1, 2, 3, 4].map((seed) => {
-    const secret = word(seed);
-    return { secret, validator: validator(secret) };
-  }).sort((a, b) => Buffer.compare(a.validator.address, b.validator.address));
-  const validatorSet = keys.map((key) => key.validator);
-  const header = blockHeader(verified, raw, validatorSet);
-  const signBytes = commitSignBytes(header);
-  const evidence = {
-    landingBlockHeight: header.height, blockHeader: header,
-    receiptInclusion: { transactionHash: verified.receipt.activityId.slice(), receiptDigest: verified.receiptDigest.slice(),
-      sequence: verified.receipt.globalSequence, leafIndex: 0, leafCount: 1, siblings: [] },
-    commit: { height: header.height, round: 0, blockId: header.blockId,
-      signatures: keys.slice(0, 3).map(({ secret, validator }) => ({ blockIdFlag: 2,
-        validatorAddress: validator.address, timestamp: { seconds: 1n, nanos: 0 }, signature: ed25519.sign(signBytes, secret) })) },
-    validatorSet,
-  };
-  return { async resolve(hash, network) {
-    assert.equal(hash, `0x${transcript.submit.tx_hash}`);
-    assert.equal(network, "eip155:125");
-    return structuredClone(evidence);
-  } };
-}
-
 async function daemonSubmissionRecoversAfterLostSubmit(t) {
   const fixture = daemonFixture();
   const { transcript, raw, input, prepared, receiptKeys, signer } = fixture;
-  const commitments = await signedCommitmentResolver(transcript, receiptKeys);
+  const { resolver } = await recordedCommittedFixture();
+  const commitmentCalls = [];
+  const commitments = {
+    async resolve(transactionHash, network) {
+      commitmentCalls.push({ transactionHash, network });
+      return resolver.resolve(transactionHash, network);
+    },
+    async resolveValidators(network, height) {
+      commitmentCalls.push({ network, height });
+      return resolver.resolveValidators(network, height);
+    },
+  };
   let tracked = transcript.pending;
   let submits = 0;
   let polls = 0;
@@ -487,7 +402,11 @@ async function daemonSubmissionRecoversAfterLostSubmit(t) {
   assert.equal((await component.middleware.spend(input)).kind, "unknown");
   assert.equal(component.budgets.available, 75000n);
   component.budgets.close(); component = open();
-  assert.equal((await component.middleware.resume(input, hex(raw), transcript.submit.tx_hash)).kind, "unknown");
+  const pending = await component.middleware.resume(input, hex(raw), transcript.submit.tx_hash);
+  assert.equal(pending.kind, "unknown");
+  assert.equal(pending.submission.state, "Unknown");
+  assert.equal(pending.submission.rung, "submitted");
+  assert.deepEqual(commitmentCalls, []);
   assert.equal([...component.budgets.reservations.values()][0].state, "reserved");
   assert.equal(component.budgets.transitions.length, 0);
   component.budgets.close(); tracked = transcript.committed; component = open();
@@ -495,6 +414,9 @@ async function daemonSubmissionRecoversAfterLostSubmit(t) {
   assert.equal(result.kind, "verified");
   assert.equal(result.submission.state, "Committed");
   assert.equal(result.submission.rung, "committed");
+  assert.equal(result.verification.rung, "receipted");
+  assert.equal(result.verification.commitmentEvidence, undefined);
+  assert.deepEqual(commitmentCalls, []);
   assert.equal(component.budgets.available, 75000n);
   assert.equal(component.budgets.transitions.length, 1);
   assert.equal(submits, 1);

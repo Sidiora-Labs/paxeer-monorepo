@@ -5,13 +5,13 @@ import (
 	"database/sql"
 	"errors"
 	"os"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/ceremony/internal/archive"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/ceremony/internal/ceremonyfixture"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/ceremony/internal/envelope"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/ceremony/internal/migrate"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/ceremony/internal/rehearsal"
@@ -57,18 +57,6 @@ func (s *source) standardFixture(t *testing.T) string {
 	}
 	s.reader = s.pg.ReadOnlyRole(t, readerRole)
 	return funded
-}
-
-func options(t *testing.T, s *source) rehearsal.Options {
-	t.Helper()
-	o := rehearsal.RepairM174DaemonOptions(t, testsupport.AttestorBinary(t))
-	o.SourceURL = s.reader
-	o.MigrationsDir = testsupport.GatewayMigrationsDir(t)
-	o.AdminURL = s.pg.URL
-	o.MasterKey = s.master
-	o.ArchivePath = filepath.Join(t.TempDir(), "funded.archive")
-	o.Passphrase = []byte(passphrase)
-	return o
 }
 
 func databases(t *testing.T, pg *testsupport.Postgres) int {
@@ -306,10 +294,17 @@ func TestCopyReportVerifyComparesCountsAndDigests(t *testing.T) {
 
 func TestRehearseMigratesEveryWalletThroughFiveDaemons(t *testing.T) {
 	s := newSource(t, 3)
-	funded := s.standardFixture(t)
+	standard := testsupport.InsertWallet(t, s.pg.DB, s.vectors[0], "standard")
+	second := testsupport.InsertWallet(t, s.pg.DB, s.vectors[1], "standard")
+	funded := testsupport.InsertWallet(t, s.pg.DB, s.vectors[2], "funded")
+	testsupport.InsertFundedAccount(t, s.pg.DB, funded)
+	testsupport.InsertSignature(t, s.pg.DB, standard)
+	testsupport.InsertSignature(t, s.pg.DB, second)
+	fixture := ceremonyfixture.New(t, s.pg, s.master, s.vectors)
 	before := testsupport.Fingerprint(t, s.pg.DB)
-	o := options(t, s)
-	deliveryBefore := rehearsal.RepairM174DeliveryDigest(t, o)
+	o := fixture.Options
+	o.Passphrase = []byte(passphrase)
+	deliveryBefore := fixture.Delivery.Fingerprint(t)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
 	defer cancel()
@@ -351,7 +346,7 @@ func TestRehearseMigratesEveryWalletThroughFiveDaemons(t *testing.T) {
 	if after := testsupport.Fingerprint(t, s.pg.DB); !reflect.DeepEqual(before, after) {
 		t.Fatal("rehearsal wrote to the source database")
 	}
-	if rehearsal.RepairM174DeliveryDigest(t, o) != deliveryBefore {
+	if fixture.Delivery.Fingerprint(t) != deliveryBefore {
 		t.Fatal("rehearsal changed production member state")
 	}
 	if n := databases(t, s.pg); n != 0 {
@@ -366,7 +361,8 @@ func TestRehearseStopsOnMismatch(t *testing.T) {
 	bad := testsupport.InsertWallet(t, s.pg.DB, wrong, "standard")
 	testsupport.InsertWallet(t, s.pg.DB, s.vectors[1], "agent")
 	s.reader = s.pg.ReadOnlyRole(t, readerRole)
-	o := options(t, s)
+	fixture := ceremonyfixture.New(t, s.pg, s.master, s.vectors)
+	o := fixture.Options
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
