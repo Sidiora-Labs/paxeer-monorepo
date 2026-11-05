@@ -147770,7 +147770,7 @@ do_4 = "Attempt 2 (continue, decision 2556): the double now answers getParams an
 
 [task.22.31.503]
 title = "Move the explorer page repair tests out of the Next.js pages directory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
