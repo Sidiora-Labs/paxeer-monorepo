@@ -60,7 +60,7 @@ const testWidgetsFn = (isMobile: boolean) => async({ render, mockConfigResponse,
 test.describe('mobile', () => {
   test.use({ viewport: devices['iPhone 13 Pro'].viewport });
 
-  test('contract', async({ render, mockApiResponse, page }) => {
+  test('contract +@dark-mode', async({ render, mockApiResponse, page }) => {
     await mockApiResponse('general:address', addressMock.contract, { pathParams: { hash: ADDRESS_HASH } });
 
     const component = await render(
@@ -77,7 +77,7 @@ test.describe('mobile', () => {
     });
   });
 
-  test('validator', async({ render, page, mockApiResponse }) => {
+  test('validator +@dark-mode', async({ render, page, mockApiResponse }) => {
     await mockApiResponse('general:address', addressMock.validator, { pathParams: { hash: ADDRESS_HASH } });
 
     const component = await render(
@@ -94,7 +94,7 @@ test.describe('mobile', () => {
     });
   });
 
-  test('filecoin', async({ render, mockApiResponse, page }) => {
+  test('filecoin +@dark-mode', async({ render, mockApiResponse, page }) => {
     await mockApiResponse('general:address', addressMock.filecoin, { pathParams: { hash: ADDRESS_HASH } });
 
     const component = await render(
@@ -111,10 +111,10 @@ test.describe('mobile', () => {
     });
   });
 
-  test('with widgets', testWidgetsFn(true));
+  test('with widgets +@dark-mode', testWidgetsFn(true));
 });
 
-test('contract', async({ render, page, mockApiResponse }) => {
+test('contract +@dark-mode', async({ render, page, mockApiResponse }) => {
   await mockApiResponse('general:address', addressMock.contract, { pathParams: { hash: ADDRESS_HASH } });
 
   const component = await render(
@@ -153,7 +153,7 @@ test.fixme('token', async({ render, mockApiResponse, injectMetaMaskProvider, pag
   });
 });
 
-test('validator', async({ render, mockApiResponse, page }) => {
+test('validator +@dark-mode', async({ render, mockApiResponse, page }) => {
   await mockApiResponse('general:address', addressMock.validator, { pathParams: { hash: ADDRESS_HASH } });
 
   const component = await render(
@@ -170,7 +170,7 @@ test('validator', async({ render, mockApiResponse, page }) => {
   });
 });
 
-test('filecoin', async({ render, mockApiResponse, page }) => {
+test('filecoin +@dark-mode', async({ render, mockApiResponse, page }) => {
   await mockApiResponse('general:address', addressMock.filecoin, { pathParams: { hash: ADDRESS_HASH } });
 
   const component = await render(
@@ -187,4 +187,4 @@ test('filecoin', async({ render, mockApiResponse, page }) => {
   });
 });
 
-test('with widgets', testWidgetsFn(false));
+test('with widgets +@dark-mode', testWidgetsFn(false));
