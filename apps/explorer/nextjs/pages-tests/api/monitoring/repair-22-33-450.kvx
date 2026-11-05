@@ -2,7 +2,7 @@
 task = "22.33.450"
 audit = "22.30.148"
 acceptance = "22998.1"
-test_path = "apps/explorer/pages/api/monitoring/repair-22-33-450.spec.ts"
+test_path = "apps/explorer/nextjs/pages-tests/api/monitoring/repair-22-33-450.spec.ts"
 verified_revision_evidence = "/out/run/gates.jsonl: final hf-done record binds this candidate to revision, command, exit and private log."
 baseline = "Not run: the explicit gate order prohibits testing before complete implementation or running verify_cmd by hand; no pre-change failures are claimed."
 
