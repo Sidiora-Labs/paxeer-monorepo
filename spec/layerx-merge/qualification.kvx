@@ -31819,3 +31819,11 @@ symbol = "repair_22_33_217.rs"
 observed = "Attempt 6 at 03db7887a73067f0631add7e0eb3bfe818f64ec5: build exit 0; dependent-crate check exit 101 on E0609 no field owner_public_key on type NativeSendPurposeV2 at services/human/crates/layerx-human-service/tests/native_send_producer.rs line 659; verify did not run; the task record cites revision dbfce8b11ade61c628dd32731c344b56affabf86."
 assumption = "A stale site outside the task paths, repaired by 22.31.558."
 severity = "medium"
+
+[finding.22.31.557.1]
+task = "22.31.557"
+file = "services/human/crates/layerx-intents/src/compile.rs"
+symbol = "compile.rs"
+observed = "Attempt 1 at daf8912bcf457658e0801c8142af7268e260de2d: build exit 0; dependent-crate check exit 101 on E0609 no field owner_public_key on type NativeSendPurposeV2 at services/human/crates/layerx-human-service/tests/native_send_producer.rs line 659; verify did not run."
+assumption = "A stale site outside the task paths, repaired by 22.31.558."
+severity = "medium"
