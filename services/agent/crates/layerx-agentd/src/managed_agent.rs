@@ -781,7 +781,9 @@ fn key_policy_observation(
                 .ok_or(HumanOperationError::Refused)?
         || effective == 0
         || observed < effective
-        || verification < 4
+        || VerificationLevel::from_wire_rank(verification)
+            .map_err(|_| HumanOperationError::Refused)?
+            != VerificationLevel::COMMITTED
         || observed_digest != digest
         || checkpoint == [0; 32]
         || maximum_age == 0
