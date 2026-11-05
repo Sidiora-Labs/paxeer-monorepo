@@ -30891,3 +30891,51 @@ symbol = "repair_22_31_491_test.go"
 observed = "Attempt 2: build exit 0; verify exit 1 with TestRepairM_486_DerivedCopies reporting portable provenance differs from source recordings; the rpc, sdk/platform/go, pytest and wallet targets passed."
 assumption = "A derived copy outside the task's paths that the task's own gate pins (gotcha 3110)."
 severity = "low"
+
+[finding.22.31.517.3]
+task = "22.31.517"
+file = "services/wallet/gateway/test/repair-22-31-517.test.ts"
+symbol = "repair-22-31-517.test.ts"
+observed = "Attempt 2 (requalify): build exit 2; the install passed and tsc -p tsconfig.json --noEmit reported one error, src/routes/evmApprovals.ts(479,58) TS18048; verify did not run."
+assumption = "A narrowing loss from moving route logic into a hoisted function declaration (gotcha 3111)."
+severity = "low"
+
+[finding.22.31.526.2]
+task = "22.31.526"
+file = "services/interop/crates/x-websearch/tests/payment.rs"
+symbol = "payment.rs"
+observed = "Attempt 2 (continue): build exit 0; the x-websearch payment gate passed 37 cases; the layerx-mcp web suite failed 7 of 22 (three FETCH_RECEIPT_DIGEST comparisons at lines 1099 and 2143, four hold cases with the web payer is unavailable at lines 1332, 1368 and 2220); the second web test target did not run."
+assumption = "The recording producer and its MCP consumer are proven together (decision 2578); the hold-resource failure predates the task (gotcha 3112) and is repaired by 22.31.529."
+severity = "high"
+
+[finding.22.31.521.4]
+task = "22.31.521"
+file = "services/human/crates/layerx-human-service/tests/decide_nonces.rs"
+symbol = "decide_nonces.rs"
+observed = "Attempt 4: verify exit 101 in both cycles; both decide_nonces cases pass; the repair_22_31_159 cases failed first with PermissionDenied (store root is not a canonical owned private directory) under fs::create_dir_all and then with NotFound under a non-recursive DirBuilder with mode 0o700."
+assumption = "Recursive creation with mode 0o700 satisfies layerx-agentd/src/store/protected.rs line 93 for every created level."
+severity = "low"
+
+[finding.22.31.527.2]
+task = "22.31.527"
+file = "services/agent/crates/layerx-mcp/tests/repair_22_31_527.rs"
+symbol = "repair_22_31_527.rs"
+observed = "Attempt 2: build exit 0, verify exit 0; the dependent-crate check failed: layerx-agentd-host test payer_evm E0061 at tests/payer_evm.rs line 477 (argument 4 of type &dyn Clock missing); layerx-human-service test decide E0061 at decide.rs lines 361, 387 and 491 (TimestampSeconds missing) and E0063 missing current_time at lines 466 and 498."
+assumption = "The producer task carries every consumer the dependent-crate check builds; 22.31.515 requires 22.31.527 and takes the remaining sites."
+severity = "high"
+
+[finding.22.31.524.3]
+task = "22.31.524"
+file = "services/platform/middleware/seller/test/committed-fixture.mjs"
+symbol = "committed-fixture.mjs"
+observed = "Attempt 3: verify exit 1; 25 cases, 21 pass; the two daemon submission cases fail (verification-failure at the seller verifyPaymentReceipt; resume kind verified where unknown is expected at line 495) and agentDrawRecipientBindsAuthenticatedGrant and agentDrawUnknownReservationSurvivesReopen fail with verification-failure at the agent grant verifier (src/index.ts line 1037)."
+assumption = "The 435 fixture keyed to the verifier digest is correct under decision 2538 and passes once 22.31.492 ports index.ts lines 896 and 1037 and daemon.ts line 241."
+severity = "low"
+
+[finding.22.31.513.2]
+task = "22.31.513"
+file = "services/wallet/ceremony/internal/move/move_test.go"
+symbol = "move_test.go"
+observed = "Attempt 2: build exit 0; verify exit 1 in both cycles: two rehearsal tests and three cmd/ceremony tests fail at identity generation with AttestorQuorumError participant_unavailable (the node endpoint is not ready for a key operation) from client.ts line 787 after client.health(); the earlier repair installed the agent SDK dependencies the producer imports."
+assumption = "The ceremony fixture attestors serve the same real protocol the Go client uses, so the gateway probe refusal is a contract mismatch on the probe or inventory side."
+severity = "high"
