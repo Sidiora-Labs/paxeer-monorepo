@@ -175504,7 +175504,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.553]
 title = "Diagnose and repair the effects register case and the two program node historical deployment cases of the daemon library target"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -175564,7 +175564,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.551]
 title = "Port the in-crate approval and policy tests off the retired sequence-only hold entry to the timed entry with a test clock"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -176657,7 +176657,7 @@ do_8 = "Attempt 4 (requalify after 22.31.550, gotcha 3166, decision 2620): the a
 
 [task.22.31.487]
 title = "Port the Rust SDK and the daemon budget encoder to the achieved_verification_level wire name"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.485", "22.31.497", "22.31.550"]
@@ -179009,7 +179009,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1513]
 title = "Repair audit record 22.30.91 medium findings in services/agent/crates/layerx-agentd/src (part 1 of 1): restart-recovery, runtime-risk, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.363", "22.31.364", "22.31.365", "22.31.366", "22.31.367", "22.31.443", "22.31.483", "22.31.497", "22.31.550"]
@@ -333945,7 +333945,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.249]
 title = "Repair audit record 22.30.129 medium findings in programs/sdk/rust/quickstart (part 1 of 1): config-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.264", "22.31.265", "22.31.374", "22.31.375", "22.31.485", "22.31.497", "22.31.550"]
