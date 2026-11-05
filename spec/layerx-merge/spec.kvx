@@ -179587,7 +179587,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1497]
 title = "Repair audit record 22.30.89 medium findings in tools/platform/cli/tests (part 3 of 3): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.212", "22.31.213", "22.33.1493", "22.33.1494"]
@@ -179628,7 +179628,7 @@ do_14 = "Attempt 2 (continue after 22.33.1493 and 22.33.1494, gotcha 3176, decis
 
 [task.22.33.1496]
 title = "Repair audit record 22.30.89 medium findings in tools/platform/cli/tests (part 2 of 3): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.212", "22.31.213", "22.33.1492", "22.33.1493", "22.33.1494"]
@@ -201676,7 +201676,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1495]
 title = "Repair audit record 22.30.89 medium findings in tools/platform/cli/tests (part 1 of 3): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.212", "22.31.213", "22.33.1492", "22.33.1493"]
