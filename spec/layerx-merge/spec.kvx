@@ -175128,7 +175128,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.535]
 title = "Emit the committed verification wire rank from the hosted authority and require it in every daemon consumer of its responses"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
