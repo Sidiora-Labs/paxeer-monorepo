@@ -32,7 +32,7 @@ mod toolset {
     }
 }
 
-use std::io::{BufRead as _, BufReader, Read as _};
+use std::io::{BufRead as _, BufReader, Read as _, Write as _};
 use std::net::{Shutdown, TcpListener};
 use std::time::{Duration, Instant};
 
@@ -56,7 +56,9 @@ fn signed_transaction() -> Result<Vec<u8>, Box<dyn std::error::Error>> {
 }
 
 // Capture the actual outbound HTTP request without supplying a fabricated node response.
-fn capture() -> Result<(String, std::thread::JoinHandle<Result<Value, String>>), String> {
+fn capture(
+    reply: Option<Value>,
+) -> Result<(String, std::thread::JoinHandle<Result<Value, String>>), String> {
     let listener = TcpListener::bind("127.0.0.1:0").map_err(|error| error.to_string())?;
     let endpoint = format!(
         "http://{}",
@@ -87,7 +89,7 @@ fn capture() -> Result<(String, std::thread::JoinHandle<Result<Value, String>>),
         reader
             .read_line(&mut line)
             .map_err(|error| error.to_string())?;
-        assert_eq!(line, "POST /rpc HTTP/1.1\r\n");
+        assert_eq!(line, "POST / HTTP/1.1\r\n");
         let mut length = None;
         loop {
             line.clear();
@@ -119,6 +121,17 @@ fn capture() -> Result<(String, std::thread::JoinHandle<Result<Value, String>>),
         reader
             .read_exact(&mut body)
             .map_err(|error| error.to_string())?;
+        if let Some(mut reply) = reply {
+            let request: Value =
+                serde_json::from_slice(&body).map_err(|error| error.to_string())?;
+            reply["id"] = request["id"].clone();
+            let encoded = serde_json::to_vec(&reply).map_err(|error| error.to_string())?;
+            write!(reader.get_mut(), "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", encoded.len()).map_err(|error| error.to_string())?;
+            reader
+                .get_mut()
+                .write_all(&encoded)
+                .map_err(|error| error.to_string())?;
+        }
         reader
             .get_ref()
             .shutdown(Shutdown::Both)
@@ -139,7 +152,7 @@ fn mcp_submit_tool_sends_raw_transaction() -> Result<(), Box<dyn std::error::Err
         .find(|tool| tool.name == "activity.submit")
         .copied()
         .ok_or("submit tool absent")?;
-    let (endpoint, captured) = capture()?;
+    let (endpoint, captured) = capture(None)?;
     let runtime = toolset::runtime(&endpoint)?;
     let outcome = toolset::invoke(&runtime, tool, &arguments);
     let sent = captured.join().map_err(|_| "wire capture panicked")??;
@@ -166,6 +179,14 @@ fn mcp_submit_tool_sends_raw_transaction() -> Result<(), Box<dyn std::error::Err
     recover_sender(&call, &signature)?;
 
     let hash = format!("0x{}", encoding::hex_encode(&transaction_hash(&raw)));
+    let (endpoint, returned) = capture(Some(json!({"jsonrpc":"2.0", "id":1, "result":hash})))?;
+    let accepted = toolset::invoke(&toolset::runtime(&endpoint)?, tool, &arguments)?;
+    assert_eq!(accepted, json!({"txHash":hash,"rung":"submitted"}));
+    assert_eq!(
+        returned.join().map_err(|_| "node exchange panicked")??,
+        sent
+    );
+
     assert_eq!(
         toolset::result(&raw, &json!({"jsonrpc":"2.0", "id":1, "result":hash}))?,
         json!({"txHash":hash, "rung":"submitted"})
@@ -363,4 +384,13 @@ fn rpc_request_admits_major_two_names() -> Result<(), Box<dyn std::error::Error>
         .is_err());
     }
     Ok(())
+}
+
+// Share the enrollment, authenticated transport and durable-owner proof with the focused gate.
+#[path = "repair_22_33_1495.rs"]
+mod audit_repair;
+
+#[test]
+fn served_mcp_submit_reconciles_the_node_receipt_after_restart() {
+    audit_repair::served_submission_journey(Some(env!("CARGO_BIN_EXE_layerx")));
 }

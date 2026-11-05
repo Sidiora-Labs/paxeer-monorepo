@@ -76,7 +76,7 @@ fn watch(method: &'static str) -> Result<(Output, Value), Box<dyn std::error::Er
     credential_vault(root.path(), &credential)?;
     let listener = TcpListener::bind("127.0.0.1:0")?;
     listener.set_nonblocking(true)?;
-    let url = format!("http://{}/rpc", listener.local_addr()?);
+    let url = format!("http://{}", listener.local_addr()?);
     let server = thread::spawn(move || -> Result<Value, String> {
         let deadline = Instant::now() + Duration::from_secs(10);
         let stream = loop {
@@ -99,7 +99,7 @@ fn watch(method: &'static str) -> Result<(Output, Value), Box<dyn std::error::Er
             .map_err(|error| error.to_string())?;
         let mut socket =
             tungstenite::accept_hdr(stream, |upgrade: &Request, response: Response| {
-                assert_eq!(upgrade.uri().path(), "/rpc/ws");
+                assert_eq!(upgrade.uri().path(), "/");
                 assert_eq!(
                     upgrade.headers()["Authorization"],
                     format!("LayerX-Key {credential}")
@@ -204,7 +204,7 @@ fn wallet_watch_subscribes_to_logs() -> Result<(), Box<dyn std::error::Error>> {
         &json!({"jsonrpc":"2.0","id":1,"result":false})
     )
     .is_err());
-    let client = RpcClient::new("http://127.0.0.1:1/rpc", None)?;
+    let client = RpcClient::new("http://127.0.0.1:1", None)?;
     for (method, params) in [
         ("eth_subscribe", params),
         ("eth_unsubscribe", json!([SUBSCRIPTION])),

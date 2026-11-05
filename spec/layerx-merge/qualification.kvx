@@ -31835,3 +31835,35 @@ symbol = "native_send_producer.rs"
 observed = "Attempt 1 at 4e358d8cfb3e0fb452f2105e4323eba24aafd0a3: build exit 0, dependent-crate check exit 0, verify exit 1: genuine_human_owner_session_consent_preview_and_reopen panicked at native_send_producer.rs line 574 on the absent fixture environment variable; 0 passed, 1 failed."
 assumption = "The verify command named a case that needs a recorded fixture; the repair itself is complete."
 severity = "medium"
+
+[finding.22.31.539.3]
+task = "22.31.539"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_539.rs"
+symbol = "repair_22_31_539.rs"
+observed = "Attempt 3 at e3b6976083056639f1514dfea35e2dc38dc96125: build exit 0; dependent-crate check exit 101 on E0609 no field owner_public_key on type NativeSendPurposeV2 at services/human/crates/layerx-human-service/tests/native_send_producer.rs line 659; verify did not run."
+assumption = "A stale site outside the task paths, repaired by 22.31.558."
+severity = "medium"
+
+[finding.22.31.478.5]
+task = "22.31.478"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 5 at b81618c97e303792a69b9531123f4093af9bf4ef: build exit 0; dependent-crate check exit 101 on E0609 no field owner_public_key on type NativeSendPurposeV2 at services/human/crates/layerx-human-service/tests/native_send_producer.rs line 659; verify did not run; the record cites revision 8cc1e9b86f8c31729dd4c66cccbf3105e7bce74b."
+assumption = "A stale site outside the task paths, repaired by 22.31.558."
+severity = "medium"
+
+[finding.22.31.547.3]
+task = "22.31.547"
+file = "services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs"
+symbol = "repair_22_31_547.rs"
+observed = "Attempt 3 at be7c10d1706f06b54be030969c1daed3ccf2ea4d: build exit 0, dependent-crate check exit 0, verify: 10 passed in the library suite; repair_22_31_547 0 passed 2 failed: native_sdk_v2_consent_crosses_daemon_rpc_and_legacy_is_malformed at line 231 (left 403 right 200, reason owner.refused, class PolicyRefusal, terminal), native_send_preview_is_an_unsigned_ledger_transfer_call at native_send_preview_evm.rs line 891 (bootstrap peer PoisonError)."
+assumption = "The first real producer to consumer crossing of the V2 consent path; the refusal is one of the enumerated checks."
+severity = "high"
+
+[finding.22.33.1569.5]
+task = "22.33.1569"
+file = "services/agent/qualification/pay2/tests/repair_22_33_1569.rs"
+symbol = "repair_22_33_1569.rs"
+observed = "Attempt 5 at f2ed3a742b2afb3c1d3637d735c55f47f64c4667: build exit 0, verify 1 passed, 1 failed: pay2_input_test_gap_executes_the_funded_sdk_and_mcp_workflow panicked at funded_scenario.rs line 8, PAY2 batched Send: Pending for the activity, after 60.32 seconds; a repair build at an intermediate revision failed on an unresolved layerx_programs_registry import that the committed tree no longer carries; the record cites revision 68c351cefa32f7e71156217d890466bba547bbd8."
+assumption = "The wallet lacks the finality trust the Batched commitment requires; the peer panic path is masked as Pending."
+severity = "high"
