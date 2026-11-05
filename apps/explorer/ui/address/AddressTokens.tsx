@@ -41,6 +41,7 @@ const AddressTokens = ({ shouldRender = true, isQueryEnabled = true, tokensCount
 
   const tab = getQueryParamString(router.query.tab);
   const hash = getQueryParamString(router.query.hash);
+  const isNftTab = [ 'tokens_nfts', 'tokens_nfts_collection', 'tokens_nfts_list' ].includes(tab);
 
   // on address details we have tokens requests for all token types, separately
   // react query can behave unexpectedly, when it already has data for ERC-20 (string type)
@@ -54,7 +55,7 @@ const AddressTokens = ({ shouldRender = true, isQueryEnabled = true, tokensCount
     filters: { type: tokenTypesFilter },
     scrollRef,
     options: {
-      enabled: isQueryEnabled && tab !== 'tokens_nfts',
+      enabled: isQueryEnabled && !isNftTab,
       refetchOnMount: false,
       placeholderData: generateListStub<'general:address_tokens'>(ADDRESS_TOKEN_BALANCE_ERC_20, 10, { next_page_params: null }),
     },
@@ -62,7 +63,7 @@ const AddressTokens = ({ shouldRender = true, isQueryEnabled = true, tokensCount
 
   const { nftsQuery, collectionsQuery, displayType: nftDisplayType, tokenTypes: nftTokenTypes, onDisplayTypeChange, onTokenTypesChange } = useAddressNftQuery({
     scrollRef,
-    enabled: isQueryEnabled && tab === 'tokens_nfts',
+    enabled: isQueryEnabled && isNftTab,
     addressHash: hash,
   });
 
@@ -74,7 +75,7 @@ const AddressTokens = ({ shouldRender = true, isQueryEnabled = true, tokensCount
 
   let pagination: PaginationParams | undefined;
 
-  if (tab === 'tokens_nfts') {
+  if (isNftTab) {
     pagination = nftDisplayType === 'list' ? nftsQuery.pagination : collectionsQuery.pagination;
   } else {
     pagination = erc20Query.pagination;
@@ -83,8 +84,6 @@ const AddressTokens = ({ shouldRender = true, isQueryEnabled = true, tokensCount
   const hasNftData =
     (!nftsQuery.isPlaceholderData && nftsQuery.data?.items.length) ||
     (!collectionsQuery.isPlaceholderData && collectionsQuery.data?.items.length);
-
-  const isNftTab = tab !== 'tokens' && tab !== 'tokens_erc20';
 
   const viewAllRow = (
     <Flex
@@ -126,7 +125,7 @@ const AddressTokens = ({ shouldRender = true, isQueryEnabled = true, tokensCount
 
   const tabs = [
     {
-      id: 'tokens_erc20',
+      id: [ 'tokens_erc20', 'tokens', 'portfolio' ],
       title: [
         `${ config.chain.tokenStandard }-20`,
         ...config.chain.additionalTokenTypes.map((item) => item.name),
@@ -147,7 +146,7 @@ const AddressTokens = ({ shouldRender = true, isQueryEnabled = true, tokensCount
       ),
     },
     {
-      id: 'tokens_nfts',
+      id: [ 'tokens_nfts', 'tokens_nfts_collection', 'tokens_nfts_list' ],
       title: 'NFTs',
       component: (
         <ScanTableCard
@@ -177,6 +176,7 @@ const AddressTokens = ({ shouldRender = true, isQueryEnabled = true, tokensCount
       <Box ref={ scrollRef }></Box>
       <RoutedTabs
         tabs={ tabs }
+        displayMode="entity"
         variant="pill"
         size="sm"
       />

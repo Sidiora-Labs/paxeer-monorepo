@@ -7,10 +7,16 @@ import { Heading } from 'toolkit/chakra/heading';
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import { Tooltip } from 'toolkit/chakra/tooltip';
 import { useDisclosure } from 'toolkit/hooks/useDisclosure';
+import AddressQrCode from 'ui/address/details/AddressQrCode';
 import TextAd from 'ui/shared/ad/TextAd';
+import CopyToClipboard from 'ui/shared/CopyToClipboard';
 
 type Props = {
   title: string;
+  kind?: string;
+  identifier?: string;
+  identifierContent?: React.ReactNode;
+  tags?: React.ReactNode;
   className?: string;
   beforeTitle?: React.ReactNode;
   afterTitle?: React.ReactNode;
@@ -22,7 +28,10 @@ type Props = {
 
 const TEXT_MAX_LINES = 1;
 
-const PageTitle = ({ title, contentAfter, withTextAd, className, isLoading = false, afterTitle, beforeTitle, secondRow }: Props) => {
+const PageTitle = ({
+  title, kind, identifier, identifierContent, tags, contentAfter, withTextAd, className,
+  isLoading = false, afterTitle, beforeTitle, secondRow,
+}: Props) => {
   const tooltip = useDisclosure();
   const isMobile = useIsMobile();
   const [ isTextTruncated, setIsTextTruncated ] = React.useState(false);
@@ -68,7 +77,8 @@ const PageTitle = ({ title, contentAfter, withTextAd, className, isLoading = fal
   }, [ tooltip ]);
 
   return (
-    <Flex className={ className } flexDir="column" rowGap={ 3 } mb={ 6 }>
+    <Flex className={ className } flexDir="column" rowGap={ 3 } mb={ 6 } data-entity-header={ kind ? true : undefined }>
+      { kind && <Box textStyle="label" color="text.muted" data-entity-kind-label>{ kind.toUpperCase() }</Box> }
       <Flex
         flexDir="row"
         flexWrap="wrap"
@@ -131,6 +141,22 @@ const PageTitle = ({ title, contentAfter, withTextAd, className, isLoading = fal
         { contentAfter }
         { withTextAd && <TextAd order={{ base: -1, lg: 100 }} mb={{ base: 6, lg: 0 }} ml="auto" w={{ base: '100%', lg: 'auto' }}/> }
       </Flex>
+      { identifier && (
+        <Flex alignItems="center" gap={ 2 } minW={ 0 } fontFamily="mono" fontVariantNumeric="tabular-nums" data-entity-identifier>
+          { identifierContent ?? (
+            <>
+              <Box overflowWrap="anywhere" minW={ 0 }>{ identifier }</Box>
+              <CopyToClipboard text={ identifier } isLoading={ isLoading }/>
+              <AddressQrCode hash={ identifier } isLoading={ isLoading }/>
+            </>
+          ) }
+        </Flex>
+      ) }
+      { tags && (
+        <Flex gap={ 2 } flexWrap="wrap" alignItems="center" data-entity-tags css={{ '& [data-scope="tag"]': { borderRadius: '999px' } }}>
+          { tags }
+        </Flex>
+      ) }
       { secondRow && (
         <Skeleton
           loading={ isLoading }
