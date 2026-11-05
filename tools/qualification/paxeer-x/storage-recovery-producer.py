@@ -11,10 +11,21 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[3]
 SCHEMA = 'paxeer-x.storage-recovery-artifacts.v1'
-TESTS = ('lxp_test_recovery', 'lxp_test_log_durability', 'lxp_test_batch_wal_recovery')
+TESTS = ('lxp_test_recovery', 'lxp_test_log_durability', 'lxp_test_rebuild')
 SOURCES = tuple('tests/storage/' + name + '.c' for name in TESTS) + (
-    'src/modules/programs/feed_store.c',
-    'tools/paxeer-x/gates/104.38.1.sh',
+    'src/storage/lxp_log.c',
+    'src/storage/lxp_log_recover.c',
+    'src/storage/lxp_snapshot_store.c',
+    'src/storage/lxp_projection.c',
+    'include/layerx/lxp_storage.h',
+    'include/layerx/lxp_snapshot.h',
+    'include/layerx/lxp_projection.h',
+    'migrations/0001_projection.sql',
+    'modules/lxphost/host.go',
+    'modules/lxphost/ctx.go',
+    'modules/lxphost/idempotency_restart_test.go',
+    'node/rpc_restart_test.go',
+    'Makefile',
     'tools/qualification/paxeer-x/storage-recovery-producer.py',
     'tools/qualification/paxeer-x/storage-recovery.py')
 TOOLS = ('make', 'cc', 'cargo')
