@@ -12,8 +12,8 @@ import Time from 'ui/shared/time/Time';
 const SearchBarSuggestTx = ({ data, isMobile, chainInfo }: ItemsProps<SearchResultTx | multichain.QuickSearchResultTransaction>) => {
   const icon = <TxEntity.Icon chain={ chainInfo }/>;
   const hash = (
-    <chakra.mark overflow="hidden" whiteSpace="nowrap" fontWeight={ 700 }>
-      <HashStringShortenDynamic hash={ data.transaction_hash } noTooltip/>
+    <chakra.mark overflow="hidden" whiteSpace="nowrap" textStyle="number">
+      <HashStringShortenDynamic fontFamily="mono" fontVariantNumeric="tabular-nums" hash={ data.transaction_hash } noTooltip/>
     </chakra.mark>
   );
   const date = 'timestamp' in data && data.timestamp ? <Time timestamp={ data.timestamp } format="lll_s"/> : undefined;

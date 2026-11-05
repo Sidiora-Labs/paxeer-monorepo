@@ -1,5 +1,9 @@
 import React, { useState } from "react";
+import { queryOptions, useQuery } from "@tanstack/react-query";
 import * as Popover from "@radix-ui/react-popover";
+import { fetchJsonWithPolicy } from "@/core/net/fetch";
+import { gatewayUrls } from "@/core/network/gateway";
+import { tickersFromWire, type TickerWire } from "@/hooks/perps/useRealtimePrices";
 import { cn } from "@/ui/utils/cn";
 import { coinLogoUrl } from "@/core/perps/config";
 import { usePerpsMarkets } from "@/hooks/perps/usePerpsMarkets";
@@ -65,14 +69,60 @@ function StatChip({ label, value, valueClass }: { label: string; value: string; 
   );
 }
 
+export async function loadPairTickers() {
+  const response = await fetchJsonWithPolicy<{ success: boolean; data: TickerWire[] }>(
+    `${gatewayUrls().restApiUrl}/markets/tickers`,
+  );
+  if (!response.success || !Array.isArray(response.data)) throw new Error("Ticker prices unavailable");
+  return tickersFromWire(response.data);
+}
+
+export function pairTickersQueryOptions() {
+  return queryOptions({
+    queryKey: ["perps", "pairTickers"],
+    queryFn: loadPairTickers,
+    staleTime: 3_000,
+    refetchInterval: 3_000,
+    retry: false,
+  });
+}
+
+export function pairPriceMeasures(
+  ticker: { mark_price?: number; index_price?: number } | undefined,
+  stats: { mark_price: number; index_price: number } | null,
+  book: { bids: readonly { price: number }[]; asks: readonly { price: number }[] } | null,
+  trades: readonly { price: number }[],
+) {
+  const price = (value: number | undefined) =>
+    value !== undefined && Number.isFinite(value) && value > 0 ? value : null;
+  const bid = price(book?.bids[0]?.price);
+  const ask = price(book?.asks[0]?.price);
+  return {
+    mark: price(ticker?.mark_price) ?? price(stats?.mark_price),
+    index: price(ticker?.index_price) ?? price(stats?.index_price),
+    referenceMid: bid !== null && ask !== null ? (bid + ask) / 2 : null,
+    lastTrade: price(trades[0]?.price),
+  };
+}
+
+export function PairPriceChips({ measures }: { measures: ReturnType<typeof pairPriceMeasures> }) {
+  const display = (value: number | null) => value === null ? "Unavailable" : `$${formatPrice(value)}`;
+  return <>
+    <StatChip label="Index" value={display(measures.index)} />
+    <StatChip label="Reference mid" value={display(measures.referenceMid)} />
+    <StatChip label="Last trade" value={display(measures.lastTrade)} />
+  </>;
+}
+
 export function PairHeader({ selectedPair, onPairChange, onOpenMarketPanel }: PairHeaderProps) {
-  const { prices, tickers } = useRealtimePrices();
+  const { tickers } = useRealtimePrices();
   const { catalog, isLoading, error } = usePerpsMarkets();
   const [marketSelectorOpen, setMarketSelectorOpen] = useState(false);
 
   const symbol = selectedPair.split("/")[0];
   const market = catalog.find((m) => m.symbol === symbol);
   const { data: enriched } = useEnrichedMarketStats(market?.marketId);
+  const authoritativeTickers = useQuery({ ...pairTickersQueryOptions(), enabled: Boolean(market) });
 
   // WS feeds — orderbook mid + last trade for live price; stats for volume / OI / funding.
   const orderbook = useSidPaxOrderbook(market?.symbol);
@@ -86,13 +136,6 @@ export function PairHeader({ selectedPair, onPairChange, onOpenMarketPanel }: Pa
       </div>
     );
   }
-
-  // Mid-price from top-of-book; fall back to last trade price from the tape.
-  const bestBid = orderbook?.bids[0]?.price ?? 0;
-  const bestAsk = orderbook?.asks[0]?.price ?? 0;
-  const midPrice = bestBid > 0 && bestAsk > 0 ? (bestBid + bestAsk) / 2 : 0;
-  const lastTradePrice = trades[0]?.price ?? 0;
-  const livePrice = midPrice || lastTradePrice;
 
   // Small helper — pick first non-null/>0 value. The realtime `/tickers` REST
   // feed is the primary source because it polls every 3s, but for markets it
@@ -108,12 +151,13 @@ export function PairHeader({ selectedPair, onPairChange, onOpenMarketPanel }: Pa
 
   const ticker = tickers[market.symbol];
   const et = enriched?.ticker;
-  const markPrice = livePrice || pick(ticker?.mark_price, prices[market.symbol]);
-  const indexPrice = livePrice || pick(ticker?.index_price);
+  const authoritativeTicker = authoritativeTickers.isError ? undefined : authoritativeTickers.data?.[market.symbol];
+  const priceMeasures = pairPriceMeasures(authoritativeTicker, wsStats, orderbook, trades);
+  const markPrice = priceMeasures.mark;
   const high24h = pick(ticker?.["24h_high"], et?.h24_high);
   const low24h = pick(ticker?.["24h_low"], et?.h24_low);
   const open24h = pick(ticker?.["24h_open"], et?.h24_open);
-  const close24h = pick(ticker?.["24h_close"], et?.h24_close) || markPrice;
+  const close24h = pick(ticker?.["24h_close"], et?.h24_close) || markPrice || 0;
   const volume24h    = wsStats !== null ? wsStats.volume_24h_usd   : pick(ticker?.["24h_volume"], et?.h24_volume);
   // The symbol socket's EMA estimate is shown only as an estimate; the venue's
   // last settled hourly rate and its ×24 projection are labelled as such.
@@ -179,7 +223,8 @@ export function PairHeader({ selectedPair, onPairChange, onOpenMarketPanel }: Pa
 
       {/* Mark price (large) + 24h change */}
       <div className="shrink-0 flex flex-col items-start">
-        {markPrice > 0 ? (
+        <span className="text-xs text-muted-foreground">Mark</span>
+        {markPrice !== null ? (
           <PriceFlash
             value={markPrice}
             className={cn("text-xl font-bold tabular-nums text-foreground")}
@@ -187,7 +232,7 @@ export function PairHeader({ selectedPair, onPairChange, onOpenMarketPanel }: Pa
             {`$${formatPrice(markPrice)}`}
           </PriceFlash>
         ) : (
-          <span className="text-xl font-bold tabular-nums text-muted-foreground">Reconnecting…</span>
+          <span className="text-xl font-bold tabular-nums text-muted-foreground">Unavailable</span>
         )}
         <span className={cn("text-sm font-medium tabular-nums", change.positive ? "text-emerald-500" : "text-red-500")}>
           {change.text}
@@ -199,10 +244,7 @@ export function PairHeader({ selectedPair, onPairChange, onOpenMarketPanel }: Pa
 
       {/* Stats chips — all API data */}
       <div className="flex items-center gap-6 overflow-x-auto scrollbar-hide">
-        <StatChip
-          label="Index"
-          value={indexPrice > 0 ? `$${formatPrice(indexPrice)}` : "\u2014"}
-        />
+        <PairPriceChips measures={priceMeasures} />
 
         <StatChip
           label="24h High"

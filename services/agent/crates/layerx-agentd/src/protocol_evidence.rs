@@ -1784,7 +1784,7 @@ impl RawStateEvidence {
         }
     }
 
-    /// Committed calls carry checkpoint coordinates rather than a serialized LNI witness.
+    /// Committed calls carry checkpoint coordinates rather than a serialized transport witness.
     #[must_use]
     pub fn proof_material(&self) -> Option<&[u8]> {
         match &self.shape {

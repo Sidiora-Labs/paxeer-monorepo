@@ -1,0 +1,13 @@
+{
+  "builds": [
+    {
+      "path": "https://github.com/blockscout/solc-bin/releases/download/v0.8.14-nightly.2022.4.13%2Bcommit.25923c1f/solc",
+      "version": "0.8.14",
+      "prerelease": "nightly.2022.4.13",
+      "build": "commit.25923c1f",
+      "longVersion": "0.8.14-nightly.2022.4.13+commit.25923c1f",
+      "sha256": "db60947a952c9e7db5cea948189e17fd524a4c25ea7c2b252b92a2e396c3142c",
+      "md5": "e59ac4c37e084d8cd8d24f0a1bf42731"
+    }
+  ]
+}

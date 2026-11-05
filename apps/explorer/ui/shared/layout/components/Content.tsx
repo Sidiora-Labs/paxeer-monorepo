@@ -14,8 +14,9 @@ const Content = ({ children, className }: Props) => {
       as="main"
       data-label="content"
       className={ className }
-      pt={{ base: 0, lg: 6 }}
+      pt={ 0 }
       w="100%"
+      minW={ 0 }
       maxW={ `${ CONTENT_MAX_WIDTH }px` }
       mx="auto"
       bgColor="bg.primary"

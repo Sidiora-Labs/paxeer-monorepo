@@ -8,11 +8,12 @@ domains in the database, without a separate deployment for each tenant.
 
 ## Network boundary
 
-Agent code uses node JSON-RPC and the authenticated hosted gateway contracts.
-It does not open node storage, read private append-only logs, mirror private C
-layouts or link the consensus core. Signed transactions are submitted as exact
-bytes; only the network applies protocol state. Local policy and approval
-decisions cannot grant protocol authority.
+The agent service's network interface uses node JSON-RPC and the authenticated
+hosted gateway contracts. It does not open node storage, read private append-only
+logs, mirror private C layouts or link the consensus core. Signed transactions
+are submitted as exact bytes through `eth_sendRawTransaction`; only the network
+applies protocol state. Local policy and approval decisions cannot grant
+protocol authority.
 
 Public JSON-RPC uses HTTPS at the root path of
 `api1.mainnet-beta.paxeer.network` through
@@ -20,6 +21,7 @@ Public JSON-RPC uses HTTPS at the root path of
 [`api-mainnet-beta.paxeer.network`](https://api-mainnet-beta.paxeer.network/).
 The EVM chain ID is **125** (`0x7d`). Node
 namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test` and `txpool`.
+The agent service reads precompile views through `eth_call` at a specified height.
 The hosted gateway's `px_` contract is defined in
 [`openrpc.json`](../platform/hosted/gateway/openrpc.json); those methods are
 not implied by a node's standard Ethereum RPC support.

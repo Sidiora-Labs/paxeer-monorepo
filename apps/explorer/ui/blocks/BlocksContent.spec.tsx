@@ -45,7 +45,7 @@ describe('BlocksContent', () => {
     const { container } = render(<Harness type="block"/>);
 
     await waitFor(() => {
-      expect(container.querySelector('[data-scan-table-card] [data-title]')?.textContent)
+      expect(container.querySelector('[data-list-page] [data-title]')?.textContent)
         .toBe('Latest 2 from a total of 30,215,608 blocks');
     });
   });
@@ -54,7 +54,7 @@ describe('BlocksContent', () => {
     const { container } = render(<Harness type="block"/>);
 
     await waitFor(() => {
-      expect(container.querySelector('[data-scan-table-card] [data-note]')?.textContent)
+      expect(container.querySelector('[data-list-page] [data-note]')?.textContent)
         .toBe('Showing page 1 of the records the node returns, newest first');
     });
   });
@@ -63,11 +63,11 @@ describe('BlocksContent', () => {
     const { container } = render(<Harness type="reorg"/>);
 
     await waitFor(() => {
-      expect(container.querySelector('[data-scan-table-card] [data-title]')?.textContent)
+      expect(container.querySelector('[data-list-page] [data-title]')?.textContent)
         .toBe('A total of 2 blocks found');
     });
 
-    expect(container.querySelector('[data-scan-table-card] [data-note]')?.textContent)
+    expect(container.querySelector('[data-list-page] [data-note]')?.textContent)
       .toBe('Blocks replaced by a competing block at the same height');
   });
 
@@ -82,7 +82,7 @@ describe('BlocksContent', () => {
       expect(heights).toEqual([ `/block/${ blockMock.base.height }`, `/block/${ blockMock.base2.height }` ]);
     });
 
-    expect(container.querySelector('[data-scan-table-card]')).toBeNull();
+    expect(container.querySelector('[data-list-page]')).toBeNull();
     expect(container.querySelector('[data-pagination]')).toBeNull();
   });
 
@@ -90,7 +90,7 @@ describe('BlocksContent', () => {
     const { container } = render(<Harness type="block"/>);
 
     await waitFor(() => {
-      const heights = Array.from(container.querySelectorAll('[data-scan-table-card] [data-body] table tbody a[href^="/block/"]'))
+      const heights = Array.from(container.querySelectorAll('[data-list-page] [data-body] table tbody a[href^="/block/"]'))
         .map((link) => link.getAttribute('href'))
         .filter((href) => !href?.includes('?'));
 

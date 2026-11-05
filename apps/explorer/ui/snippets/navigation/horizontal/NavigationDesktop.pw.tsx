@@ -36,12 +36,12 @@ testWithAuth('base view +@dark-mode', async({ render, mockApiResponse, mockEnvs,
   ]);
 
   const component = await render(<NavigationDesktop/>, { hooksConfig });
-  await component.getByText('Blockchain').hover();
+  await component.getByRole('button', { name: 'Explore' }).click();
   await expect(page.getByText('Blocks')).toBeVisible();
   await expect(page).toHaveScreenshot({ clip: { x: 0, y: 0, width: 1500, height: 450 } });
 });
 
-test('with groped items', async({ render, mockEnvs, page }) => {
+test('with grouped items +@dark-mode', async({ render, mockEnvs, page }) => {
   const hooksConfig = {
     router: {
       route: '/apps',
@@ -59,7 +59,7 @@ test('with groped items', async({ render, mockEnvs, page }) => {
   ]);
 
   const component = await render(<NavigationDesktop/>, { hooksConfig });
-  await component.getByText('Blockchain').hover();
+  await component.getByRole('button', { name: 'Explore' }).click();
   await expect(page.getByText('Blocks')).toBeVisible();
   await expect(page).toHaveScreenshot({ clip: { x: 0, y: 0, width: 1500, height: 450 } });
 });
@@ -67,7 +67,7 @@ test('with groped items', async({ render, mockEnvs, page }) => {
 const promoBannerTest = (type: 'text' | 'image') => {
   test.describe(`with promo banner (${ type })`, () => {
     let component: Locator;
-    const darkModeRule = type === 'text' ? '+@dark-mode' : '';
+    const darkModeRule = '+@dark-mode';
     const imageAltText = type === 'text' ? 'Promo banner icon' : 'Promo banner small';
 
     test.beforeEach(async({ render, mockEnvs, mockAssetResponse }) => {
@@ -87,7 +87,7 @@ const promoBannerTest = (type: 'text' | 'image') => {
       await expect(component).toHaveScreenshot();
     });
 
-    test('with tooltip', async({ page }) => {
+    test('with tooltip +@dark-mode', async({ page }) => {
       await page.getByAltText(imageAltText).hover();
       await expect(page).toHaveScreenshot({ clip: { x: 0, y: 0, width: 1500, height: 450 } });
     });

@@ -1,11 +1,10 @@
-import { Table as ChakraTable, Icon } from '@chakra-ui/react';
+import { Table as ChakraTable, Icon, chakra } from '@chakra-ui/react';
 import { throttle } from 'es-toolkit';
 import * as React from 'react';
 
 import ArrowIcon from 'icons/arrows/east.svg';
 
 import { recipe as tableRecipe } from '../theme/recipes/table.recipe';
-import { Link } from './link';
 import { withRecipe } from './recipe-props';
 
 const RecipeRoot = withRecipe(ChakraTable.Root, tableRecipe);
@@ -22,7 +21,7 @@ export interface TableCellProps extends ChakraTable.CellProps {
 export const TableCell = (props: TableCellProps) => {
   const { isNumeric, ...rest } = props;
 
-  return <ChakraTable.Cell textAlign={ isNumeric ? 'right' : undefined } { ...rest }/>;
+  return <ChakraTable.Cell data-is-numeric={ isNumeric || undefined } textAlign={ isNumeric ? 'right' : undefined } { ...rest }/>;
 };
 
 export interface TableColumnHeaderProps extends ChakraTable.ColumnHeaderProps {
@@ -32,7 +31,7 @@ export interface TableColumnHeaderProps extends ChakraTable.ColumnHeaderProps {
 export const TableColumnHeader = (props: TableColumnHeaderProps) => {
   const { isNumeric, ...rest } = props;
 
-  return <ChakraTable.ColumnHeader textAlign={ isNumeric ? 'right' : undefined } { ...rest }/>;
+  return <ChakraTable.ColumnHeader data-is-numeric={ isNumeric || undefined } textAlign={ isNumeric ? 'right' : undefined } { ...rest }/>;
 };
 
 export interface TableColumnHeaderSortableProps<F extends string> extends TableColumnHeaderProps {
@@ -51,9 +50,20 @@ export const TableColumnHeaderSortable = <F extends string>(props: TableColumnHe
     onSortToggle(sortField);
   }, [ onSortToggle, sortField ]);
 
+  const activeDirection = sortValue.includes('asc') ? 'ascending' : 'descending';
+
   return (
-    <TableColumnHeader { ...rest }>
-      <Link onClick={ disabled ? undefined : handleSortToggle } position="relative">
+    <TableColumnHeader aria-sort={ sortValue.includes(sortField) ? activeDirection : 'none' } { ...rest }>
+      <chakra.button
+        type="button"
+        onClick={ handleSortToggle }
+        disabled={ disabled }
+        position="relative"
+        cursor="pointer"
+        textAlign="inherit"
+        textTransform="inherit"
+        _focusVisible={{ outline: '2px solid', outlineColor: 'focusRing', outlineOffset: '2px' }}
+      >
         { sortValue.includes(sortField) && (
           <Icon
             w={ 4 }
@@ -68,7 +78,7 @@ export const TableColumnHeaderSortable = <F extends string>(props: TableColumnHe
           </Icon>
         ) }
         { children }
-      </Link>
+      </chakra.button>
       { contentAfter }
     </TableColumnHeader>
   );

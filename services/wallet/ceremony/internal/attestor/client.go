@@ -285,11 +285,11 @@ type ShareBundleJSON struct {
 }
 
 type ImportRequest struct {
-	CeremonyID   string          `json:"ceremony_id,omitempty"`
+	CeremonyID   string          `json:"ceremony_id"`
 	Epoch        uint64          `json:"epoch"`
-	PublicKey    string          `json:"public_key,omitempty"`
-	Participants []string        `json:"participants,omitempty"`
-	Threshold    uint32          `json:"threshold,omitempty"`
+	PublicKey    string          `json:"public_key"`
+	Participants []string        `json:"participants"`
+	Threshold    uint32          `json:"threshold"`
 	SessionID    string          `json:"session_id"`
 	KeyID        string          `json:"key_id"`
 	Owner        string          `json:"owner"`

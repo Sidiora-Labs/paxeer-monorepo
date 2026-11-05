@@ -8,6 +8,7 @@
  * executable; neither needs a subprocess or a new Make target. */
 #include "../lxp_test_harness.c"
 #include "../../cmd/layerx-genesis/lxp_genesis_builder.c"
+#include "../../cmd/layerx-genesis/lxp_genesis_build_cli.c"
 
 #define AUDIT_CHECK(condition) \
     do { \
@@ -502,6 +503,75 @@ static int audit_read_fixture(const char *path, uint8_t *bytes,
     return 0;
 }
 
+static int audit_genesis_historical_producer(const char *directory,
+    const lxp_genesis_manifest *manifest,
+    const lxp_snapshot_manifest_record *snapshot_manifest,
+    lxp_byte_span snapshot)
+{
+    static uint8_t memory[8388608U], bytes[LXP_GENESIS_MAX_ENCODED_BYTES];
+    static lxp_genesis_manifest draft, rebuilt, changed;
+    lx_programs_metering_schedule metering;
+    lx_programs_fee_genesis_parameters fees;
+    lxp_snapshot_manifest_record rebuilt_snapshot_manifest;
+    lxp_byte_span encoded, original, rebuilt_snapshot;
+    lxp_arena arena;
+    uint8_t asset_id[32], private_key[32];
+    uint8_t request[LXP_GENESIS_REGISTRATION_REQUEST_BYTES];
+    uint8_t descriptor[LXP_GENESIS_DEPLOYMENT_DESCRIPTOR_BYTES];
+    char path[256], identity[128];
+    size_t length;
+    const char *name = strrchr(directory, '/');
+    int count;
+    AUDIT_CHECK(name != NULL);
+    count = snprintf(identity, sizeof(identity), "layerx-public-fixture:%s", name + 1);
+    AUDIT_CHECK(count > 0 && (size_t)count < sizeof(identity));
+    AUDIT_OK(lxp_hash_sha256((const uint8_t *)identity, (size_t)count, private_key));
+    count = snprintf(path, sizeof(path), "%s/genesis-request.lxgb", directory);
+    AUDIT_CHECK(count > 0 && (size_t)count < sizeof(path));
+    AUDIT_CHECK(audit_read_fixture(path, bytes, sizeof(bytes), &length) == 0);
+    AUDIT_OK(parse_request(bytes, length, &draft, asset_id, &metering, &fees));
+    AUDIT_OK(lxp_arena_init(&arena, memory, sizeof(memory)));
+    AUDIT_OK(lxp_genesis_build_fresh_empty(&draft, asset_id, &metering, &fees,
+        private_key, &arena, &rebuilt, &rebuilt_snapshot_manifest,
+        &encoded, &rebuilt_snapshot));
+    lxp_secure_zero(private_key, sizeof(private_key));
+    AUDIT_OK(lxp_genesis_encode(manifest, true, &arena, &original));
+    AUDIT_CHECK(encoded.length == original.length &&
+        memcmp(encoded.bytes, original.bytes, original.length) == 0);
+    AUDIT_CHECK(rebuilt_snapshot.length == snapshot.length &&
+        memcmp(rebuilt_snapshot.bytes, snapshot.bytes, snapshot.length) == 0);
+    AUDIT_CHECK(memcmp(rebuilt_snapshot_manifest.snapshot_digest,
+        snapshot_manifest->snapshot_digest, 32U) == 0);
+    AUDIT_CHECK(memcmp(rebuilt_snapshot_manifest.canonical_state_root,
+        snapshot_manifest->canonical_state_root, 32U) == 0);
+    AUDIT_CHECK(memcmp(rebuilt_snapshot_manifest.receipt_state_root,
+        snapshot_manifest->receipt_state_root, 32U) == 0);
+    count = snprintf(path, sizeof(path), "%s/sequencer.public", directory);
+    AUDIT_CHECK(count > 0 && (size_t)count < sizeof(path));
+    AUDIT_CHECK(audit_read_fixture(path, bytes, sizeof(bytes), &length) == 0);
+    AUDIT_CHECK(length == 32U && memcmp(bytes, rebuilt.signer_public_key, length) == 0);
+    AUDIT_OK(lxp_genesis_registration_request_encode(&rebuilt, request));
+    count = snprintf(path, sizeof(path), "%s/paxeer-registration-request.lxrr", directory);
+    AUDIT_CHECK(count > 0 && (size_t)count < sizeof(path));
+    AUDIT_CHECK(audit_read_fixture(path, bytes, sizeof(bytes), &length) == 0);
+    AUDIT_CHECK(length == sizeof(request) && memcmp(bytes, request, length) == 0);
+    AUDIT_OK(lxp_genesis_deployment_descriptor_encode(&rebuilt, &arena, descriptor));
+    count = snprintf(path, sizeof(path), "%s/paxeer-deployment-descriptor.lxgd", directory);
+    AUDIT_CHECK(count > 0 && (size_t)count < sizeof(path));
+    AUDIT_CHECK(audit_read_fixture(path, bytes, sizeof(bytes), &length) == 0);
+    AUDIT_CHECK(length == sizeof(descriptor) && memcmp(bytes, descriptor, length) == 0);
+    changed = *manifest;
+    changed.signature[0] ^= 1U;
+    AUDIT_CHECK(lxp_genesis_verify_signature(&changed, &arena) == LXP_ERR_BAD_SIGNATURE);
+    changed = *manifest;
+    changed.genesis_state_root[0] ^= 1U;
+    AUDIT_CHECK(lxp_genesis_verify_signature(&changed, &arena) == LXP_ERR_ROOT_MISMATCH);
+    changed = *manifest;
+    changed.genesis_receipt_state_root[0] ^= 1U;
+    AUDIT_CHECK(lxp_genesis_verify_signature(&changed, &arena) == LXP_ERR_ROOT_MISMATCH);
+    return 0;
+}
+
 static int audit_genesis_historical_import_hashes(void)
 {
     static const char *const directories[] = {
@@ -510,8 +580,8 @@ static int audit_genesis_historical_import_hashes(void)
     };
     /* Pinned by each committed expected.json, not by this implementation. */
     static const char *const hashes[] = {
-        "a82eb5201c4246a178aeb5fe44ad102235fa963d58e0149e8c543b8050c2767b",
-        "ffa553bb4e1359f15ac06a908c5ee3cd7efba06be6fe4756b7d97e7825c90df6"
+        "142f404631fc81caf05b790aee6163cfc6e25e8c060effde1276e99c02f9a950",
+        "03e9de05b4a74ba453d781cd23e0320e6c47f785fd5f5eec2d0215005b4f2166"
     };
     static uint8_t memory[8388608U], bytes[LXP_GENESIS_MAX_ENCODED_BYTES];
     static lxp_genesis_manifest manifest;
@@ -546,6 +616,8 @@ static int audit_genesis_historical_import_hashes(void)
         count = snprintf(path, sizeof(path), "%s/00000000000000000000.lxs", directories[i]);
         AUDIT_CHECK(count > 0 && (size_t)count < sizeof(path));
         AUDIT_OK(lxp_snapshot_store_read(path, &arena, &snapshot_manifest, &snapshot));
+        AUDIT_CHECK(audit_genesis_historical_producer(directories[i],
+            &manifest, &snapshot_manifest, snapshot) == 0);
         AUDIT_CHECK(audit_kernel_open(f, false) == 0);
         AUDIT_OK(lxp_genesis_module_plan_resolve(&manifest, &plan));
         AUDIT_OK(lxp_genesis_module_plan_register(&plan, &f->kernel));
@@ -562,6 +634,9 @@ static int audit_genesis_historical_import_hashes(void)
         AUDIT_OK(lxp_genesis_bootstrap_verify(&manifest, &parsed_registration,
             manifest.network_id, true, &snapshot_manifest, &f->kernel,
             &arena, &enabled));
+        AUDIT_CHECK(enabled);
+        AUDIT_OK(lxp_genesis_initialized_verify(&manifest, &parsed_registration,
+            manifest.network_id, &snapshot_manifest, &f->kernel, &arena, &enabled));
         AUDIT_CHECK(enabled);
         parsed_registration.finalised = false;
         AUDIT_CHECK(lxp_genesis_initialized_verify(&manifest, &parsed_registration,

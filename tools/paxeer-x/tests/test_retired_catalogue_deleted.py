@@ -42,6 +42,56 @@ class RetiredCatalogueDeletedTest(unittest.TestCase):
                         f"{component}: deleted tree missing from catalogue: {tree}",
                     )
 
+    def test_deleted_trees_absent_and_catalogue_valid(self):
+        result = subprocess.run(
+            ["python3", CHECKER, "--self-test"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+        components = {
+            "guarantor-runtime": ("cmd", "src"),
+            "lni": ("cmd", "services/agent"),
+            "replica": ("src", "services/platform", "docker"),
+            "intent-ingester": ("services/interop/crates", "docker"),
+        }
+        catalogue = json.loads((ROOT / CATALOGUE).read_text(encoding="utf-8"))
+        for component, paths in components.items():
+            deleted_trees = catalogue["components"][component]["deleted_trees"]
+            for tree in DELETED_TREES[component]:
+                with self.subTest(component=component, tree=tree):
+                    self.assertIn(
+                        tree,
+                        deleted_trees,
+                        f"{component}: deleted tree missing from catalogue: {tree}",
+                    )
+            for tree in deleted_trees:
+                path = ROOT / tree
+                self.assertFalse(
+                    path.exists() or path.is_symlink(),
+                    f"{component}: deleted tree still exists: {tree}",
+                )
+
+            with self.subTest(component=component):
+                result = subprocess.run(
+                    [
+                        "python3",
+                        CHECKER,
+                        "--deleted",
+                        "--component",
+                        component,
+                        *[arg for path in paths for arg in ("--path", path)],
+                    ],
+                    cwd=ROOT,
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                )
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

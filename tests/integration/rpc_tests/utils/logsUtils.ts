@@ -2,7 +2,14 @@ import util from 'node:util';
 import { ethers } from 'ethers';
 import { expect } from 'chai';
 import { EvmAccount, abiOf, deployContract } from './evmUtils';
-import { ADDRESS_LOWER, HASH32, HEX_DATA, HEX_QUANTITY, OPAQUE_HEX_ID, addressWord } from './format';
+import {
+    ADDRESS_LOWER,
+    HASH32,
+    HEX_DATA,
+    HEX_QUANTITY,
+    OPAQUE_HEX_ID,
+    addressWord,
+} from './format';
 import { DOCKER_NODE, PAXD_ENV, STAKING_PRECOMPILE_ADDRESS } from './constants';
 
 const exec = util.promisify(require('node:child_process').exec);
@@ -58,7 +65,7 @@ export async function firstBondedValidator(): Promise<string> {
         `docker exec ${DOCKER_NODE} /bin/bash -c '${PAXD_ENV} && paxd q staking validators -o json'`,
     );
     const vals = JSON.parse(stdout).validators as { operator_address: string; status: string }[];
-    const bonded = vals.find(v => v.status === 'BOND_STATUS_BONDED') ?? vals[0];
+    const bonded = vals.find((v) => v.status === 'BOND_STATUS_BONDED') ?? vals[0];
     if (!bonded) throw new Error('firstBondedValidator: no validators returned');
     return bonded.operator_address;
 }
@@ -74,6 +81,25 @@ export async function delegateViaPrecompile(
     const receipt = await tx.wait();
     if (!receipt) throw new Error('delegateViaPrecompile: delegate tx did not confirm');
     return receipt;
+}
+
+/** Constructor returns a runtime that stores 42 and emits its 32 bytes with LOG0. */
+export const ZERO_TOPIC_INIT_CODE = '0x600b600c600039600b6000f3602a60005260206000a000';
+
+export async function emitZeroTopicLog(
+    deployer: EvmAccount,
+): Promise<{ address: string; block: number }> {
+    const factory = new ethers.ContractFactory([], ZERO_TOPIC_INIT_CODE, deployer.wallet);
+    const contract = await factory.deploy();
+    await contract.waitForDeployment();
+    const address = await contract.getAddress();
+    const receipt = await (
+        await deployer.wallet.sendTransaction({ to: address, data: '0x' })
+    ).wait();
+    if (!receipt) throw new Error('LOG0 emitter transaction did not confirm');
+    expect(receipt.logs.length, 'one real LOG0 event').to.equal(1);
+    expect(receipt.logs[0].topics, 'LOG0 topics').to.deep.equal([]);
+    return { address, block: receipt.blockNumber };
 }
 
 export interface LogScene {
@@ -104,6 +130,8 @@ export interface LogScene {
     transferCount: number; // mint + 2 transfers
     approvalCount: number;
     totalCount: number;
+    zeroTopicAddress: string;
+    zeroTopicBlock: number;
 }
 
 /**
@@ -133,6 +161,7 @@ export async function emitLogScene(
     const toAlice = await (await token.transfer(alice, 10n)).wait();
     const toBob = await (await token.transfer(bob, 20n)).wait();
     const approve = await (await token.approve(alice, 5n)).wait();
+    const zeroTopic = await emitZeroTopicLog(deployer);
 
     return {
         erc20: address,
@@ -149,6 +178,8 @@ export async function emitLogScene(
         transferCount: 3,
         approvalCount: 1,
         totalCount: 4,
+        zeroTopicAddress: zeroTopic.address,
+        zeroTopicBlock: zeroTopic.block,
     };
 }
 
@@ -185,76 +216,96 @@ export interface LogFilterCase {
  */
 export const LOG_FILTER_MATRIX: LogFilterCase[] = [
     {
+        title: 'LOG0 survives unfiltered log transport with an empty topics array',
+        build: (scene) => ({
+            criteria: {
+                address: scene.zeroTopicAddress,
+                fromBlock: ethers.toQuantity(scene.zeroTopicBlock),
+                toBlock: ethers.toQuantity(scene.zeroTopicBlock),
+                topics: [],
+            },
+            expectedCount: 1,
+            check: (logs) =>
+                logs.forEach((log) => {
+                    expectLogShape(log, 'LOG0');
+                    expect(log.topics).to.deep.equal([]);
+                    expect(log.data).to.equal('0x' + '0'.repeat(62) + '2a');
+                }),
+        }),
+    },
+    {
         title: 'no topics matches every event',
-        build: scene => ({ criteria: sceneBounds(scene), expectedCount: scene.totalCount }),
+        build: (scene) => ({ criteria: sceneBounds(scene), expectedCount: scene.totalCount }),
     },
     {
         title: '[] (empty topics) matches every event',
-        build: scene => ({
+        build: (scene) => ({
             criteria: { ...sceneBounds(scene), topics: [] },
             expectedCount: scene.totalCount,
         }),
     },
     {
         title: '[A] matches topic0 (the three Transfers)',
-        build: scene => ({
+        build: (scene) => ({
             criteria: { ...sceneBounds(scene), topics: [TRANSFER_TOPIC] },
             expectedCount: scene.transferCount,
-            check: logs => logs.forEach(l => expect(l.topics[0]).to.equal(TRANSFER_TOPIC)),
+            check: (logs) => logs.forEach((l) => expect(l.topics[0]).to.equal(TRANSFER_TOPIC)),
         }),
     },
     {
         title: '[[A, B]] matches a topic0 OR-set (Transfer OR Approval)',
-        build: scene => ({
+        build: (scene) => ({
             criteria: { ...sceneBounds(scene), topics: [[TRANSFER_TOPIC, APPROVAL_TOPIC]] },
             expectedCount: scene.totalCount,
-            check: logs =>
-                logs.forEach(l => expect([TRANSFER_TOPIC, APPROVAL_TOPIC]).to.include(l.topics[0])),
+            check: (logs) =>
+                logs.forEach((l) =>
+                    expect([TRANSFER_TOPIC, APPROVAL_TOPIC]).to.include(l.topics[0]),
+                ),
         }),
     },
     {
         title: '[A, B] matches an indexed positional topic (Transfers sent by the emitter)',
-        build: scene => {
+        build: (scene) => {
             const sender = addressTopic(scene.emitter.address);
             return {
                 criteria: { ...sceneBounds(scene), topics: [TRANSFER_TOPIC, sender] },
                 expectedCount: 2,
-                check: logs => logs.forEach(l => expect(l.topics[1]).to.equal(sender)),
+                check: (logs) => logs.forEach((l) => expect(l.topics[1]).to.equal(sender)),
             };
         },
     },
     {
         title: '[null, B] matches pos1 regardless of pos0 (emitter as from/owner)',
-        build: scene => {
+        build: (scene) => {
             const sender = addressTopic(scene.emitter.address);
             return {
                 criteria: { ...sceneBounds(scene), topics: [null, sender] },
                 expectedCount: 3,
-                check: logs => logs.forEach(l => expect(l.topics[1]).to.equal(sender)),
+                check: (logs) => logs.forEach((l) => expect(l.topics[1]).to.equal(sender)),
             };
         },
     },
     {
         title: '[A, null, X] honours a wildcard slot + recipient (only the alice transfer)',
-        build: scene => {
+        build: (scene) => {
             const alice = addressTopic(scene.alice);
             return {
                 criteria: { ...sceneBounds(scene), topics: [TRANSFER_TOPIC, null, alice] },
                 expectedCount: 1,
-                check: logs => expect(logs[0].topics[2]).to.equal(alice),
+                check: (logs) => expect(logs[0].topics[2]).to.equal(alice),
             };
         },
     },
     {
         title: '[A, null, [X, Y]] matches (X OR Y) in an indexed slot (alice or bob)',
-        build: scene => {
+        build: (scene) => {
             const alice = addressTopic(scene.alice);
             const bob = addressTopic(scene.bob);
             return {
                 criteria: { ...sceneBounds(scene), topics: [TRANSFER_TOPIC, null, [alice, bob]] },
                 expectedCount: 2,
-                check: logs =>
-                    logs.forEach(l => {
+                check: (logs) =>
+                    logs.forEach((l) => {
                         expect(l.topics[0]).to.equal(TRANSFER_TOPIC);
                         expect([alice, bob]).to.include(l.topics[2]);
                     }),
@@ -263,7 +314,7 @@ export const LOG_FILTER_MATRIX: LogFilterCase[] = [
     },
     {
         title: '[A, [X, Y]] matches a nested OR-set in an indexed slot (minted-from-zero OR emitter sends)',
-        build: scene => ({
+        build: (scene) => ({
             criteria: {
                 ...sceneBounds(scene),
                 topics: [
@@ -276,25 +327,26 @@ export const LOG_FILTER_MATRIX: LogFilterCase[] = [
     },
     {
         title: 'an address array unions logs (a non-emitting co-address adds nothing)',
-        build: scene => ({
+        build: (scene) => ({
             criteria: {
                 ...sceneBounds(scene),
                 address: [scene.erc20, ethers.Wallet.createRandom().address],
             },
             expectedCount: scene.totalCount,
-            check: logs => logs.forEach(l => expect(l.address).to.equal(scene.erc20.toLowerCase())),
+            check: (logs) =>
+                logs.forEach((l) => expect(l.address).to.equal(scene.erc20.toLowerCase())),
         }),
     },
     {
         title: 'an address array combined with a topic0 filter (the three Transfers)',
-        build: scene => ({
+        build: (scene) => ({
             criteria: {
                 ...sceneBounds(scene),
                 address: [scene.erc20, ethers.Wallet.createRandom().address],
                 topics: [TRANSFER_TOPIC],
             },
             expectedCount: scene.transferCount,
-            check: logs => logs.forEach(l => expect(l.topics[0]).to.equal(TRANSFER_TOPIC)),
+            check: (logs) => logs.forEach((l) => expect(l.topics[0]).to.equal(TRANSFER_TOPIC)),
         }),
     },
 ];
@@ -319,15 +371,11 @@ export async function deployLogToken(
 
 /** Assert a single eth_getLogs entry carries the canonical schema with valid types. */
 export function expectLogShape(log: any, ctx = 'log'): void {
-    CORE_LOG_KEYS.forEach(k =>
-        expect(log, `${ctx}: has ${k}`).to.have.property(k),
-    );
+    CORE_LOG_KEYS.forEach((k) => expect(log, `${ctx}: has ${k}`).to.have.property(k));
     expect(log.address, `${ctx}.address`).to.match(ADDRESS_LOWER);
     expect(log.topics, `${ctx}.topics is an array`).to.be.an('array');
-    expect(log.topics.length, `${ctx}.topics has 1-4 entries`).to.be.within(1, 4);
-    log.topics.forEach((t: string, i: number) =>
-        expect(t, `${ctx}.topics[${i}]`).to.match(HASH32),
-    );
+    expect(log.topics.length, `${ctx}.topics has 0-4 entries`).to.be.within(0, 4);
+    log.topics.forEach((t: string, i: number) => expect(t, `${ctx}.topics[${i}]`).to.match(HASH32));
     expect(log.data, `${ctx}.data`).to.match(HEX_DATA);
     expect(log.blockNumber, `${ctx}.blockNumber`).to.match(HEX_QUANTITY);
     expect(log.transactionIndex, `${ctx}.transactionIndex`).to.match(HEX_QUANTITY);
@@ -382,7 +430,7 @@ export async function drainFilterChanges(
     while (collected.length < want && Date.now() < deadline) {
         const delta = await provider.send('eth_getFilterChanges', [filterId]);
         collected.push(...delta);
-        if (collected.length < want) await new Promise(r => setTimeout(r, 300));
+        if (collected.length < want) await new Promise((r) => setTimeout(r, 300));
     }
     return collected;
 }

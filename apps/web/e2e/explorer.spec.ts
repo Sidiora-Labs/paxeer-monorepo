@@ -58,6 +58,7 @@ test("the identified targets carry their identifier into the explorer's own rout
 test("the link surface covers every explorer link kind and refuses identifiers it cannot address", () => {
   assert.deepEqual([...EXPLORER_LINK_KINDS], [
     "receipt",
+    "historical-receipt",
     "transaction",
     "address",
   ]);

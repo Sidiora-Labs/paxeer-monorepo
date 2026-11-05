@@ -208,9 +208,15 @@ impl Dispatcher {
         } else {
             let preferences = Self::preferences(scope)?;
             let id = NotificationId::new(format!("ntf_{digest_text}"))?;
-            let built = content::build(event, preferences.detail());
-            let deliveries = preferences
-                .selected(event.class())
+            let channels = preferences.selected(event.class());
+            let mut built = content::build(event, preferences.detail());
+            if preferences.detail() == DetailLevel::Full && !channels.is_empty() {
+                let route = Delivery::build(&built, id.clone(), channels[0], now);
+                if let Some(binding) = event.approval_notification(scope, &route)? {
+                    built.bind_approval(binding);
+                }
+            }
+            let deliveries = channels
                 .into_iter()
                 .map(|channel| Delivery::build(&built, id.clone(), channel, now))
                 .collect::<Vec<_>>();

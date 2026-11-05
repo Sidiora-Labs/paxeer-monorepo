@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"reflect"
+	"strconv"
 	"testing"
 	"time"
 
@@ -93,9 +94,6 @@ func TestMoveCopiesEveryTableWithMatchingCountsAndDigests(t *testing.T) {
 	if err != nil {
 		t.Fatalf("move: %v", err)
 	}
-	if len(r.Tables) != 13 {
-		t.Fatalf("moved %d tables", len(r.Tables))
-	}
 	var zero [32]byte
 	for _, c := range r.Tables {
 		if c.SourceRows != c.TargetRows || c.SourceDigest != c.TargetDigest || c.SourceDigest == zero {
@@ -111,6 +109,20 @@ func TestMoveCopiesEveryTableWithMatchingCountsAndDigests(t *testing.T) {
 	tables, err := rehearsal.ReadTables(context.Background(), conn)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if len(r.Tables) != len(tables) {
+		t.Fatalf("moved %d of %d source tables", len(r.Tables), len(tables))
+	}
+	for _, required := range []string{"funded_tiers", "layerx_accounts", "whitelist_entries"} {
+		found := false
+		for _, copied := range r.Tables {
+			if copied.Table == required {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("source table %s was dropped from the move", required)
+		}
 	}
 	for _, tbl := range tables {
 		sum, n, err := rehearsal.Digest(context.Background(), conn.PgConn(), tbl.CopyOut(tbl.Ident(), "x"))
@@ -141,7 +153,7 @@ func TestMoveCopiesEveryTableWithMatchingCountsAndDigests(t *testing.T) {
 		t.Fatalf("the move changed the working directory: %v", got)
 	}
 	files := testsupport.GatewayMigrationFiles(t)
-	if n := one(t, f.target.DB, `select count(*)::text from _migrations`); n != "9" || len(files) != 9 {
+	if n := one(t, f.target.DB, `select count(*)::text from _migrations`); n != strconv.Itoa(len(files)) || len(files) != 22 {
 		t.Fatalf("target ledger holds %s of %d files", n, len(files))
 	}
 	plan, err := migrate.PlanMigration(context.Background(), f.target.DB)
@@ -195,7 +207,7 @@ func TestMoveDeltaCopiesOnlyAbsentRows(t *testing.T) {
 	if w := delta(t, r, "wallets"); w.SourceRows != 4 || w.TargetBefore != 4 {
 		t.Fatalf("delta wallets counted source %d target %d", w.SourceRows, w.TargetBefore)
 	}
-	if len(r.Dropped) != 2 || r.Dropped[0].Table != "funded_tiers" || r.Dropped[1].Table != "whitelist_entries" {
+	if len(r.Dropped) != 3 || r.Dropped[0].Table != "funded_tiers" || r.Dropped[1].Table != "layerx_accounts" || r.Dropped[2].Table != "whitelist_entries" {
 		t.Fatalf("dropped tables %+v", r.Dropped)
 	}
 	if got := one(t, f.target.DB, `select count(*)::text from wallets`); got != "5" {

@@ -49,8 +49,6 @@ const FormFieldColorContent = <
     ...controllerProps,
   });
 
-  const [ value, setValue ] = React.useState('');
-
   const handleChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const nextValue = (() => {
       const value = event.target.value;
@@ -61,7 +59,6 @@ const FormFieldColorContent = <
       }
       return value;
     })();
-    setValue(nextValue);
     field.onChange(nextValue);
   }, [ field ]);
 
@@ -99,7 +96,7 @@ const FormFieldColorContent = <
           autoComplete="off"
           onBlur={ handleBlur }
           onChange={ handleChange }
-          value={ value }
+          value={ field.value ?? '' }
           { ...inputProps as InputProps }
         />
       </InputGroup>

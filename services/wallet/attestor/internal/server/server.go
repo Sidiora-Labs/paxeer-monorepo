@@ -90,7 +90,7 @@ type Server struct {
 }
 
 type keyLock struct {
-	mu   sync.Mutex
+	mu   sync.RWMutex
 	refs int
 }
 
@@ -302,7 +302,11 @@ func readBody(r *http.Request) ([]byte, *Error) {
 	return body, nil
 }
 
-func (s *Server) lockKey(keyID string) func() {
+func (s *Server) lockKey(keyID string) func() { return s.holdKey(keyID, false) }
+
+func (s *Server) readKey(keyID string) func() { return s.holdKey(keyID, true) }
+
+func (s *Server) holdKey(keyID string, read bool) func() {
 	s.keyMu.Lock()
 	m, ok := s.keyLocks[keyID]
 	if !ok {
@@ -311,9 +315,17 @@ func (s *Server) lockKey(keyID string) func() {
 	}
 	m.refs++
 	s.keyMu.Unlock()
-	m.mu.Lock()
+	if read {
+		m.mu.RLock()
+	} else {
+		m.mu.Lock()
+	}
 	return func() {
-		m.mu.Unlock()
+		if read {
+			m.mu.RUnlock()
+		} else {
+			m.mu.Unlock()
+		}
 		s.keyMu.Lock()
 		m.refs--
 		if m.refs == 0 {

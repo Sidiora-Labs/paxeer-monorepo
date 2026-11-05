@@ -2,18 +2,18 @@ import { Box } from '@chakra-ui/react';
 import { useRouter } from 'next/router';
 import React from 'react';
 
-import type { TabItemRegular } from 'toolkit/components/AdaptiveTabs/types';
 import type { TokenType } from 'types/api/token';
 import type { TokensSortingValue, TokensSortingField, TokensSorting } from 'types/api/tokens';
 
 import config from 'configs/app';
-import useApiQuery from 'lib/api/useApiQuery';
 import useDebounce from 'lib/hooks/useDebounce';
 import getQueryParamString from 'lib/router/getQueryParamString';
+import { getTokenTypes, isFungibleTokenType, NFT_TOKEN_TYPE_IDS } from 'lib/token/tokenTypes';
 import { TOKEN_INFO_ERC_20 } from 'stubs/token';
 import { generateListStub } from 'stubs/utils';
-import RoutedTabs from 'toolkit/components/RoutedTabs/RoutedTabs';
 import PopoverFilter from 'ui/shared/filters/PopoverFilter';
+import TokenCategoryFilter from 'ui/shared/filters/TokenCategoryFilter';
+import type { TokenCategory } from 'ui/shared/filters/TokenCategoryFilter';
 import TokenTypeFilter from 'ui/shared/filters/TokenTypeFilter';
 import PageTitle from 'ui/shared/Page/PageTitle';
 import Pagination from 'ui/shared/pagination/Pagination';
@@ -33,7 +33,7 @@ const ROWS_OPTIONS = [ 25, API_PAGE_SIZE ];
 
 const bridgedTokensFeature = config.features.bridgedTokens;
 
-const Tokens = () => {
+const TokensContent = () => {
   const router = useRouter();
 
   const tab = getQueryParamString(router.query.tab);
@@ -46,13 +46,6 @@ const Tokens = () => {
   const [ rowsCount, setRowsCount ] = React.useState<number>(API_PAGE_SIZE);
 
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
-
-  const statsQuery = useApiQuery('general:stats', {
-    queryOptions: {
-      refetchOnMount: false,
-      enabled: !config.UI.nativeCoinPrice.isHidden,
-    },
-  });
 
   const tokensQuery = useQueryWithPages({
     resourceName: tab === 'bridged' ? 'general:tokens_bridged' : 'general:tokens',
@@ -83,7 +76,7 @@ const Tokens = () => {
 
   const handleTokenTypesChange = React.useCallback((value: Array<TokenType>) => {
     tokensQuery.onFilterChange({ q: debouncedSearchTerm, type: value });
-    setTokenTypes(value);
+    setTokenTypes(value.length ? value : undefined);
   }, [ debouncedSearchTerm, tokensQuery ]);
 
   const handleBridgeChainsChange = React.useCallback((value: Array<string>) => {
@@ -96,14 +89,40 @@ const Tokens = () => {
     tokensQuery.onSortingChange(getSortParamsFromValue(value));
   }, [ tokensQuery ]);
 
-  const handleTabChange = React.useCallback(() => {
-    setSearchTerm('');
-    setSort('default');
-    setTokenTypes(undefined);
-    setBridgeChains(undefined);
-  }, []);
+  const fungibleTypes = React.useMemo(() => Object.keys(getTokenTypes(false)).filter(isFungibleTokenType), []);
+  const category: TokenCategory | undefined = (() => {
+    if (tab === 'bridged') {
+      return 'bridged';
+    }
+    if (!tokenTypes?.length) {
+      return 'all';
+    }
+    if (tokenTypes.length === fungibleTypes.length && tokenTypes.every((type) => fungibleTypes.includes(type))) {
+      return 'fungible';
+    }
+    if (tokenTypes.length === NFT_TOKEN_TYPE_IDS.length && tokenTypes.every((type) => NFT_TOKEN_TYPE_IDS.some((nftType) => nftType === type))) {
+      return 'nft';
+    }
+    return undefined;
+  })();
 
-  const hasMultipleTabs = bridgedTokensFeature.isEnabled;
+  const handleCategoryChange = React.useCallback((value: TokenCategory) => {
+    let types: Array<TokenType> = [];
+    if (value === 'fungible') {
+      types = fungibleTypes;
+    } else if (value === 'nft') {
+      types = NFT_TOKEN_TYPE_IDS;
+    }
+    if (value === 'bridged' || tab === 'bridged') {
+      router.push({ pathname: '/tokens', query: {
+        tab: value === 'bridged' ? 'bridged' : 'all',
+        ...(types.length ? { type: types.join(',') } : {}),
+        ...(searchTerm ? { q: searchTerm } : {}),
+      } }, undefined, { shallow: true });
+      return;
+    }
+    handleTokenTypesChange(types);
+  }, [ fungibleTypes, handleTokenTypesChange, router, searchTerm, tab ]);
 
   const filter = tab === 'bridged' ? (
     <PopoverFilter contentProps={{ maxW: '350px' }} appliedFiltersNum={ bridgeChains?.length }>
@@ -111,7 +130,7 @@ const Tokens = () => {
     </PopoverFilter>
   ) : (
     <PopoverFilter contentProps={{ w: '200px' }} appliedFiltersNum={ tokenTypes?.length }>
-      <TokenTypeFilter<TokenType> onChange={ handleTokenTypesChange } defaultValue={ tokenTypes } nftOnly={ false }/>
+      <TokenTypeFilter<TokenType> key={ tokenTypes?.join(',') } onChange={ handleTokenTypesChange } defaultValue={ tokenTypes } nftOnly={ false }/>
     </PopoverFilter>
   );
 
@@ -153,8 +172,6 @@ const Tokens = () => {
     );
   })();
 
-  const coinPrice = statsQuery.data?.coin_price;
-
   const renderList = (hasActiveFilters: boolean, listDescription?: React.ReactNode) => (
     <TokensList
       query={ tokensQuery }
@@ -166,39 +183,24 @@ const Tokens = () => {
       pagination={ pagination }
       showRows={ showRows }
       rowsCount={ rowsCount }
-      coinPrice={ coinPrice }
     />
   );
-
-  const tabs: Array<TabItemRegular> = [
-    {
-      id: 'all',
-      title: 'All',
-      component: renderList(Boolean(searchTerm || tokenTypes)),
-    },
-    bridgedTokensFeature.isEnabled ? {
-      id: 'bridged',
-      title: 'Bridged',
-      component: renderList(Boolean(searchTerm || bridgeChains), description),
-    } : undefined,
-  ].filter(Boolean);
 
   return (
     <>
       <PageTitle
-        title={ config.meta.seo.enhancedDataEnabled ? `Tokens on ${ config.chain.name }` : 'Token tracker' }
+        title={ config.meta.seo.enhancedDataEnabled ? `Tokens on ${ config.chain.name }` : 'Tokens' }
         withTextAd
       />
-      { hasMultipleTabs ? (
-        <RoutedTabs
-          tabs={ tabs }
-          variant="pill"
-          size="sm"
-          onValueChange={ handleTabChange }
-        />
-      ) : renderList(Boolean(searchTerm || tokenTypes)) }
+      <TokenCategoryFilter value={ category } onChange={ handleCategoryChange } withBridged={ bridgedTokensFeature.isEnabled }/>
+      { renderList(Boolean(searchTerm || tokenTypes?.length || bridgeChains?.length), tab === 'bridged' ? description : undefined) }
     </>
   );
+};
+
+const Tokens = () => {
+  const router = useRouter();
+  return <TokensContent key={ getQueryParamString(router.query.tab) === 'bridged' ? 'bridged' : 'all' }/>;
 };
 
 export default Tokens;

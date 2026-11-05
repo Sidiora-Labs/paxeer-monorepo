@@ -299,21 +299,19 @@ defmodule EthereumJSONRPC.PaxeerX do
           | {:ok, {:syncing, current_block :: non_neg_integer(), highest_block :: non_neg_integer()}}
           | {:error, reason :: term()}
   def fetch_syncing_status(json_rpc_named_arguments) do
-    %{id: 0, method: "eth_syncing", params: []}
-    |> request()
-    |> json_rpc(json_rpc_named_arguments)
-    |> case do
-      {:ok, false} ->
-        {:ok, :synced}
+    syncing_request = request(%{id: 0, method: "eth_syncing", params: []})
 
-      {:ok, %{"currentBlock" => current_block, "highestBlock" => highest_block}} ->
-        {:ok, {:syncing, quantity_to_integer(current_block), quantity_to_integer(highest_block)}}
+    with {:ok, result} <- json_rpc(syncing_request, json_rpc_named_arguments) do
+      case result do
+        false ->
+          {:ok, :synced}
 
-      {:error, _reason} = error ->
-        error
+        %{"currentBlock" => current_block, "highestBlock" => highest_block} ->
+          {:ok, {:syncing, quantity_to_integer(current_block), quantity_to_integer(highest_block)}}
 
-      {:ok, other} ->
-        {:error, {:unexpected_syncing_result, other}}
+        other ->
+          {:error, {:unexpected_syncing_result, other}}
+      end
     end
   end
 

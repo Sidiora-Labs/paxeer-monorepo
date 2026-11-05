@@ -144,6 +144,12 @@ CREATE TABLE IF NOT EXISTS names(
     expires_at TEXT,
     token_id TEXT
 );
+CREATE INDEX IF NOT EXISTS names_owner_expiry ON names(lower(owner), CAST(expires_at AS INTEGER))
+    WHERE label IS NOT NULL AND name IS NOT NULL AND owner IS NOT NULL;
+CREATE INDEX IF NOT EXISTS names_target_expiry ON names(lower(resolved_address), CAST(expires_at AS INTEGER))
+    WHERE label IS NOT NULL AND name IS NOT NULL AND owner IS NOT NULL;
+CREATE INDEX IF NOT EXISTS names_name ON names(lower(name))
+    WHERE label IS NOT NULL AND name IS NOT NULL AND owner IS NOT NULL;
 CREATE TABLE IF NOT EXISTS explorer_transfers(
     account TEXT NOT NULL,
     key INTEGER NOT NULL,
@@ -355,6 +361,9 @@ pub enum NameOrder {
     #[default]
     Desc,
 }
+
+/// Maximum complete name history or portfolio returned by a public read.
+pub const MAXIMUM_NAME_RESULTS: usize = 500;
 
 impl NameOrder {
     fn sql(self) -> &'static str {
@@ -2256,6 +2265,17 @@ impl Store {
         parameters: impl rusqlite::Params,
         order: NameOrder,
     ) -> Result<Vec<NameRecord>, IndexError> {
+        let mut candidates = connection.prepare(&format!(
+            "SELECT n.node FROM names n WHERE n.label IS NOT NULL AND n.name IS NOT NULL
+                AND n.owner IS NOT NULL AND ({filter}) LIMIT {fetch}",
+            fetch = MAXIMUM_NAME_RESULTS + 1,
+        ))?;
+        let nodes = candidates
+            .query_map(parameters, |row| row.get::<_, String>(0))?
+            .collect::<Result<Vec<_>, _>>()?;
+        if nodes.len() > MAXIMUM_NAME_RESULTS {
+            return Err(IndexError::NameResultLimit);
+        }
         let mut statement = connection.prepare(&format!(
             "SELECT n.node, n.name, n.owner, n.registrant,
                 COALESCE(n.resolver, (
@@ -2276,12 +2296,11 @@ impl Store {
                     WHERE ne.node = n.node AND e.contract = 'names_registrar'
                     ORDER BY ne.height DESC, ne.log_index DESC LIMIT 1),
                 COALESCE(CAST(n.expires_at AS INTEGER) > unixepoch(), 0)
-             FROM names n WHERE n.label IS NOT NULL AND n.name IS NOT NULL
-                AND n.owner IS NOT NULL AND ({filter})
+             FROM names n WHERE n.node IN (SELECT value FROM json_each(?1))
              ORDER BY n.registered_at {direction}, n.node {direction}",
             direction = order.sql(),
         ))?;
-        let records = statement.query_map(parameters, |row| {
+        let records = statement.query_map(params![json!(nodes).to_string()], |row| {
             Ok(NameRecord {
                 node: row.get(0)?,
                 name: row.get::<_, String>(1)?.to_ascii_lowercase(),
@@ -2307,8 +2326,12 @@ impl Store {
     ) -> Result<Vec<NameRecord>, IndexError> {
         Self::query_names(
             &*self.lock()?,
-            "lower(n.owner) = lower(?1) AND (NOT ?2 OR CAST(n.expires_at AS INTEGER) > unixepoch())",
-            params![address, only_active],
+            if only_active {
+                "lower(n.owner) = lower(?1) AND CAST(n.expires_at AS INTEGER) > unixepoch()"
+            } else {
+                "lower(n.owner) = lower(?1)"
+            },
+            params![address],
             order,
         )
     }
@@ -2321,8 +2344,12 @@ impl Store {
     ) -> Result<Vec<NameRecord>, IndexError> {
         Self::query_names(
             &*self.lock()?,
-            "lower(n.resolved_address) = lower(?1) AND (NOT ?2 OR CAST(n.expires_at AS INTEGER) > unixepoch())",
-            params![address, only_active],
+            if only_active {
+                "lower(n.resolved_address) = lower(?1) AND CAST(n.expires_at AS INTEGER) > unixepoch()"
+            } else {
+                "lower(n.resolved_address) = lower(?1)"
+            },
+            params![address],
             order,
         )
     }
@@ -2349,8 +2376,9 @@ impl Store {
         let mut statement = connection.prepare(&format!(
             "SELECT tx_hash, strftime('%Y-%m-%dT%H:%M:%SZ', timestamp, 'unixepoch'),
                 from_address, action FROM name_events WHERE node = ?1
-             ORDER BY height {direction}, log_index {direction}",
+             ORDER BY height {direction}, log_index {direction} LIMIT {fetch}",
             direction = order.sql(),
+            fetch = MAXIMUM_NAME_RESULTS + 1,
         ))?;
         let events = statement.query_map(params![node], |row| {
             Ok(json!({
@@ -2360,15 +2388,19 @@ impl Store {
                 "action": row.get::<_, String>(3)?,
             }))
         })?;
-        Ok(events.collect::<Result<Vec<_>, _>>()?)
+        let events = events.collect::<Result<Vec<_>, _>>()?;
+        if events.len() > MAXIMUM_NAME_RESULTS {
+            return Err(IndexError::NameResultLimit);
+        }
+        Ok(events)
     }
 
     pub fn name_for_address(&self, address: &str) -> Result<Option<NameRecord>, IndexError> {
         let reverse_node = crate::names::reverse_node(address)
             .map(|node| crate::codec::hex0x(&node))
             .ok_or_else(|| IndexError::Decode("invalid names address".to_owned()))?;
-        let reverse: Option<String> = self
-            .lock()?
+        let connection = self.lock()?;
+        let reverse: Option<String> = connection
             .query_row(
                 "SELECT name FROM names WHERE node = ?1",
                 params![reverse_node],
@@ -2377,9 +2409,28 @@ impl Store {
             .optional()?
             .flatten();
         if let Some(reverse) = reverse {
-            return self.name(&reverse);
+            let reverse = reverse.to_ascii_lowercase();
+            let reverse = if reverse.ends_with(".pax") {
+                reverse
+            } else {
+                format!("{reverse}.pax")
+            };
+            return Ok(Self::query_names(
+                &connection,
+                "lower(n.name) = ?1 AND lower(n.resolved_address) = lower(?2)
+                    AND CAST(n.expires_at AS INTEGER) > unixepoch()",
+                params![reverse, address],
+                NameOrder::Desc,
+            )?
+            .into_iter()
+            .next());
         }
-        let mut names = self.names_resolving_to(address, false, NameOrder::Desc)?;
+        let mut names = Self::query_names(
+            &connection,
+            "lower(n.resolved_address) = lower(?1) AND CAST(n.expires_at AS INTEGER) > unixepoch()",
+            params![address],
+            NameOrder::Desc,
+        )?;
         Ok(if names.len() == 1 { names.pop() } else { None })
     }
 

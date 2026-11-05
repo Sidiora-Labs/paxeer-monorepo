@@ -146,6 +146,12 @@ def publish_native_evidence(directory, source, cases):
 
 
 def publish_manifest(directory, record, artifacts, logs):
+    require(record.get('schema') == SCHEMA, 'unsupported interface artifact schema')
+    require(record.get('required_protocol_cases') == sorted(PROTOCOL_CASES)
+            and record.get('required_legacy_cases') == sorted(LEGACY_CASES),
+            'incomplete required case inventory')
+    require(len(record.get('commands', [])) == BUILD_LOG_COUNT,
+            'missing explicit build commands')
     require(set(artifacts) == ARTIFACTS, 'incomplete artifact inventory')
     require(len(logs) == BUILD_LOG_COUNT, 'missing explicit build command logs')
     record = dict(record, artifacts={name: artifact(path) for name, path in artifacts.items()},

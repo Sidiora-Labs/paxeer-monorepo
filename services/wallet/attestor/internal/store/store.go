@@ -103,29 +103,31 @@ func (s *Store) Put(rec ShareRecord, share []byte) error {
 	if err := validate(meta); err != nil {
 		return err
 	}
-	return s.db.Update(func(tx *bbolt.Tx) error {
-		b := tx.Bucket(bucketShares)
-		now := s.now().Unix()
-		meta.CreatedAt = now
-		if raw := b.Get([]byte(meta.KeyID)); raw != nil {
-			prev, err := decodeRecord(meta.KeyID, raw)
-			if err != nil {
-				return err
-			}
-			meta.CreatedAt = prev.CreatedAt
-		}
-		meta.RefreshedAt = now
-		ct, err := seal(s.nodeKey, meta, share)
+	return s.db.Update(func(tx *bbolt.Tx) error { return s.putShare(tx, meta, share) })
+}
+
+func (s *Store) putShare(tx *bbolt.Tx, meta ShareRecord, share []byte) error {
+	b := tx.Bucket(bucketShares)
+	now := s.now().Unix()
+	meta.CreatedAt = now
+	if raw := b.Get([]byte(meta.KeyID)); raw != nil {
+		prev, err := decodeRecord(meta.KeyID, raw)
 		if err != nil {
 			return err
 		}
-		meta.Ciphertext = ct
-		enc, err := json.Marshal(meta)
-		if err != nil {
-			return fmt.Errorf("store: key %q: encode: %w", meta.KeyID, err)
-		}
-		return b.Put([]byte(meta.KeyID), enc)
-	})
+		meta.CreatedAt = prev.CreatedAt
+	}
+	meta.RefreshedAt = now
+	ct, err := seal(s.nodeKey, meta, share)
+	if err != nil {
+		return err
+	}
+	meta.Ciphertext = ct
+	enc, err := json.Marshal(meta)
+	if err != nil {
+		return fmt.Errorf("store: key %q: encode: %w", meta.KeyID, err)
+	}
+	return b.Put([]byte(meta.KeyID), enc)
 }
 
 type RecordKind string

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { once } from "node:events";
+import { readFileSync } from "node:fs";
 import {
   createServer,
   type IncomingMessage,
@@ -304,7 +305,28 @@ async function submitted_sponsored_batch_reports_the_transaction_hash_at_the_sub
       gasCost: 100n,
     },
   };
-  const transactionHash = `0x${"cd".repeat(32)}`;
+  const corpus: {
+    readonly cases: readonly {
+      readonly id: string;
+      readonly receiptJson: Record<string, unknown> & {
+        readonly txHash: string;
+        readonly paymentDenom: string;
+        readonly feeDenom: string;
+      };
+    }[];
+  } = JSON.parse(
+    readFileSync(
+      new URL(
+        "../../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
+  const vector = corpus.cases.find((entry) => entry.id === "V1-layerxprograms-call");
+  assert.ok(vector, "the producer corpus must include a Programs call");
+  const receipt = vector.receiptJson;
+  const transactionHash = receipt.txHash;
   const relayerSignature = sign(
     value(gasQuoteDigest(batch.chainId, batch.account, batch.quote)),
     sponsorKey,
@@ -427,8 +449,8 @@ async function submitted_sponsored_batch_reports_the_transaction_hash_at_the_sub
     const rpc = recordingRequest([
       null,
       { txHash: transactionHash, rung: "submitted" },
-      { txHash: transactionHash, rung: "receipted" },
-      { txHash: transactionHash, rung: "committed" },
+      receipt,
+      { ...receipt, rung: "committed" },
       { txHash: `0x${"ef".repeat(32)}`, rung: "receipted" },
       { txHash: transactionHash, rung: "included" },
     ]);
@@ -441,7 +463,13 @@ async function submitted_sponsored_batch_reports_the_transaction_hash_at_the_sub
         value(
           await requestSponsoredGasBatchStatus(transactionHash, rpc.request),
         ),
-        { transactionHash, rung },
+        {
+          transactionHash,
+          rung,
+          ...(rung === "submitted"
+            ? {}
+            : { paymentDenom: receipt.paymentDenom, feeDenom: receipt.feeDenom }),
+        },
       );
     }
     assert.deepEqual(

@@ -1,9 +1,8 @@
 import assert from "node:assert/strict";
 import { createHash, generateKeyPairSync, sign } from "node:crypto";
 import test from "node:test";
-import { ed25519 } from "@noble/curves/ed25519.js";
 import { secp256k1 } from "@noble/curves/secp256k1.js";
-import { AgentEnvelopeTransport, AgentSessionCredential, SecretBytes, ProductionClient, JsonRpcClient, PreparedGrantDraws, decodeRawEip1559, eip1559SigningHash, keccak256, verifySequencerReceipt, PlatformSdkError } from "@sidiora/layerx-sdk";
+import { AgentEnvelopeTransport, AgentSessionCredential, LayerXKeyCredential, SecretBytes, ProductionClient, JsonRpcClient, PreparedGrantDraws, decodeRawEip1559, eip1559SigningHash, keccak256, verifySequencerReceipt, PlatformSdkError } from "@sidiora/layerx-sdk";
 import { decodePaymentDrawnLog, encodeLedgerDraw, LAYERX_LEDGER_ADDRESS, ReceiptPayloadAuthority } from "@sidiora/layerx-seller-middleware";
 import { AgentGrantMiddleware, AgentMiddleware, AgentMiddlewareError, decodeDaemonSubmission, decodeDaemonSubmitResult, resolveDaemonReceipt, verifyAgentPayment } from "../dist/index.js";
 
@@ -13,6 +12,7 @@ import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { recordedCommittedFixture } from "../../conformance/pay6/committed-fixture.mjs";
 
 export const REPAIR_TASK_RECORD = Object.freeze({
   task: "22.31.435",
@@ -32,7 +32,7 @@ const bytes = (value) => Buffer.from(value.slice(2), "hex");
 const sha256 = (...values) => createHash("sha256").update(Buffer.concat(values)).digest();
 const word = (value) => Buffer.alloc(32, value);
 const draw = {
-  from: word(0x66), assetId: word(0x99), amount: 40n, grantId: word(0x33), receiverSequence: 1n,
+  recipient: word(0x66), purposeHash: word(0x99), amount: 40n, grantId: word(0x33), sequence: 1n,
   idempotencyKey: word(0x44), contextHash: word(0x55),
 };
 const payee = word(0x66);
@@ -44,7 +44,7 @@ const pin = { keyId, publicKey: new Uint8Array(pair.publicKey.export({ type: "sp
   first_height: 1n, last_height: 1000n };
 const requirements = { scheme: "metered", network: "eip155:125", amount: "40", asset: hex(grantAsset),
   payTo: hex(payee), maxTimeoutSeconds: 120,
-  extra: { layerx: { commitment: "receipted", purposeHash: draw.assetId.toString("hex") } } };
+  extra: { layerx: { commitment: "receipted", purposeHash: draw.purposeHash.toString("hex") } } };
 const drawnTopic = keccak256(new TextEncoder().encode("PaymentDrawn(bytes32,bytes32,bytes32,bytes32,uint128,bytes32,bytes32)"));
 
 function uint(value, width) {
@@ -87,7 +87,7 @@ function effect(ordinal, kind, body) {
   return Buffer.concat([uint(12n, 2), uint(BigInt(ordinal), 2), uint(0n, 2), Buffer.of(kind, 0), bounded(Buffer.alloc(32)), bounded(body)]);
 }
 
-function signedProof(rawTransaction, { grantId = draw.grantId, count = 1, address = LAYERX_LEDGER_ADDRESS,
+async function signedProof(rawTransaction, { grantId = draw.grantId, count = 1, address = LAYERX_LEDGER_ADDRESS,
   topic = drawnTopic, amount = draw.amount, resultCode = 0n, recipient = payee, source = payer,
   idempotencyKey = draw.idempotencyKey, contextHash = draw.contextHash, assetId = grantAsset } = {}) {
   const txHash = keccak256(bytes(rawTransaction));
@@ -109,8 +109,9 @@ function signedProof(rawTransaction, { grantId = draw.grantId, count = 1, addres
   ]);
   const digest = sha256(Buffer.concat([Buffer.from("LXP/v1/receipt\0"), prefix, Buffer.of(0)]));
   const signedReceipt = Buffer.concat([prefix, Buffer.of(1), bounded(sign(null, digest, pair.privateKey))]);
+  const verified = await verifySequencerReceipt(signedReceipt, bytes(rawTransaction), [pin]);
   return { kind: "settled", format: "layerx-receipt-proof-v2", verificationLevel: "receipted", rawTransaction,
-    signedReceipt: hex(signedReceipt), receiptDigest: hex(keccak256(signedReceipt)),
+    signedReceipt: hex(signedReceipt), receiptDigest: hex(verified.receiptDigest),
     receiptKey: { keyId: hex(pin.keyId), publicKey: hex(pin.publicKey),
       firstHeight: `0x${pin.first_height.toString(16)}`, lastHeight: `0x${pin.last_height.toString(16)}` } };
 }
@@ -271,7 +272,9 @@ function daemonFixture() {
 
 function envelopeClient(endpoint) {
   const session = new AgentSessionCredential("repair-agent", "11".repeat(32), new SecretBytes(new Uint8Array(32).fill(1)), "0");
-  const transport = new AgentEnvelopeTransport({ endpoint, session });
+  const gatewayCredential = new LayerXKeyCredential("repair-proof",
+    new SecretBytes(new TextEncoder().encode(`lxp_live_${"33".repeat(32)}`)));
+  const transport = new AgentEnvelopeTransport({ endpoint, session, surface: "gateway", gatewayCredential });
   // ProductionClient consumes values; AgentEnvelopeTransport authenticates and decodes the envelope.
   return new ProductionClient({ async call(request) { return (await transport.call(request)).value; } });
 }
@@ -329,7 +332,15 @@ async function daemonSubmissionShapeUsesDispatchTranscripts(t) {
   assert.deepEqual(pending.transitions, transcript.pending.submission.transitions);
   const committed = await resolveDaemonReceipt(decodeDaemonSubmission(transcript.committed), raw, receiptKeys);
   assert.equal(committed.state, "Committed");
-  assert.equal(committed.portableReceipt.verificationLevel, "committed");
+  assert.equal(committed.portableReceipt.verificationLevel, "receipted");
+  const receiptVerification = await verifyAgentPayment(committed.portableReceipt, input, receiptKeys);
+  assert.equal(receiptVerification.rung, "receipted");
+  assert.equal(committed.portableReceipt.receiptDigest, hex(receiptVerification.receiptDigest));
+  assert.equal(receiptVerification.commitmentEvidence, undefined);
+  const { resolver } = await recordedCommittedFixture();
+  await assert.rejects(verifyAgentPayment(committed.portableReceipt, {
+    ...input, commitment: { network: "eip155:125", level: "committed" },
+  }, receiptKeys, resolver));
   assert.deepEqual(committed.observation, transcript.committed);
   for (const changes of [
     (x) => { x.activity_id = "99".repeat(32); },
@@ -352,114 +363,21 @@ async function daemonSubmissionShapeUsesDispatchTranscripts(t) {
   }
 }
 
-const chainId = "paxeer-125";
-function varint(value) {
-  const result = [];
-  do {
-    const low = Number(value & 127n);
-    value >>= 7n;
-    result.push(low | (value === 0n ? 0 : 128));
-  } while (value !== 0n);
-  return Buffer.from(result);
-}
-
-function protoBytes(field, value) {
-  return Buffer.concat([varint(BigInt(field * 8 + 2)), varint(BigInt(value.length)), value]);
-}
-
-function protoInteger(field, value) {
-  return value === 0n ? Buffer.alloc(0) : Buffer.concat([varint(BigInt(field * 8)), varint(value)]);
-}
-
-function merkleRoot(leaves) {
-  if (leaves.length === 0) return sha256(Buffer.alloc(0));
-  if (leaves.length === 1) return sha256(Buffer.of(0), leaves[0]);
-  let split = 1;
-  while (split * 2 < leaves.length) split *= 2;
-  return sha256(Buffer.of(1), merkleRoot(leaves.slice(0, split)), merkleRoot(leaves.slice(split)));
-}
-
-function validatorSetHash(validators) {
-  return merkleRoot(validators.map((validator) => Buffer.concat([
-    protoBytes(1, protoBytes(1, validator.publicKey)),
-    protoInteger(2, validator.votingPower),
-  ])));
-}
-
-function validator(secret) {
-  const publicKey = ed25519.getPublicKey(secret);
-  return { publicKey, address: Uint8Array.from(sha256(publicKey).subarray(0, 20)), votingPower: 1n };
-}
-
-function blockHeader(verified, rawTransaction, validators) {
-  const height = verified.height;
-  const validatorsHash = validatorSetHash(validators);
-  const receiptRoot = merkleRoot([verified.receiptDigest]);
-  const dataHash = merkleRoot([rawTransaction]);
-  const timestamp = protoInteger(1, 1n);
-  const empty = Buffer.alloc(0);
-  const fields = [
-    Buffer.concat([protoInteger(1, 11n), protoInteger(2, 1n)]),
-    protoBytes(1, Buffer.from(chainId)), protoInteger(1, height), timestamp,
-    protoBytes(2, empty), empty, protoBytes(1, dataHash),
-    protoBytes(1, validatorsHash), protoBytes(1, validatorsHash),
-    protoBytes(1, sha256(Buffer.from("conformance-consensus-parameters"))),
-    protoBytes(1, verified.receipt.resultingStateRoot), protoBytes(1, receiptRoot),
-    protoBytes(1, merkleRoot([])), protoBytes(1, validators[0].address),
-  ];
-  const blockId = {
-    hash: Uint8Array.from(merkleRoot(fields)),
-    partSetHeader: { total: 1, hash: Uint8Array.from(merkleRoot([Buffer.concat(fields)])) },
-  };
-  return { chainId, height, validatorsHash: Uint8Array.from(validatorsHash), receiptRoot, dataHash, blockId };
-}
-
-function commitSignBytes(header) {
-  const height = Buffer.alloc(9);
-  height[0] = 17;
-  height.writeBigInt64LE(header.height, 1);
-  const partSet = Buffer.concat([
-    protoInteger(1, BigInt(header.blockId.partSetHeader.total)),
-    protoBytes(2, header.blockId.partSetHeader.hash),
-  ]);
-  const block = Buffer.concat([protoBytes(1, header.blockId.hash), protoBytes(2, partSet)]);
-  const vote = Buffer.concat([
-    protoInteger(1, 2n), height, protoBytes(4, block),
-    protoBytes(5, protoInteger(1, 1n)), protoBytes(6, Buffer.from(header.chainId)),
-  ]);
-  return Buffer.concat([varint(BigInt(vote.length)), vote]);
-}
-
-async function signedCommitmentResolver(transcript, receiptKeys) {
-  const raw = Buffer.from(transcript.raw_transaction, "hex");
-  const verified = await verifySequencerReceipt(Buffer.from(transcript.submit.signed_receipt, "hex"), raw, receiptKeys);
-  const keys = [1, 2, 3, 4].map((seed) => {
-    const secret = word(seed);
-    return { secret, validator: validator(secret) };
-  }).sort((a, b) => Buffer.compare(a.validator.address, b.validator.address));
-  const validatorSet = keys.map((key) => key.validator);
-  const header = blockHeader(verified, raw, validatorSet);
-  const signBytes = commitSignBytes(header);
-  const evidence = {
-    landingBlockHeight: header.height, blockHeader: header,
-    receiptInclusion: { transactionHash: verified.receipt.activityId.slice(), receiptDigest: verified.receiptDigest.slice(),
-      sequence: verified.receipt.globalSequence, leafIndex: 0, leafCount: 1, siblings: [] },
-    commit: { height: header.height, round: 0, blockId: header.blockId,
-      signatures: keys.slice(0, 3).map(({ secret, validator }) => ({ blockIdFlag: 2,
-        validatorAddress: validator.address, timestamp: { seconds: 1n, nanos: 0 }, signature: ed25519.sign(signBytes, secret) })) },
-    validatorSet,
-  };
-  return { async resolve(hash, network) {
-    assert.equal(hash, `0x${transcript.submit.tx_hash}`);
-    assert.equal(network, "eip155:125");
-    return structuredClone(evidence);
-  } };
-}
-
 async function daemonSubmissionRecoversAfterLostSubmit(t) {
   const fixture = daemonFixture();
   const { transcript, raw, input, prepared, receiptKeys, signer } = fixture;
-  const commitments = await signedCommitmentResolver(transcript, receiptKeys);
+  const { resolver } = await recordedCommittedFixture();
+  const commitmentCalls = [];
+  const commitments = {
+    async resolve(transactionHash, network) {
+      commitmentCalls.push({ transactionHash, network });
+      return resolver.resolve(transactionHash, network);
+    },
+    async resolveValidators(network, height) {
+      commitmentCalls.push({ network, height });
+      return resolver.resolveValidators(network, height);
+    },
+  };
   let tracked = transcript.pending;
   let submits = 0;
   let polls = 0;
@@ -484,7 +402,11 @@ async function daemonSubmissionRecoversAfterLostSubmit(t) {
   assert.equal((await component.middleware.spend(input)).kind, "unknown");
   assert.equal(component.budgets.available, 75000n);
   component.budgets.close(); component = open();
-  assert.equal((await component.middleware.resume(input, hex(raw), transcript.submit.tx_hash)).kind, "unknown");
+  const pending = await component.middleware.resume(input, hex(raw), transcript.submit.tx_hash);
+  assert.equal(pending.kind, "unknown");
+  assert.equal(pending.submission.state, "Unknown");
+  assert.equal(pending.submission.rung, "submitted");
+  assert.deepEqual(commitmentCalls, []);
   assert.equal([...component.budgets.reservations.values()][0].state, "reserved");
   assert.equal(component.budgets.transitions.length, 0);
   component.budgets.close(); tracked = transcript.committed; component = open();
@@ -492,6 +414,9 @@ async function daemonSubmissionRecoversAfterLostSubmit(t) {
   assert.equal(result.kind, "verified");
   assert.equal(result.submission.state, "Committed");
   assert.equal(result.submission.rung, "committed");
+  assert.equal(result.verification.rung, "receipted");
+  assert.equal(result.verification.commitmentEvidence, undefined);
+  assert.deepEqual(commitmentCalls, []);
   assert.equal(component.budgets.available, 75000n);
   assert.equal(component.budgets.transitions.length, 1);
   assert.equal(submits, 1);
@@ -527,8 +452,8 @@ class RegisteredDrawExecution {
     }, [pin]);
     try { this.prepared.register(input.principal, input.requestDigest, bytes(input.rawTransaction), {
       grantId: draw.grantId.toString("hex"), recipient: payee.toString("hex"), amount: draw.amount,
-      idempotencyKey: input.idempotencyKey, sequence: draw.receiverSequence,
-      purposeHash: draw.assetId.toString("hex"), contextHash: draw.contextHash.toString("hex"), chainId: 125n,
+      idempotencyKey: input.idempotencyKey, sequence: draw.sequence,
+      purposeHash: draw.purposeHash.toString("hex"), contextHash: draw.contextHash.toString("hex"), chainId: 125n,
     }); } catch (error) { this.prepared.close(); throw error; }
   }
   async execute(input) {
@@ -538,19 +463,21 @@ class RegisteredDrawExecution {
       requirements: { scheme: input.requirements.scheme, amount: input.requirements.amount,
         asset: input.requirements.asset.slice(2), payTo: input.requirements.payTo.slice(2),
         extra: { layerx: { payer: payer.toString("hex"), grantId: draw.grantId.toString("hex"),
-          receiverSequence: "1", purposeHash: draw.assetId.toString("hex"), contextHash: draw.contextHash.toString("hex"),
+          receiverSequence: "1", purposeHash: draw.purposeHash.toString("hex"), contextHash: draw.contextHash.toString("hex"),
           ...(input.requirements.scheme === "subscription" ? { windowSeconds: "60" } : {}) } } } });
     if (result.kind === "pending") return result;
     const { kind, ...proof } = this.proof;
+    const verified = await verifySequencerReceipt(result.canonicalReceipt, bytes(input.rawTransaction), [pin]);
     const evidence = { ...proof, signedReceipt: hex(result.canonicalReceipt),
-      receiptDigest: hex(keccak256(result.canonicalReceipt)) };
+      receiptDigest: hex(verified.receiptDigest) };
     return this.authority.settle({ ...input,
       payload: { x402Version: 2, accepted: input.requirements, payload: evidence } });
   }
   close() { this.prepared.close(); }
 }
 
-async function drawFixture(t, { proof = signedProof(transaction()), state = {}, loseAdmission = false } = {}) {
+async function drawFixture(t, { proof, state = {}, loseAdmission = false } = {}) {
+  if (proof === undefined) proof = await signedProof(transaction());
   const input = drawRequest(proof.rawTransaction);
   const hash = hex(keccak256(bytes(input.rawTransaction)));
   const calls = [];
@@ -607,11 +534,11 @@ async function agentDrawRecipientBindsAuthenticatedGrant(t) {
   // The old check rejected this valid draw and accepted the reversed fixture below.
   for (const changes of [
     { source: payee }, { source: word(0xaa) }, { recipient: payer },
-    { assetId: word(0xaa) }, { assetId: draw.assetId }, { amount: 41n },
+    { assetId: word(0xaa) }, { assetId: draw.purposeHash }, { amount: 41n },
     { grantId: word(0xaa) }, { idempotencyKey: word(0xaa) }, { contextHash: word(0xaa) },
     { count: 0 }, { count: 2 },
   ]) {
-    const invalid = await drawFixture(t, { proof: signedProof(transaction(), changes) });
+    const invalid = await drawFixture(t, { proof: await signedProof(transaction(), changes) });
     const candidate = invalid.open();
     await assert.rejects(candidate.middleware.execute(invalid.input),
       (error) => error instanceof AgentMiddlewareError && error.code === "verification-failure");
@@ -621,7 +548,7 @@ async function agentDrawRecipientBindsAuthenticatedGrant(t) {
     candidate.close();
   }
 
-  const failedReceipt = await drawFixture(t, { proof: signedProof(transaction(), { resultCode: 1n }) });
+  const failedReceipt = await drawFixture(t, { proof: await signedProof(transaction(), { resultCode: 1n }) });
   const failed = failedReceipt.open();
   await assert.rejects(failed.middleware.execute(failedReceipt.input), /draw-transaction-failed/u);
   assert.equal(failed.budgets.transitions.length, 0);
@@ -635,8 +562,8 @@ async function agentDrawRecipientBindsAuthenticatedGrant(t) {
   assert.equal(payerMismatch.budgets.transitions.length, 0);
   payerMismatch.close();
 
-  const reversed = transaction({ data: encodeLedgerDraw({ ...draw, from: payer }) });
-  const reversedProof = signedProof(reversed, { source: payer, recipient: payee });
+  const reversed = transaction({ data: encodeLedgerDraw({ ...draw, recipient: payer }) });
+  const reversedProof = await signedProof(reversed, { source: payer, recipient: payee });
   const refused = await drawFixture(t, { proof: reversedProof });
   // The real registration binder refuses this reversed recipient before it reaches execution.
   assert.throws(() => refused.open(), /draw-transaction-mismatch/u);

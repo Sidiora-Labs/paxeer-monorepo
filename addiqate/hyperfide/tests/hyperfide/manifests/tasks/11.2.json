@@ -1,0 +1,144 @@
+{
+  "approval": {
+    "allowed_actions": [],
+    "approved": true
+  },
+  "campaign_id": "hyperfide-task-11.2-native-bootstrap-v1-requal-12aa390190b3-requal-6a91b0130b1d-requal-ff4632c9bc89",
+  "case_ids": [
+    "V-038",
+    "V-039"
+  ],
+  "expected_assertion_ids": [
+    "bootstrap.staging.qualification-unclaimed-generation",
+    "bootstrap.source.exact-multi-repository",
+    "bootstrap.source.partial-download",
+    "bootstrap.submodule.actual-pinned-materialization",
+    "bootstrap.submodule.mismatched-pin",
+    "bootstrap.submodule.undeclared-module",
+    "bootstrap.submodule.unapproved-source",
+    "bootstrap.submodule.nested-pinned-graph",
+    "bootstrap.lfs.actual-object-materialization",
+    "bootstrap.lfs.corrupt-object-denied",
+    "bootstrap.dependency.actual-command",
+    "bootstrap.dependency.large-artifact-file",
+    "bootstrap.dependency.bounded-diagnostic-pipe",
+    "bootstrap.dependency.empty-and-multiline-arguments",
+    "bootstrap.dependency.nonzero-quarantine",
+    "bootstrap.source.dependency-hook-mutation",
+    "bootstrap.source.index-flag-mutation",
+    "bootstrap.dependency.timeout",
+    "bootstrap.input.workspace-traversal",
+    "bootstrap.input.workspace-absolute",
+    "bootstrap.input.unknown-field",
+    "bootstrap.input.boolean-schema",
+    "bootstrap.input.duplicate-repository",
+    "bootstrap.input.invalid-commit",
+    "bootstrap.input.missing-commit",
+    "bootstrap.input.stale-lock",
+    "bootstrap.input.host-supervisory",
+    "bootstrap.input.missing-root",
+    "bootstrap.input.outside-source",
+    "bootstrap.cache.actual-restore-and-command",
+    "bootstrap.cache.configuration-invalidation",
+    "bootstrap.cache.payload-corruption",
+    "bootstrap.cache.tracked-source-denied",
+    "bootstrap.cache.missing-payload",
+    "bootstrap.cache.credential-path-denied",
+    "bootstrap.input.escaped-duplicate",
+    "bootstrap.workspace.no-overwrite",
+    "bootstrap.workspace.symlink-root"
+  ],
+  "inputs": [
+    {
+      "path": "Makefile",
+      "sha256": "46fe4617103c43c173ef9a02f7975509671b6d23ca06b2d210bc82c7d2551ec4",
+      "size": 5209
+    },
+    {
+      "path": "build/hyperfide-native",
+      "sha256": "3bd3ad956a10ffcf7d6dcf6f581fff8ef03d93227b65f344bb9966d2f5dd226f",
+      "size": 595600
+    },
+    {
+      "path": "build/hyperfide-native-registry.inc",
+      "sha256": "aac57e6939943c8a384c9a2edffae82d00abd3b63c7f6ec0adc71eea77cf6f26",
+      "size": 3901
+    },
+    {
+      "path": "scripts/hyperfide-native-components.py",
+      "sha256": "e9d35c48c7fa582299809f03e485451ba86eb4585f9262150e38b49979ae1ef3",
+      "size": 14830
+    },
+    {
+      "path": "src/cg.h",
+      "sha256": "86504c40ae367c60310152a3778ac0893ced6d12b82f203e22a69c07bc952cef",
+      "size": 95933
+    },
+    {
+      "path": "src/hyperfide/bootstrap.c",
+      "sha256": "4796e62417f6cd27a18eb9ed21f414513568034f7f9572b64871c3f718a827ef",
+      "size": 41421
+    },
+    {
+      "path": "src/hyperfide/component_main.c",
+      "sha256": "cb3b9f726346ac2724ca0d61f44845180074f2347f33a7c22d53b723e476223b",
+      "size": 7574
+    },
+    {
+      "path": "src/hyperfide/components.h",
+      "sha256": "0c89648b865492dca5a15f7b17c5cd6609ce37efffcab780cad870e77dd3eac3",
+      "size": 538
+    },
+    {
+      "path": "src/hyperfide/components/11.2.kvx",
+      "sha256": "4ceaea25f04e64302c2e3ac34f10bfbf25a824f9f851e8f8eea8018137c220c1",
+      "size": 232
+    },
+    {
+      "path": "src/hyperfide/components/schema.kvx",
+      "sha256": "e543d2bbbaf1cc956101b84c55b95483f4e26c7e6a11c1ff11935621190036a0",
+      "size": 351
+    },
+    {
+      "path": "src/hyperfide/preparation_support.h",
+      "sha256": "2cefe682d6873e19a5502b861cb77a5fb06590e8b74a6a6019bacc0504f02706",
+      "size": 17402
+    },
+    {
+      "path": "src/sha256.c",
+      "sha256": "eb8d406b26fb5ebdd835a88ed4e9033e211ba37e6cd25c8cc725a01ab74a536e",
+      "size": 2917
+    },
+    {
+      "path": "tests/hyperfide/cases/tasks/11_2.py",
+      "sha256": "d36b12f6f4997426626c4a7037344012224e29230811c43ead9593f3ee291fb4",
+      "size": 24497
+    },
+    {
+      "path": "tests/hyperfide/check-evidence.py",
+      "sha256": "bde4b484ad883112e856fc952e682bc780ae15c9a525f27d68a0646ebe4bf2c0",
+      "size": 31174
+    },
+    {
+      "path": "tests/hyperfide/manifest.schema.json",
+      "sha256": "3407092d7e6e452bb288e996f840bd5bab22d6c0f494a49bf944cd73c18078b8",
+      "size": 3216
+    },
+    {
+      "path": "tests/hyperfide/qualify.py",
+      "sha256": "2048625d3cc598648955d23877d97d1694f5454b9b1a31a707bf81b267b03ceb",
+      "size": 39363
+    }
+  ],
+  "policy": {
+    "cloud_provisioning": false,
+    "component_only": true,
+    "execution": "remote-only",
+    "frontier_calls": false
+  },
+  "registered_variant": "task:11.2",
+  "resources": [],
+  "schema_version": 1,
+  "scope": "task-component",
+  "seed": 1
+}

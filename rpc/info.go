@@ -120,6 +120,7 @@ func (i *InfoAPI) Accounts(ctx context.Context) (result []common.Address, return
 	if err != nil {
 		return []common.Address{}, err
 	}
+	result = make([]common.Address, 0)
 	for addr := range getAddressPrivKeyMap(kb) {
 		result = append(result, common.HexToAddress(addr))
 	}

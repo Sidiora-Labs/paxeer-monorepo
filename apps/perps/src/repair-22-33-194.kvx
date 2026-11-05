@@ -1,0 +1,26 @@
+[task]
+id = "22.33.194"
+acceptance = "22998.1"
+findings = ["f023", "f014", "f015", "f016", "f039", "f024", "f027", "f026"]
+closure_record = "apps/perps/src/widgets/spot/repair-22-33-194.kvx"
+test = "apps/perps/tests/repair-22-33-194.test.ts"
+main_revision = "039e5adc21d328c5a1b7275e9649076c7d444e31"
+main_merge = "Already up to date; main includes prerequisite 22.31.480."
+qualification_evidence = "The final hf-done JSON and private /out/run/gates.jsonl bind the verified candidate revision to its command, exit code and log; this source record does not claim a gate before it runs."
+
+[baseline.build]
+revision = "10d1a13027b2964497d0991ece7b706bfb0b437b"
+command = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
+exit = 0
+log = "/out/logs/build-1.log"
+
+[baseline.verify]
+revision = "10d1a13027b2964497d0991ece7b706bfb0b437b"
+command = "cg spec done 22.33.194 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Eight tests executed: f023, f024, f039, f027 and f026 passed; f014, f015 and f016 failed with window is not defined in Radix unmount effects."
+
+[continuation]
+repair = "Attempt 7 uses a real React DOM root for every mounted case; browser form and WebSocket APIs are registered before widgets load, roots unmount between cases, and the loopback order fixture answers the production GET query and response shape. Wallet store state is published after WagmiProvider hydration; every existing assertion remains enabled."
+wiring_request = "Domain 3 / fm-markets owns apps/perps/tests/proof_widgets.test.ts: replace expected render exceptions with successful complete desktop and mobile renders; that path remains outside this task."

@@ -1,0 +1,52 @@
+[meta]
+task = "22.31.545"
+requirement = "22998.1"
+basis = "Gotcha 3158; decision 2614; NativeSendPurposeV1 is retired by the existing agent-api contract."
+scope = "Daemon source and tests only; layerx-agent-api is unchanged."
+
+[producers]
+owner_preview = "human_runtime.rs::native_send_owner_preview_on_surface constructs and validates NativeSendPurposeV2 using the bound owner's stable DID, current consent verification key and the preparation's EVM sender; transaction_type 2, chain_id 125, NativeActivity (1, 5), and the original five digests."
+mcp = "human_runtime.rs::UnifiedAgentOwner::mcp_native_web_purpose and SharedAgentOwner::mcp_native_web_purpose return the V2 purpose from the owner preview and retain the exact prepared-byte comparison."
+response = "human.rs::HumanNativeSendOwnerPreviewV1 carries NativeSendPurposeV2; human_runtime.rs::native_send_owner_preview_v1 encodes its V2 canonical bytes through the existing Unix response frame."
+owner = "human_runtime.rs::native_send_purpose_owner resolves the current authenticated owner and independently reads the consent key's bound EVM address at the current head into opaque VerifiedNativeSendOwnerV2."
+
+[wire]
+purpose = "agent_rpc_wire.rs::NativeSendPurposeV2Wire::into_request validates version 2 and the V2 contract."
+fields = ["version", "tenant", "agent_did", "owner_did", "consent_public_key", "evm_sender", "session_id", "generation", "expires_at_ms", "capability_id", "transaction_type", "chain_id", "activity", "preparation_id", "canonical_digest", "economic_action", "idempotency_key", "commitment"]
+encoding = "version, generation, expiry, transaction_type and chain_id are canonical decimal strings; consent_public_key is lowercase hex32; evm_sender is lowercase hex20; activity remains the canonical NativeActivity object; digest fields are lowercase hex32."
+signed_fields = ["purpose", "signature"]
+excluded = ["owner_public_key", "protocol_version", "network_id"]
+canonical = "Canonical implementations encode NativeSendPurposeV2 and SignedNativeSendPurposeV2 with the exact V2 fields."
+request = "NativeSendPrepareV1Wire keeps variant native_send_v1 and decodes the V2 signed purpose into daemon-owned NativeSendPrepareRequestV2; its validation preserves every check from the retired API request type without changing agent-api."
+dispatch = "agent_rpc_dispatch.rs::native_send_prepare_digest, both dispatch decode sites, native_send_human_prepare and human_runtime.rs::rpc_prepare_native_send carry the daemon V2 request."
+legacy = "NativeSendPurposeV1Wire and SignedNativeSendPurposeV1Wire remain only in the typed legacy refusal branch, which returns envelope.malformed."
+
+[binding]
+verified = "binding.rs::VerifiedNativeSendPurposeV2 and native_send_purpose_digest use V2 canonical bytes and SHA256."
+owner = "verify_native_owner_send_purpose calls NativeSendPurposeV2::check_current_owner with the independently resolved stable owner DID, consent key and EVM address; current_owner mismatch is retained as BindingError::NativeSend."
+preparation = "The verifier checks the real retained SigningPreparation alongside its activity authorization: exact type-2 ledger call, chain 125, payload, signing hash, disclosure, expected sender and observation head; check_prepared_transaction binds the expected sender and SHA256 of the unsigned canonical transaction."
+signature = "Ed25519 verifies the signature over SHA256 of V2 canonical purpose bytes with consent_public_key; session, generation, expiry, activity, capability, economic action, idempotency and replay checks remain enforced."
+capability = "inspect_native_send_capability binds the unsigned transaction digest, then uses the shared effect-capability constraints without substituting the activity-envelope digest."
+consumers = "rpc_prepare_native_send and rpc_submit_native_send_external pass the retained SigningPreparation and resolved V2 owner into the binding verifier and capability inspector."
+persistence = "replay_update writes SignedNativeSendPurposeV2::canonical_bytes under the retained native-send-purpose-v1 key; restore_native_signed_send_purpose decodes with SignedNativeSendPurposeV2::from_canonical_bytes and verifies the consent signature."
+legacy_storage = "The existing key is deliberately retained so a historical LXNS version 1 record is refused as corrupt and never silently migrated or overwritten."
+
+[tests]
+preview = "native_send_preview_evm.rs decodes NativeSendPurposeV2 and asserts chain 125, transaction type 2, fixture EVM sender and owner consent key while preserving all existing digest, preparation and commitment assertions."
+preview_refusal = "Gotcha 3162; decision 2618: after post_preview(5, [12; 32]), assert the entire reason-bearing refusal frame through field: magic LXHAGT01, status byte 1, big-endian u32 length 17, and operation.refused. The previous prefix-only expectation omitted the daemon's existing reason field; follower 22.31.543 preserves this assertion on rebase."
+real_path = "repair_22_31_545.rs reuses the existing local Anvil fixture and sends an owner-preview request through AcceptedTransport and serve_one over a real UnixStream; it decodes the producer's V2 bytes, signs them with the fixture Ed25519 consent key and invokes the production binding verifier and capability inspector."
+restart = "The test persists the production replay_update bytes and SigningPreparation, closes the Store by dropping its instance, reopens its original directory, creates a fresh SessionRegistry, resolves the current owner again, restores the exact signed V2 purpose and preparation, and verifies them again."
+refusals = "The production RPC dispatcher refuses the V1 wire body with envelope.malformed; the binding verifier refuses changed consent key, EVM sender and stable owner DID with native_send.current_owner, a changed prepared nonce with native_send.prepared_transaction, and an invalid Ed25519 signature; restored storage refuses a correctly framed and signed historical V1 record."
+wire_contract = "The existing native_send wire tests execute V2 canonical round trips and preserve all refusal assertions, with additional V2 key, sender, version, type and chain checks."
+services = "Only the local Anvil process and the existing local authority, chain and runtime-clock fixture peers are used; no external endpoint, credential or caller-supplied environment variable is required."
+
+[qualification]
+ledger = "/out/run/gates.jsonl"
+revision = "The matching candidate revision on the final passing build and verify entries in the private gate ledger is the verified revision for this repair."
+build_command = "The command field of the final build entry produced by hf-build in the gate ledger."
+verify_command = "The command field of the final verify entry produced by hf-done in the gate ledger; hf-done invokes cg spec done 22.31.545 with the declared verify_cmd and graph checks."
+evidence = "The exit and log fields of those entries are authoritative; no gate result is asserted by this pre-gate record. No file is amended after the final qualification gates."
+
+[implementation_notes]
+api_request = "The API NativeSendPrepareRequestV1 still embeds SignedNativeSendPurposeV1; the daemon owns a V2 request so no out-of-scope API change or legacy conversion is needed."
+retained_bytes = "The retired verifier hashed signed transaction bytes, whereas owner preview binds unsigned type-2 canonical bytes; V2 checks the retained EVM SigningPreparation separately from its activity authorization."

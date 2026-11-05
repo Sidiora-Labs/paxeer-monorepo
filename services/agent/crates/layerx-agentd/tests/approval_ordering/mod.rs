@@ -1,4 +1,5 @@
 use std::fs;
+use std::os::unix::fs::DirBuilderExt;
 use std::path::{Path, PathBuf};
 use std::sync::Barrier;
 use std::thread;
@@ -9,16 +10,16 @@ use crate::approval::{
 };
 use crate::budget::{reserve, BudgetLimiter, LimitConfig, LimitId, LimitScope, ReservationRequest};
 use crate::capability::CapabilityId;
-use crate::policy::approval::{hold, ApprovalContext, ApprovalRegistry, ApproverId};
+use crate::policy::approval::{
+    hold_at, ApprovalContext, ApprovalRegistry, ApprovalSequence, ApproverId,
+};
 use crate::session::SessionId;
 use crate::store::TenantId;
-use layerx_agent_api::identity::{ActivityType, AgentDid, Asset, AuthorityRef, ExplicitSet};
-use layerx_agent_api::prepare::{
-    CanonicalBytes, Disclosure, IdempotencyRef, PreparationRef, Prepared, SigningPreimage,
-};
-use layerx_agent_api::{Amount, TimestampSeconds};
+use layerx_agent_api::TimestampSeconds;
 use layerx_types::ids::Did;
-use sha2::{Digest as _, Sha256};
+
+mod preparation;
+use preparation::prepared;
 
 struct Directory(PathBuf);
 
@@ -29,7 +30,11 @@ impl Directory {
             std::process::id()
         ));
         let _ = fs::remove_dir_all(&root);
-        fs::create_dir_all(&root).unwrap_or_else(|error| panic!("directory: {error}"));
+        fs::DirBuilder::new()
+            .recursive(true)
+            .mode(0o700)
+            .create(&root)
+            .unwrap_or_else(|error| panic!("private directory: {error}"));
         Self(root)
     }
 
@@ -46,50 +51,6 @@ impl Drop for Directory {
 
 fn tenant() -> TenantId {
     TenantId::new("tenant-approval-semantics").unwrap_or_else(|error| panic!("tenant: {error}"))
-}
-
-fn prepared(id: u8, expiry: u64) -> Prepared {
-    let call = layerx_crypto::evm_transaction::Eip1559Call {
-        chain_id: 125,
-        nonce: u64::from(id),
-        max_priority_fee_per_gas: 1,
-        max_fee_per_gas: 2,
-        gas_limit: 100_000,
-        to: [3; 20],
-        data: [
-            layerx_crypto::disclosure::call::ledger_selector("transfer(address,uint256)").to_vec(),
-            [vec![0; 12], vec![5; 20]].concat(),
-            [vec![0; 31], vec![50]].concat(),
-        ]
-        .concat(),
-    };
-    let bytes = call.encode_unsigned();
-    let digest: [u8; 32] = Sha256::digest(&bytes).into();
-    let actor = AgentDid::new("0404040404040404040404040404040404040404")
-        .unwrap_or_else(|error| panic!("actor: {error:?}"));
-    Prepared {
-        preparation_ref: PreparationRef::new(format!("prepared-{id}"))
-            .unwrap_or_else(|error| panic!("preparation: {error:?}")),
-        unsigned_canonical_bytes: CanonicalBytes::new(bytes)
-            .unwrap_or_else(|error| panic!("bytes: {error:?}")),
-        signing_preimage: SigningPreimage::new(call.signing_hash().to_vec())
-            .unwrap_or_else(|error| panic!("preimage: {error:?}")),
-        disclosure: Disclosure {
-            canonical_digest: digest,
-            activity_type: ActivityType(7),
-            actor,
-            authority: AuthorityRef::new("session-key")
-                .unwrap_or_else(|error| panic!("authority: {error:?}")),
-            counterparties: ExplicitSet::deny_all(),
-            amounts: ExplicitSet::deny_all(),
-            asset: Asset::new("LXP").unwrap_or_else(|error| panic!("asset: {error:?}")),
-            fee_limit: Amount(2),
-            expiry: TimestampSeconds(expiry),
-            idempotency_key: IdempotencyRef::new(format!("activity-{id}"))
-                .unwrap_or_else(|error| panic!("activity key: {error:?}")),
-        },
-        expiry: TimestampSeconds(expiry),
-    }
 }
 
 fn context(id: u8) -> ApprovalContext {
@@ -148,8 +109,15 @@ fn rejection_between_grant_prepare_and_persist_conflicts_with_durable_grant() {
     let queue = ApprovalSubmissionQueue::default();
     let held = prepared(14, 40);
     reserve_hold(&limiter, 14, 40);
-    hold(&registry, context(14), held.clone(), 10, 40)
-        .unwrap_or_else(|error| panic!("hold: {error:?}"));
+    hold_at(
+        &registry,
+        context(14),
+        held.clone(),
+        ApprovalSequence(10),
+        ApprovalSequence(40),
+        TimestampSeconds(10),
+    )
+    .unwrap_or_else(|error| panic!("hold: {error:?}"));
     let prepared_barrier = Barrier::new(2);
     let rejection_barrier = Barrier::new(2);
     let (grant, rejection) = thread::scope(|scope| {
@@ -168,6 +136,7 @@ fn rejection_between_grant_prepare_and_persist_conflicts_with_durable_grant() {
                         idempotency_key: &key("grant-14"),
                         approver: approver("human:grant"),
                         current_sequence: 11,
+                        current_time: TimestampSeconds(11),
                     },
                     &held,
                     &queue,
@@ -195,6 +164,7 @@ fn rejection_between_grant_prepare_and_persist_conflicts_with_durable_grant() {
                     idempotency_key: &key("reject-14"),
                     approver: approver("human:reject"),
                     current_sequence: 11,
+                    current_time: TimestampSeconds(11),
                 })
                 .unwrap_or_else(|error| panic!("reject: {error:?}"))
         });
@@ -226,7 +196,15 @@ fn stale_prepared_grant_cannot_overwrite_durable_rejection() {
         ApprovalExpiry::open(directory.path()).unwrap_or_else(|error| panic!("expiry: {error:?}"));
     let held = prepared(15, 40);
     reserve_hold(&limiter, 15, 40);
-    hold(&registry, context(15), held, 10, 40).unwrap_or_else(|error| panic!("hold: {error:?}"));
+    hold_at(
+        &registry,
+        context(15),
+        held,
+        ApprovalSequence(10),
+        ApprovalSequence(40),
+        TimestampSeconds(10),
+    )
+    .unwrap_or_else(|error| panic!("hold: {error:?}"));
     let snapshot = registry
         .get_scoped(&tenant(), [15; 32], 11)
         .unwrap_or_else(|error| panic!("snapshot: {error:?}"));
@@ -250,6 +228,7 @@ fn stale_prepared_grant_cannot_overwrite_durable_rejection() {
             idempotency_key: &key("reject-15"),
             approver: approver("human:reject"),
             current_sequence: 11,
+            current_time: TimestampSeconds(11),
         })
         .unwrap_or_else(|error| panic!("reject: {error:?}"));
     assert_eq!(rejection.outcome, ApprovalOutcome::Rejected);

@@ -46,10 +46,10 @@ export function consumeExchangePlaceOrderCall(
   order: Parameters<typeof exchangePlaceOrderCall>[0],
 ): void {
   const word = (value: bigint | number): string => BigInt(value).toString(16).padStart(64, "0");
-  const selector = abiSelector(exchangeOrderAbi(true).signature);
+  const selector = abiSelector(exchangeOrderAbi("accountId" in order).signature);
   assert.deepEqual(actual, {
     to: "0x0000000000000000000000000000000000001015",
-    data: selector + order.marketId.slice(2).toLowerCase() + order.accountId.slice(2).toLowerCase()
+    data: selector + order.marketId.slice(2).toLowerCase() + (order.accountId === undefined ? "" : order.accountId.slice(2).toLowerCase())
       + word(order.side) + word(order.price) + word(order.quantity) + word(order.timeInForce),
     value: 0n,
   });

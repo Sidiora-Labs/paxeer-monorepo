@@ -1,9 +1,19 @@
+Code.require_file("paxeer_x_capture.exs", __DIR__)
+
 defmodule EthereumJSONRPC.PaxeerXNewHeadFieldsTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   alias EthereumJSONRPC.{Blocks, PaxeerX}
 
   @fixture Path.expand("../support/fixture/paxeer_x/new_head_full.json", __DIR__)
+
+  test "recorded newHeads fields cross WebSocket and HTTP into block import params" do
+    EthereumJSONRPC.PaxeerXCapture.assert_recorded_head_fields()
+  end
+
+  test "recorded head field mutations trigger a real HTTP number refetch" do
+    EthereumJSONRPC.PaxeerXCapture.assert_recorded_head_mutations()
+  end
 
   test "new_head_with_other_receipts_root_is_rejected" do
     %{"new_head" => new_head, "block" => block} =

@@ -10,6 +10,9 @@
 //! and wrapper-only gate instructions prohibit the task text's additional baseline run.
 //! Qualification revision and private logs are recorded by hf-build/hf-done, not invented here.
 
+#[path = "support/clock.rs"]
+mod test_clock;
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io::{BufRead, BufReader, Read, Write};
@@ -1029,6 +1032,7 @@ fn existing_grant_exchange(offered: bool, corrupt_receipt: bool) {
     let payer = NodePayer::new(&server, Arc::clone(&traffic));
     let mut binding = Binding::parse(&document.to_string()).expect("real web binding");
     binding.attach_web(WebAuthority::new(
+        Arc::new(test_clock::TestClock::new(50)),
         Arc::new(ApprovalRegistry::default()),
         Box::new(payer),
     ));
@@ -1138,7 +1142,7 @@ fn session_approval_result_keeps_major_two_fields() {
         SigningPreimage,
     };
     use layerx_agent_api::{Amount, TimestampSeconds};
-    use layerx_agentd::policy::approval::{hold, ApprovalContext};
+    use layerx_agentd::policy::approval::{hold_at, ApprovalContext, ApprovalSequence};
 
     let call = Eip1559Call {
         chain_id: 125,
@@ -1198,7 +1202,8 @@ fn session_approval_result_keeps_major_two_fields() {
         expiry: TimestampSeconds(source.expiry.not_after),
     };
     let registry = ApprovalRegistry::default();
-    let ticket = hold(
+    let clock = layerx_types::test_support::DeterministicClock::new(HEIGHT);
+    let ticket = hold_at(
         &registry,
         ApprovalContext {
             tenant: fixture.credential.tenant().clone(),
@@ -1210,8 +1215,9 @@ fn session_approval_result_keeps_major_two_fields() {
             request_id: [31; 32],
         },
         prepared,
-        HEIGHT,
-        200,
+        ApprovalSequence(HEIGHT),
+        ApprovalSequence(200),
+        TimestampSeconds(clock.now()),
     )
     .expect("hold the real call");
     let expiry = ApprovalExpiry::open(fixture.directory.0.join("approval-decisions"))
@@ -1223,8 +1229,11 @@ fn session_approval_result_keeps_major_two_fields() {
     };
     let binding = Binding::parse(&fixture.binding_document("127.0.0.1:9", "full").to_string())
         .expect("approval-only binding");
-    let arguments =
-        json!({"approval_id":hex(&ticket.hold_id),"current_sequence":HEIGHT.to_string()});
+    let arguments = json!({
+        "approval_id":hex(&ticket.hold_id),
+        "current_sequence":HEIGHT.to_string(),
+        "current_time":clock.now().to_string()
+    });
     let daemon = daemon_call(
         &fixture,
         &binding,

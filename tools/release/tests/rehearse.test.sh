@@ -5,9 +5,9 @@
 # the previous binary (REHEARSE_OLD_BIN, default build/paxd.previous, else the paxd on PATH) runs locally.
 # plan_applied_at_next_block and result_file_keys drive the whole rehearsal from REHEARSAL_ENV_FILE
 # (default .env.rehearsal-v6120), a filled copy of tools/release/env/rehearsal.env.example over a
-# stopped mainnet data copy and the release candidate, unless its WORK already holds a finished run;
-# without it both fail and name the missing input. The receipt is REHEARSAL_RECEIPT (default
-# tools/release/rollout/v6.12.0/rehearsal.json).
+# stopped mainnet data copy and the release candidate. Qualification requires empty WORK and a new
+# producer run. REHEARSAL_TEST_MODE=inspect explicitly reads previously bound evidence; inspection
+# does not qualify the driver. REHEARSAL_RECEIPT defaults to WORK/receipts/rehearsal.json.
 #
 # The cases from applied_height_on_every_node on read that finished run: applied height, seeded
 # markets, oracle feed keys and fresh prices, precompile presence at the activation height, block
@@ -47,7 +47,8 @@ pass=0
 failed=0
 old_bin=${REHEARSE_OLD_BIN:-$([ -x "$root/build/paxd.previous" ] && echo "$root/build/paxd.previous" || command -v paxd || true)}
 rehearse_env=${REHEARSAL_ENV_FILE:-.env.rehearsal-v6120}
-receipt=${REHEARSAL_RECEIPT:-tools/release/rollout/v6.12.0/rehearsal.json}
+receipt=${REHEARSAL_RECEIPT:-}
+rehearsal_test_mode=${REHEARSAL_TEST_MODE:-fresh}
 port_base=$((20000 + ($$ % 400) * 100))
 chain=hyperpax_125-1
 want_upgrade=v6.12.0
@@ -333,20 +334,143 @@ case_nodes_halt_at_rehearsal_height() {
 	return 0
 }
 
+# The binding covers the actual candidate, producer/consumer code and all inspected evidence.
+rehearsal_evidence() {
+	python3 - "$root" "$1" "$rehearse_env" "$2" "$receipt" <<'PY_BINDING'
+import hashlib
+import json
+import os
+from pathlib import Path
+import sys
+import tempfile
+
+
+def sha(path):
+    if path.is_symlink() or not path.is_file():
+        raise ValueError(f"not a regular evidence/input file: {path}")
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def require_empty(work, receipt):
+    if work.is_symlink() or (work.exists() and (not work.is_dir() or any(work.iterdir()))):
+        raise ValueError("driver qualification requires empty WORK; use a new work directory")
+    if receipt.exists() or receipt.is_symlink():
+        raise ValueError("fresh qualification requires an absent receipt")
+
+
+def identity(root, env_path, work, receipt):
+    sys.path.insert(0, str(root / "tools/release"))
+    from fleet_check import read_env, validate_receipt
+
+    env = read_env(env_path)
+    if Path(env["WORK"]).resolve() != work.resolve():
+        raise ValueError("WORK differs from the rehearsal environment")
+    candidate = Path(env["NEW_BIN"])
+    candidate_sha = sha(candidate)
+    sums = candidate.with_name("SHA256SUMS")
+    matches = [line.split()[0] for line in sums.read_text().splitlines()
+               if len(line.split()) == 2 and line.split()[1] == candidate.name]
+    if matches != [candidate_sha]:
+        raise ValueError("candidate differs from its release SHA256SUMS")
+    result_file = work / "rehearsal-result.env"
+    result = dict(line.split("=", 1) for line in result_file.read_text().splitlines())
+    document = json.loads(receipt.read_text())
+    validate_receipt(document)
+    if (result["new_bin_sha256"] != candidate_sha or document.get("new_bin_sha256") != candidate_sha
+            or document.get("result") != "pass" or document.get("rollback_rehearsed") is not True
+            or result["rollback_rehearsed"] != "true"):
+        raise ValueError("completed evidence does not qualify this candidate and rollback")
+    old_sha = sha(Path(env["OLD_BIN"]))
+    if result["old_bin_sha256"] != old_sha:
+        raise ValueError("completed evidence belongs to a different previous binary")
+    release = root / "tools/release"
+    tools = {release / "tests/rehearse.test.sh", release / "tests/test_repair_22_33_889.py"}
+    for directory in (release, release / "rehearsal", release / "env"):
+        tools.update(path for path in directory.iterdir()
+                     if path.is_file() and path.suffix in (".py", ".sh", ".json", ".example"))
+    tooling = {str(path.relative_to(root)): sha(path) for path in sorted(tools)}
+    evidence = {"result": sha(result_file), "receipt": sha(receipt)}
+    for directory in (work / "evidence", work / "logs"):
+        files = sorted(path for path in directory.rglob("*") if path.is_file() or path.is_symlink())
+        if not files:
+            raise ValueError(f"no recorded evidence in {directory}")
+        evidence.update({str(path.relative_to(work)): sha(path) for path in files})
+    for name in ("rehearsal.env", "inventory.json", "rehearsal-handoff.json"):
+        evidence[name] = sha(work / name)
+    return dict(schema=1, work=str(work.resolve()), candidate_sha256=candidate_sha,
+                old_bin_sha256=old_sha, env_sha256=sha(env_path), release_sums_sha256=sha(sums),
+                tooling_sha256=hashlib.sha256(json.dumps(tooling, sort_keys=True).encode()).hexdigest(),
+                tooling=tooling, evidence=evidence)
+
+
+def bind_evidence(root, action, env_path, work, receipt):
+    if action == "fresh":
+        require_empty(work, receipt)
+        return
+    binding = work / "test-evidence-binding.json"
+    current = identity(root, env_path, work, receipt)
+    if action == "inspect":
+        if json.loads(binding.read_text()) != current:
+            raise ValueError("candidate, tooling revision or rehearsal evidence changed")
+    elif action == "record":
+        if binding.exists() or binding.is_symlink():
+            raise ValueError("refusing to replace an existing evidence binding")
+        name = None
+        try:
+            with tempfile.NamedTemporaryFile(mode="w", dir=work, delete=False) as stream:
+                name = stream.name
+                json.dump(current, stream, sort_keys=True)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(name, binding)
+        finally:
+            if name is not None and os.path.exists(name):
+                os.unlink(name)
+    else:
+        raise ValueError("unknown rehearsal evidence action")
+
+
+if __name__ == "__main__":
+    try:
+        bind_evidence(Path(sys.argv[1]), sys.argv[2], *map(Path, sys.argv[3:]))
+    except (OSError, ValueError, KeyError) as error:
+        sys.exit(f"rehearse.test: {error}")
+PY_BINDING
+}
+
 full_run() {
 	[ -n "$rehearse_env" ] && [ -r "$rehearse_env" ] \
 		|| { echo "REHEARSAL_ENV_FILE must name a filled rehearsal env over a stopped mainnet data copy and the release candidate"; return 1; }
-	[ -f "$scratch/full.done" ] && return "$(cat "$scratch/full.done")"
-	local work
+	local work status=0
 	work=$(key_of "$rehearse_env" WORK) || return 1
-	if [ -r "$work/rehearsal-result.env" ] && [ -r "$receipt" ]; then
-		echo "the finished run of $work" >"$scratch/full.log"
-		echo 0 >"$scratch/full.done"
-		return 0
+	[ -n "$work" ] || { echo "WORK must not be empty"; return 1; }
+	[ -n "$receipt" ] || receipt=$work/receipts/rehearsal.json
+	if [ -f "$scratch/full.done" ]; then
+		status=$(cat "$scratch/full.done")
+		[ "$status" -eq 0 ] || return "$status"
+		rehearsal_evidence inspect "$work"
+		return $?
 	fi
-	bash "$driver" --env-file "$rehearse_env" --receipt "$receipt" >"$scratch/full.log" 2>&1
-	echo $? >"$scratch/full.done"
-	return "$(cat "$scratch/full.done")"
+	case "$rehearsal_test_mode" in
+		inspect)
+			rehearsal_evidence inspect "$work" || return 1
+			echo "INSPECTION ONLY: candidate and tooling bound evidence; driver not qualified" >"$scratch/full.log"
+			;;
+		fresh)
+			rehearsal_evidence fresh "$work" || return 1
+			bash "$driver" --env-file "$rehearse_env" --receipt "$receipt" >"$scratch/full.log" 2>&1 || status=$?
+			if [ "$status" -eq 0 ]; then
+				rehearsal_evidence record "$work" >>"$scratch/full.log" 2>&1 || status=$?
+			fi
+			;;
+		*) echo "REHEARSAL_TEST_MODE must be fresh or inspect"; return 1 ;;
+	esac
+	printf '%s\n' "$status" >"$scratch/full.done"
+	return "$status"
+}
+
+case_fresh_handoff_reaches_markets() {
+	python3 "$root/tools/release/tests/test_repair_22_33_889.py" --fresh-handoff
 }
 
 case_plan_applied_at_next_block() {
@@ -399,6 +523,7 @@ load_run() {
 
 # require_run: loads the finished run named by the env file, or fails naming what is missing.
 require_run() {
+	full_run || return 1
 	load_run 2>"$scratch/load.log" || { echo "no finished rehearsal run: $(tail -n 1 "$scratch/load.log")" >&2; return 1; }
 }
 
@@ -570,20 +695,26 @@ case_feed_key_needs_association() {
 	done
 }
 
-run_case check_mode_touches_nothing
-run_case pool_parity_units
-run_case export_step_produces_genesis
-run_case nodes_halt_at_rehearsal_height
-run_case plan_applied_at_next_block
-run_case result_file_keys
-run_case applied_height_on_every_node
-run_case eighteen_markets_seeded
-run_case oracle_set_and_fresh_prices
-run_case precompiles_switch_at_activation
-run_case block_hashes_agree
-run_case version_and_clean_logs
-run_case rollback_leg_restores_previous_chain
-run_case feed_key_needs_association
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+	run_case check_mode_touches_nothing
+	run_case pool_parity_units
+	run_case export_step_produces_genesis
+	run_case nodes_halt_at_rehearsal_height
+	run_case fresh_handoff_reaches_markets
+	run_case plan_applied_at_next_block
+	run_case result_file_keys
+	run_case applied_height_on_every_node
+	run_case eighteen_markets_seeded
+	run_case oracle_set_and_fresh_prices
+	run_case precompiles_switch_at_activation
+	run_case block_hashes_agree
+	run_case version_and_clean_logs
+	run_case rollback_leg_restores_previous_chain
+	run_case feed_key_needs_association
 
-echo "rehearse.test.sh: $pass passed, $failed failed"
-[ "$failed" -eq 0 ]
+	if [ "$rehearsal_test_mode" = inspect ]; then
+		echo "INSPECTION ONLY: driver qualification requires REHEARSAL_TEST_MODE=fresh"
+	fi
+	echo "rehearse.test.sh ($rehearsal_test_mode): $pass passed, $failed failed"
+	[ "$failed" -eq 0 ]
+fi

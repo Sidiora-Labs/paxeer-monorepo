@@ -1,14 +1,12 @@
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import receiptRecording from '../../../../../services/interop/crates/layerx-gas-station/tests/fixtures/sequencer_receipts.json';
-import nodeRecordings from '../../../../../sdk/platform/conformance/fixtures/vector-v1-receipted-positive.json';
+import recording from '../../../../../daemon/committed-fixture/vectors/vector-v4-committed.json';
+import conformance from '../../../../../sdk/platform/conformance/fixtures/vector-v4-committed.json';
 import { decodeSequencerReceipt, type ReceiptKeyPin } from '@paxeer/wallet';
 
-const nodeRecording = nodeRecordings.cases.find((entry) => entry.id === 'V1-erc20-approve');
-if (!nodeRecording) throw new Error('the node recordings carry no ERC-20 approval transaction');
-const rawTransaction = nodeRecording.rawTransaction;
+const rawTransaction = recording.settlement.raw_transaction;
 
-export const receiptPin = nodeRecording.pinnedKey;
+export const receiptPin = conformance.positive.pinnedKey;
 export const receiptPins: readonly ReceiptKeyPin[] = [
   {
     ...receiptPin,
@@ -18,10 +16,14 @@ export const receiptPins: readonly ReceiptKeyPin[] = [
     lastHeight: BigInt(receiptPin.lastHeight),
   },
 ];
-export const receiptedAnswer = nodeRecording.receiptJson;
-export const committedAnswer = receiptRecording.committed;
+export const receiptedAnswer = conformance.positive.receiptJson;
+export const committedAnswer = recording.settlement.receipt;
 export const receiptHash = committedAnswer.txHash;
-export const submittedAnswer = receiptRecording.submitted;
+export const submittedAnswer = {
+  rung: 'submitted',
+  txHash: receiptHash,
+  nonce: committedAnswer.nonce,
+};
 export const matchingExplorer = {
   rung: 'committed',
   block_number: Number(BigInt(committedAnswer.blockNumber)),
