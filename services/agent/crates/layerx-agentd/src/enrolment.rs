@@ -250,6 +250,11 @@ impl ReadinessDeclaration {
     }
 
     fn transport(&self) -> Result<ReadinessTransport, EnrolmentError> {
+        let _credential = Zeroizing::new(
+            crate::config::read_protected_source(&self.gateway_key_file, 4_096).map_err(|_| {
+                EnrolmentError::InvalidSurface("the readiness gateway credential is not protected")
+            })?,
+        );
         Ok(ReadinessTransport {
             endpoint: self.endpoint.clone(),
             gateway_key_file: path_text(&self.gateway_key_file)?.to_owned(),
