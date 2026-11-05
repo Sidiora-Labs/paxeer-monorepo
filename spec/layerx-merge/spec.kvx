@@ -321569,7 +321569,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.31.518]
 title = "State the bounty policy: reports by email to security@sidioralabs.com with a full report and credentials; public submissions fixed without attribution or reward; rewards $500 to $100,000"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
