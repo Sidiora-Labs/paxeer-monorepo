@@ -8523,6 +8523,12 @@ value = "A CometBFT commit vote with BlockIDFlag 1 (absent) or 3 (nil) carries n
 basis = "22.33.338 attempt 8 and 22.33.1478 attempt 8 (gotcha 3082)."
 affects = ["22.33.338", "22.33.1478", "22.31.486"]
 
+[decision.2569]
+title = "A full-detail approval notification carries the approval amount and asset from the persisted binding"
+value = "When notification preferences ask for full detail, an approval-waiting delivery payload includes the exact base-unit amount and the stable asset id of the approval, read from the ApprovalNotification binding 22.31.159 persists under the approval subject (not from the Money currency type, whose currency metadata the 159 finding ruled unauthenticated). Summary and minimal detail levels stay as they are: no amount, no agent. The binding is the single source; the payload never recomputes or reformats the amount."
+basis = "22.31.515 attempt 2 (gotcha 3087) and the wiring request in services/human/crates/layerx-human-service/src/approvals/repair_22_31_159.kvx."
+affects = ["22.31.523", "22.31.515", "22.31.159"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -37413,6 +37419,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.31.523]
+title = "Carry the approval amount and asset from the persisted binding in full-detail approval notifications"
+reqs = ["22998.1"]
+touches = ["services/human/crates/layerx-human-service/src/notify/content.rs", "services/human/crates/layerx-human-service/src/notify/event.rs", "services/human/crates/layerx-human-service/src/notify/mod.rs", "services/human/crates/layerx-human-service/tests/repair_22_31_523.rs", "services/human/crates/layerx-human-service/tests/repair_22_31_523.kvx"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test repair_22_31_523"
+do_1 = "do_1 Gotcha 3087, decision 2569. In services/human/crates/layerx-human-service/src/notify (content.rs builds the payload at line 44; event.rs defines the event) make a full-detail ApprovalWaiting delivery carry the approval's exact base-unit amount and stable asset id read from the ApprovalNotification binding (src/approvals/notification.rs, for_delivery, amount, asset) that 22.31.159 persists before the notification is sent. Summary and minimal detail stay unchanged (no amount, no agent). Do not reintroduce the Money currency type for approvals and do not change src/approvals."
+symbols = []
+
+[capability.22.31.522]
+title = "Add the chain routes to the explorer page type map and commit the regenerated route type"
+reqs = ["22998.1"]
+touches = ["apps/explorer/lib/metadata/getPageOgType.ts", "apps/explorer/nextjs/nextjs-routes.d.ts", "apps/explorer/lib/metadata/repair-22-31-522.spec.ts", "apps/explorer/lib/metadata/repair-22-31-522.kvx"]
+tests = []
+verification_contract = "cd apps/explorer && yarn tsc --noEmit -p tsconfig.json && yarn vitest run lib/metadata/repair-22-31-522.spec.ts"
+do_1 = "do_1 Gotcha 3086, decision 2560. In apps/explorer/lib/metadata/getPageOgType.ts add '/chains': 'Root page' and '/chains/[id]': 'Regular page' to OG_TYPE_DICT, in the position the file orders its routes. Run the production build (the declared build command); it regenerates apps/explorer/nextjs/nextjs-routes.d.ts from pages/, so commit that regenerated file with the two chain routes so the committed type matches pages/ and yarn tsc --noEmit sees the same routes the build sees."
+symbols = []
 
 [capability.22.31.521]
 title = "Pass the decision time in the Human service nonce and 159 approval tests the 22.31.495 signature change left behind"
@@ -147412,6 +147436,35 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.522]
+title = "Add the chain routes to the explorer page type map and commit the regenerated route type"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.522"]
+interfaces = []
+do_1 = "do_1 Gotcha 3086, decision 2560. In apps/explorer/lib/metadata/getPageOgType.ts add '/chains': 'Root page' and '/chains/[id]': 'Regular page' to OG_TYPE_DICT, in the position the file orders its routes. Run the production build (the declared build command); it regenerates apps/explorer/nextjs/nextjs-routes.d.ts from pages/, so commit that regenerated file with the two chain routes so the committed type matches pages/ and yarn tsc --noEmit sees the same routes the build sees."
+do_2 = "do_2 Write apps/explorer/lib/metadata/repair-22-31-522.spec.ts asserting getPageOgType('/chains') is 'Root page' and getPageOgType('/chains/[id]') is 'Regular page' through the real function. Leave lib/metadata/templates/title.ts as it is (its intersection type becomes redundant but harmless; note it in the task record as a cleanup for the owner). Record in apps/explorer/lib/metadata/repair-22-31-522.kvx the two entries, the regenerated file and the gate results. Gate: the production build and the type-check plus the spec; no credential, no live endpoint (gotcha 2962)."
+symbols = []
+touches = ["apps/explorer/lib/metadata/getPageOgType.ts", "apps/explorer/nextjs/nextjs-routes.d.ts", "apps/explorer/lib/metadata/repair-22-31-522.spec.ts", "apps/explorer/lib/metadata/repair-22-31-522.kvx"]
+tests = []
+planned_paths = ["apps/explorer/lib/metadata", "apps/explorer/nextjs"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && NODE_ENV=production yarn next build"
+verify_cmd = "cd apps/explorer && yarn tsc --noEmit -p tsconfig.json && yarn vitest run lib/metadata/repair-22-31-522.spec.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-explorer"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.520]
 title = "Declare the wallet workspace dependency build scripts so pnpm install completes under pnpm 12"
 status = "pending"
@@ -147541,7 +147594,7 @@ title = "Move the explorer page repair tests out of the Next.js pages directory"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.31.522"]
 reqs = ["22998.1"]
 capabilities = ["22.31.503"]
 interfaces = []
@@ -147566,6 +147619,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2: attempt 1 moved the 448, 450 and 451 page tests and their records under nextjs/pages-tests and added the no-tests-under-pages guard, but left pages/api/tokens/[hash]/instances/[id]/repair-22-33-449.spec.ts and its .kvx record in place, so the guard itself failed with those two paths. Move that pair to nextjs/pages-tests/api/tokens/[hash]/instances/[id]/ (adjust its relative imports), confirm the guard lists nothing, run the declared build and verify and record the four moved pairs in the task record."
+do_5 = "Attempt 3 (continue after 22.31.522): attempt 2 moved the fourth test and record pair, fixed the imports and the guard now lists nothing; the production build failed in the type check of lib/metadata/getPageOgType.ts because the regenerated route type carries '/chains' and '/chains/[id]' and the page type map has no entry for them (gotcha 3086), a main-side gap of 20.6.1 and 20.6.2 that 22.31.522 closes. Rebase on main once 522 is there, drop the attempt's own change to nextjs/nextjs-routes.d.ts if 522 already committed the regenerated file, run the declared build and verify once, and record the four moved pairs in the task record."
 
 [task.22.31.493]
 title = "Make the Express and Next route checks accept the receipt-signature digest the seller releases"
@@ -174314,6 +174368,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.523]
+title = "Carry the approval amount and asset from the persisted binding in full-detail approval notifications"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.523"]
+interfaces = []
+do_1 = "do_1 Gotcha 3087, decision 2569. In services/human/crates/layerx-human-service/src/notify (content.rs builds the payload at line 44; event.rs defines the event) make a full-detail ApprovalWaiting delivery carry the approval's exact base-unit amount and stable asset id read from the ApprovalNotification binding (src/approvals/notification.rs, for_delivery, amount, asset) that 22.31.159 persists before the notification is sent. Summary and minimal detail stay unchanged (no amount, no agent). Do not reintroduce the Money currency type for approvals and do not change src/approvals."
+do_2 = "do_2 Prove it along the real path in services/human/crates/layerx-human-service/tests/repair_22_31_523.rs: with a real store and the production approvals inbox, set full detail, consume a created approval event of a known amount and asset, and assert the stored delivery payload carries both; set summary detail and assert it carries neither; reopen the store and replay the deliveries and assert the full-detail payload is unchanged. Run the verify once on the unchanged tree first and note which cases failed before the change."
+do_3 = "do_3 Record in services/human/crates/layerx-human-service/tests/repair_22_31_523.kvx the payload fields added, the binding read path and the gate results, and close the wiring request of src/approvals/repair_22_31_159.kvx by naming this task. Gate: the declared build and the task test only; no credential, no live endpoint (gotcha 2962)."
+symbols = []
+touches = ["services/human/crates/layerx-human-service/src/notify/content.rs", "services/human/crates/layerx-human-service/src/notify/event.rs", "services/human/crates/layerx-human-service/src/notify/mod.rs", "services/human/crates/layerx-human-service/tests/repair_22_31_523.rs", "services/human/crates/layerx-human-service/tests/repair_22_31_523.kvx"]
+tests = []
+planned_paths = ["services/human/crates/layerx-human-service/src/notify", "services/human/crates/layerx-human-service/tests"]
+build_cmd = "cargo build --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test repair_22_31_523"
+verify_cmd = "cargo test --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test repair_22_31_523"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.521]
 title = "Pass the decision time in the Human service nonce and 159 approval tests the 22.31.495 signature change left behind"
 status = "pending"
@@ -174436,6 +174520,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Attempt 2 (continue): the build passes and the decide and MCP tests compile and pass; the one failure is approvals.rs real_agent_holds_drive_live_inbox_counts_notifications_and_honest_lifecycle, where ApprovalExpiry::open on the agent root returns Store because the test pre-creates that root with create_dir_all (mode 0755) while the daemon's protected store root demands a canonical owned directory of mode 0700 (src/store/protected.rs validate; gotcha 3081). Let the store create the root itself, or set its permissions to 0o700 after creating it as tests/support/production_fixture.rs line 384 does, for every store root the test opens (the agent root and any stream or sub-store root); check decide.rs for the same pattern; then run the declared verify and record the fix."
+do_6 = "Attempt 3 (continue): the build, the dependent-crate check and the decide and MCP tests pass; the one failure is tests/approvals.rs line 343, which asserts that every full-detail delivery payload contains the amount 25, while 22.31.159 (0e88a62cab) now sends the approval-waiting notification with no money and persists the amount and asset as an ApprovalNotification binding (gotcha 3087). Do what the 159 record asks of this test: for each delivery read ApprovalNotification::for_delivery(&scope, delivery) and assert its amount is 25 and its asset is the item's asset; keep the deep-link and agent-id assertions and every other case unchanged. The payload itself will carry the amount again when 22.31.523 lands (decision 2569); do not wait for it and do not assert the payload text. Run the declared verify once and record."
 
 [task.22.31.504]
 title = "Repair the two gateway unit tests broken on main: the route-count assertion and the dropped description sentences"

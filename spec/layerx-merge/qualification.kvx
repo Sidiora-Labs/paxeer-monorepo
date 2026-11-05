@@ -30715,3 +30715,19 @@ symbol = "repair-22-31-517.test.ts"
 observed = "Attempt 1: the build exited 1 at the install step with ERR_PNPM_IGNORED_BUILDS before the type-check; no verify ran."
 assumption = "A package-manager policy of the whole wallet workspace (gotcha 3079), repaired by 22.31.520; not a defect of the attempt."
 severity = "low"
+
+[finding.22.31.503.2]
+task = "22.31.503"
+file = "apps/explorer/nextjs"
+symbol = "nextjs"
+observed = "Attempt 2: the production build exited 1 at the type check with the two chain routes missing from the page type map; the verify did not run."
+assumption = "A main-side defect outside the task's paths (gotcha 3086)."
+severity = "low"
+
+[finding.22.31.515.2]
+task = "22.31.515"
+file = "services/human/crates/layerx-human-service/tests/approvals.rs"
+symbol = "approvals.rs"
+observed = "Attempt 2: 1 of the approvals cases failed at line 343 (payload amount assertion); decide and the MCP tests passed; build and dependent check exit 0."
+assumption = "A consumer assertion left behind by the 159 producer change (gotcha 3087); the attempt's store-root and decision-time work stands."
+severity = "low"
