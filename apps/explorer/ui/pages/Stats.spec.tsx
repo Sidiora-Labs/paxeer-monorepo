@@ -2,6 +2,7 @@
 
 import React from 'react';
 
+import { base as homeStats } from 'mocks/stats';
 import * as lineMock from 'mocks/stats/line';
 import * as linesMock from 'mocks/stats/lines';
 import { render, routerState } from 'ui/shared/layout/testWrapper';
@@ -45,6 +46,12 @@ describe('the statistics page', () => {
     Object.defineProperty(Element.prototype, 'scrollIntoView', { writable: true, value: scrollIntoView });
     fetchMock.resetMocks();
     fetchMock.mockResponse((request) => {
+      if (request.url.includes('/api/v2/main-page/blocks')) {
+        return Promise.resolve({ body: JSON.stringify([]), ...responseInit });
+      }
+      if (request.url.includes('/api/v2/stats')) {
+        return Promise.resolve({ body: JSON.stringify(homeStats), ...responseInit });
+      }
       if (request.url.includes('/api/v1/counters')) {
         return Promise.resolve({ body: JSON.stringify(counters), ...responseInit });
       }
@@ -66,6 +73,8 @@ describe('the statistics page', () => {
 
     expect(container.querySelector('h1')).not.toBeNull();
     expect(container.querySelector('[data-stats-filters]')).not.toBeNull();
+    expect(container.querySelectorAll('[data-network-stats-hero] [data-scan-stat]')).toHaveLength(4);
+    expect(container.querySelector('[data-network-recent-blocks]')).not.toBeNull();
   });
 
   it('lists the overview first and then every chart section in the side navigation', async() => {

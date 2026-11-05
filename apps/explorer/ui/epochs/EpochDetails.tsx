@@ -24,7 +24,7 @@ const EpochDetails = ({ data, isLoading }: Props) => {
 
   const processingRange = (() => {
     if (!data.start_processing_block_number || !data.end_processing_block_number) {
-      return <Box color="text.secondary">N/A</Box>;
+      return <Box color="text.muted">—</Box>;
     }
 
     if (data.start_processing_block_number === data.end_processing_block_number) {
@@ -42,7 +42,7 @@ const EpochDetails = ({ data, isLoading }: Props) => {
 
   const totalFundRewards = (() => {
     if (!data.distribution?.transfers_total?.total?.value) {
-      return <Box color="text.secondary">N/A</Box>;
+      return <Box color="text.muted">—</Box>;
     }
 
     if (data.distribution?.transfers_total?.token) {
@@ -67,8 +67,8 @@ const EpochDetails = ({ data, isLoading }: Props) => {
   })();
 
   return (
-    <>
-      <DetailedInfo.Container>
+    <Box display="flex" flexDirection="column" gap={ 8 }>
+      <DetailedInfo.Group label="Epoch info">
         <DetailedInfo.ItemLabel
           hint="Current status of the epoch"
           isLoading={ isLoading }
@@ -81,11 +81,21 @@ const EpochDetails = ({ data, isLoading }: Props) => {
             loading={ isLoading }
           />
         </DetailedInfo.ItemValue>
+        <DetailedInfo.ItemLabel isLoading={ isLoading } hint="The epoch start time is unavailable">Started</DetailedInfo.ItemLabel>
+        <DetailedInfo.ItemValue color="text.muted">—</DetailedInfo.ItemValue>
+        <DetailedInfo.ItemLabel isLoading={ isLoading }>First block</DetailedInfo.ItemLabel>
+        <DetailedInfo.ItemValue textStyle="number"><BlockEntity number={ data.start_block_number } noIcon isLoading={ isLoading }/></DetailedInfo.ItemValue>
+        <DetailedInfo.ItemLabel isLoading={ isLoading }>Last block</DetailedInfo.ItemLabel>
+        <DetailedInfo.ItemValue textStyle="number">
+          { data.end_block_number !== null ? <BlockEntity number={ data.end_block_number } noIcon isLoading={ isLoading }/> : '—' }
+        </DetailedInfo.ItemValue>
+        <DetailedInfo.ItemLabel isLoading={ isLoading } hint="The epoch duration is unavailable">Duration</DetailedInfo.ItemLabel>
+        <DetailedInfo.ItemValue color="text.muted">—</DetailedInfo.ItemValue>
         <DetailedInfo.ItemLabel
           hint="Timestamp of the block where the epoch processing completed"
           isLoading={ isLoading }
         >
-          Timestamp
+          Finalized
         </DetailedInfo.ItemLabel>
         <DetailedInfo.ItemValue>
           { data.timestamp ?
@@ -116,7 +126,7 @@ const EpochDetails = ({ data, isLoading }: Props) => {
               noAddressIcons={ isMobile }
             />
           ) : (
-            <Box color="text.secondary">N/A</Box>
+            <Box color="text.muted">—</Box>
           ) }
         </DetailedInfo.ItemValue>
         <DetailedInfo.ItemLabel
@@ -133,7 +143,7 @@ const EpochDetails = ({ data, isLoading }: Props) => {
               noAddressIcons={ isMobile }
             />
           ) : (
-            <Box color="text.secondary">N/A</Box>
+            <Box color="text.muted">—</Box>
           ) }
         </DetailedInfo.ItemValue>
         <DetailedInfo.ItemLabel
@@ -145,9 +155,9 @@ const EpochDetails = ({ data, isLoading }: Props) => {
         <DetailedInfo.ItemValue>
           { totalFundRewards }
         </DetailedInfo.ItemValue>
-      </DetailedInfo.Container>
+      </DetailedInfo.Group>
       <EpochElectionRewards data={ data } isLoading={ isLoading }/>
-    </>
+    </Box>
   );
 };
 

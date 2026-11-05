@@ -6,12 +6,12 @@ import type {
   ValidatorsBlackfortSortingValue,
 } from 'types/api/validators';
 
-import { currencyUnits } from 'lib/units';
 import { TableBody, TableColumnHeader, TableColumnHeaderSortable, TableHeaderSticky, TableRoot, TableRow } from 'toolkit/chakra/table';
 import getNextSortValue from 'ui/shared/sort/getNextSortValue';
 
 import { VALIDATORS_BLACKFORT_SORT_SEQUENCE } from './utils';
 import ValidatorsTableItem from './ValidatorsTableItem';
+import { hasValidatorField } from '../columns';
 
 interface Props {
   data: Array<ValidatorBlackfort>;
@@ -28,9 +28,15 @@ const ValidatorsTable = ({ data, sort, setSorting, isLoading, top }: Props) => {
     setSorting({ value: [ value ] });
   }, [ sort, setSorting ]);
 
+  const columns = {
+    stake: hasValidatorField(data, 'self_bonded_amount'),
+    delegated: hasValidatorField(data, 'delegated_amount'),
+    commission: hasValidatorField(data, 'commission'),
+  };
+
   return (
-    <TableRoot>
-      <TableHeaderSticky top={ top }>
+    <TableRoot variant="scan" css={{ '& th:first-of-type, & td:first-of-type': { position: 'sticky', left: 0, bg: 'canvas' } }}>
+      <TableHeaderSticky top={ top } bg="canvas">
         <TableRow>
           <TableColumnHeaderSortable
             sortField="address_hash"
@@ -38,12 +44,11 @@ const ValidatorsTable = ({ data, sort, setSorting, isLoading, top }: Props) => {
             onSortToggle={ onSortToggle }
             indicatorPosition="right"
           >
-            Validator’s address
+            Validator
           </TableColumnHeaderSortable>
-          <TableColumnHeader>Name</TableColumnHeader>
-          <TableColumnHeader isNumeric>Commission</TableColumnHeader>
-          <TableColumnHeader isNumeric>{ `Self bonded ${ currencyUnits.ether }` }</TableColumnHeader>
-          <TableColumnHeader isNumeric>{ `Delegated amount ${ currencyUnits.ether }` }</TableColumnHeader>
+          { columns.stake && <TableColumnHeader isNumeric title="Self-bonded amount">Stake</TableColumnHeader> }
+          { columns.delegated && <TableColumnHeader isNumeric>Delegated amount</TableColumnHeader> }
+          { columns.commission && <TableColumnHeader isNumeric>Commission</TableColumnHeader> }
         </TableRow>
       </TableHeaderSticky>
       <TableBody>
@@ -51,6 +56,7 @@ const ValidatorsTable = ({ data, sort, setSorting, isLoading, top }: Props) => {
           <ValidatorsTableItem
             key={ item.address.hash + (isLoading ? index : '') }
             data={ item }
+            columns={ columns }
             isLoading={ isLoading }/>
         )) }
       </TableBody>

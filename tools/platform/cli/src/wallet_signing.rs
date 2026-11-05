@@ -40,11 +40,23 @@ fn fixed_key_bytes<const N: usize>(name: &str, text: &str) -> Result<[u8; N], St
 impl EvmSigningKey {
     pub fn read(path: &std::path::Path, actor: &str, public_key: [u8; 32]) -> Result<Self, String> {
         use std::io::Read as _;
-        use std::os::unix::fs::PermissionsExt as _;
-        let file = std::fs::File::open(path).map_err(|e| format!("evm_key_unavailable: {e}"))?;
+        use std::os::unix::fs::{MetadataExt as _, OpenOptionsExt as _};
+        let flags =
+            i32::try_from((rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::NONBLOCK).bits())
+                .map_err(|_| "evm_key_refused: protected file flags unavailable")?;
+        let file = std::fs::OpenOptions::new()
+            .read(true)
+            .custom_flags(flags)
+            .open(path)
+            .map_err(|_| "evm_key_unavailable: could not open protected key file")?;
         let metadata = file.metadata().map_err(debug)?;
-        if !metadata.is_file() || metadata.permissions().mode() & 0o077 != 0 {
-            return Err("evm_key_refused: key file must be an owner-only regular file".into());
+        if !metadata.is_file()
+            || metadata.mode() & 0o077 != 0
+            || metadata.uid() != rustix::process::geteuid().as_raw()
+        {
+            return Err(
+                "evm_key_refused: key file must be a current-user owner-only regular file".into(),
+            );
         }
         let mut text = zeroize::Zeroizing::new(String::new());
         file.take(4097).read_to_string(&mut text).map_err(debug)?;

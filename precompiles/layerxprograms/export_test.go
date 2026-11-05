@@ -7,7 +7,25 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"testing"
 )
+
+func RunRepairM213Frozen(t *testing.T) {
+	TestProgramsViewValueAccountBalance(t)
+}
+
+func RunRepairM213NativeResolver(t *testing.T) {
+	t.Run("first request", TestProgramsCallRecordsFirstWebRequestFeeDenomFromAssetMapping)
+	t.Run("unmapped", TestProgramsCallRefusesFirstWebRequestWithoutAssetMapping)
+	t.Run("disallowed", TestProgramsNativeWebDisallowedAssetRollback)
+	t.Run("restart", TestProgramsNativeWebGenesisAndRestart)
+}
+
+func RunRepairM213NativeWeb(t *testing.T) {
+	t.Run("applied fee legs", TestProgramsCallHandlerRecordsWebRequestWithAppliedFeeLegs)
+	t.Run("atomic pause refusal", TestProgramsCallDiscardedWhenXWebRefuses)
+	t.Run("attested answer", TestProgramsNativeWebAttestedAnswer)
+}
 
 type CallContext = callContext
 type ProgramsGate = programsGate
