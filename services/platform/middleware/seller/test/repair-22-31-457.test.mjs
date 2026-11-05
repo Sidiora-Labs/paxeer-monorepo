@@ -23,7 +23,9 @@ async function sellerAcceptsRecordedCommittedReceipt() {
   const committed = await verifyCommittedReceipt(verified, nodeEvidence(evidence));
   assert.equal(committed.level, "committed");
   assert.equal(committed.landingHeight, verified.height + 1n);
-  assert.equal(committed.signedPower, committed.totalPower);
+  assert.equal(committed.signedPower, 7000000000n);
+  assert.equal(committed.totalPower, 7000000001n);
+  assert.ok(committed.signedPower * 3n > committed.totalPower * 2n);
   assert.equal(await verifyPaymentCommitmentEvidence(verified, "committed", evidence, "eip155:125", resolver), undefined);
   const requests = [];
   await verifyPaymentCommitment(verified, "eip155:125", "committed", {

@@ -20,6 +20,7 @@
       "token_reference_sha256": "0x812be8128e73728833bc1af20392a443ba6116736070b1a0719a542baf6a4a80"
     },
     "provider_signature": "0x4f539214d7b75abb4571933556a49abfa33b37f4ac1abf6197a97ff1da2225734e8fb43c0198a3ab8f7b7fdea1bb8538cbaaa1fdb86cfa4c955ad1f5baa2630c",
+    "recorder": "services/interop/specs/conformance/fiat/record_sequenced_journeys.py",
     "sequencer": {
       "fixture": "sdk/platform/conformance/fixtures/fiat-receipts-v1.json",
       "case": "card_receipted_credit",
@@ -59,6 +60,7 @@
       "token_reference_sha256": "0x679bd79fc9f6a75b5773ed5a41108d7d17c5745adb0e43acaa6ea2029056f1a3"
     },
     "provider_signature": "0x86767f26e0d9d6117b10a01094408345b4475f68467b2f5b95fb967dfccde90f255b1b2629a22d4b3f12fbf4aab91dab14deccb4097d7956d84ba743a1b0010c",
+    "recorder": "services/interop/specs/conformance/fiat/record_sequenced_journeys.py",
     "sequencer": {
       "fixture": "sdk/platform/conformance/fixtures/fiat-receipts-v1.json",
       "case": "bank_receipted_credit",
@@ -98,6 +100,7 @@
       "token_reference_sha256": "0xe5fa27e2cfe2a4422f3c1e569029384407666ab67ff542b6b307ddadb8ddce50"
     },
     "provider_signature": "0xb08ed21a1e6a8ae80e30f981b0f7e46bf30dd8b7d4248c647bf0b2d16699de3ad4afb636164b1bd39420a4b6e549fd251b8044e273ca856e9c6e635d8504060c",
+    "recorder": "services/interop/specs/conformance/fiat/record_sequenced_journeys.py",
     "sequencer": {
       "fixture": "sdk/platform/conformance/fixtures/fiat-receipts-v1.json",
       "case": "rtp_receipted_credit",
@@ -137,6 +140,7 @@
       "token_reference_sha256": "0xf55db7d9d16120cc170bd9cd78cb4272df97abe7a47c044e75fb8b38d2ccd06e"
     },
     "provider_signature": "0x95b4086a3f68999a83f2f5660addadf340a257a766c6c9afcf5b5fc5e3dab59471d65eafb4cf128201e495209f15ba9409701f4ec5b88aeb8809d35b6b2a960f",
+    "recorder": "services/interop/specs/conformance/fiat/record_sequenced_journeys.py",
     "sequencer": {
       "fixture": "sdk/platform/conformance/fixtures/fiat-receipts-v1.json",
       "case": "card_submitted_waits",
@@ -175,6 +179,7 @@
       "token_reference_sha256": "0xac836dd073e7c3515d73bcdf861fbf6e8e35c16a9d88dfc890726b048fe26c52"
     },
     "provider_signature": "0x635d3719399f448e3cdc99a72d3c68281a5be4510281897b474367b36717980080fc0791a4fb52de0c39e3162b545d3d88c5953474a363b4f6ef22a2a9de0a0e",
+    "recorder": "services/interop/specs/conformance/fiat/record_sequenced_journeys.py",
     "sequencer": {
       "fixture": "sdk/platform/conformance/fixtures/fiat-receipts-v1.json",
       "case": "card_reverted_never_credits",
