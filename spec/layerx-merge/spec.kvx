@@ -8769,6 +8769,12 @@ value = "Every task whose declared build or verify command runs a test that spaw
 basis = "Gotcha 3152: 22.31.543 attempt 1 failed only on the missing binary, and two pending gates (9.35.19, 9.35.20) reach the same test through a wrapper script that names no Foundry tool."
 affects = ["22.31.543", "9.35.19", "9.35.20", "18.1233.1", "22.9.10"]
 
+[decision.2610]
+title = "A test target that compiles again after a long red period is swept for retired producer entries before its gates run, and the remaining test callers of a retired entry are ported together in one repair"
+value = "When an attempt restores compilation of a test target (as 22.31.516 does for the human daemon suites), it searches the target for calls to entries the producer has since retired or marked deprecated (the sequence-only approval entries hold, hold_reserved, reserve_and_hold, decide and expire of services/agent/crates/layerx-agentd/src/policy/approval.rs, which return ClockRequired unconditionally since 22.31.495) and ports them to the live entries in the same attempt, so the first verify run exercises the real path. A retired entry whose test callers outside the task still expect the former result is repaired in one task that ports every such caller (22.31.544 for tests/repair_22_31_216.rs), and a task that retires an entry lists every test caller in the crate, not only its production callers (gotcha 3094 extended)."
+basis = "Gotchas 3153 and 3154: the retirement of 22.31.495 reached two daemon tests only after 22.31.516 made one of them compile again, and the other has been red on main since the retirement."
+affects = ["22.31.516", "22.31.495", "22.31.216"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -37659,6 +37665,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.31.544]
+title = "Port the approval replay-bounds test to the timed approval entries"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/tests/repair_22_31_216.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_544.kvx"]
+tests = ["services/agent/crates/layerx-agentd/tests/repair_22_31_216.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_216"
+do_1 = "do_1 Gotcha 3154, decision 2610. In services/agent/crates/layerx-agentd/tests/repair_22_31_216.rs replace every call of the retired sequence-only entries of services/agent/crates/layerx-agentd/src/policy/approval.rs with the timed entry of the same name: reserve_and_hold becomes reserve_and_hold_at (registry, limiter, context, prepared, the reservation request, ApprovalSequence(expiry sequence), TimestampSeconds(decision time)), hold becomes hold_at (registry, context, prepared, ApprovalSequence(current), ApprovalSequence(expiry), TimestampSeconds(decision time)) and hold_reserved becomes hold_reserved_timed (registry, context, prepared, ApprovalSequence(current), ApprovalSequence(expiry), the reservation, TimestampSeconds(decision time)); the decision time is one fixed constant below the prepared expiry TimestampSeconds(500) that the prepared helper sets, for example 100; the imports at line 15 follow."
+symbols = []
 
 [capability.22.31.543]
 title = "Assert the reason-bearing human refusal frame in the retired-rung and native preview daemon tests"
@@ -175247,6 +175262,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.544]
+title = "Port the approval replay-bounds test to the timed approval entries"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.31.495"]
+reqs = ["22998.1"]
+capabilities = ["22.31.544"]
+interfaces = []
+do_1 = "do_1 Gotcha 3154, decision 2610. In services/agent/crates/layerx-agentd/tests/repair_22_31_216.rs replace every call of the retired sequence-only entries of services/agent/crates/layerx-agentd/src/policy/approval.rs with the timed entry of the same name: reserve_and_hold becomes reserve_and_hold_at (registry, limiter, context, prepared, the reservation request, ApprovalSequence(expiry sequence), TimestampSeconds(decision time)), hold becomes hold_at (registry, context, prepared, ApprovalSequence(current), ApprovalSequence(expiry), TimestampSeconds(decision time)) and hold_reserved becomes hold_reserved_timed (registry, context, prepared, ApprovalSequence(current), ApprovalSequence(expiry), the reservation, TimestampSeconds(decision time)); the decision time is one fixed constant below the prepared expiry TimestampSeconds(500) that the prepared helper sets, for example 100; the imports at line 15 follow."
+do_2 = "do_2 Every expectation of the four cases stays as written: 64 items survive reopen, 65 items are refused without a reservation leak, the borrowed admission of 65 items is refused with ApprovalError::TooManyItems and the registry holds nothing, and the decoder still refuses oversized records. If a timed entry returns a different error variant for the same input, the test expects the variant the live entry documents and the record names it; nothing under src changes."
+do_3 = "do_3 Write services/agent/crates/layerx-agentd/tests/repair_22_31_544.kvx recording the six call sites ported and the decision time used. Build and verify run once at the final revision, the record lists the gate commands by reference to the gate ledger and no file is amended after the gates run (gotcha 3142)."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/tests/repair_22_31_216.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_544.kvx"]
+tests = ["services/agent/crates/layerx-agentd/tests/repair_22_31_216.rs"]
+planned_paths = ["services/agent/crates/layerx-agentd/tests/repair_22_31_216.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_544.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_216"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_216"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.543]
 title = "Assert the reason-bearing human refusal frame in the retired-rung and native preview daemon tests"
 status = "pending"
@@ -175880,6 +175925,7 @@ do_7 = "Attempt 4 (continue, gotcha 3136): attempt 3 stands in full (the authori
 do_8 = "Attempt 5 (continue, gotcha 3141, decision 2600): attempt 4 stands in full, including the recorded authority responses and the assertions at VerificationLevel::COMMITTED.wire_rank(). Once 22.31.538 is on main, rebase once, change nothing, run the declared build and verify once and record the result."
 do_9 = "Attempt 6 (continue, gotcha 3144, decision 2602): the attempt-5 tree stands, including its replacement of the path-included authority human module in the daemon tests by the authority library as a dev-dependency and its rebase onto 22.31.538. Rebase once more when 22.31.541 is on main (it removes the by-path include of budget_proof.rs from the 535 test, which is the only reason the attempt-5 build failed), then run the declared build and verify once and change nothing else; record the gates by reference to the gate ledger and amend no file after they run."
 do_10 = "Attempt 7 (continue, gotcha 3150, decision 2607): the attempt-6 tree stands in full (the authority library as a dev-dependency, the stand-in removal, the recorded authority responses, the assertions at COMMITTED.wire_rank()). Amend only the five refusal expectations: in tests/human_approval_budget_actor.rs lines 1052 and 1058 and in tests/human_projection_facts.rs lines 214, 266 and 271 the expected response becomes the whole frame the encoder writes, the magic LXHAGT01, status byte 1, the big-endian u32 length and the reason bytes, built with a field helper like the one in tests/human_peer_rungs.rs from the reason of the refusal each path returns (the stale-sequence operation returned operation.refused in the attempt-6 output; read the others from the refusal variant in src/human.rs and src/human_runtime.rs rather than guessing). Change nothing under src. Rebase onto the current main, run the declared build and verify once at the final revision, record the gates by reference to the gate ledger and amend no file after they run."
+do_11 = "Attempt 8 (continue, gotcha 3153, decision 2610): the attempt-7 tree at 3039b4588564 stands in full (the authority library as a dev-dependency, the stand-in removal, the recorded authority responses, the five full-frame refusal assertions; build and dependent-crate check passed, human_approval_budget_actor passed). In services/agent/crates/layerx-agentd/tests/human_projection_facts.rs the legacy reservation hold inside real_authenticated_approval_and_managed_exports_preserve_facts_refusals_and_reopen (must(hold_reserved(&owner.approvals, ..., sequence, window, &legacy_reservation)), line 1453 on main) becomes hold_reserved_at with the same arguments and runtime.clock.as_ref() appended, exactly as the hold of the second reservation that follows it; the expectations after it stay. Before the gates, search both test files for any other call of hold, hold_reserved, reserve_and_hold, decide or expire without the _at or _timed suffix and port it the same way. Rebase onto the current main, run the declared build and verify once at the final revision, record the gates by reference to the gate ledger and amend no file after they run."
 
 [task.22.31.515]
 title = "Carry the explicit decision time into the Human service and MCP consumers of the daemon approval service"

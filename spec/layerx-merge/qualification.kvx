@@ -31235,3 +31235,11 @@ symbol = "human_peer_retired.rs"
 observed = "Attempt 1: build exit 0 and dependent-crate check exit 0 at d32e243e779d; human_peer_retired passed 1 case; native_send_preview_evm failed at line 161 with Os error 2 NotFound spawning the local EVM before any assertion ran."
 assumption = "A gate text defect, not an implementation defect (gotcha 3152, decision 2609)."
 severity = "low"
+
+[finding.22.31.516.7]
+task = "22.31.516"
+file = "services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs"
+symbol = "human_approval_budget_actor.rs"
+observed = "Attempt 7: build exit 0 and dependent-crate check exit 0 at 3039b4588564; human_approval_budget_actor passed 1 case (1 ignored); human_projection_facts passed 4 of 5, the fifth panicked at the legacy hold with ClockRequired (a retired entry, gotcha 3094)."
+assumption = "A stale caller of a retired producer entry inside the task's own test file (gotcha 3153)."
+severity = "low"
