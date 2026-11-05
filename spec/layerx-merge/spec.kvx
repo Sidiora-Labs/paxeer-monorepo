@@ -175460,7 +175460,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.556]
 title = "Promote committed logs to the current committed evidence level instead of the retired checkpoint label in the event ingestor"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -177826,7 +177826,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1547]
 title = "Repair audit record 22.30.96 medium findings in services/agent/crates/layerx-client/tests (part 2 of 2): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.221", "22.31.222", "22.31.443", "22.31.485", "22.31.497", "22.31.550"]
@@ -178359,7 +178359,7 @@ do_17 = "Attempt 5 (continue after 22.31.550, gotcha 3166, decision 2620): the a
 
 [task.22.33.1533]
 title = "Repair audit record 22.30.94 medium findings in services/agent/crates/layerx-agentd/src (part 1 of 1): config-drift, doc-drift, retired-reference, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.220", "22.31.443", "22.31.497", "22.31.550"]
@@ -184224,7 +184224,7 @@ do_10 = "Attempt 2 (continue): the build or the dependent-crate check failed bef
 
 [task.22.33.218]
 title = "Repair audit record 22.30.123 medium findings in programs/crates/layerx-programs-runtime/src (part 1 of 1): doc-drift, restart-recovery, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.254", "22.31.255", "22.31.443", "22.31.485", "22.31.497", "22.31.550"]
