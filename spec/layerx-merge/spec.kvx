@@ -177139,7 +177139,7 @@ do_9 = "Attempt 2 (requalify after 22.31.483): the previous attempt built and wa
 
 [task.22.33.1572]
 title = "Repair audit record 22.30.99 medium findings in services/agent/tests/parity/src (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.227", "22.31.228", "22.31.229", "22.31.230", "22.31.487"]
