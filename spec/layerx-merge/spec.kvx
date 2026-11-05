@@ -148074,7 +148074,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.35.3]
 title = "Explorer search as a prompt: hero field, grouped suggestions and the keyboard shortcut"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.35.1", "22.35.2"]
