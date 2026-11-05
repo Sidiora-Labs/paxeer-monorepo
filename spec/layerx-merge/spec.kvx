@@ -175316,7 +175316,7 @@ do_7 = "Attempt 6 (continue, decision 2580): attempt 5 stands; the store root is
 
 [task.22.31.519]
 title = "Pass the explicit decision time in the daemon approval_semantics test so the daemon test targets build again"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.515"]
