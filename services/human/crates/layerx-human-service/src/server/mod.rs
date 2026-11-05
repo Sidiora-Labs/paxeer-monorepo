@@ -16,6 +16,7 @@ mod identity_services;
 pub mod key_export;
 mod limits;
 pub mod native_send;
+mod persisted_reads;
 mod privileged;
 pub mod production_auth;
 pub mod production_components;
@@ -53,6 +54,7 @@ pub use identity_dispatch::{
 };
 pub use identity_services::{IdentityServices, ProvisionedAccount, ProvisionedAccounts};
 pub use limits::PrincipalLimits;
+pub use persisted_reads::PersistedReadServices;
 pub use privileged::{
     AuthorizationGrantPolicy, AuthorizedSession, ComponentOperationRequest,
     PrivilegedHumanComponents, PrivilegedHumanServices,

@@ -308,10 +308,27 @@ fn web_fetch_pays_with_pay_exact() {
         "20-byte addresses cannot name ledger accounts"
     );
 
+    let receiver_did_key = terms
+        .recipient_account
+        .strip_prefix("agent:did:layerx:")
+        .expect("receiver DID account")
+        .split(':')
+        .next()
+        .expect("receiver DID key")
+        .as_bytes()
+        .chunks_exact(2)
+        .map(|pair| {
+            u8::from_str_radix(std::str::from_utf8(pair).expect("hex pair"), 16)
+                .expect("receiver DID hex")
+        })
+        .collect::<Vec<_>>()
+        .try_into()
+        .expect("32-byte receiver DID key");
     let grant = GrantTerms {
         payer_did: terms.payer_did,
         payer_account: terms.payer_account,
         recipient: terms.recipient,
+        receiver_did_key,
         asset: terms.asset,
         expires_at_ms: 1_900_000_000_000,
         amount: 2,
@@ -360,7 +377,8 @@ fn web_fetch_pays_with_pay_exact() {
     assert_eq!(sequence_call.target, PrecompileTarget::Ledger);
     let sequence_data = sequence_call.encode().expect("nextSequence calldata");
     assert_eq!(&sequence_data[..4], &[0xce, 0x2f, 0x92, 0x1f]);
-    assert_eq!(&sequence_data[4..36], &grant.recipient);
+    assert_eq!(&sequence_data[4..36], &grant.receiver_did_key);
+    assert_ne!(grant.receiver_did_key, grant.recipient);
     assert_eq!(&sequence_data[36..68], &grant.asset);
     let draw = grant.prepare_draw([8; 32], 19);
     assert_eq!(draw.target, PrecompileTarget::Ledger);

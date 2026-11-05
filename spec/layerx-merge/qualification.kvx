@@ -31067,3 +31067,27 @@ symbol = "WebPayerBoundary"
 observed = "Attempt 2: build exit 0; verify exit 1: payer 3 of 3 and payer_evm 5 of 6 pass, grant signing passes with the fixed native clock; web_pay_exact_submits_a_signed_layerxpay_call failed with Payer(Unavailable) because the production boundary inherits the trait default view; repair_22_31_532 never ran."
 assumption = "The local node double already answers accountId(bytes32,bytes32) on the pending block, so the case passes once the boundary forwards the view."
 severity = "high"
+
+[finding.22.33.1539.5]
+task = "22.33.1539"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1539.rs"
+symbol = "repair_22_33_1539.rs"
+observed = "Attempt 6: build exit 101: tests/human_approval_budget_actor.rs failed to compile with eight errors in the path-included authority budget-state module (unresolved crate::committed and crate::loopback_http, missing Human, Policy and the human field of the stand-in Config, and get with three arguments at line 1033); verify never ran."
+assumption = "The red target is owned by 22.31.516 and 22.31.497 (decision 2564) and none of its errors lies in the attempt's paths."
+severity = "low"
+
+[finding.22.31.531.2]
+task = "22.31.531"
+file = "services/agent/crates/layerx-mcp/src/tools/web.rs"
+symbol = "GrantTerms"
+observed = "Attempt 2: build exit 0; verify exit 1: the library cases 4 of 4, repair_22_33_1551 3 of 3 and repair_22_31_527 pass; repair_22_31_531 passed 1 of 6, then a_grant_changed_below_the_draw_amount_is_refused_as_changed failed in hold because the recording refused nextSequence(ea4a7d75..., 5c1d0a93...) as unrecorded (the recording holds nextSequence(2b27bb5b..., 5c1d0a93...) from the real producer), and the recording destructor panicked on the stopped thread and aborted the process before the other four cases reported."
+assumption = "The ledger keys the receiver sequence by DID key and the real producer reads it that way; the account-id key is the defect, not the recording."
+severity = "high"
+
+[finding.22.31.516.2]
+task = "22.31.516"
+file = "services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs"
+symbol = "human_approval_budget_actor.rs"
+observed = "Attempt 2: build exit 0 and the dependent-crate check passed; verify exit 101: human_approval_budget_actor_serves_evm_holds_and_refuses_changed_bindings panicked at tests/human_approval_budget_actor.rs line 736 with approval budget actor: Refused because RemoteHumanAuthority::budget_state (src/human_runtime.rs line 2065) requires the committed wire rank 6 while the authority producer now compiled into the test (src/human/budget_state.rs line 289) emits the retired label 4; human_projection_facts never ran."
+assumption = "The producer label is the defect (decision 2593); the attempt changed no behaviour and its stand-in removal is what exposed the mismatch."
+severity = "low"
