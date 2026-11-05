@@ -8703,6 +8703,18 @@ value = "The explorer design brief is the single design source for the restyle t
 basis = "Gotcha 3139: the old assertion encodes the look the programme replaces, not a behaviour to preserve."
 affects = ["22.35.1", "22.35.2", "22.35.3"]
 
+[decision.2599]
+title = "The actor of a held EVM call is the sender address hex in the registry, the stored spend and the ticket; decision 2597 is superseded"
+value = "Since 9.35.18 the daemon approval registry binds a held call to its sender: the disclosure actor is the hex of the sender address, the hold agent equals the disclosure actor, and the validator refuses any record where they differ. Every producer of a held EVM call, the web tool stored spend included, keeps that form; the approver presentation decodes the actor as the sender address and names the agent from the context it already carries. A test that expects the payer DID as the ticket actor moves to the sender address hex. No task changes the registry convention, and decision 2597 no longer applies."
+basis = "Gotcha 3140: the convention is enforced by the registry validator and asserted by two repair tests; the one assertion that disagrees predates it."
+affects = ["9.35.18", "22.33.1551", "22.31.531", "22.31.537", "22.31.529"]
+
+[decision.2600]
+title = "Every daemon consumer of a verification rank decodes it with from_wire_rank and requires COMMITTED; a literal rank range in a consumer is a defect"
+value = "Decision 2593 stands: the hosted authority emits VerificationLevel::COMMITTED.wire_rank() and every consumer in the agent daemon requires that level. A consumer compares the decoded level, never a literal rank number or range; ranks 4 and 5 are retired archive labels that from_wire_rank refuses, so any guard still naming them refuses every committed response and is repaired as a defect of the 22.31.535 class. The repair carries a unit test that accepts rank 6 and refuses every other rank, and the suite that drives the path end to end keeps its recorded responses at the committed rank."
+basis = "Gotcha 3141: 22.31.535 converted the consumers it listed and missed two literal guards; the approval budget request path refused every committed budget state until the dependent suite exposed it."
+affects = ["22.31.535", "22.31.516"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -37593,6 +37605,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.31.538]
+title = "Require the committed verification rank in the approval budget guard and the program presentation budget binding"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/budget/program_sources.rs", "services/agent/crates/layerx-agentd/src/budget/budget_proof.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_538.kvx"]
+tests = ["services/agent/crates/layerx-agentd/src/budget/budget_proof.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- repair_22_31_538"
+do_1 = "do_1 Gotcha 3141, decisions 2593 and 2600. In services/agent/crates/layerx-agentd/src/human_runtime.rs replace the literal range at line 9903 of approval_budget_after with a private helper (for example committed_budget_rank(rank: u8) -> Result<(), HumanOperationError>) that decodes the rank with VerificationLevel::from_wire_rank and returns HumanOperationError::Refused unless the level is VerificationLevel::COMMITTED; the guard calls the helper, a rank that does not decode is refused the same way, and the other conditions of the guard are unchanged."
+symbols = []
 
 [capability.22.31.537]
 title = "Carry the actor DID in the stored held spend so the ticket names the agent, not the sender address"
@@ -175125,9 +175146,40 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.538]
+title = "Require the committed verification rank in the approval budget guard and the program presentation budget binding"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.31.535"]
+reqs = ["22998.1"]
+capabilities = ["22.31.538"]
+interfaces = []
+do_1 = "do_1 Gotcha 3141, decisions 2593 and 2600. In services/agent/crates/layerx-agentd/src/human_runtime.rs replace the literal range at line 9903 of approval_budget_after with a private helper (for example committed_budget_rank(rank: u8) -> Result<(), HumanOperationError>) that decodes the rank with VerificationLevel::from_wire_rank and returns HumanOperationError::Refused unless the level is VerificationLevel::COMMITTED; the guard calls the helper, a rank that does not decode is refused the same way, and the other conditions of the guard are unchanged."
+do_2 = "do_2 In services/agent/crates/layerx-agentd/src/budget/program_sources.rs replace the literal range at line 49 of bind_program_presentation_budget_proof with proof.verification() != VerificationLevel::COMMITTED (import layerx_types::verify::VerificationLevel); the error stays ProgramSourceError::Snapshot. Search the crates under services/agent/crates for any other literal verification rank comparison in production code and convert it the same way; the four assertions in tests/human_approval_budget_actor.rs and tests/human_projection_facts.rs belong to 22.31.516 and are not touched."
+do_3 = "do_3 Add unit tests prefixed repair_22_31_538_ to the tests module of human_runtime.rs: the helper accepts VerificationLevel::COMMITTED.wire_rank() and refuses 0, 1, 2, 3, 4, 5, 7 and u8::MAX. Add to the tests module of src/budget/budget_proof.rs, which already verifies a proof through verify_budget_proof, a test that passes that committed proof and a reservation whose allocation row names the proof asset and source account to bind_program_presentation_budget_proof at the proof sequence and asserts Ok(()), and that the same call with a reservation whose allocation sequence exceeds the proof sequence returns ProgramSourceError::Snapshot; build the reservation with the constructors the budget module tests already use and record in the kvx how it was built."
+do_4 = "do_4 Record in services/agent/crates/layerx-agentd/tests/repair_22_31_538.kvx the two sites, decision 2600, the result of the search for other literal ranks and the gate results. Run the declared build and verify once and record the result. The gates need no credential, environment variable or live endpoint (gotcha 2962)."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/budget/program_sources.rs", "services/agent/crates/layerx-agentd/src/budget/budget_proof.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_538.kvx"]
+tests = ["services/agent/crates/layerx-agentd/src/budget/budget_proof.rs"]
+planned_paths = ["services/agent/crates/layerx-agentd"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- repair_22_31_538"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.537]
 title = "Carry the actor DID in the stored held spend so the ticket names the agent, not the sender address"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -175138,7 +175190,7 @@ do_1 = "do_1 Gotcha 3137, decision 2597. In services/agent/crates/layerx-mcp/src
 do_2 = "do_2 Add services/agent/crates/layerx-mcp/tests/repair_22_31_537.rs using the tests/support/web_hold.rs fixture in the manner of repair_22_33_1551.rs: hold a metered search above the threshold through the served route, read the ticket from the registry and assert ticket.disclosure.actor is the configured payer DID (did:layerx:..., not the sender address hex), and where the ticket exposes its hold context assert the agent is that DID; reopen the store (restart) and assert the retry is reported as pending, not changed, because the re-derived disclosure equals the ticket disclosure; write a record without the actor field under the spend key and assert the retry is refused as ApprovalChanged with zero signatures and nothing sent. Existing tests in repair_22_33_1551.rs and repair_22_31_531.rs pass unchanged except an assertion that names the address hex as the actor, which moves to the DID."
 do_3 = "do_3 Record in services/agent/crates/layerx-mcp/tests/repair_22_31_537.kvx the field, the refusal cases and the gate results. The gates need no credential, environment variable or live endpoint (gotcha 2962)."
 symbols = []
-touches = ["services/agent/crates/layerx-mcp/src/tools/web/approval_state.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_537.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_537.kvx", "services/agent/crates/layerx-mcp/tests/repair_22_33_1551.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_531.rs"]
+touches = ["services/agent/crates/layerx-mcp/src/tools/web/approval_state.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_537.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_537.kvx", "services/agent/crates/layerx-mcp/tests/repair_22_33_1551.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_531.rs", "services/agent/crates/layerx-mcp/tests/support/web_hold.rs"]
 tests = ["services/agent/crates/layerx-mcp/tests/repair_22_31_537.rs"]
 planned_paths = ["services/agent/crates/layerx-mcp"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --tests"
@@ -175154,6 +175206,7 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 3140, decision 2599 which supersedes 2597): revert the attempt 1 production change in approval_state.rs (no actor field; StoredSpend::prepared and the hold agent keep hex(&self.sender)) and restore the three actor assertions in repair_22_33_1551.rs, repair_22_31_531.rs and support/web_hold.rs to hex(&[0xab; 20]) as on main. Rework tests/repair_22_31_537.rs into the proof of the convention through the real path: hold a metered search above the threshold through the served route; assert the ticket disclosure actor and the hold agent both equal the hex of the configured payer address (the sender) and that ApprovalRegistry::validate_registry accepts the hold; reopen the store (restart) and assert the retry is reported as pending and the registry still validates; keep the refusal case for a stored record that does not decode. Record decision 2599 in repair_22_31_537.kvx as superseding 2597 with the gate results. Run the declared build and verify once and record the result."
 
 [task.22.31.536]
 title = "Give the host repair test grant terms the receiver DID key the shared type now carries"
@@ -175312,7 +175365,7 @@ do_5 = "Attempt 3 (continue, gotcha 3133, decision 2592): attempt 2 stands in fu
 
 [task.22.31.529]
 title = "Give the web suite's recorded payer the approval resources the hold path requires"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.527", "22.31.531", "22.31.536", "22.31.537"]
@@ -175341,6 +175394,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_3 = "Attempt 2 (continue after 22.31.531, gotcha 3119): attempt 1 stands in full (the web_hold directory and resources on RecordedPayer, approval_resources implemented, every assertion unchanged). Rebase on main once 22.31.531 has landed, change nothing else, run the declared build and verify once and record."
 do_4 = "Attempt 3 (continue after 22.31.536, gotcha 3136, decision 2595): attempt 2 stands in full (the fixture retained, every assertion unchanged, the record). Rebase on main once 22.31.536 is there, change nothing, run the declared build and verify once and record the result."
 do_5 = "Attempt 4 (continue after 22.31.537, gotchas 3137 and 3138, decisions 2596 and 2597): attempt 3 stands in full (the fixture, the directory lifetime, the record). One change in tests/web.rs: in the hold cases replace the three assert!(payer.grants.is_empty()) assertions at lines 1357, 1365 and 1415 with assert_eq!(payer.grants.len(), 1), since the standing-grant lookup records the terms once and the pending retry and the decision add none; every replay.signatures() == 0 assertion stays. The actor assertion at line 2272 stays as written and passes once 22.31.537 is on main. Rebase on main once 22.31.537 is there, run the declared build and verify once and record the result."
+do_6 = "do_6 Decision 2599 (supersedes 2597) replaces the line 2272 sentence of the previous item: the two assertions at tests/web.rs line 2272 compare ticket.disclosure.actor.as_str() with the hex of the configured payer address, hex(&[0xab; 20]) as repair_22_33_1551.rs asserts it, not with payer_did(); 22.31.537 keeps the stored spend actor as the sender address hex. The rest of the previous item stands."
 
 [task.22.31.528]
 title = "Reconcile the web-search payment suite with the exact-only offers"
@@ -175537,7 +175591,7 @@ title = "Replace the path-included authority human module in the daemon tests wi
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.519", "22.31.535"]
+requires = ["22.31.519", "22.31.535", "22.31.538"]
 reqs = ["22998.1"]
 capabilities = ["22.31.516"]
 interfaces = []
@@ -175565,6 +175619,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_5 = "Attempt 2 (continue after 22.31.519): attempt 1 did the task's work (the shared authority library exports, the dev-dependency and the stand-in removal; its first build failed on two module declarations in hosted/authority/src/human/budget_state.rs that the attempt then fixed) and its second build failed only in services/agent/crates/layerx-agentd/tests/approval_semantics.rs, which still uses the signatures 22.31.495 retired (gotcha 3077) and which 22.31.519 repairs. Rebase on main once 519 is there, rerun the declared build and verify with no further edit unless the run names a site inside this task's paths, and record the result."
 do_6 = "Attempt 3 (continue after 22.31.535, gotcha 3134, decision 2593): attempt 2 stands in full (the authority library exports, the dev-dependency and the stand-in removal). Rebase on main once 22.31.535 is there, keeping both the committed label it writes in src/human/budget_state.rs and src/human.rs and the library exports of attempt 2. In tests/human_approval_budget_actor.rs and tests/human_projection_facts.rs move the recorded budget-state fixture literal and every assertion on the verification label to layerx_types::verify::VerificationLevel::COMMITTED.wire_rank() (on main: human_approval_budget_actor.rs lines 778, 1067 and the fixture at 1870 plus the fixture equality near line 530 of attempt 2; human_projection_facts.rs lines 249, 968, 1181 and the fixture at 2379); the projection metadata strings stay as recorded. Change nothing else, run the declared build and verify once and record the result."
 do_7 = "Attempt 4 (continue, gotcha 3136): attempt 3 stands in full (the authority library, both fixtures and assertions at COMMITTED.wire_rank(), the record). Rebase on main, which now carries 22.31.536 at 0935120943 with the receiver_did_key construction in the host repair test, change nothing, run the declared build and verify once and record the result."
+do_8 = "Attempt 5 (continue, gotcha 3141, decision 2600): attempt 4 stands in full, including the recorded authority responses and the assertions at VerificationLevel::COMMITTED.wire_rank(). Once 22.31.538 is on main, rebase once, change nothing, run the declared build and verify once and record the result."
 
 [task.22.31.515]
 title = "Carry the explicit decision time into the Human service and MCP consumers of the daemon approval service"

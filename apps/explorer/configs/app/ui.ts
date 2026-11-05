@@ -42,6 +42,15 @@ const navigationPromoBanner = (() => {
   return envValue || undefined;
 })();
 
+export function resolveNavigationLayout(layout?: NavigationLayout): NavigationLayout {
+  switch (layout) {
+    case 'vertical':
+    case 'horizontal':
+    default:
+      return 'horizontal';
+  }
+}
+
 const UI = Object.freeze({
   navigation: {
     logo: {
@@ -54,7 +63,7 @@ const UI = Object.freeze({
     },
     highlightedRoutes,
     otherLinks: parseEnvJson<Array<NavItemExternal>>(getEnvValue('NEXT_PUBLIC_OTHER_LINKS')) || [],
-    layout: (getEnvValue('NEXT_PUBLIC_NAVIGATION_LAYOUT') || 'vertical') as NavigationLayout,
+    layout: resolveNavigationLayout(getEnvValue('NEXT_PUBLIC_NAVIGATION_LAYOUT') as NavigationLayout | undefined),
     promoBanner: navigationPromoBanner,
   },
   featuredNetworks: {

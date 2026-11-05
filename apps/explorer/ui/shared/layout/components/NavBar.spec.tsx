@@ -28,23 +28,23 @@ describe('NavBar', () => {
     fetchMock.mockResponse(JSON.stringify({}), { headers: { 'Content-Type': 'application/json' } });
   });
 
-  it('wraps the brand row of the horizontal navigation in the sticky header', () => {
+  it('includes the brand and groups in the sticky header', () => {
     const { container } = render(<NavBar/>);
 
-    const header = container.querySelector('[data-label="sticky-header"]') as HTMLElement;
+    const header = container.querySelector('[data-label="desktop-header"]') as HTMLElement;
 
     expect(header).toBeTruthy();
-    expect(header.querySelector('[data-label="brand-row"]')).toBeTruthy();
+    expect(header.querySelector('[data-label="header-brand"]')).toBeTruthy();
   });
 
-  it('keeps the utility bar out of the sticky header in the page shell', () => {
+  it('includes utility controls in the single sticky header', () => {
     const { container } = render(<LayoutDefault><div>page body</div></LayoutDefault>);
 
-    const header = container.querySelector('[data-label="sticky-header"]') as HTMLElement;
+    const header = container.querySelector('[data-label="desktop-header"]') as HTMLElement;
 
     expect(header).toBeTruthy();
-    expect(header.querySelector('[data-label="brand-row"]')).toBeTruthy();
+    expect(header.querySelector('[data-label="header-brand"]')).toBeTruthy();
     expect(header.querySelector('[data-label="utility-bar"]')).toBeNull();
-    expect(container.querySelector('[data-label="utility-bar"]')).toBeTruthy();
+    expect(header.querySelector('[data-label="header-utilities"]')).toBeTruthy();
   });
 });
