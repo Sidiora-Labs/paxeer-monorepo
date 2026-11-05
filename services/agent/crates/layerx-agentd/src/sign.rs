@@ -1,4 +1,27 @@
 //! External-by-default signing and bounded protocol session-key self-signing.
+//!
+//! Current EIP-1559 consumer contract (all errors are [`SigningError`]):
+//! * [`external`] takes `&SigningPreparation` and returns
+//!   `Result<ExternalSigningPackage, SigningError>`: exact unsigned type-2 bytes,
+//!   a 32-byte signing hash and disclosure digest, with no signing key.
+//! * [`attach_external_signature`] takes `&SigningPreparation` and `[u8; 65]`
+//!   (`r || s || yParity`) and returns `Result<Vec<u8>, SigningError>` containing
+//!   the exact signed type-2 transaction.
+//! * [`verify_before_submit`] takes `&[u8]`, `&SigningPreparation`, `&[u8; 20]`
+//!   recovered EVM sender, and `&ModuleRegistry`, returning
+//!   `Result<VerifiedSubmission, SigningError>`. The wrapper retains exact bytes
+//!   and their keccak256 hash for the durable outbox.
+//! * [`self_sign`] is async, taking `Option<&ProvisionedSessionKey>`,
+//!   `&SigningPreparation`, `&ModuleRegistry`, u64 protocol time in milliseconds,
+//!   and u64 current revocation sequence. Its future resolves to
+//!   `Result<SignedPreparation, SigningError>` with a 65-byte signature and
+//!   20-byte sender after scope, expiry and revocation checks.
+//!
+//! These functions do not accept the retired kernel `Prepared`, 64-byte Ed25519
+//! signature or 32-byte signer public key. Explicit kernel compatibility APIs
+//! are [`attach_kernel_signature`] and [`verify_kernel_before_submit`]; their
+//! artifacts cannot be submitted as EVM transactions. Retained preparations
+//! reopen via [`SigningPreparation::restore`] with call/disclosure binding intact.
 
 use std::collections::BTreeSet;
 

@@ -1179,3 +1179,555 @@ fn authoritative_receipt(activity_id: [u8; 32]) -> Result<VerifiedReceiptEvidenc
     )?;
     step(authority.verify_receipt(&raw), "verify signed receipt", &[])
 }
+
+mod node_recovery {
+    use super::{tenant, Workspace};
+    use layerx_agentd::budget::{
+        create_daemon_limit, daemon_limit_id, daemon_limits, load_daemon_limits, BudgetLimiter,
+        CoreTimestampMs, DaemonLimitRecord, ReleaseKind, ReservationRequest,
+    };
+    use layerx_agentd::human_runtime::{lookup_human_receipt_by_outbox_hash, submit_raw_write};
+    use layerx_agentd::node_rpc::{NodeRpc, NodeRpcConfig};
+    use layerx_agentd::outbox::{
+        resolve_unknown, Outbox, OutboxError, ResendObservation, ResolutionObservation,
+        SubmissionState,
+    };
+    use layerx_agentd::prepare::{DurablePreparation, LifecycleState, PreparationLifecycle};
+    use layerx_agentd::receipt;
+    use layerx_agentd::session::SessionRegistry;
+    use layerx_agentd::session_control::SessionControl;
+    use layerx_agentd::store::{ObjectKind, Store};
+    use layerx_client::rpc::receipt::{AuthenticatedReceipt, Lookup};
+    use layerx_client::sequencer::SequencerEndpoint;
+    use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
+    use serde_json::{json, Value};
+    use std::collections::BTreeMap;
+    use std::io::{BufRead, BufReader, Read, Write};
+    use std::net::TcpListener;
+    use std::sync::{Arc, Mutex};
+    use std::thread::{self, JoinHandle};
+    use std::time::{Duration, Instant};
+
+    fn must<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
+        result.unwrap_or_else(|error| panic!("node recovery: {error:?}"))
+    }
+
+    fn bytes(value: &Value) -> Vec<u8> {
+        must(hex::decode(
+            value
+                .as_str()
+                .expect("recorded hex")
+                .trim_start_matches("0x"),
+        ))
+    }
+
+    fn recording() -> Value {
+        let corpus: Value = must(serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+        ))));
+        assert_eq!(
+            corpus["provenance"]["generator"],
+            "rpc/sequencer_receipt_vectors_test.go"
+        );
+        assert_eq!(corpus["chainId"], 125);
+        corpus["cases"]
+            .as_array()
+            .expect("producer cases")
+            .iter()
+            .find(|case| case["id"] == "V1-layerxledger-pay-exact")
+            .expect("recorded successful payment")
+            .clone()
+    }
+
+    // A bounded transcript peer: it never executes, signs, edits or counts an effect.
+    // Each response is the committed production node's receipt or transport framing.
+    type Exchange = (&'static str, Value, Option<Value>);
+
+    fn peer(exchanges: Vec<Exchange>) -> (NodeRpc, SequencerEndpoint, JoinHandle<()>) {
+        let listener = must(TcpListener::bind("127.0.0.1:0"));
+        must(listener.set_nonblocking(true));
+        let url = format!("http://{}/", must(listener.local_addr()));
+        let server = thread::spawn(move || {
+            for (method, params, result) in exchanges {
+                let expires = Instant::now() + Duration::from_secs(5);
+                let stream = loop {
+                    match listener.accept() {
+                        Ok((stream, _)) => break stream,
+                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                            assert!(Instant::now() < expires, "missing {method}");
+                            thread::sleep(Duration::from_millis(1));
+                        }
+                        Err(error) => panic!("transcript accept: {error}"),
+                    }
+                };
+                must(stream.set_read_timeout(Some(Duration::from_secs(3))));
+                must(stream.set_write_timeout(Some(Duration::from_secs(3))));
+                let mut reader = BufReader::new(stream);
+                let mut length = None;
+                loop {
+                    let mut line = String::new();
+                    assert_ne!(must(reader.read_line(&mut line)), 0);
+                    if line == "\r\n" {
+                        break;
+                    }
+                    if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+                        length = Some(must(value.trim().parse::<usize>()));
+                    }
+                }
+                let length = length.expect("request content length");
+                assert!(length <= 64 * 1024);
+                let mut body = vec![0; length];
+                must(reader.read_exact(&mut body));
+                let request: Value = must(serde_json::from_slice(&body));
+                assert_eq!(request["jsonrpc"], "2.0");
+                assert_eq!(request["method"], method);
+                assert_eq!(request["params"], params);
+                if let Some(result) = result {
+                    let answer =
+                        json!({"jsonrpc":"2.0", "id":request["id"], "result":result}).to_string();
+                    let mut stream = reader.into_inner();
+                    must(write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{answer}", answer.len()));
+                    must(stream.flush());
+                }
+                // None deliberately loses the accepted send's response at the transport boundary.
+            }
+        });
+        let endpoint = must(SequencerEndpoint::new(&url, &[]));
+        let node = must(NodeRpc::connect(&NodeRpcConfig {
+            url,
+            chain_id: 125,
+            deadline: Duration::from_secs(3),
+        }));
+        (node, endpoint, server)
+    }
+
+    fn lookup_exchanges(case: &Value) -> Vec<Exchange> {
+        let hash = json!([case["receiptJson"]["txHash"]]);
+        vec![
+            (
+                "px_getReceiptKeys",
+                json!([]),
+                Some(json!({"keys":[case["pinnedKey"].clone()]})),
+            ),
+            (
+                "pax_sequencerReceipt",
+                hash.clone(),
+                Some(case["receiptJson"].clone()),
+            ),
+            (
+                "pax_sequencerReceipt",
+                hash.clone(),
+                Some(case["receiptJson"].clone()),
+            ),
+            ("eth_getTransactionReceipt", hash, Some(Value::Null)),
+        ]
+    }
+
+    fn authenticated(
+        node: &NodeRpc,
+        endpoint: &SequencerEndpoint,
+        outbox: &Outbox,
+        hash: [u8; 32],
+    ) -> AuthenticatedReceipt {
+        let (lookup, _) = must(lookup_human_receipt_by_outbox_hash(
+            node, endpoint, outbox, hash, hash,
+        ));
+        let Lookup::Verified(receipt) = lookup else {
+            panic!("authenticated production receipt required")
+        };
+        receipt
+    }
+
+    fn controller(store: Store) -> (SessionControl, Arc<BudgetLimiter>) {
+        let budget = Arc::new(must(BudgetLimiter::new(Vec::new())));
+        assert_eq!(must(load_daemon_limits(&store, &budget)).len(), 1);
+        let control = SessionControl::new(
+            Arc::new(Mutex::new(store)),
+            SessionRegistry::default(),
+            Arc::new(PreparationLifecycle::default()),
+            Arc::clone(&budget),
+        );
+        (control, budget)
+    }
+
+    fn assert_effect(receipt: &AuthenticatedReceipt, case: &Value) -> (u128, u128, u128, u128) {
+        assert_eq!(receipt.canonical_bytes(), bytes(&case["signedReceipt"]));
+        assert_eq!(receipt.result_code().raw(), 0);
+        assert!(receipt.execution().success);
+        let decoded = must(layerx_wire::receipt::decode(receipt.canonical_bytes()));
+        let summary = decoded.protocol().expect("signed node balance summary");
+        assert_eq!(summary.activity_id(), receipt.activity_id());
+        assert_eq!(summary.debit_sequence(), 2);
+        assert_eq!(summary.amount(), 0); // Native value is zero; payExact moves its ledger asset.
+        assert!(summary.fee_charged() > 0);
+        assert_eq!(
+            summary.debit_balance_before() - summary.debit_balance_after(),
+            summary.fee_charged()
+        );
+        assert_eq!(
+            summary.credit_balance_after(),
+            summary.credit_balance_before()
+        );
+        let logs = &receipt.execution().logs;
+        assert_eq!(logs.len(), 1);
+        assert_eq!(
+            logs[0].address,
+            layerx_agentd::prepare::PrecompileTarget::Ledger.address()
+        );
+        assert_eq!(
+            logs[0].topics[0],
+            transaction_hash(b"PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)")
+        );
+        let (call, _) = must(decode_signed(&bytes(&case["rawTransaction"])));
+        assert_eq!(call.data.len(), 196);
+        assert_eq!(
+            call.data[..4],
+            transaction_hash(b"payExact(bytes32,bytes32,bytes32,uint128,uint64,bytes32)")[..4]
+        );
+        assert_eq!(logs[0].topics.len(), 4);
+        assert_eq!(logs[0].topics[1].as_slice(), &call.data[164..196]);
+        assert_eq!(logs[0].topics[2].as_slice(), &call.data[4..36]);
+        assert_eq!(logs[0].topics[3].as_slice(), &call.data[36..68]);
+        assert_eq!(logs[0].data, call.data[68..132]);
+        assert_eq!(&logs[0].data[48..64], &1_000_000_u128.to_be_bytes());
+        (
+            summary.debit_balance_before(),
+            summary.debit_balance_after(),
+            summary.credit_balance_before(),
+            summary.credit_balance_after(),
+        )
+    }
+
+    fn recover(persist_receipt_before_restart: bool) {
+        let case = recording();
+        let raw = bytes(&case["rawTransaction"]);
+        let hash = transaction_hash(&raw);
+        assert_eq!(hash.as_slice(), bytes(&case["receiptJson"]["txHash"]));
+        let (call, signature) = must(decode_signed(&raw));
+        assert_eq!(
+            must(recover_sender(&call, &signature)).as_slice(),
+            bytes(&case["receiptJson"]["from"])
+        );
+        let decoded = must(layerx_wire::receipt::decode(&bytes(&case["signedReceipt"])));
+        let summary = decoded.protocol().expect("recorded native balance effects");
+        let charge = summary.fee_charged();
+        let workspace = Workspace::new();
+        let root = workspace.path("node-and-budget");
+        let tenant = must(tenant("tenant-node-recovery"));
+        let budget_id = [0x71; 32];
+        let limit = daemon_limit_id(budget_id);
+        {
+            let mut store = must(Store::open(&root));
+            let budget = must(BudgetLimiter::new(Vec::new()));
+            must(create_daemon_limit(
+                &mut store,
+                &budget,
+                DaemonLimitRecord {
+                    tenant: tenant.clone(),
+                    budget_id,
+                    limit_id: limit,
+                    agent_digest: [0x72; 32],
+                    asset: summary.asset(),
+                    ceiling: charge * 2,
+                    consumed: 0,
+                    expiry_ms: u64::MAX,
+                    revoked: false,
+                    mutation_key: [0x73; 32],
+                    body_digest: [0x74; 32],
+                    revoke_key: [0; 32],
+                },
+                CoreTimestampMs(1),
+            ));
+            let reservation = must(layerx_agentd::budget::reserve(
+                &budget,
+                &ReservationRequest {
+                    id: hash,
+                    amount: charge,
+                    expiry_sequence: u64::MAX,
+                    current_sequence: 1,
+                    applicable_limits: vec![limit],
+                },
+            ));
+            let preparation = DurablePreparation {
+                tenant: tenant.clone(),
+                preparation_id: hash,
+                session_id: [0x75; 32],
+                generation: 1,
+                not_after: u64::MAX,
+                payload_hash: transaction_hash(&call.data),
+                state: LifecycleState::Unknown,
+                activity_id: Some(hash),
+                holds: reservation
+                    .durable
+                    .into_iter()
+                    .map(|hold| (hold, None))
+                    .collect(),
+                extensions: BTreeMap::from([(4, raw.clone())]),
+            };
+            must(store.put_local(
+                must(DurablePreparation::store_key(&tenant, hash)),
+                must(preparation.encode()),
+            ));
+            let mut outbox = Outbox::default();
+            let (node, _, server) = peer(vec![
+                ("eth_chainId", json!([]), Some(json!("0x7d"))),
+                (
+                    "eth_sendRawTransaction",
+                    json!([case["rawTransaction"]]),
+                    None,
+                ),
+            ]);
+            must(submit_raw_write(
+                &mut outbox,
+                &mut store,
+                tenant.clone(),
+                raw.clone(),
+                &node,
+            ));
+            must(server.join());
+            assert_eq!(
+                outbox.status(hash).expect("unknown send").state,
+                SubmissionState::Unknown
+            );
+            assert_eq!(budget.held_reservations(), Ok(1));
+            assert_eq!(budget.consumed(limit), Ok(0));
+        }
+
+        let mut first_balances = None;
+        for restart in 0..2 {
+            let (control, budget) = controller(must(Store::open(&root)));
+            assert_eq!(must(control.restore_writes()), usize::from(restart == 0));
+            assert_eq!(budget.held_reservations(), Ok(usize::from(restart == 0)));
+            assert_eq!(
+                budget.consumed(limit),
+                Ok(if restart == 0 { 0 } else { charge })
+            );
+            let store_handle = control.store();
+            let mut store = must(store_handle.lock());
+            let mut outbox = Outbox::default();
+            must(outbox.restore(&store, tenant.clone(), hash));
+            assert_eq!(must(outbox.exact_signed_bytes(hash)), raw);
+            if restart == 1 {
+                let recovered = must(receipt::serve_evidence(&store, tenant.clone(), hash))
+                    .expect("receipt must survive without refetching or rewriting");
+                assert_eq!(recovered.canonical_receipt, bytes(&case["signedReceipt"]));
+                assert_eq!(recovered.metadata.transaction_hash, hash);
+                assert!(recovered.metadata.status);
+                assert_eq!(must(daemon_limits(&store, &tenant))[0].consumed, charge);
+            }
+            assert!(matches!(
+                outbox.enqueue(&mut store, tenant.clone(), raw.clone()),
+                Err(OutboxError::Duplicate)
+            ));
+            let mut exchanges = vec![("eth_chainId", json!([]), Some(json!("0x7d")))];
+            if restart == 0 {
+                exchanges.push((
+                    "px_getReceiptKeys",
+                    json!([]),
+                    Some(json!({"keys":[case["pinnedKey"].clone()]})),
+                ));
+                if !persist_receipt_before_restart {
+                    exchanges.extend([
+                        (
+                            "pax_sequencerReceipt",
+                            json!([case["receiptJson"]["txHash"]]),
+                            Some(Value::Null),
+                        ),
+                        (
+                            "eth_getTransactionCount",
+                            json!([case["receiptJson"]["from"], "pending"]),
+                            Some(json!(format!("0x{:x}", call.nonce))),
+                        ),
+                        (
+                            "eth_sendRawTransaction",
+                            json!([case["rawTransaction"]]),
+                            Some(case["receiptJson"]["txHash"].clone()),
+                        ),
+                    ]);
+                }
+                exchanges.extend([
+                    (
+                        "pax_sequencerReceipt",
+                        json!([case["receiptJson"]["txHash"]]),
+                        Some(case["receiptJson"].clone()),
+                    ),
+                    (
+                        "eth_getTransactionReceipt",
+                        json!([case["receiptJson"]["txHash"]]),
+                        Some(Value::Null),
+                    ),
+                ]);
+            }
+            exchanges.extend(lookup_exchanges(&case));
+            let (node, mut endpoint, server) = peer(exchanges);
+            if restart == 0 {
+                assert_eq!(
+                    outbox.status(hash).expect("restored send").state,
+                    SubmissionState::Unknown
+                );
+                let keys = must(endpoint.receipt_keys());
+                if !persist_receipt_before_restart {
+                    let missing = must(resolve_unknown(
+                        &mut outbox,
+                        &mut store,
+                        hash,
+                        1_000,
+                        &keys,
+                        &mut endpoint,
+                    ));
+                    assert_eq!(missing.state, SubmissionState::Unknown);
+                    assert_eq!(missing.observation, ResolutionObservation::ReceiptMissing);
+                    assert_eq!(missing.resend, ResendObservation::Sent);
+                    assert_eq!(missing.age.attempt_count, 1);
+                    assert_eq!(must(outbox.exact_signed_bytes(hash)), raw);
+                    assert_eq!(budget.held_reservations(), Ok(1));
+                    assert_eq!(budget.consumed(limit), Ok(0));
+                    let deferred = must(resolve_unknown(
+                        &mut outbox,
+                        &mut store,
+                        hash,
+                        1_001,
+                        &keys,
+                        &mut endpoint,
+                    ));
+                    assert_eq!(deferred.state, SubmissionState::Unknown);
+                    assert_eq!(deferred.observation, ResolutionObservation::Backoff);
+                    assert_eq!(deferred.resend, ResendObservation::NotWarranted);
+                    assert_eq!(deferred.age.attempt_count, missing.age.attempt_count);
+                    assert_eq!(
+                        deferred.age.next_attempt_at_ms,
+                        missing.age.next_attempt_at_ms
+                    );
+                }
+                let found = must(resolve_unknown(
+                    &mut outbox,
+                    &mut store,
+                    hash,
+                    10_000,
+                    &keys,
+                    &mut endpoint,
+                ));
+                assert_eq!(found.state, SubmissionState::Executed);
+                assert_eq!(found.observation, ResolutionObservation::ExecutedReceipt);
+                assert_eq!(found.resend, ResendObservation::NotWarranted);
+                assert_eq!(
+                    found.age.attempt_count,
+                    if persist_receipt_before_restart { 1 } else { 2 }
+                );
+                assert_eq!(budget.held_reservations(), Ok(1));
+                assert_eq!(budget.consumed(limit), Ok(0));
+            }
+            assert_eq!(
+                outbox.status(hash).expect("resolved send").state,
+                SubmissionState::Executed
+            );
+            let verified = authenticated(&node, &endpoint, &outbox, hash);
+            must(server.join());
+            let balances = assert_effect(&verified, &case);
+            if let Some(previous) = first_balances {
+                assert_eq!(balances, previous);
+            }
+            first_balances = Some(balances);
+            let stored = must(receipt::store_verified_if_absent(
+                &mut store,
+                tenant.clone(),
+                hash,
+                verified.canonical_bytes(),
+                &verified,
+            ));
+            assert_eq!(
+                must(receipt::store_verified_if_absent(
+                    &mut store,
+                    tenant.clone(),
+                    hash,
+                    verified.canonical_bytes(),
+                    &verified
+                )),
+                stored
+            );
+            assert_eq!(
+                store.list_object_ids(&tenant, ObjectKind::Outbox),
+                vec![hash.to_vec()]
+            );
+            let inventory = must(receipt::evidence_inventory(&store, &tenant));
+            assert_eq!(inventory.without_evidence.len(), 1);
+            assert!(inventory.with_evidence.is_empty());
+            assert_eq!(
+                must(receipt::serve_evidence(&store, tenant.clone(), hash))
+                    .expect("durable node receipt")
+                    .canonical_receipt,
+                bytes(&case["signedReceipt"])
+            );
+            drop(store);
+            drop(store_handle);
+            if restart == 0 && persist_receipt_before_restart {
+                drop(control);
+                drop(budget);
+                let (reopened, restored_budget) = controller(must(Store::open(&root)));
+                assert_eq!(must(reopened.restore_writes()), 1);
+                assert_eq!(restored_budget.consumed(limit), Ok(0));
+                assert_eq!(restored_budget.held_reservations(), Ok(1));
+                {
+                    let store = reopened.store();
+                    let store = must(store.lock());
+                    assert_eq!(
+                        must(receipt::serve_evidence(&store, tenant.clone(), hash))
+                            .expect("receipt persisted before settlement crash")
+                            .canonical_receipt,
+                        verified.canonical_bytes()
+                    );
+                }
+                assert!(must(reopened.settle_write(
+                    &tenant,
+                    hash,
+                    ReleaseKind::Executed,
+                    verified.global_sequence()
+                )));
+                assert!(!must(reopened.settle_write(
+                    &tenant,
+                    hash,
+                    ReleaseKind::Executed,
+                    verified.global_sequence()
+                )));
+                assert_eq!(restored_budget.consumed(limit), Ok(charge));
+                assert_eq!(restored_budget.held_reservations(), Ok(0));
+            } else {
+                assert_eq!(
+                    must(control.settle_write(
+                        &tenant,
+                        hash,
+                        ReleaseKind::Executed,
+                        verified.global_sequence()
+                    )),
+                    restart == 0
+                );
+                assert!(!must(control.settle_write(
+                    &tenant,
+                    hash,
+                    ReleaseKind::Executed,
+                    verified.global_sequence()
+                )));
+                assert_eq!(budget.consumed(limit), Ok(charge));
+                assert_eq!(budget.held_reservations(), Ok(0));
+            }
+        }
+        let store = must(Store::open(&root));
+        let records = must(daemon_limits(&store, &tenant));
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].consumed, charge);
+        let preparation = must(DurablePreparation::load_all(&store, &tenant));
+        assert_eq!(preparation.len(), 1);
+        assert_eq!(preparation[0].state, LifecycleState::Executed);
+    }
+
+    #[test]
+    fn lost_response_recovers_receipt_balances_and_budget_once() {
+        recover(false);
+    }
+
+    #[test]
+    fn persisted_receipt_recovers_unsettled_budget_once() {
+        recover(true);
+    }
+}

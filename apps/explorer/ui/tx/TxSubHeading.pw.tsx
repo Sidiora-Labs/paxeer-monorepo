@@ -41,7 +41,7 @@ function generateAddressMetadataResponse(tag: AddressMetadataTagApi) {
   } as AddressMetadataInfo;
 }
 
-test('no interpretation +@mobile', async({ render }) => {
+test('no interpretation +@mobile +@dark-mode', async({ render }) => {
   const component = await render(<TxSubHeading hash={ hash } hasTag={ false } txQuery={ txQuery }/>);
   await expect(component).toHaveScreenshot();
 });
@@ -67,28 +67,28 @@ test.describe('blockscout provider', () => {
     await expect(component).toHaveScreenshot();
   });
 
-  test('with interpretation and recipient name +@mobile', async({ render, mockApiResponse }) => {
+  test('with interpretation and recipient name +@mobile +@dark-mode', async({ render, mockApiResponse }) => {
     const newTxQuery = { ...txQuery, data: txMock.withRecipientName } as TxQuery;
     await mockApiResponse('general:tx_interpretation', txInterpretation, { pathParams: { hash } });
     const component = await render(<TxSubHeading hash={ hash } hasTag={ false } txQuery={ newTxQuery }/>);
     await expect(component).toHaveScreenshot();
   });
 
-  test('with interpretation and recipient ENS domain +@mobile', async({ render, mockApiResponse }) => {
+  test('with interpretation and recipient ENS domain +@mobile +@dark-mode', async({ render, mockApiResponse }) => {
     const newTxQuery = { ...txQuery, data: txMock.withRecipientEns } as TxQuery;
     await mockApiResponse('general:tx_interpretation', txInterpretation, { pathParams: { hash } });
     const component = await render(<TxSubHeading hash={ hash } hasTag={ false } txQuery={ newTxQuery }/>);
     await expect(component).toHaveScreenshot();
   });
 
-  test('with interpretation and recipient name tag +@mobile', async({ render, mockApiResponse }) => {
+  test('with interpretation and recipient name tag +@mobile +@dark-mode', async({ render, mockApiResponse }) => {
     const newTxQuery = { ...txQuery, data: txMock.withRecipientNameTag } as TxQuery;
     await mockApiResponse('general:tx_interpretation', txInterpretation, { pathParams: { hash } });
     const component = await render(<TxSubHeading hash={ hash } hasTag={ false } txQuery={ newTxQuery }/>);
     await expect(component).toHaveScreenshot();
   });
 
-  test('with interpretation and view all link +@mobile', async({ render, mockApiResponse }) => {
+  test('with interpretation and view all link +@mobile +@dark-mode', async({ render, mockApiResponse }) => {
     await mockApiResponse(
       'general:tx_interpretation',
       { data: { summaries: [ ...txInterpretation.data.summaries, ...txInterpretation.data.summaries ] } },
@@ -98,7 +98,7 @@ test.describe('blockscout provider', () => {
     await expect(component).toHaveScreenshot();
   });
 
-  test('with interpretation and view all link, and action button (external link) +@mobile', async({
+  test('with interpretation and view all link, and action button (external link) +@mobile +@dark-mode', async({
     render, mockApiResponse, mockAssetResponse,
   }) => {
     const metadataResponse = generateAddressMetadataResponse(protocolTagWithMeta);
@@ -113,7 +113,7 @@ test.describe('blockscout provider', () => {
     await expect(component).toHaveScreenshot('blockscout-provider-with-view-all-link-and-external-link-action.png');
   });
 
-  test('no interpretation, has method called', async({ render, mockApiResponse, mockAssetResponse }) => {
+  test('no interpretation, has method called +@dark-mode', async({ render, mockApiResponse, mockAssetResponse }) => {
     const newTxQuery = { ...txQuery, data: txMock.withRecipientContract } as TxQuery;
     const metadataResponse = generateAddressMetadataResponse(protocolTagWithMeta);
     await mockApiResponse('metadata:info', metadataResponse, { queryParams: addressMetadataQueryParams });
@@ -124,7 +124,7 @@ test.describe('blockscout provider', () => {
     await expect(component).toHaveScreenshot();
   });
 
-  test('no interpretation, with action button', async({ render, mockApiResponse, mockAssetResponse }) => {
+  test('no interpretation, with action button +@dark-mode', async({ render, mockApiResponse, mockAssetResponse }) => {
     const metadataResponse = generateAddressMetadataResponse(protocolTagWithMeta);
     await mockApiResponse('metadata:info', metadataResponse, { queryParams: addressMetadataQueryParams });
     await mockAssetResponse(protocolTagWithMeta?.meta?.appLogoURL as string, './playwright/mocks/image_s.jpg');
@@ -134,7 +134,7 @@ test.describe('blockscout provider', () => {
     await expect(component).toHaveScreenshot();
   });
 
-  test('no interpretation (pending)', async({ render, mockApiResponse }) => {
+  test('no interpretation (pending) +@dark-mode', async({ render, mockApiResponse }) => {
     const txPendingQuery = {
       data: txMock.pending,
       isPlaceholderData: false,
