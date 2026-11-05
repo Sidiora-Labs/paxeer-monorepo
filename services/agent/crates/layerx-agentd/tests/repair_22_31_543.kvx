@@ -1,0 +1,42 @@
+[repair.22.31.543]
+acceptance = "22998.1"
+gotchas = [3142, 3150, 3152, 3155, 3158, 3162, 3167]
+decisions = [2607, 2609, 2611, 2614, 2618, 2620]
+change = "Assert the complete reason-bearing refusal frames in the retired-rung and native preview daemon tests; preserve every existing test and assertion, including the retired source-name checks. Nothing under src changes."
+
+[tests.retired_rung]
+target = "human_peer_retired"
+name = "export_above_committed_is_rung_unattainable"
+producer = "src/human.rs::encode_response receives HumanOperationError::Typed(HumanRefusal::ExportLevelUnattainable)."
+reason = "export.rung_unattainable"
+criterion = "Build the expected LXHAGT01 magic, status byte 1 and big-endian u32 length-prefixed refusal.reason() with a field helper, then compare the complete encoded response."
+
+[tests.native_preview]
+target = "native_send_preview_evm"
+name = "native_send_preview_is_an_unsigned_ledger_transfer_call"
+producer = "post_preview(5, [12; 32]) traverses serve_one and native_send_preview_v1 to src/human_runtime.rs::native_send_preview. The capability purpose_commitments check rejects the unmatched commitment through SessionControlError::Human(HumanOperationError::Refused); src/human.rs::encode_response maps this untyped refusal to operation.refused."
+reason = "operation.refused"
+criterion = "Compare the entire response from the real Unix transport with LXHAGT01, status byte 1 and the big-endian u32 length-prefixed reason built by the same field helper pattern."
+landed = "22.31.545 landed this complete refusal-frame assertion under decision 2618; preserve its field helper and V2 decode and field assertions. Only the expected frame variable is renamed for clarity."
+
+[closure.owner_preview]
+task = "22.31.545"
+observed = "22.31.545 replaced the NativeSendPurposeV1 constructed by src/human_runtime.rs::native_send_owner_preview_on_surface with NativeSendPurposeV2, removing the unconditional ContractError::Mismatch(native_send.legacy_version) refusal from the legacy V1 validation guard."
+preserved = "Keep the landed V2 decode, chain_id, transaction_type, evm_sender and consent_public_key assertions alongside both full refusal frames; nothing under src changes."
+
+[compatibility.sdk_include]
+revision = "b1aa3bffb4959c1fb561cbd465ab9d14dc011415 with the scoped refusal-frame changes; before the final record update and daemon gates."
+command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --test repair_22_31_547"
+exit = 101
+log = "/out/run/sdk-compatibility-build.log"
+observed = "The required compatibility compile fails with no test target named repair_22_31_547 in layerx-sdk; that file is absent from the supplied base. This unrelated missing target is recorded without expanding scope or rerunning it."
+preserved = "Fixture, must, read_bytes, FIXTURE_LOCK and the preview request shape are unchanged for the include described by decision 2620."
+
+[qualification]
+ledger = "/out/run/gates.jsonl"
+revision = "The final successful build and verify rows in the private gate ledger name the exact verified candidate revision; both must match."
+build = "The build row records hf-build running cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test human_peer_retired --test native_send_preview_evm."
+verify = "The verify row records hf-done running cg spec done 22.31.543 -f layerx-merge --root /work/paxeer-monorepo with graph checks and the declared verify_cmd."
+verify_cmd = "anvil --version && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test human_peer_retired --test native_send_preview_evm"
+evidence = "Read exact revision, command, exit code and private log location from the final gate ledger rows. No passing gate is claimed before execution."
+candidate = "This record is included before qualification; no file is amended after the final gates. The runner owns commit and publication."
