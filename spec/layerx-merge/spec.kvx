@@ -8655,6 +8655,12 @@ value = "WebPayerBoundary implements WebPayer::view: the owner check runs first,
 basis = "Gotcha 3131; the production path lacked the producer half of the account resolution the MCP tool consumes."
 affects = ["22.31.532"]
 
+[decision.2591]
+title = "Every open task whose gates compile the whole layerx-agentd test set requires 22.31.516 until the human approval budget actor target builds on main"
+value = "A declared build or verify of the form cargo build -p layerx-agentd --tests (or the crate manifest with --tests) compiles tests/human_approval_budget_actor.rs, which is red on main until 22.31.516 lands (decision 2564). Such a task is held behind 22.31.516 by its requires; its attempts are continued unchanged, never narrowed to their own targets and never repairing the foreign suite. Tasks already behind 22.31.497 (which requires 516) need no change."
+basis = "Gotcha 3132; the same dependency rule as decision 2589 applied to the one red target that remains."
+affects = ["22.31.516", "22.31.497", "22.33.1539", "22.31.534"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -175053,7 +175059,7 @@ title = "Judge budget-state verification through the shared label decoder and su
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.519"]
+requires = ["22.31.519", "22.31.516"]
 reqs = ["22998.1"]
 capabilities = ["22.31.534"]
 interfaces = []
@@ -175078,6 +175084,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue after 22.31.519, gotcha 3129, decision 2589): attempt 1 stands in full (the shared predicate, the two call sites, the Refused variant and its mapping, the two tests). Rebase on main, where tests/approval_semantics.rs builds again since d739b429df; change nothing of the product, run the declared build and verify once and record."
+do_5 = "Attempt 2 also waits for 22.31.516 (gotcha 3132, decision 2591): the declared build compiles tests/human_approval_budget_actor.rs, red on main until 516 lands; nothing else changes in the attempt-2 instruction."
 
 [task.22.31.532]
 title = "Give the production web payer the approval resources and the held-transaction path"
@@ -177029,7 +177036,7 @@ title = "Repair audit record 22.30.95 medium findings in services/agent/crates/l
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.368", "22.31.443", "22.31.483", "22.31.495", "22.31.519"]
+requires = ["22.31.368", "22.31.443", "22.31.483", "22.31.495", "22.31.519", "22.31.516"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1539"]
 interfaces = []
@@ -177062,6 +177069,7 @@ do_9 = "Attempt 4 (requalify after 22.31.483): attempt 3 re-ran the gates on the
 do_10 = "Attempt 5 (after 22.31.495): attempt 4 passed three of five cases; finding_27_grant_rejection_concurrency_and_durable_winner and finding_27_api_changed_call_and_disclosure_never_queue fail with Registry(ClockRequired) from the approval service's grant and reject entry points, which 22.31.495 threads the current time through. Re-run the gates on the attempt-4 tree once 22.31.495 is on main, pass the explicit time the new entry points take, and fix inside the paths only what still fails."
 do_11 = "Attempt 6 (continue after 22.31.519): attempt 5 passed current_time at the three sites of tests/approval_ordering/mod.rs (lines 129, 157 and 213) but never imported the type, so the lib test build failed with E0425 cannot find TimestampSeconds; the module is included from both the lib tests and the integration tests, so import it by a path valid in both, layerx_agent_api::TimestampSeconds as the compiler suggests. The crate's test build also compiles tests/approval_semantics.rs, which 22.31.519 repairs (gotcha 3077); rebase on main once it is there, run the declared build and verify, and record."
 do_12 = "Attempt 6 (continue after 22.31.519, gotchas 3122 and 3123): apply the same two changes to tests/approval_ordering/mod.rs that 22.31.519 attempt 3 applies to tests/approval_semantics.rs: the hold calls at lines 151 and 231 use hold_at with ApprovalSequence and TimestampSeconds arguments at the fixed decision time, and line 32 no longer pre-creates the store root with fs::create_dir_all (let ApprovalExpiry::open create it, or create it with mode 0o700); change no assertion and no product code."
+do_13 = "Attempt 7 (continue after 22.31.516, gotcha 3132, decision 2591): attempt 6 stands in full (the TimestampSeconds import, the hold_at calls and the store-root change of attempt 6, every earlier assertion). Rebase on main once 22.31.516 is there, change nothing, run the declared build and verify once and record."
 
 [task.22.33.1538]
 title = "Repair audit record 22.30.95 medium findings in services/agent/crates/layerx-agentd/tests (part 3 of 3): retired-reference, test-gap"
